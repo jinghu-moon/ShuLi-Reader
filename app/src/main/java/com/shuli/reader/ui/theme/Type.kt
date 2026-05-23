@@ -8,9 +8,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.shuli.reader.R
 
-val ReadingFont = FontFamily(
-    Font(R.font.lxgw_wenkai_regular, FontWeight.Normal),
-)
+val ReadingFont: FontFamily = try {
+    FontFamily(
+        Font(R.font.lxgw_wenkai_regular, FontWeight.Normal),
+    )
+} catch (e: Exception) {
+    FontFamily.Default
+}
 
 val Typography = Typography(
     displayLarge = TextStyle(
@@ -104,3 +108,24 @@ val Typography = Typography(
         lineHeight = 16.sp,
     ),
 )
+
+fun Typography.withFontFamily(family: FontFamily): Typography {
+    fun TextStyle.f() = this.copy(fontFamily = family)
+    return this.copy(
+        displayLarge = displayLarge.f(),
+        displayMedium = displayMedium.f(),
+        displaySmall = displaySmall.f(),
+        headlineLarge = headlineLarge.f(),
+        headlineMedium = headlineMedium.f(),
+        headlineSmall = headlineSmall.f(),
+        titleLarge = titleLarge.f(),
+        titleMedium = titleMedium.f(),
+        titleSmall = titleSmall.f(),
+        bodyLarge = bodyLarge.f(),
+        bodyMedium = bodyMedium.f(),
+        bodySmall = bodySmall.f(),
+        labelLarge = labelLarge.f(),
+        labelMedium = labelMedium.f(),
+        labelSmall = labelSmall.f(),
+    )
+}

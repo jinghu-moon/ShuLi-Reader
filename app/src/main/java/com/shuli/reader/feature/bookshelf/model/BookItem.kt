@@ -32,6 +32,7 @@ data class BookshelfUiState(
     val searchQuery: String = "",
     val isSearching: Boolean = false,
     val todayReadingTime: String = "0m",
+    val todayReadingMinutes: Long = 0L,
     val isLoading: Boolean = true,
     val isEmpty: Boolean = false,
 )

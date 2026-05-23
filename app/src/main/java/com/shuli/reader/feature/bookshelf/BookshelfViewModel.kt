@@ -13,6 +13,7 @@ import com.shuli.reader.feature.bookshelf.model.SortOrder
 import com.shuli.reader.feature.bookshelf.model.ViewMode
 import com.shuli.reader.feature.bookshelf.model.toBookItem
 import com.shuli.reader.feature.bookshelf.model.toReadableDuration
+import com.shuli.reader.core.i18n.AppStrings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -94,6 +95,7 @@ class BookshelfViewModel(
             searchQuery = searchQuery,
             isSearching = isSearching,
             todayReadingTime = (todayTime ?: 0L).toReadableDuration().ifBlank { "0m" },
+            todayReadingMinutes = todayTime ?: 0L,
             isLoading = false,
             isEmpty = sorted.isEmpty(),
         )
@@ -146,7 +148,7 @@ class BookshelfViewModel(
     fun onDeleteBook(bookId: Long) {
         viewModelScope.launch {
             bookRepository.deleteBook(bookId)
-            _events.emit(BookshelfEvent.ShowMessage("已删除"))
+            _events.emit(BookshelfEvent.ShowMessage { it.bookDeleted })
         }
     }
 
@@ -171,12 +173,12 @@ class BookshelfViewModel(
         viewModelScope.launch {
             try {
                 importSingleBook(context, uri)
-                _events.emit(BookshelfEvent.ShowMessage("导入成功"))
+                _events.emit(BookshelfEvent.ShowMessage { it.importSuccess })
             } catch (e: BookAlreadyExistsException) {
-                _events.emit(BookshelfEvent.ShowMessage(e.message ?: "书籍已在书架中"))
+                _events.emit(BookshelfEvent.ShowMessage { strings -> e.message ?: strings.bookAlreadyInShelf })
                 _events.emit(BookshelfEvent.HighlightBook(e.bookId))
             } catch (e: Exception) {
-                _events.emit(BookshelfEvent.ShowMessage("导入失败: ${e.message}"))
+                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.importFailed(e.message ?: "") })
             }
         }
     }
@@ -201,25 +203,31 @@ class BookshelfViewModel(
                         failCount++
                     }
                 }
-                val message = when {
-                    failCount == 0 && skippedCount == 0 -> "成功导入 $successCount 本书"
-                    failCount == 0 && skippedCount > 0 -> "成功导入 $successCount 本，有 $skippedCount 本已存在跳过"
-                    failCount > 0 && skippedCount == 0 -> "成功导入 $successCount 本，失败 $failCount 本"
-                    else -> "成功导入 $successCount 本，已存在 $skippedCount 本，失败 $failCount 本"
+                val message: (AppStrings) -> String = when {
+                    failCount == 0 && skippedCount == 0 -> { strings -> strings.importSuccessCount(successCount) }
+                    failCount == 0 && skippedCount > 0 -> { strings -> strings.importSuccessWithSkipped(successCount, skippedCount) }
+                    failCount > 0 && skippedCount == 0 -> { strings -> strings.importSuccessWithFailed(successCount, failCount) }
+                    else -> { strings -> strings.importSuccessWithBoth(successCount, skippedCount, failCount) }
                 }
                 _events.emit(BookshelfEvent.ShowMessage(message))
                 if (firstDuplicateId != null) {
                     _events.emit(BookshelfEvent.HighlightBook(firstDuplicateId))
                 }
             } catch (e: Exception) {
-                _events.emit(BookshelfEvent.ShowMessage("导入失败: ${e.message}"))
+                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.importFailed(e.message ?: "") })
             }
         }
     }
 
     fun showToastMessage(message: String) {
         viewModelScope.launch {
-            _events.emit(BookshelfEvent.ShowMessage(message))
+            _events.emit(BookshelfEvent.ShowMessage { message })
+        }
+    }
+
+    fun showToastMessage(messageLambda: (AppStrings) -> String) {
+        viewModelScope.launch {
+            _events.emit(BookshelfEvent.ShowMessage(messageLambda))
         }
     }
 
@@ -256,6 +264,6 @@ class BookshelfViewModel(
 
 sealed class BookshelfEvent {
     data class NavigateToReader(val bookId: Long) : BookshelfEvent()
-    data class ShowMessage(val message: String) : BookshelfEvent()
+    data class ShowMessage(val message: (AppStrings) -> String) : BookshelfEvent()
     data class HighlightBook(val bookId: Long) : BookshelfEvent()
 }

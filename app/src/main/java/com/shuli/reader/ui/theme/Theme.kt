@@ -51,6 +51,7 @@ private val GeistLightColorScheme = lightColorScheme(
 @Composable
 fun ShuLiTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    typography: androidx.compose.material3.Typography = Typography,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = if (darkTheme) GeistDarkColorScheme else GeistLightColorScheme
@@ -70,7 +71,7 @@ fun ShuLiTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = typography,
         shapes = Shapes,
         content = content,
     )

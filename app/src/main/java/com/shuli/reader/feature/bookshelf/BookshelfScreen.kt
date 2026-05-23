@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -61,6 +62,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.bookshelf.component.BookGrid
 import com.shuli.reader.feature.bookshelf.component.BookList
 import com.shuli.reader.feature.bookshelf.component.BookshelfTopBar
@@ -68,16 +70,23 @@ import com.shuli.reader.feature.bookshelf.component.FilterTabs
 import com.shuli.reader.feature.bookshelf.component.SortBottomSheet
 import com.shuli.reader.feature.bookshelf.model.BookItem
 import com.shuli.reader.feature.bookshelf.model.ViewMode
+import androidx.compose.material3.CardDefaults
 
 @Composable
 fun BookshelfScreen(
     viewModel: BookshelfViewModel,
+    onNavigateToSettings: () -> Unit,
     onNavigateToReader: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val strings = LocalAppStrings.current
+    val userPreferences = remember {
+        (context.applicationContext as com.shuli.reader.ShuLiApplication).appContainer.userPreferences
+    }
+    val dailyTargetMinutes by userPreferences.readingDailyTarget.collectAsState(initial = 30)
 
     val scope = rememberCoroutineScope()
     val gridState = rememberLazyGridState()
@@ -87,6 +96,7 @@ fun BookshelfScreen(
     var showImportOptionSheet by remember { mutableStateOf(false) }
     var folderFilesToImport by remember { mutableStateOf<List<Pair<Uri, String>>>(emptyList()) }
     var showFolderImportDialog by remember { mutableStateOf(false) }
+    var showStatisticsSheet by remember { mutableStateOf(false) }
 
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
@@ -108,7 +118,7 @@ fun BookshelfScreen(
                     folderFilesToImport = files
                     showFolderImportDialog = true
                 } else {
-                    viewModel.showToastMessage("该文件夹下未找到 TXT 或 EPUB 文件")
+                    viewModel.showToastMessage(strings.noBooksFound)
                 }
             }
         }
@@ -120,7 +130,7 @@ fun BookshelfScreen(
                 is BookshelfEvent.NavigateToReader -> onNavigateToReader(event.bookId)
                 is BookshelfEvent.ShowMessage -> {
                     scope.launch {
-                        snackbarHostState.showSnackbar(event.message)
+                        snackbarHostState.showSnackbar(event.message(strings))
                     }
                 }
                 is BookshelfEvent.HighlightBook -> {
@@ -162,6 +172,8 @@ fun BookshelfScreen(
                     searchQuery = uiState.searchQuery,
                     onSearchQueryChange = viewModel::onSearchQueryChanged,
                     onSearchActiveChange = viewModel::onSearchActiveChanged,
+                    onStatisticsClick = { showStatisticsSheet = true },
+                    onSettingsClick = onNavigateToSettings,
                 )
                 if (!uiState.isSearching) {
                     FilterTabs(
@@ -179,7 +191,7 @@ fun BookshelfScreen(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "导入书籍")
+                Icon(Icons.Filled.Add, contentDescription = strings.libraryImportSettings)
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -257,6 +269,16 @@ fun BookshelfScreen(
             onDismiss = { showFolderImportDialog = false }
         )
     }
+
+    if (showStatisticsSheet) {
+        StatisticsBottomSheet(
+            booksCount = uiState.books.size,
+            todayReadingTime = uiState.todayReadingTime,
+            todayReadingMinutes = uiState.todayReadingMinutes,
+            dailyTargetMinutes = dailyTargetMinutes,
+            onDismiss = { showStatisticsSheet = false }
+        )
+    }
 }
 
 @Composable
@@ -304,26 +326,22 @@ private fun EmptyState(
     isSearching: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalAppStrings.current
     Column(
         modifier = modifier.padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = if (isSearching) "未找到相关书籍" else "书架空空如也",
+            text = if (isSearching) strings.noBooksFound else strings.emptyBookshelf,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = if (isSearching) "请尝试输入其他关键词" else "点击右下角 + 导入 TXT 或 EPUB 文件",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
     }
 }
 
 @Composable
 private fun SearchGuideState(modifier: Modifier = Modifier) {
+    val strings = LocalAppStrings.current
     Column(
         modifier = modifier.padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -336,13 +354,13 @@ private fun SearchGuideState(modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.height(12.dp))
         Text(
-            text = "搜索书籍",
+            text = strings.searchIconDesc,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "支持在整个书架中秒级检索书名",
+            text = strings.searchPlaceholder,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
         )
@@ -394,6 +412,7 @@ private fun ImportOptionBottomSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         modifier = modifier,
@@ -404,7 +423,7 @@ private fun ImportOptionBottomSheet(
                 .padding(bottom = 32.dp)
         ) {
             Text(
-                text = "选择导入方式",
+                text = strings.libraryImportSettings,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
             )
@@ -427,8 +446,8 @@ private fun ImportOptionBottomSheet(
                 )
                 Spacer(Modifier.width(16.dp))
                 Column {
-                    Text("导入书籍文件", style = MaterialTheme.typography.bodyLarge)
-                    Text("支持多选导入 TXT 或 EPUB 文件", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                    Text(strings.importCopy, style = MaterialTheme.typography.bodyLarge)
+                    Text(strings.importCopyDesc, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
                 }
             }
 
@@ -450,8 +469,8 @@ private fun ImportOptionBottomSheet(
                 )
                 Spacer(Modifier.width(16.dp))
                 Column {
-                    Text("选择文件夹导入", style = MaterialTheme.typography.bodyLarge)
-                    Text("自动扫描文件夹内所有可导入的书籍", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                    Text(strings.libraryImportSettings + " (Dir)", style = MaterialTheme.typography.bodyLarge)
+                    Text(strings.folderImportDesc, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
                 }
             }
         }
@@ -464,6 +483,7 @@ private fun FolderImportDialog(
     onConfirm: (List<Uri>) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     val selectedStates = remember(files) {
         mutableStateMapOf<Uri, Boolean>().apply {
             files.forEach { this[it.first] = true }
@@ -492,7 +512,7 @@ private fun FolderImportDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "选择要导入的书籍",
+                        text = strings.libraryImportSettings,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f)
@@ -504,7 +524,7 @@ private fun FolderImportDialog(
                             files.forEach { selectedStates[it.first] = target }
                         }
                     ) {
-                        Text(if (isAllSelected) "取消全选" else "全选")
+                        Text(if (isAllSelected) strings.deselectAll else strings.selectAll)
                     }
                 }
 
@@ -560,7 +580,7 @@ private fun FolderImportDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     androidx.compose.material3.TextButton(onClick = onDismiss) {
-                        Text("取消")
+                        Text(strings.backIconDesc)
                     }
                     Spacer(Modifier.width(8.dp))
                     androidx.compose.material3.Button(
@@ -571,7 +591,105 @@ private fun FolderImportDialog(
                         },
                         enabled = selectedCount > 0
                     ) {
-                        Text("导入所选 ($selectedCount)")
+                        Text(strings.importSelected(selectedCount))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StatisticsBottomSheet(
+    booksCount: Int,
+    todayReadingTime: String,
+    todayReadingMinutes: Long,
+    dailyTargetMinutes: Int,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val strings = LocalAppStrings.current
+    val progress = remember(todayReadingMinutes, dailyTargetMinutes) {
+        if (dailyTargetMinutes > 0) {
+            (todayReadingMinutes.toFloat() / dailyTargetMinutes.toFloat()).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+    }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 36.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = strings.statsTitle,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(vertical = 12.dp)
+            )
+            
+            Spacer(Modifier.height(16.dp))
+            
+            Box(contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.size(120.dp),
+                    strokeWidth = 8.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = todayReadingTime,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = strings.todayReadingProgress,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            Spacer(Modifier.height(24.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(strings.totalBooksCount, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(4.dp))
+                        Text("$booksCount", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(strings.totalReadingTime, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(4.dp))
+                        Text(todayReadingTime, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     }
                 }
             }
