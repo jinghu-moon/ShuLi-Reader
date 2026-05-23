@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>燕麦色微渐变封面</title>
+<style>
+    /* 模拟你的浅色纯白背景，用来验证分离度 */
+    body {
+        background-color: #FFFFFF;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        padding: 40px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* 
+      核心通用样式 
+      这里使用了你提供的色基调，并加入了 135度的光影微渐变
+    */
+    .book-cover {
+        width: 110px;
+        aspect-ratio: 3 / 4;
+        border-radius: 4px; /* 小一点的圆角更像实体书 */
+        position: relative;
+        overflow: hidden;
+        box-sizing: border-box;
+        cursor: pointer;
+        /* 核心1：绝美的微渐变（左上亮一点，右下暗一点，模拟自然光照） */
+        background: linear-gradient(135deg, #EAE8DF 0%, #DFDCD2 100%);
+        /* 核心2：加一个极其微弱的深色边框，勾勒出书本的边缘 */
+        border: 1px solid #D2CEBE;
+        /* 核心3：阴影让它悬浮在白色背景上 */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03);
+        /* 统一文字颜色为深灰，对比度舒服 */
+        color: #2C2A26; 
+    }
+
+    /* 书名多行截断处理 */
+    .cover-title {
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-break: break-all;
+        font-weight: 600;
+        line-height: 1.4;
+        font-size: 14px;
+    }
+
+    /* 格式标签基础样式 */
+    .format-tag {
+        font-size: 9px;
+        font-weight: 800;
+        font-family: monospace;
+        letter-spacing: 1px;
+    }
+    .epub-tag { color: #8A644D; } /* EPUB：温暖的陶土色 */
+    .txt-tag { color: #6D757A; }  /* TXT：沉稳的铁灰色 */
+
+
+    /* =========================================
+       风格 1：纯粹呼吸感 (Breath Minimal)
+       只靠排版和留白，右下角带有格式小印章
+       ========================================= */
+    .style-breath {
+        padding: 16px 12px;
+        display: flex;
+        flex-direction: column;
+    }
+    .style-breath .cover-title {
+        font-family: "STSong", "SimSun", serif; /* 宋体加持，文学感拉满 */
+        font-size: 15px;
+    }
+    .style-breath .bottom-mark {
+        margin-top: auto;
+        align-self: flex-end;
+        border: 1px solid currentColor;
+        padding: 1px 4px;
+        border-radius: 2px;
+        opacity: 0.8;
+    }
+
+    /* =========================================
+       风格 2：经典竖排书脊 (Classic Spine)
+       左侧有一条深色遮罩，模拟实体书的书脊装订线
+       ========================================= */
+    .style-spine {
+        padding: 16px 10px 16px 20px; /* 左侧留白 */
+        display: flex;
+        flex-direction: column;
+    }
+    .style-spine::before {
+        content: "";
+        position: absolute;
+        top: 0; bottom: 0; left: 0;
+        width: 12px;
+        background: rgba(0, 0, 0, 0.04); /* 压暗左侧 */
+        border-right: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    .style-spine .format-tag {
+        margin-top: auto;
+    }
+
+    /* =========================================
+       风格 3：下沉腰封风 (Bottom Band)
+       底部用线条分割，格式信息放在底部
+       ========================================= */
+    .style-band {
+        display: flex;
+        flex-direction: column;
+    }
+    .style-band .title-area {
+        flex: 1;
+        padding: 16px 12px;
+    }
+    .style-band .band-area {
+        height: 30px;
+        border-top: 1px solid rgba(0, 0, 0, 0.08);
+        background: rgba(255, 255, 255, 0.15); /* 底部稍微亮一点 */
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+    }
+
+    /* =========================================
+       风格 4：居中名牌风 (Center Badge)
+       像日记本上的贴牌，非常规整
+       ========================================= */
+    .style-badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px;
+    }
+    .style-badge .badge-box {
+        width: 100%;
+        border: 1px solid #C4C0AE;
+        padding: 12px 8px;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.3); /* 贴牌微微泛白 */
+    }
+    .style-badge .format-tag {
+        display: block;
+        margin-top: 8px;
+    }
+    .style-badge .format-tag::before,
+    .style-badge .format-tag::after {
+        content: " - ";
+        opacity: 0.5;
+    }
+
+</style>
+</head>
+<body>
+
+    <!-- 1. 纯粹呼吸感 -->
+    <div class="book-cover style-breath">
+        <div class="cover-title">百年孤独</div>
+        <div class="format-tag txt-tag bottom-mark">TXT</div>
+    </div>
+
+    <!-- 2. 经典竖排书脊 -->
+    <div class="book-cover style-spine">
+        <div class="cover-title">神秘复苏</div>
+        <div class="format-tag epub-tag">EPUB</div>
+    </div>
+
+    <!-- 3. 下沉腰封风 -->
+    <div class="book-cover style-band">
+        <div class="title-area">
+            <div class="cover-title">大奉打更人</div>
+        </div>
+        <div class="band-area">
+            <!-- 加个小图标或圆点装饰 -->
+            <span style="font-size: 8px; color: #8A644D;">●</span> 
+            <div class="format-tag epub-tag">EPUB</div>
+        </div>
+    </div>
+
+    <!-- 4. 居中名牌风 -->
+    <div class="book-cover style-badge">
+        <div class="badge-box">
+            <div class="cover-title">第一序列</div>
+            <div class="format-tag txt-tag">TXT</div>
+        </div>
+    </div>
+
+</body>
+</html>
