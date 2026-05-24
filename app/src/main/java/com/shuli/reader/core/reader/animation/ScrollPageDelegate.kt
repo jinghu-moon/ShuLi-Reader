@@ -2,9 +2,9 @@ package com.shuli.reader.core.reader.animation
 
 import android.animation.ValueAnimator
 import android.graphics.Canvas
-import android.graphics.Bitmap
 import android.view.MotionEvent
 import android.view.animation.DecelerateInterpolator
+import com.shuli.reader.core.canvasrecorder.CanvasRecorder
 
 /**
  * 垂直滚动翻页委托
@@ -89,37 +89,35 @@ class ScrollPageDelegate : PageDelegate {
     }
 
     private fun checkChapterBoundary() {
-        // 向下滚动超过阈值，触发下一章
         if (scrollOffset < -screenHeight) {
             direction = PageDelegate.Direction.NEXT
             callback?.onPageChanged(direction)
             scrollOffset = 0f
-        }
-        // 向上滚动超过阈值，触发上一章
-        else if (scrollOffset > screenHeight) {
+        } else if (scrollOffset > screenHeight) {
             direction = PageDelegate.Direction.PREV
             callback?.onPageChanged(direction)
             scrollOffset = 0f
         }
     }
 
-    override fun onDraw(
-        canvas: Canvas,
-        currentBitmap: Bitmap,
-        nextBitmap: Bitmap,
-    ) {
+    override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder) {
         screenHeight = canvas.height.toFloat()
 
-        when (state) {
-            PageDelegate.State.IDLE, PageDelegate.State.DRAGGING, PageDelegate.State.ANIMATING -> {
-                canvas.drawBitmap(currentBitmap, 0f, scrollOffset, null)
+        canvas.save()
+        canvas.translate(0f, scrollOffset)
+        current.draw(canvas)
+        canvas.restore()
 
-                if (scrollOffset < -screenHeight * 0.8f) {
-                    canvas.drawBitmap(nextBitmap, 0f, scrollOffset + screenHeight, null)
-                } else if (scrollOffset > screenHeight * 0.8f) {
-                    canvas.drawBitmap(nextBitmap, 0f, scrollOffset - screenHeight, null)
-                }
-            }
+        if (scrollOffset < -screenHeight * 0.8f) {
+            canvas.save()
+            canvas.translate(0f, scrollOffset + screenHeight)
+            target.draw(canvas)
+            canvas.restore()
+        } else if (scrollOffset > screenHeight * 0.8f) {
+            canvas.save()
+            canvas.translate(0f, scrollOffset - screenHeight)
+            target.draw(canvas)
+            canvas.restore()
         }
     }
 
@@ -166,14 +164,8 @@ class ScrollPageDelegate : PageDelegate {
         return currentY < startY
     }
 
-    /**
-     * 获取当前滚动位置（用于保存进度）
-     */
     fun getScrollPosition(): Float = scrollOffset
 
-    /**
-     * 设置滚动位置（用于恢复进度）
-     */
     fun setScrollPosition(position: Float) {
         scrollOffset = position
     }

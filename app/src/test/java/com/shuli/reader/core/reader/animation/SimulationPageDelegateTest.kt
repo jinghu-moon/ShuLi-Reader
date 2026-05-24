@@ -1,8 +1,8 @@
 package com.shuli.reader.core.reader.animation
 
 import android.graphics.Canvas
-import android.graphics.Bitmap
 import android.view.MotionEvent
+import com.shuli.reader.core.canvasrecorder.CanvasRecorder
 import io.mockk.*
 import org.junit.Assert.*
 import org.junit.Before
@@ -12,15 +12,15 @@ class SimulationPageDelegateTest {
 
     private lateinit var callback: PageDelegate.Callback
     private lateinit var canvas: Canvas
-    private lateinit var currentBitmap: Bitmap
-    private lateinit var nextBitmap: Bitmap
+    private lateinit var currentRecorder: CanvasRecorder
+    private lateinit var targetRecorder: CanvasRecorder
 
     @Before
     fun setup() {
         callback = mockk(relaxed = true)
         canvas = mockk(relaxed = true)
-        currentBitmap = mockk(relaxed = true)
-        nextBitmap = mockk(relaxed = true)
+        currentRecorder = mockk(relaxed = true)
+        targetRecorder = mockk(relaxed = true)
 
         every { canvas.width } returns 1080
         every { canvas.height } returns 1920
@@ -142,9 +142,9 @@ class SimulationPageDelegateTest {
         val delegate = SimulationPageDelegate()
         delegate.setCallback(callback)
 
-        delegate.onDraw(canvas, currentBitmap, nextBitmap)
+        delegate.onDraw(canvas, currentRecorder, targetRecorder)
 
-        verify { canvas.drawBitmap(currentBitmap, 0f, 0f, any()) }
+        verify { currentRecorder.draw(canvas) }
     }
 
     @Test
@@ -154,7 +154,6 @@ class SimulationPageDelegateTest {
 
         delegate.startNext()
 
-        // 动画完成后应调用回调
         Thread.sleep(ReaderMotionTokens.LONG_MS + 150L)
         verify(atLeast = 1) { callback.onPageChanged(any()) }
     }

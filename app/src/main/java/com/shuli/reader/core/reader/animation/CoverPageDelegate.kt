@@ -2,11 +2,11 @@ package com.shuli.reader.core.reader.animation
 
 import android.animation.ValueAnimator
 import android.graphics.Canvas
-import android.graphics.Bitmap
 import android.graphics.Paint
 import android.graphics.RectF
 import android.view.MotionEvent
 import android.view.animation.DecelerateInterpolator
+import com.shuli.reader.core.canvasrecorder.CanvasRecorder
 
 /**
  * 覆盖翻页委托
@@ -81,27 +81,29 @@ class CoverPageDelegate : PageDelegate {
         return false
     }
 
-    override fun onDraw(
-        canvas: Canvas,
-        currentBitmap: Bitmap,
-        nextBitmap: Bitmap,
-    ) {
+    override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder) {
         screenWidth = canvas.width.toFloat()
 
         when (state) {
             PageDelegate.State.IDLE -> {
-                canvas.drawBitmap(currentBitmap, 0f, 0f, null)
+                current.draw(canvas)
             }
             PageDelegate.State.DRAGGING -> {
                 val offset = currentX - startX
                 if (offset < 0) {
-                    canvas.drawBitmap(nextBitmap, 0f, 0f, null)
-                    canvas.drawBitmap(currentBitmap, offset, 0f, null)
-                    val shadowRect = RectF(offset + currentBitmap.width, 0f, screenWidth, canvas.height.toFloat())
+                    target.draw(canvas)
+                    canvas.save()
+                    canvas.translate(offset, 0f)
+                    current.draw(canvas)
+                    canvas.restore()
+                    val shadowRect = RectF(offset + screenWidth, 0f, screenWidth, canvas.height.toFloat())
                     canvas.drawRect(shadowRect, shadowPaint)
                 } else {
-                    canvas.drawBitmap(currentBitmap, offset, 0f, null)
-                    canvas.drawBitmap(nextBitmap, 0f, 0f, null)
+                    canvas.save()
+                    canvas.translate(offset, 0f)
+                    current.draw(canvas)
+                    canvas.restore()
+                    target.draw(canvas)
                     val shadowRect = RectF(0f, 0f, offset, canvas.height.toFloat())
                     canvas.drawRect(shadowRect, shadowPaint)
                 }
@@ -112,8 +114,11 @@ class CoverPageDelegate : PageDelegate {
                 } else {
                     screenWidth * animationProgress
                 }
-                canvas.drawBitmap(nextBitmap, 0f, 0f, null)
-                canvas.drawBitmap(currentBitmap, offset, 0f, null)
+                target.draw(canvas)
+                canvas.save()
+                canvas.translate(offset, 0f)
+                current.draw(canvas)
+                canvas.restore()
             }
         }
     }

@@ -2,11 +2,11 @@ package com.shuli.reader.core.reader.animation
 
 import android.animation.ValueAnimator
 import android.graphics.Canvas
-import android.graphics.Bitmap
 import android.graphics.Paint
 import android.graphics.RectF
 import android.view.MotionEvent
 import android.view.animation.DecelerateInterpolator
+import com.shuli.reader.core.canvasrecorder.CanvasRecorder
 
 /**
  * 水平平移翻页委托
@@ -81,25 +81,26 @@ class HorizontalPageDelegate : PageDelegate {
         return false
     }
 
-    override fun onDraw(
-        canvas: Canvas,
-        currentBitmap: Bitmap,
-        nextBitmap: Bitmap,
-    ) {
+    override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder) {
         screenWidth = canvas.width.toFloat()
 
         when (state) {
             PageDelegate.State.IDLE -> {
-                canvas.drawBitmap(currentBitmap, 0f, 0f, null)
+                current.draw(canvas)
             }
             PageDelegate.State.DRAGGING -> {
                 val offset = currentX - startX
-                canvas.drawBitmap(currentBitmap, offset, 0f, null)
-                if (offset < 0) {
-                    canvas.drawBitmap(nextBitmap, offset + screenWidth, 0f, null)
-                } else {
-                    canvas.drawBitmap(nextBitmap, offset - screenWidth, 0f, null)
-                }
+                canvas.save()
+                canvas.translate(offset, 0f)
+                current.draw(canvas)
+                canvas.restore()
+
+                val targetOffset = if (offset < 0) offset + screenWidth else offset - screenWidth
+                canvas.save()
+                canvas.translate(targetOffset, 0f)
+                target.draw(canvas)
+                canvas.restore()
+
                 val shadowX = if (offset < 0) offset + screenWidth else offset
                 val shadowRect = RectF(shadowX - 20, 0f, shadowX, canvas.height.toFloat())
                 canvas.drawRect(shadowRect, shadowPaint)
@@ -110,13 +111,20 @@ class HorizontalPageDelegate : PageDelegate {
                 } else {
                     screenWidth * animationProgress
                 }
-                canvas.drawBitmap(currentBitmap, offset, 0f, null)
+                canvas.save()
+                canvas.translate(offset, 0f)
+                current.draw(canvas)
+                canvas.restore()
+
                 val nextOffset = if (direction == PageDelegate.Direction.NEXT) {
                     offset + screenWidth
                 } else {
                     offset - screenWidth
                 }
-                canvas.drawBitmap(nextBitmap, nextOffset, 0f, null)
+                canvas.save()
+                canvas.translate(nextOffset, 0f)
+                target.draw(canvas)
+                canvas.restore()
             }
         }
     }

@@ -15,6 +15,7 @@ data class ReaderPreferences(
     val marginVertical: Float = 48f,
     val brightness: Float = -1f,
     val readingFont: String = "system",
+    val optimizeRender: Boolean = true,  // 渲染优化总开关，关闭则降级为 Bitmap 逐帧绘制
 )
 
 /**

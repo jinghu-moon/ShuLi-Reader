@@ -2,7 +2,6 @@ package com.shuli.reader.core.reader.animation
 
 import android.animation.ValueAnimator
 import android.graphics.Canvas
-import android.graphics.Bitmap
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PointF
@@ -11,6 +10,7 @@ import android.graphics.Shader
 import android.graphics.RectF
 import android.view.MotionEvent
 import android.view.animation.DecelerateInterpolator
+import com.shuli.reader.core.canvasrecorder.CanvasRecorder
 
 /**
  * 仿真翻页委托
@@ -139,38 +139,34 @@ class SimulationPageDelegate : PageDelegate {
         )
     }
 
-    override fun onDraw(
-        canvas: Canvas,
-        currentBitmap: Bitmap,
-        nextBitmap: Bitmap,
-    ) {
+    override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder) {
         screenWidth = canvas.width.toFloat()
         screenHeight = canvas.height.toFloat()
 
         when (state) {
             PageDelegate.State.IDLE -> {
-                canvas.drawBitmap(currentBitmap, 0f, 0f, null)
+                current.draw(canvas)
             }
             PageDelegate.State.DRAGGING -> {
-                drawSimulationPage(canvas, currentBitmap, nextBitmap, 1f)
+                drawSimulationPage(canvas, current, target, 1f)
             }
             PageDelegate.State.ANIMATING -> {
-                drawSimulationPage(canvas, currentBitmap, nextBitmap, animationProgress)
+                drawSimulationPage(canvas, current, target, animationProgress)
             }
         }
     }
 
     private fun drawSimulationPage(
         canvas: Canvas,
-        currentBitmap: Bitmap,
-        nextBitmap: Bitmap,
+        current: CanvasRecorder,
+        target: CanvasRecorder,
         progress: Float
     ) {
         val offsetX = currentX - startX
 
         canvas.save()
 
-        canvas.drawBitmap(nextBitmap, 0f, 0f, null)
+        target.draw(canvas)
 
         path.reset()
 
@@ -185,7 +181,7 @@ class SimulationPageDelegate : PageDelegate {
 
             canvas.save()
             canvas.clipPath(path)
-            canvas.drawBitmap(currentBitmap, 0f, 0f, null)
+            current.draw(canvas)
             canvas.restore()
 
             drawFoldShadow(canvas, foldX, progress)
@@ -201,7 +197,7 @@ class SimulationPageDelegate : PageDelegate {
 
             canvas.save()
             canvas.clipPath(path)
-            canvas.drawBitmap(currentBitmap, 0f, 0f, null)
+            current.draw(canvas)
             canvas.restore()
 
             drawFoldShadow(canvas, foldX, progress)

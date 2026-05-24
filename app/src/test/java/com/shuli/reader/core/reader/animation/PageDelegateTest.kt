@@ -1,8 +1,8 @@
 package com.shuli.reader.core.reader.animation
 
 import android.graphics.Canvas
-import android.graphics.Bitmap
 import android.view.MotionEvent
+import com.shuli.reader.core.canvasrecorder.CanvasRecorder
 import io.mockk.*
 import org.junit.Assert.*
 import org.junit.Before
@@ -12,15 +12,11 @@ class PageDelegateTest {
 
     private lateinit var callback: PageDelegate.Callback
     private lateinit var canvas: Canvas
-    private lateinit var currentBitmap: Bitmap
-    private lateinit var nextBitmap: Bitmap
 
     @Before
     fun setup() {
         callback = mockk(relaxed = true)
         canvas = mockk(relaxed = true)
-        currentBitmap = mockk(relaxed = true)
-        nextBitmap = mockk(relaxed = true)
 
         every { canvas.width } returns 1080
         every { canvas.height } returns 1920

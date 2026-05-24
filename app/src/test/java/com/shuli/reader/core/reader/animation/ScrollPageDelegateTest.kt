@@ -1,8 +1,8 @@
 package com.shuli.reader.core.reader.animation
 
 import android.graphics.Canvas
-import android.graphics.Bitmap
 import android.view.MotionEvent
+import com.shuli.reader.core.canvasrecorder.CanvasRecorder
 import io.mockk.*
 import org.junit.Assert.*
 import org.junit.Before
@@ -12,15 +12,15 @@ class ScrollPageDelegateTest {
 
     private lateinit var callback: PageDelegate.Callback
     private lateinit var canvas: Canvas
-    private lateinit var currentBitmap: Bitmap
-    private lateinit var nextBitmap: Bitmap
+    private lateinit var currentRecorder: CanvasRecorder
+    private lateinit var targetRecorder: CanvasRecorder
 
     @Before
     fun setup() {
         callback = mockk(relaxed = true)
         canvas = mockk(relaxed = true)
-        currentBitmap = mockk(relaxed = true)
-        nextBitmap = mockk(relaxed = true)
+        currentRecorder = mockk(relaxed = true)
+        targetRecorder = mockk(relaxed = true)
 
         every { canvas.width } returns 1080
         every { canvas.height } returns 1920
@@ -144,9 +144,9 @@ class ScrollPageDelegateTest {
         val delegate = ScrollPageDelegate()
         delegate.setCallback(callback)
 
-        delegate.onDraw(canvas, currentBitmap, nextBitmap)
+        delegate.onDraw(canvas, currentRecorder, targetRecorder)
 
-        verify { canvas.drawBitmap(currentBitmap, 0f, 0f, any()) }
+        verify { currentRecorder.draw(canvas) }
     }
 
     @Test
@@ -154,13 +154,11 @@ class ScrollPageDelegateTest {
         val delegate = ScrollPageDelegate()
         delegate.setCallback(callback)
 
-        // 模拟快速向下滚动
         delegate.setScrollPosition(-2000f)
         delegate.startNext()
 
         Thread.sleep(ReaderMotionTokens.MEDIUM_MS + 100L)
 
-        // 应该触发章节切换
         verify(atLeast = 1) { callback.onPageChanged(any()) }
     }
 }

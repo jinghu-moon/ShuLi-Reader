@@ -1,5 +1,8 @@
 package com.shuli.reader.core.reader.model
 
+import com.shuli.reader.core.canvasrecorder.CanvasRecorder
+import com.shuli.reader.core.canvasrecorder.CanvasRecorderFactory
+
 /**
  * 页面尺寸配置
  */
@@ -48,8 +51,11 @@ data class TextLine(
 
 /**
  * 文本页
+ *
+ * 非 data class：每页持有独立的 CanvasRecorder 用于渲染缓存，
+ * equals/hashCode 使用引用比较，copy 不再需要。
  */
-data class TextPage(
+class TextPage(
     val startCharOffset: Int,
     val endCharOffset: Int,
     val chapterIndex: Int,
@@ -61,7 +67,20 @@ data class TextPage(
     val density: Float = 3f,
     /** 章节正文总字符数（不含标题），用于计算阅读进度 */
     val chapterContentLength: Int = 0,
-)
+) {
+    /** 渲染缓存，每页一份，跨章节共享池资源。 */
+    @Transient
+    val canvasRecorder: CanvasRecorder = CanvasRecorderFactory.create(locked = true)
+
+    /** 标记 recorder 失效，下次绘制时会重录。 */
+    fun invalidate() = canvasRecorder.invalidate()
+
+    /** 释放 recorder 对应的 RenderNode/Picture 回池。 */
+    fun recycleRecorders() = canvasRecorder.recycle()
+
+    override fun equals(other: Any?): Boolean = this === other
+    override fun hashCode(): Int = System.identityHashCode(this)
+}
 
 /**
  * 文本章节

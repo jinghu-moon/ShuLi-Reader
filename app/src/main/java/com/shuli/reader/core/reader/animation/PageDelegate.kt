@@ -3,6 +3,7 @@ package com.shuli.reader.core.reader.animation
 import android.graphics.Canvas
 import android.graphics.PointF
 import android.view.MotionEvent
+import com.shuli.reader.core.canvasrecorder.CanvasRecorder
 
 /**
  * 翻页动画委托接口
@@ -59,13 +60,11 @@ interface PageDelegate {
     fun onTouch(event: MotionEvent): Boolean
 
     /**
-     * 绘制动画
+     * 绘制翻页动画。
+     * @param current 当前页 recorder（必须已 record 过）
+     * @param target 目标页 recorder（next 或 prev，按 direction 决定）
      */
-    fun onDraw(
-        canvas: Canvas,
-        currentBitmap: android.graphics.Bitmap,
-        nextBitmap: android.graphics.Bitmap,
-    )
+    fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder)
 
     /**
      * 开始下一页动画

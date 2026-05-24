@@ -29,6 +29,7 @@ class ReaderCanvasViewTest {
             chapterIndex = 0,
             pageIndex = 0,
             pageSize = PageSize(1080, 1920),
+            marginHorizontal = 24f,
             lines = emptyList(),
             columns = emptyList(),
         )
