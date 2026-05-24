@@ -5,15 +5,23 @@ import com.shuli.reader.core.parser.model.Chapter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.nio.MappedByteBuffer
+import java.nio.channels.FileChannel
 import java.nio.charset.Charset
 
 class TxtParser {
 
     companion object {
+        /** 文件大小阈值：小于该值直接读取，大于等于使用 mmap */
+        private const val MMAP_THRESHOLD_BYTES = 2 * 1024 * 1024L // 2MB
+
+        /** 编码探测样本大小 */
+        private const val CHARSET_SAMPLE_SIZE = 8192
+
         private val CHAPTER_PATTERNS = listOf(
             Regex("^第[一二三四五六七八九十百千零\\d]+[章节回卷集部篇]"),
             Regex("^Chapter\\s+\\d+", RegexOption.IGNORE_CASE),
-            Regex("^卷[一二三四五六七八九十百千零\\d]+"),
+            Regex("^[卷集部篇][一二三四五六七八九十百千零\\d]+"),
             Regex("^\\d+[\\..、]\\s*\\S"),
         )
 
@@ -22,7 +30,7 @@ class TxtParser {
             Regex("(.*?)《([^《》]+)》.*?作者[：:](.*)"),
             Regex("(.*?)《([^《》]+)》(.*)"),
             Regex("(^)(.+) 作者[：:](.+)$"),
-            Regex("(^)(.+) by (.+)$")
+            Regex("(^)(.+) by (.+)$"),
         )
     }
 
@@ -48,9 +56,8 @@ class TxtParser {
     }
 
     suspend fun parse(file: File): BookContent = withContext(Dispatchers.IO) {
-        val bytes = file.readBytes()
-        val charset = detectCharset(bytes, file)
-        val content = String(bytes, charset)
+        val charset = detectCharset(file)
+        val content = readContent(file, charset)
 
         val title = extractTitle(file.nameWithoutExtension, content)
         val chapters = detectChapters(content)
@@ -65,10 +72,44 @@ class TxtParser {
         )
     }
 
-    private fun detectCharset(bytes: ByteArray, file: File): Charset {
+    /**
+     * 根据文件大小选择读取策略：
+     * - 小文件（< 2MB）：直接 readBytes
+     * - 大文件（>= 2MB）：使用 mmap 映射
+     */
+    private fun readContent(file: File, charset: Charset): String {
+        return if (file.length() < MMAP_THRESHOLD_BYTES) {
+            String(file.readBytes(), charset)
+        } else {
+            readWithMmap(file, charset)
+        }
+    }
+
+    private fun readWithMmap(file: File, charset: Charset): String {
+        java.io.FileInputStream(file).use { fis ->
+            val buffer: MappedByteBuffer = fis.channel.map(
+                FileChannel.MapMode.READ_ONLY,
+                0,
+                file.length(),
+            )
+            val bytes = ByteArray(buffer.remaining())
+            buffer.get(bytes)
+            return String(bytes, charset)
+        }
+    }
+
+    /**
+     * 编码探测：只读取文件头部样本，不加载全文件。
+     */
+    private fun detectCharset(file: File): Charset {
         return try {
+            val sampleSize = minOf(file.length(), CHARSET_SAMPLE_SIZE.toLong()).toInt()
+            val sample = ByteArray(sampleSize)
+            java.io.FileInputStream(file).use { fis ->
+                fis.read(sample, 0, sampleSize)
+            }
             val detector = org.mozilla.universalchardet.UniversalDetector(null)
-            detector.handleData(bytes, 0, minOf(bytes.size, 4096))
+            detector.handleData(sample, 0, sampleSize)
             detector.dataEnd()
             val detected = detector.detectedCharset
             if (detected != null) {
@@ -106,7 +147,13 @@ class TxtParser {
             currentPos += line.length + 1
         }
 
-        if (chapterPositions.isEmpty()) return emptyList()
+        if (chapterPositions.isEmpty()) {
+            return if (content.isNotBlank()) {
+                listOf(Chapter(title = "Full Text", startIndex = 0, endIndex = content.length))
+            } else {
+                emptyList()
+            }
+        }
 
         return chapterPositions.mapIndexed { index, (title, start) ->
             val end = if (index < chapterPositions.size - 1) {

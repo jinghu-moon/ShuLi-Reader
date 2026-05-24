@@ -7,16 +7,24 @@ sealed interface AppStrings {
     val appName: String
     val bookshelf: String
     val settings: String
+    val search: String
     val searchPlaceholder: String
     val todayReading: String
     val noBooksFound: String
     val emptyBookshelf: String
     val searchIconDesc: String
+    val previousSearchResult: String
+    val nextSearchResult: String
     val sortIconDesc: String
     val viewModeIconDesc: String
     val moreIconDesc: String
     val backIconDesc: String
     val clearIconDesc: String
+    val deleteIconDesc: String
+    val infoIconDesc: String
+    val favoriteIconDesc: String
+    val coverImageDesc: String
+    val bookmarkIconDesc: String
     val loading: String
 
     // 外观与通用配置
@@ -50,6 +58,24 @@ sealed interface AppStrings {
     val pageTurnDirection: String
     val pageTurnHorizontal: String
     val pageTurnVertical: String
+    val paragraphSpacing: String
+    val paragraphSpacingCompact: String
+    val paragraphSpacingNormal: String
+    val paragraphSpacingWide: String
+    val firstLineIndent: String
+    val indentNone: String
+    val indentTwoChars: String
+    val fullScreenMode: String
+    val keepScreenOn: String
+    val brightness: String
+    val brightnessFollowSystem: String
+    val readingFont: String
+    val readingFontSystem: String
+    val readingFontLxgw: String
+    val marginTopBottom: String
+    val marginLeftRight: String
+    val editValue: String
+    val confirm: String
 
     // 二、书库与导入设置
     val libraryImportSettings: String
@@ -73,6 +99,7 @@ sealed interface AppStrings {
     val totalBooksCount: String
     val totalReadingTime: String
     val todayReadingProgress: String
+    val readingTargetMinutes: (Int) -> String
 
     // 四、同步设置
     val syncSettings: String
@@ -126,22 +153,92 @@ sealed interface AppStrings {
     val importSuccessWithFailed: (Int, Int) -> String
     val importSuccessWithBoth: (Int, Int, Int) -> String
     val importFailed: (String) -> String
+    val favoriteToggled: String
+
+    // 书架操作菜单
+    val addFavorite: String
+    val removeFavorite: String
+    val bookInfo: String
+    val deleteBook: String
+    val deleteBookTitle: String
+    val deleteBookConfirm: (String) -> String
+    val cancel: String
+
+    // 书架筛选、排序与信息
+    val filterRecent: String
+    val filterAll: String
+    val filterFinished: String
+    val filterFavorite: String
+    val sortTitle: String
+    val sortDescending: String
+    val sortAscending: String
+    val sortLastRead: String
+    val sortAddTime: String
+    val sortBookTitle: String
+    val sortReadingTime: String
+    val sortReadingProgress: String
+    val bookTitleLabel: String
+    val bookAuthorLabel: String
+    val unknownAuthor: String
+    val bookFormatLabel: String
+    val bookSizeLabel: String
+    val bookProgressLabel: String
+    val readingDurationLabel: String
+    val notReadYet: String
+    val unreadLabel: String
+    val notStartedLabel: String
+    val readProgress: (Int) -> String
+    val filePathLabel: String
+    val favoritedDesc: String
+
+    // 阅读目录、书签与笔记
+    val directoryTab: String
+    val bookmarksTab: String
+    val notesTab: String
+    val currentChapterLabel: String
+    val noBookmarks: String
+    val noNotes: String
+    val notePosition: (Int, Int, String) -> String
+    val copySelection: String
+    val addBookmarkAction: String
+    val addNoteAction: String
+    val previousChapter: String
+    val nextChapter: String
+    val customizeCover: String
+    val resetCoverColor: String
+    val unifiedCoverColor: String
+    val unifiedCoverColorAuto: String
+    val unifiedCoverColorActive: (Int) -> String
+
+    // 领域错误提示
+    val unableToReadFile: String
+    val invalidFolderPath: String
+    val invalidFolder: String
+    val noImportableFiles: String
 
     // 简体中文实现
     data object ZhHans : AppStrings {
         override val appName = "书里阅读器"
         override val bookshelf = "书架"
         override val settings = "设置"
+        override val search = "搜索"
         override val searchPlaceholder = "输入书名进行搜索..."
         override val todayReading = "今日"
         override val noBooksFound = "该文件夹下未找到 TXT 或 EPUB 文件"
         override val emptyBookshelf = "书架空空如也，点击右下角按钮导入书籍"
         override val searchIconDesc = "搜索"
+        override val previousSearchResult = "上一个搜索结果"
+        override val nextSearchResult = "下一个搜索结果"
         override val sortIconDesc = "排序"
         override val viewModeIconDesc = "切换视图"
         override val moreIconDesc = "更多"
         override val backIconDesc = "返回"
         override val clearIconDesc = "清除"
+        override val deleteIconDesc = "删除"
+        override val infoIconDesc = "详情"
+        override val favoriteIconDesc = "收藏"
+        override val coverImageDesc = "封面图片"
+        override val bookmarkIconDesc = "书签"
         override val loading = "加载中..."
 
         override val appearance = "外观"
@@ -159,8 +256,8 @@ sealed interface AppStrings {
         override val languageEn = "English"
 
         override val readerPreferences = "阅读器显示偏好"
-        override val defaultFontSize = "默认字号缩放"
-        override val defaultLineSpacing = "默认行距选择"
+        override val defaultFontSize = "字体大小"
+        override val defaultLineSpacing = "行间距"
         override val lineSpacingCompact = "紧凑 (1.2)"
         override val lineSpacingMedium = "适中 (1.5)"
         override val lineSpacingWide = "宽敞 (1.8)"
@@ -173,6 +270,24 @@ sealed interface AppStrings {
         override val pageTurnDirection = "翻页方向"
         override val pageTurnHorizontal = "左右滑动"
         override val pageTurnVertical = "上下滚动"
+        override val paragraphSpacing = "段间距"
+        override val paragraphSpacingCompact = "紧凑"
+        override val paragraphSpacingNormal = "标准"
+        override val paragraphSpacingWide = "宽敞"
+        override val firstLineIndent = "首行缩进"
+        override val indentNone = "无"
+        override val indentTwoChars = "2字"
+        override val fullScreenMode = "全屏模式"
+        override val keepScreenOn = "屏幕常亮"
+        override val brightness = "亮度调节"
+        override val brightnessFollowSystem = "跟随系统"
+        override val readingFont = "阅读字体"
+        override val readingFontSystem = "系统默认"
+        override val readingFontLxgw = "霞鹜文楷"
+        override val marginTopBottom = "上下边距"
+        override val marginLeftRight = "左右边距"
+        override val editValue = "修改数值"
+        override val confirm = "确定"
 
         override val libraryImportSettings = "书库与导入设置"
         override val duplicateCheck = "自动查重开关"
@@ -194,6 +309,7 @@ sealed interface AppStrings {
         override val totalBooksCount = "藏书总数"
         override val totalReadingTime = "累计阅读时长"
         override val todayReadingProgress = "今日阅读进度"
+        override val readingTargetMinutes = { minutes: Int -> "$minutes 分钟" }
 
         override val syncSettings = "同步设置"
         override val syncMethod = "同步方式"
@@ -242,6 +358,60 @@ sealed interface AppStrings {
         override val importSuccessWithFailed = { success: Int, failed: Int -> "成功导入 $success 本，失败 $failed 本" }
         override val importSuccessWithBoth = { success: Int, skipped: Int, failed: Int -> "成功导入 $success 本，已存在 $skipped 本，失败 $failed 本" }
         override val importFailed = { error: String -> "导入失败: $error" }
+        override val favoriteToggled = "收藏状态已更新"
+        override val addFavorite = "收藏"
+        override val removeFavorite = "取消收藏"
+        override val bookInfo = "书籍信息"
+        override val deleteBook = "删除"
+        override val deleteBookTitle = "删除书籍"
+        override val deleteBookConfirm = { title: String -> "确定要删除《$title》吗？此操作不可撤销。" }
+        override val cancel = "取消"
+        override val filterRecent = "最近"
+        override val filterAll = "全部"
+        override val filterFinished = "已读完"
+        override val filterFavorite = "收藏"
+        override val sortTitle = "排序方式"
+        override val sortDescending = "降序"
+        override val sortAscending = "升序"
+        override val sortLastRead = "最近阅读"
+        override val sortAddTime = "添加时间"
+        override val sortBookTitle = "书名"
+        override val sortReadingTime = "阅读时长"
+        override val sortReadingProgress = "阅读进度"
+        override val bookTitleLabel = "标题"
+        override val bookAuthorLabel = "作者"
+        override val unknownAuthor = "未知"
+        override val bookFormatLabel = "格式"
+        override val bookSizeLabel = "大小"
+        override val bookProgressLabel = "进度"
+        override val readingDurationLabel = "阅读时长"
+        override val notReadYet = "未阅读"
+        override val unreadLabel = "未读"
+        override val notStartedLabel = "未开始"
+        override val readProgress = { percent: Int -> "已读 $percent%" }
+        override val filePathLabel = "文件路径"
+        override val favoritedDesc = "已收藏"
+        override val directoryTab = "目录"
+        override val bookmarksTab = "书签"
+        override val notesTab = "笔记"
+        override val currentChapterLabel = "当前"
+        override val noBookmarks = "暂无书签"
+        override val noNotes = "暂无笔记"
+        override val notePosition = { start: Int, end: Int, date: String -> "位置: $start-$end  $date" }
+        override val copySelection = "复制"
+        override val addBookmarkAction = "添加书签"
+        override val addNoteAction = "添加笔记"
+        override val previousChapter = "上一章"
+        override val nextChapter = "下一章"
+        override val customizeCover = "自定义封面颜色"
+        override val resetCoverColor = "恢复自动配色"
+        override val unifiedCoverColor = "统一封面颜色"
+        override val unifiedCoverColorAuto = "自动（按书名散列）"
+        override val unifiedCoverColorActive = { idx: Int -> "已统一为色盘 #$idx" }
+        override val unableToReadFile = "无法读取文件"
+        override val invalidFolderPath = "无效的文件夹路径"
+        override val invalidFolder = "不是有效的文件夹"
+        override val noImportableFiles = "未找到可导入的文件"
     }
 
     // 繁体中文实现（继承并覆盖差异项）
@@ -249,16 +419,24 @@ sealed interface AppStrings {
         override val appName = "書裡閱讀器"
         override val bookshelf = "書架"
         override val settings = "設定"
+        override val search = "搜尋"
         override val searchPlaceholder = "輸入書名進行搜尋..."
         override val todayReading = "今日"
         override val noBooksFound = "該資料夾下未找到 TXT 或 EPUB 檔案"
         override val emptyBookshelf = "書架空空如也，點擊右下角按鈕匯入書籍"
         override val searchIconDesc = "搜尋"
+        override val previousSearchResult = "上一個搜尋結果"
+        override val nextSearchResult = "下一個搜尋結果"
         override val sortIconDesc = "排序"
         override val viewModeIconDesc = "切換檢視"
         override val moreIconDesc = "更多"
         override val backIconDesc = "返回"
         override val clearIconDesc = "清除"
+        override val deleteIconDesc = "刪除"
+        override val infoIconDesc = "詳情"
+        override val favoriteIconDesc = "收藏"
+        override val coverImageDesc = "封面圖片"
+        override val bookmarkIconDesc = "書籤"
         override val loading = "載入中..."
 
         override val appearance = "外觀"
@@ -276,8 +454,8 @@ sealed interface AppStrings {
         override val languageEn = "English"
 
         override val readerPreferences = "閱讀器顯示偏好"
-        override val defaultFontSize = "預設字型縮放"
-        override val defaultLineSpacing = "預設行距選擇"
+        override val defaultFontSize = "字體大小"
+        override val defaultLineSpacing = "行間距"
         override val lineSpacingCompact = "緊湊 (1.2)"
         override val lineSpacingMedium = "適中 (1.5)"
         override val lineSpacingWide = "寬敞 (1.8)"
@@ -290,6 +468,24 @@ sealed interface AppStrings {
         override val pageTurnDirection = "翻頁方向"
         override val pageTurnHorizontal = "左右滑動"
         override val pageTurnVertical = "上下滾動"
+        override val paragraphSpacing = "段間距"
+        override val paragraphSpacingCompact = "緊湊"
+        override val paragraphSpacingNormal = "標準"
+        override val paragraphSpacingWide = "寬敞"
+        override val firstLineIndent = "首行縮排"
+        override val indentNone = "無"
+        override val indentTwoChars = "2字"
+        override val fullScreenMode = "全螢幕模式"
+        override val keepScreenOn = "螢幕常亮"
+        override val brightness = "亮度調節"
+        override val brightnessFollowSystem = "跟隨系統"
+        override val readingFont = "閱讀字體"
+        override val readingFontSystem = "系統預設"
+        override val readingFontLxgw = "霞鶩文楷"
+        override val marginTopBottom = "上下邊距"
+        override val marginLeftRight = "左右邊距"
+        override val editValue = "修改數值"
+        override val confirm = "確定"
 
         override val libraryImportSettings = "書庫與匯入設定"
         override val duplicateCheck = "自動查重開關"
@@ -311,6 +507,7 @@ sealed interface AppStrings {
         override val totalBooksCount = "藏書總數"
         override val totalReadingTime = "累計閱讀時長"
         override val todayReadingProgress = "今日閱讀進度"
+        override val readingTargetMinutes = { minutes: Int -> "$minutes 分鐘" }
 
         override val syncSettings = "同步設定"
         override val syncMethod = "同步方式"
@@ -359,6 +556,60 @@ sealed interface AppStrings {
         override val importSuccessWithFailed = { success: Int, failed: Int -> "成功匯入 $success 本，失敗 $failed 本" }
         override val importSuccessWithBoth = { success: Int, skipped: Int, failed: Int -> "成功匯入 $success 本，已存在 $skipped 本，失敗 $failed 本" }
         override val importFailed = { error: String -> "匯入失敗: $error" }
+        override val favoriteToggled = "收藏狀態已更新"
+        override val addFavorite = "收藏"
+        override val removeFavorite = "取消收藏"
+        override val bookInfo = "書籍資訊"
+        override val deleteBook = "刪除"
+        override val deleteBookTitle = "刪除書籍"
+        override val deleteBookConfirm = { title: String -> "確定要刪除《$title》嗎？此操作不可撤銷。" }
+        override val cancel = "取消"
+        override val filterRecent = "最近"
+        override val filterAll = "全部"
+        override val filterFinished = "已讀完"
+        override val filterFavorite = "收藏"
+        override val sortTitle = "排序方式"
+        override val sortDescending = "降序"
+        override val sortAscending = "升序"
+        override val sortLastRead = "最近閱讀"
+        override val sortAddTime = "加入時間"
+        override val sortBookTitle = "書名"
+        override val sortReadingTime = "閱讀時長"
+        override val sortReadingProgress = "閱讀進度"
+        override val bookTitleLabel = "標題"
+        override val bookAuthorLabel = "作者"
+        override val unknownAuthor = "未知"
+        override val bookFormatLabel = "格式"
+        override val bookSizeLabel = "大小"
+        override val bookProgressLabel = "進度"
+        override val readingDurationLabel = "閱讀時長"
+        override val notReadYet = "未閱讀"
+        override val unreadLabel = "未讀"
+        override val notStartedLabel = "未開始"
+        override val readProgress = { percent: Int -> "已讀 $percent%" }
+        override val filePathLabel = "檔案路徑"
+        override val favoritedDesc = "已收藏"
+        override val directoryTab = "目錄"
+        override val bookmarksTab = "書籤"
+        override val notesTab = "筆記"
+        override val currentChapterLabel = "目前"
+        override val noBookmarks = "暫無書籤"
+        override val noNotes = "暫無筆記"
+        override val notePosition = { start: Int, end: Int, date: String -> "位置: $start-$end  $date" }
+        override val copySelection = "複製"
+        override val addBookmarkAction = "新增書籤"
+        override val addNoteAction = "新增筆記"
+        override val previousChapter = "上一章"
+        override val nextChapter = "下一章"
+        override val customizeCover = "自訂封面顏色"
+        override val resetCoverColor = "恢復自動配色"
+        override val unifiedCoverColor = "統一封面顏色"
+        override val unifiedCoverColorAuto = "自動（按書名散列）"
+        override val unifiedCoverColorActive = { idx: Int -> "已統一為色盤 #$idx" }
+        override val unableToReadFile = "無法讀取檔案"
+        override val invalidFolderPath = "無效的資料夾路徑"
+        override val invalidFolder = "不是有效的資料夾"
+        override val noImportableFiles = "未找到可匯入的檔案"
     }
 
     // 英文实现
@@ -366,16 +617,24 @@ sealed interface AppStrings {
         override val appName = "ShuLi Reader"
         override val bookshelf = "Bookshelf"
         override val settings = "Settings"
+        override val search = "Search"
         override val searchPlaceholder = "Search books..."
         override val todayReading = "Today"
         override val noBooksFound = "No TXT or EPUB files found in this folder"
         override val emptyBookshelf = "The bookshelf is empty. Click the button at the bottom-right to import books"
         override val searchIconDesc = "Search"
+        override val previousSearchResult = "Previous search result"
+        override val nextSearchResult = "Next search result"
         override val sortIconDesc = "Sort"
         override val viewModeIconDesc = "Toggle View"
         override val moreIconDesc = "More"
         override val backIconDesc = "Back"
         override val clearIconDesc = "Clear"
+        override val deleteIconDesc = "Delete"
+        override val infoIconDesc = "Info"
+        override val favoriteIconDesc = "Favorite"
+        override val coverImageDesc = "Cover Image"
+        override val bookmarkIconDesc = "Bookmark"
         override val loading = "Loading..."
 
         override val appearance = "Appearance"
@@ -393,8 +652,8 @@ sealed interface AppStrings {
         override val languageEn = "English"
 
         override val readerPreferences = "Reader Preferences"
-        override val defaultFontSize = "Default Font Size"
-        override val defaultLineSpacing = "Default Line Spacing"
+        override val defaultFontSize = "Font Size"
+        override val defaultLineSpacing = "Line Spacing"
         override val lineSpacingCompact = "Compact (1.2)"
         override val lineSpacingMedium = "Medium (1.5)"
         override val lineSpacingWide = "Wide (1.8)"
@@ -407,6 +666,24 @@ sealed interface AppStrings {
         override val pageTurnDirection = "Page Turn Direction"
         override val pageTurnHorizontal = "Horizontal"
         override val pageTurnVertical = "Vertical"
+        override val paragraphSpacing = "Paragraph Spacing"
+        override val paragraphSpacingCompact = "Compact"
+        override val paragraphSpacingNormal = "Normal"
+        override val paragraphSpacingWide = "Wide"
+        override val firstLineIndent = "First Line Indent"
+        override val indentNone = "None"
+        override val indentTwoChars = "2 Chars"
+        override val fullScreenMode = "Full Screen Mode"
+        override val keepScreenOn = "Keep Screen On"
+        override val brightness = "Brightness"
+        override val brightnessFollowSystem = "Follow System"
+        override val readingFont = "Reading Font"
+        override val readingFontSystem = "System Default"
+        override val readingFontLxgw = "LXGW Wenkai"
+        override val marginTopBottom = "Top/Bottom Margin"
+        override val marginLeftRight = "Left/Right Margin"
+        override val editValue = "Edit Value"
+        override val confirm = "OK"
 
         override val libraryImportSettings = "Library & Import"
         override val duplicateCheck = "Check Duplicates"
@@ -428,6 +705,7 @@ sealed interface AppStrings {
         override val totalBooksCount = "Total Books"
         override val totalReadingTime = "Accumulated Time"
         override val todayReadingProgress = "Today's Progress"
+        override val readingTargetMinutes = { minutes: Int -> "$minutes min" }
 
         override val syncSettings = "Synchronization"
         override val syncMethod = "Sync Method"
@@ -476,6 +754,60 @@ sealed interface AppStrings {
         override val importSuccessWithFailed = { success: Int, failed: Int -> "Successfully imported $success, failed to import $failed" }
         override val importSuccessWithBoth = { success: Int, skipped: Int, failed: Int -> "Successfully imported $success, skipped $skipped, failed $failed" }
         override val importFailed = { error: String -> "Failed to import: $error" }
+        override val favoriteToggled = "Favorite status updated"
+        override val addFavorite = "Add to favorites"
+        override val removeFavorite = "Remove from favorites"
+        override val bookInfo = "Book info"
+        override val deleteBook = "Delete"
+        override val deleteBookTitle = "Delete book"
+        override val deleteBookConfirm = { title: String -> "Are you sure you want to delete \"$title\"? This action cannot be undone." }
+        override val cancel = "Cancel"
+        override val filterRecent = "Recent"
+        override val filterAll = "All"
+        override val filterFinished = "Finished"
+        override val filterFavorite = "Favorites"
+        override val sortTitle = "Sort"
+        override val sortDescending = "Descending"
+        override val sortAscending = "Ascending"
+        override val sortLastRead = "Last read"
+        override val sortAddTime = "Added time"
+        override val sortBookTitle = "Title"
+        override val sortReadingTime = "Reading time"
+        override val sortReadingProgress = "Reading progress"
+        override val bookTitleLabel = "Title"
+        override val bookAuthorLabel = "Author"
+        override val unknownAuthor = "Unknown"
+        override val bookFormatLabel = "Format"
+        override val bookSizeLabel = "Size"
+        override val bookProgressLabel = "Progress"
+        override val readingDurationLabel = "Reading time"
+        override val notReadYet = "Not read yet"
+        override val unreadLabel = "Unread"
+        override val notStartedLabel = "Not started"
+        override val readProgress = { percent: Int -> "Read $percent%" }
+        override val filePathLabel = "File path"
+        override val favoritedDesc = "Favorited"
+        override val directoryTab = "Contents"
+        override val bookmarksTab = "Bookmarks"
+        override val notesTab = "Notes"
+        override val currentChapterLabel = "Current"
+        override val noBookmarks = "No bookmarks"
+        override val noNotes = "No notes"
+        override val notePosition = { start: Int, end: Int, date: String -> "Position: $start-$end  $date" }
+        override val copySelection = "Copy"
+        override val addBookmarkAction = "Bookmark"
+        override val addNoteAction = "Note"
+        override val previousChapter = "Previous chapter"
+        override val nextChapter = "Next chapter"
+        override val customizeCover = "Customize cover color"
+        override val resetCoverColor = "Reset to auto"
+        override val unifiedCoverColor = "Unified cover color"
+        override val unifiedCoverColorAuto = "Auto (hash by title)"
+        override val unifiedCoverColorActive = { idx: Int -> "Unified to palette #$idx" }
+        override val unableToReadFile = "Unable to read file"
+        override val invalidFolderPath = "Invalid folder path"
+        override val invalidFolder = "Invalid folder"
+        override val noImportableFiles = "No importable files found"
     }
 }
 

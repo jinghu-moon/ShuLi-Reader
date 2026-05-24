@@ -8,15 +8,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ShowChart
+import androidx.compose.material.icons.automirrored.outlined.Sort
+import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.ShowChart
-import androidx.compose.material.icons.outlined.Sort
 import androidx.compose.material.icons.outlined.Timer
-import androidx.compose.material.icons.outlined.ViewList
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,9 +35,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.bookshelf.model.ViewMode
+import com.shuli.reader.ui.testing.UiTestTags
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -116,23 +118,35 @@ fun BookshelfTopBar(
                 }
             },
             actions = {
-                IconButton(onClick = { onSearchActiveChange(true) }) {
+                IconButton(
+                    onClick = { onSearchActiveChange(true) },
+                    modifier = Modifier.testTag(UiTestTags.BOOKSHELF_SEARCH_BUTTON),
+                ) {
                     Icon(Icons.Outlined.Search, contentDescription = strings.searchIconDesc)
                 }
-                IconButton(onClick = onSortClick) {
-                    Icon(Icons.Outlined.Sort, contentDescription = strings.sortIconDesc)
+                IconButton(
+                    onClick = onSortClick,
+                    modifier = Modifier.testTag(UiTestTags.BOOKSHELF_SORT_BUTTON),
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = strings.sortIconDesc)
                 }
-                IconButton(onClick = onViewModeToggle) {
+                IconButton(
+                    onClick = onViewModeToggle,
+                    modifier = Modifier.testTag(UiTestTags.BOOKSHELF_VIEW_MODE_BUTTON),
+                ) {
                     Icon(
                         imageVector = if (viewMode == ViewMode.GRID)
-                            Icons.Outlined.ViewList else Icons.Outlined.GridView,
+                            Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.GridView,
                         contentDescription = strings.viewModeIconDesc,
                     )
                 }
                 
                 var menuExpanded by remember { mutableStateOf(false) }
                 Box {
-                    IconButton(onClick = { menuExpanded = true }) {
+                    IconButton(
+                        onClick = { menuExpanded = true },
+                        modifier = Modifier.testTag(UiTestTags.BOOKSHELF_MORE_BUTTON),
+                    ) {
                         Icon(Icons.Default.MoreVert, contentDescription = strings.moreIconDesc)
                     }
                     DropdownMenu(
@@ -141,7 +155,7 @@ fun BookshelfTopBar(
                     ) {
                         DropdownMenuItem(
                             text = { Text(strings.readingStats) },
-                            leadingIcon = { Icon(Icons.Outlined.ShowChart, contentDescription = null) },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Outlined.ShowChart, contentDescription = null) },
                             onClick = {
                                 menuExpanded = false
                                 onStatisticsClick()

@@ -3,6 +3,7 @@ package com.shuli.reader.feature.bookshelf
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -59,11 +60,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.bookshelf.component.BookGrid
+import com.shuli.reader.feature.bookshelf.component.BookInfoBottomSheet
 import com.shuli.reader.feature.bookshelf.component.BookList
 import com.shuli.reader.feature.bookshelf.component.BookshelfTopBar
 import com.shuli.reader.feature.bookshelf.component.FilterTabs
@@ -71,6 +74,7 @@ import com.shuli.reader.feature.bookshelf.component.SortBottomSheet
 import com.shuli.reader.feature.bookshelf.model.BookItem
 import com.shuli.reader.feature.bookshelf.model.ViewMode
 import androidx.compose.material3.CardDefaults
+import com.shuli.reader.ui.testing.UiTestTags
 
 @Composable
 fun BookshelfScreen(
@@ -97,6 +101,13 @@ fun BookshelfScreen(
     var folderFilesToImport by remember { mutableStateOf<List<Pair<Uri, String>>>(emptyList()) }
     var showFolderImportDialog by remember { mutableStateOf(false) }
     var showStatisticsSheet by remember { mutableStateOf(false) }
+    var selectedInfoBookId by remember { mutableStateOf<Long?>(null) }
+    var selectedCoverColorBookId by remember { mutableStateOf<Long?>(null) }
+
+    // 搜索激活时返回先退出搜索，不退出 App
+    BackHandler(enabled = uiState.isSearching) {
+        viewModel.onSearchActiveChanged(false)
+    }
 
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
@@ -188,6 +199,7 @@ fun BookshelfScreen(
                 onClick = {
                     showImportOptionSheet = true
                 },
+                modifier = Modifier.testTag(UiTestTags.BOOKSHELF_IMPORT_FAB),
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             ) {
@@ -195,7 +207,7 @@ fun BookshelfScreen(
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        modifier = modifier,
+        modifier = modifier.testTag(UiTestTags.BOOKSHELF_SCREEN),
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -230,8 +242,10 @@ fun BookshelfScreen(
                         onBookClick = viewModel::onBookClick,
                         onToggleFavorite = viewModel::onToggleFavorite,
                         onDelete = viewModel::onDeleteBook,
-                        onShowInfo = { /* TODO: 显示书籍信息 */ },
+                        onShowInfo = { selectedInfoBookId = it },
                         searchQuery = uiState.searchQuery,
+                        unifiedCoverPaletteIndex = uiState.unifiedCoverPaletteIndex,
+                        onCustomizeCover = { selectedCoverColorBookId = it },
                     )
                 }
             }
@@ -279,6 +293,25 @@ fun BookshelfScreen(
             onDismiss = { showStatisticsSheet = false }
         )
     }
+
+    if (selectedInfoBookId != null) {
+        BookInfoBottomSheet(
+            book = uiState.books.firstOrNull { it.id == selectedInfoBookId },
+            onDismiss = { selectedInfoBookId = null },
+        )
+    }
+
+    if (selectedCoverColorBookId != null) {
+        val targetBook = uiState.books.firstOrNull { it.id == selectedCoverColorBookId }
+        com.shuli.reader.feature.bookshelf.component.CoverColorPickerDialog(
+            currentIndex = targetBook?.customCoverPaletteIndex,
+            onSelected = { index ->
+                selectedCoverColorBookId?.let { viewModel.setBookCoverPalette(it, index) }
+                selectedCoverColorBookId = null
+            },
+            onDismiss = { selectedCoverColorBookId = null },
+        )
+    }
 }
 
 @Composable
@@ -294,6 +327,8 @@ private fun BookContent(
     onShowInfo: (Long) -> Unit,
     searchQuery: String,
     modifier: Modifier = Modifier,
+    unifiedCoverPaletteIndex: Int? = null,
+    onCustomizeCover: ((Long) -> Unit)? = null,
 ) {
     when (viewMode) {
         ViewMode.GRID -> BookGrid(
@@ -306,6 +341,8 @@ private fun BookContent(
             onDelete = onDelete,
             onShowInfo = onShowInfo,
             modifier = modifier,
+            unifiedCoverPaletteIndex = unifiedCoverPaletteIndex,
+            onCustomizeCover = onCustomizeCover,
         )
         ViewMode.LIST -> BookList(
             books = books,
@@ -317,6 +354,8 @@ private fun BookContent(
             onDelete = onDelete,
             onShowInfo = onShowInfo,
             modifier = modifier,
+            unifiedCoverPaletteIndex = unifiedCoverPaletteIndex,
+            onCustomizeCover = onCustomizeCover,
         )
     }
 }

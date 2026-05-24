@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.bookshelf.model.SortOrder
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,6 +40,7 @@ fun SortBottomSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     val sheetState = rememberModalBottomSheetState()
 
     ModalBottomSheet(
@@ -54,7 +56,7 @@ fun SortBottomSheet(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "排序方式",
+                text = strings.sortTitle,
                 style = MaterialTheme.typography.titleMedium,
             )
 
@@ -65,7 +67,7 @@ fun SortBottomSheet(
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(2.dp)
             ) {
-                listOf(false to "降序", true to "升序").forEach { (asc, label) ->
+                listOf(false to strings.sortDescending, true to strings.sortAscending).forEach { (asc, label) ->
                     val isSelected = isAscending == asc
                     Box(
                         modifier = Modifier
@@ -87,11 +89,11 @@ fun SortBottomSheet(
         }
 
         val options = listOf(
-            SortOrder.LAST_READ to "最近阅读",
-            SortOrder.ADD_TIME to "添加时间",
-            SortOrder.TITLE to "书名",
-            SortOrder.FILE_SIZE to "阅读时长",
-            SortOrder.PROGRESS to "阅读进度",
+            SortOrder.LAST_READ to strings.sortLastRead,
+            SortOrder.ADD_TIME to strings.sortAddTime,
+            SortOrder.TITLE to strings.sortBookTitle,
+            SortOrder.FILE_SIZE to strings.sortReadingTime,
+            SortOrder.PROGRESS to strings.sortReadingProgress,
         )
 
         LazyColumn(

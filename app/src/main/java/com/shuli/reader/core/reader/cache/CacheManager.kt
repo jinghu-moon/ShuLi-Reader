@@ -1,0 +1,150 @@
+package com.shuli.reader.core.reader.cache
+
+import com.shuli.reader.core.reader.model.TextChapter
+import com.shuli.reader.core.reader.model.TextPage
+
+/**
+ * 缓存管理器，管理页面、章节和位图缓存
+ */
+class CacheManager(
+    pageCacheSize: Int = 50,
+    chapterCacheSize: Int = 10,
+) {
+    companion object {
+        fun limitsForMemoryClass(memoryClassMb: Int): CacheLimits {
+            return when {
+                memoryClassMb < 256 -> CacheLimits(pageCacheSize = 20, chapterCacheSize = 4)
+                memoryClassMb < 512 -> CacheLimits(pageCacheSize = 40, chapterCacheSize = 8)
+                else -> CacheLimits(pageCacheSize = 80, chapterCacheSize = 16)
+            }
+        }
+
+        fun forMemoryClass(memoryClassMb: Int): CacheManager {
+            val limits = limitsForMemoryClass(memoryClassMb)
+            return CacheManager(
+                pageCacheSize = limits.pageCacheSize,
+                chapterCacheSize = limits.chapterCacheSize,
+            )
+        }
+    }
+
+    /**
+     * 页面缓存 key
+     */
+    data class PageCacheKey(
+        val bookId: String,
+        val chapterIndex: Int,
+        val pageIndex: Int,
+        val textSize: Float,
+        val lineHeight: Float,
+        val pageWidth: Int,
+        val pageHeight: Int,
+    )
+
+    /**
+     * 章节缓存 key
+     */
+    data class ChapterCacheKey(
+        val bookId: String,
+        val chapterIndex: Int,
+        val textSize: Float,
+        val lineHeight: Float,
+        val pageWidth: Int,
+        val pageHeight: Int,
+    )
+
+    // 页面缓存
+    private val pageCache = LruCache<PageCacheKey, TextPage>(pageCacheSize)
+
+    // 章节缓存
+    private val chapterCache = LruCache<ChapterCacheKey, TextChapter>(chapterCacheSize)
+
+    /**
+     * 获取页面
+     */
+    fun getPage(key: PageCacheKey): TextPage? {
+        return pageCache.get(key)
+    }
+
+    /**
+     * 存入页面
+     */
+    fun putPage(key: PageCacheKey, page: TextPage) {
+        pageCache.put(key, page)
+    }
+
+    /**
+     * 获取章节
+     */
+    fun getChapter(key: ChapterCacheKey): TextChapter? {
+        return chapterCache.get(key)
+    }
+
+    /**
+     * 存入章节
+     */
+    fun putChapter(key: ChapterCacheKey, chapter: TextChapter) {
+        chapterCache.put(key, chapter)
+    }
+
+    /**
+     * 清空所有缓存
+     */
+    fun clear() {
+        pageCache.clear()
+        chapterCache.clear()
+    }
+
+    /**
+     * 清空指定书籍的缓存
+     */
+    fun clearBook(bookId: String) {
+        pageCache.clear()
+        chapterCache.clear()
+    }
+
+    /**
+     * 响应内存紧张
+     */
+    fun onTrimMemory(level: Int) {
+        when (level) {
+            // 完全释放
+            80 -> clear()
+            // 释放部分
+            60 -> {
+                // 保留最近使用的
+                val pageStats = pageCache.stats()
+                val chapterStats = chapterCache.stats()
+                if (pageStats.size > pageStats.maxSize / 2) {
+                    pageCache.clear()
+                }
+                if (chapterStats.size > chapterStats.maxSize / 2) {
+                    chapterCache.clear()
+                }
+            }
+        }
+    }
+
+    /**
+     * 获取缓存统计信息
+     */
+    fun stats(): CacheManagerStats {
+        return CacheManagerStats(
+            pageCacheStats = pageCache.stats(),
+            chapterCacheStats = chapterCache.stats(),
+        )
+    }
+}
+
+/**
+ * 缓存管理器统计信息
+ */
+data class CacheManagerStats(
+    val pageCacheStats: CacheStats,
+    val chapterCacheStats: CacheStats,
+)
+
+data class CacheLimits(
+    val pageCacheSize: Int,
+    val chapterCacheSize: Int,
+)

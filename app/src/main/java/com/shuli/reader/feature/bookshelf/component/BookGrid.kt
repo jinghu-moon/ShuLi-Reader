@@ -2,6 +2,7 @@ package com.shuli.reader.feature.bookshelf.component
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import com.shuli.reader.core.i18n.LocalAppStrings
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -55,6 +56,8 @@ fun BookGrid(
     onDelete: (Long) -> Unit,
     onShowInfo: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    unifiedCoverPaletteIndex: Int? = null,
+    onCustomizeCover: ((Long) -> Unit)? = null,
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
@@ -73,6 +76,8 @@ fun BookGrid(
                 onDelete = onDelete,
                 onShowInfo = onShowInfo,
                 onClick = { onBookClick(book.id) },
+                unifiedCoverPaletteIndex = unifiedCoverPaletteIndex,
+                onCustomizeCover = onCustomizeCover,
             )
         }
     }
@@ -89,7 +94,10 @@ private fun BookGridItem(
     onShowInfo: (Long) -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    unifiedCoverPaletteIndex: Int? = null,
+    onCustomizeCover: ((Long) -> Unit)? = null,
 ) {
+    val strings = LocalAppStrings.current
     var expanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
@@ -107,7 +115,7 @@ private fun BookGridItem(
             if (book.coverUrl != null) {
                 AsyncImage(
                     model = book.coverUrl,
-                    contentDescription = null,
+                    contentDescription = strings.coverImageDesc,
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(0.75f)
@@ -121,7 +129,8 @@ private fun BookGridItem(
                     fileType = book.fileType,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(0.75f)
+                        .aspectRatio(0.75f),
+                    paletteIndexOverride = unifiedCoverPaletteIndex ?: book.customCoverPaletteIndex,
                 )
             }
 
@@ -154,7 +163,7 @@ private fun BookGridItem(
         ) {
             Text(
                 text = if (book.readingProgress > 0f)
-                    "${(book.readingProgress * 100).toInt()}%" else "未读",
+                    "${(book.readingProgress * 100).toInt()}%" else strings.unreadLabel,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.secondary,
             )
@@ -190,6 +199,7 @@ private fun BookGridItem(
             onToggleFavorite = onToggleFavorite,
             onDelete = onDelete,
             onShowInfo = onShowInfo,
+            onCustomizeCover = onCustomizeCover,
         )
     }
 }

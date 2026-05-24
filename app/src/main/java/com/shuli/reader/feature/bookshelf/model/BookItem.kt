@@ -1,6 +1,7 @@
 package com.shuli.reader.feature.bookshelf.model
 
 import com.shuli.reader.core.database.entity.BookEntity
+import com.shuli.reader.core.database.entity.BookShelfRow
 
 enum class ViewMode { GRID, LIST }
 enum class SortOrder { LAST_READ, ADD_TIME, TITLE, FILE_SIZE, PROGRESS }
@@ -21,6 +22,7 @@ data class BookItem(
     val lastReadTime: Long?,
     val isFavorite: Boolean,
     val isRecent: Boolean,
+    val customCoverPaletteIndex: Int? = null,
 )
 
 data class BookshelfUiState(
@@ -35,6 +37,8 @@ data class BookshelfUiState(
     val todayReadingMinutes: Long = 0L,
     val isLoading: Boolean = true,
     val isEmpty: Boolean = false,
+    /** 全局统一封面色盘索引；null/-1 表示走自动散列（每本独立色盘）。 */
+    val unifiedCoverPaletteIndex: Int? = null,
 )
 
 fun Long.toReadableDuration(): String {
@@ -57,26 +61,74 @@ fun Long.toFormattedFileSize(): String {
 }
 
 fun BookEntity.toBookItem(readingDurationMinutes: Long = 0): BookItem {
-    val fileType = when {
-        filePath.endsWith(".txt", ignoreCase = true) -> FileType.TXT
+    return toBookItem(
+        id = id,
+        author = author,
+        coverUrl = coverPath,
+        filePath = filePath,
+        rawFileType = fileType,
+        fileSize = fileSize,
+        readingProgress = readingProgress,
+        readingDurationMinutes = readingDurationMinutes,
+        lastReadTime = lastReadTime,
+        isFavorite = isFavorite,
+        customCoverPaletteIndex = customCoverPaletteIndex,
+    )
+}
+
+fun BookShelfRow.toBookItem(readingDurationMinutes: Long = 0): BookItem {
+    return toBookItem(
+        id = id,
+        author = author,
+        coverUrl = coverPath,
+        filePath = filePath,
+        rawFileType = fileType,
+        fileSize = fileSize,
+        readingProgress = readingProgress,
+        readingDurationMinutes = readingDurationMinutes,
+        lastReadTime = lastReadTime,
+        isFavorite = isFavorite,
+        customCoverPaletteIndex = customCoverPaletteIndex,
+    )
+}
+
+private fun toBookItem(
+    id: Long,
+    author: String?,
+    coverUrl: String?,
+    filePath: String,
+    rawFileType: String,
+    fileSize: Long,
+    readingProgress: Float,
+    readingDurationMinutes: Long,
+    lastReadTime: Long?,
+    isFavorite: Boolean,
+    customCoverPaletteIndex: Int?,
+): BookItem {
+    val type = when {
+        rawFileType.equals("EPUB", ignoreCase = true) -> FileType.EPUB
+        rawFileType.equals("TXT", ignoreCase = true) -> FileType.TXT
         filePath.endsWith(".epub", ignoreCase = true) -> FileType.EPUB
+        filePath.endsWith(".txt", ignoreCase = true) -> FileType.TXT
         else -> FileType.TXT
     }
-    // 使用文件名作为标题（去掉扩展名）
     val displayTitle = java.io.File(filePath).nameWithoutExtension
     return BookItem(
         id = id,
         title = displayTitle,
         author = author,
-        coverUrl = coverPath,
+        coverUrl = coverUrl,
         filePath = filePath,
-        fileType = fileType,
+        fileType = type,
         fileSize = fileSize.toFormattedFileSize(),
         readingProgress = readingProgress,
         readingDuration = readingDurationMinutes.toReadableDuration(),
         readingDurationMinutes = readingDurationMinutes,
         lastReadTime = lastReadTime,
-        isFavorite = false,
-        isRecent = lastReadTime != null && (System.currentTimeMillis() - lastReadTime) < 7 * 24 * 60 * 60 * 1000,
+        isFavorite = isFavorite,
+        isRecent = lastReadTime != null && (System.currentTimeMillis() - lastReadTime) < RECENT_WINDOW_MS,
+        customCoverPaletteIndex = customCoverPaletteIndex,
     )
 }
+
+private const val RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000L

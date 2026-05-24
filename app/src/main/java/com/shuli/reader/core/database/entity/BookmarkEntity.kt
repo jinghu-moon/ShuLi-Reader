@@ -25,4 +25,9 @@ data class BookmarkEntity(
     val position: Int,
     val title: String?,
     val createdTime: Long,
+    // 章节级定位（权威位置）
+    val chapterIndex: Int = 0,
+    val chapterPos: Int = 0,
+    val chapterName: String? = null,
+    val selectedText: String? = null,
 )

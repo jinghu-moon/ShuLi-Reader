@@ -4,8 +4,12 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import com.shuli.reader.core.repository.BookAlreadyExistsException
 import com.shuli.reader.core.repository.BookRepository
+import com.shuli.reader.core.repository.ImportConfig
+import com.shuli.reader.core.repository.ImportResult
+import com.shuli.reader.core.database.entity.BookShelfRow
 import com.shuli.reader.feature.bookshelf.model.BookItem
 import com.shuli.reader.feature.bookshelf.model.BookshelfUiState
 import com.shuli.reader.feature.bookshelf.model.FilterType
@@ -22,15 +26,24 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class BookshelfViewModel(
     private val bookRepository: BookRepository,
+    private val userPreferences: com.shuli.reader.core.data.UserPreferences? = null,
 ) : ViewModel() {
+
+    companion object {
+        const val INITIAL_PAGE_SIZE = 100
+    }
 
     private val _viewMode = MutableStateFlow(ViewMode.GRID)
     private val _sortOrder = MutableStateFlow(SortOrder.LAST_READ)
@@ -42,8 +55,27 @@ class BookshelfViewModel(
     private val _events = MutableSharedFlow<BookshelfEvent>()
     val events = _events.asSharedFlow()
 
+    /** 解析 UserPreferences.unifiedCoverPalette："auto" → null（自动散列）；数字字符串 → Int 索引。 */
+    private val unifiedCoverPaletteFlow: kotlinx.coroutines.flow.Flow<Int?> =
+        userPreferences?.unifiedCoverPalette?.map { value ->
+            if (value == com.shuli.reader.core.data.COVER_PALETTE_AUTO) null
+            else value.toIntOrNull()?.takeIf { it in 0..19 }
+        } ?: flowOf(null)
+
+    private val booksFlow = combine(_isSearching, _searchQuery) { isSearching, query ->
+        isSearching to query.trim()
+    }
+        .distinctUntilChanged()
+        .flatMapLatest { (isSearching, query) ->
+            when {
+                isSearching && query.isBlank() -> flowOf(emptyList())
+                isSearching -> bookRepository.searchBooksPage(query, INITIAL_PAGE_SIZE, 0)
+                else -> bookRepository.getBookshelfPage(INITIAL_PAGE_SIZE, 0)
+            }
+        }
+
     val uiState: StateFlow<BookshelfUiState> = combine(
-        bookRepository.getAllBooks(),
+        booksFlow,
         bookRepository.getReadingDurations(),
         bookRepository.getTodayReadingTime(),
         _viewMode,
@@ -52,6 +84,7 @@ class BookshelfViewModel(
         _isAscending,
         _searchQuery,
         _isSearching,
+        unifiedCoverPaletteFlow,
     ) { values ->
         val books = values[0] as List<*>
         val durations = values[1] as Map<*, *>
@@ -62,28 +95,21 @@ class BookshelfViewModel(
         val isAscending = values[6] as Boolean
         val searchQuery = values[7] as String
         val isSearching = values[8] as Boolean
+        val unifiedPalette = values[9] as Int?
 
         @Suppress("UNCHECKED_CAST")
-        val bookEntities = books as List<com.shuli.reader.core.database.entity.BookEntity>
+        val bookRows = books as List<BookShelfRow>
 
         @Suppress("UNCHECKED_CAST")
         val durationMap = durations as Map<Long, Long>
 
-        val bookItems = bookEntities.map { entity ->
-            val duration = durationMap[entity.id] ?: 0L
-            entity.toBookItem(duration)
+        val bookItems = bookRows.map { row ->
+            val duration = durationMap[row.id] ?: 0L
+            row.toBookItem(duration)
         }
 
         val filtered = bookItems.applyFilter(filterType)
-        val searched = if (isSearching) {
-            if (searchQuery.isNotBlank()) {
-                filtered.filter { it.title.contains(searchQuery, ignoreCase = true) }
-            } else {
-                emptyList()
-            }
-        } else {
-            filtered
-        }
+        val searched = if (isSearching && searchQuery.isBlank()) emptyList() else filtered
         val sorted = searched.applySorting(sortOrder, isAscending)
 
         BookshelfUiState(
@@ -98,6 +124,7 @@ class BookshelfViewModel(
             todayReadingMinutes = todayTime ?: 0L,
             isLoading = false,
             isEmpty = sorted.isEmpty(),
+            unifiedCoverPaletteIndex = unifiedPalette,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -141,7 +168,8 @@ class BookshelfViewModel(
 
     fun onToggleFavorite(bookId: Long) {
         viewModelScope.launch {
-            // TODO: 实现收藏功能
+            bookRepository.toggleFavorite(bookId)
+            _events.emit(BookshelfEvent.ShowMessage { it.favoriteToggled })
         }
     }
 
@@ -152,9 +180,16 @@ class BookshelfViewModel(
         }
     }
 
+    /** 为单本书指定自定义封面色盘索引（0..19）；传 null 恢复自动散列。 */
+    fun setBookCoverPalette(bookId: Long, paletteIndex: Int?) {
+        viewModelScope.launch {
+            bookRepository.setCustomCoverPaletteIndex(bookId, paletteIndex)
+        }
+    }
+
     private suspend fun importSingleBook(context: Context, uri: Uri) = withContext(Dispatchers.IO) {
         val inputStream = context.contentResolver.openInputStream(uri)
-            ?: throw IllegalStateException("无法读取文件")
+            ?: throw UnableToReadFileException()
 
         val fileName = getFileName(context, uri)
         val tempFile = File(context.cacheDir, fileName)
@@ -175,10 +210,10 @@ class BookshelfViewModel(
                 importSingleBook(context, uri)
                 _events.emit(BookshelfEvent.ShowMessage { it.importSuccess })
             } catch (e: BookAlreadyExistsException) {
-                _events.emit(BookshelfEvent.ShowMessage { strings -> e.message ?: strings.bookAlreadyInShelf })
+                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.bookAlreadyInShelf })
                 _events.emit(BookshelfEvent.HighlightBook(e.bookId))
             } catch (e: Exception) {
-                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.importFailed(e.message ?: "") })
+                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.importFailed(e.toImportErrorMessage(strings)) })
             }
         }
     }
@@ -203,19 +238,54 @@ class BookshelfViewModel(
                         failCount++
                     }
                 }
-                val message: (AppStrings) -> String = when {
-                    failCount == 0 && skippedCount == 0 -> { strings -> strings.importSuccessCount(successCount) }
-                    failCount == 0 && skippedCount > 0 -> { strings -> strings.importSuccessWithSkipped(successCount, skippedCount) }
-                    failCount > 0 && skippedCount == 0 -> { strings -> strings.importSuccessWithFailed(successCount, failCount) }
-                    else -> { strings -> strings.importSuccessWithBoth(successCount, skippedCount, failCount) }
-                }
-                _events.emit(BookshelfEvent.ShowMessage(message))
-                if (firstDuplicateId != null) {
-                    _events.emit(BookshelfEvent.HighlightBook(firstDuplicateId))
-                }
+                val result = ImportResult(
+                    successCount = successCount,
+                    skippedCount = skippedCount,
+                    failedCount = failCount,
+                    firstDuplicateBookId = firstDuplicateId,
+                )
+                showImportResult(result)
             } catch (e: Exception) {
-                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.importFailed(e.message ?: "") })
+                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.importFailed(e.toImportErrorMessage(strings)) })
             }
+        }
+    }
+
+    fun onImportFolder(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val folder = java.io.File(uri.path ?: throw InvalidFolderPathException())
+                if (!folder.isDirectory) {
+                    _events.emit(BookshelfEvent.ShowMessage { it.importFailed(it.invalidFolder) })
+                    return@launch
+                }
+
+                val config = ImportConfig()
+                val files = bookRepository.scanFolderForBooks(folder, config)
+
+                if (files.isEmpty()) {
+                    _events.emit(BookshelfEvent.ShowMessage { it.importFailed(it.noImportableFiles) })
+                    return@launch
+                }
+
+                val result = bookRepository.importBooks(files, config)
+                showImportResult(result)
+            } catch (e: Exception) {
+                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.importFailed(e.toImportErrorMessage(strings)) })
+            }
+        }
+    }
+
+    private suspend fun showImportResult(result: ImportResult) {
+        val message: (AppStrings) -> String = when {
+            result.isAllSuccess -> { strings -> strings.importSuccessCount(result.successCount) }
+            result.hasSkipped && !result.hasFailed -> { strings -> strings.importSuccessWithSkipped(result.successCount, result.skippedCount) }
+            result.hasFailed && !result.hasSkipped -> { strings -> strings.importSuccessWithFailed(result.successCount, result.failedCount) }
+            else -> { strings -> strings.importSuccessWithBoth(result.successCount, result.skippedCount, result.failedCount) }
+        }
+        _events.emit(BookshelfEvent.ShowMessage(message))
+        result.firstDuplicateBookId?.let {
+            _events.emit(BookshelfEvent.HighlightBook(it))
         }
     }
 
@@ -266,4 +336,15 @@ sealed class BookshelfEvent {
     data class NavigateToReader(val bookId: Long) : BookshelfEvent()
     data class ShowMessage(val message: (AppStrings) -> String) : BookshelfEvent()
     data class HighlightBook(val bookId: Long) : BookshelfEvent()
+}
+
+private class UnableToReadFileException : IllegalStateException()
+private class InvalidFolderPathException : IllegalArgumentException()
+
+private fun Throwable.toImportErrorMessage(strings: AppStrings): String {
+    return when (this) {
+        is UnableToReadFileException -> strings.unableToReadFile
+        is InvalidFolderPathException -> strings.invalidFolderPath
+        else -> message.orEmpty()
+    }
 }

@@ -21,19 +21,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
+import androidx.compose.material.icons.automirrored.outlined.ShowChart
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FontDownload
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.ShowChart
 import androidx.compose.material.icons.outlined.Sync
-import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -67,6 +67,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -76,6 +77,14 @@ import com.shuli.reader.core.data.PageAnimConst
 import com.shuli.reader.core.data.PageTurnDirConst
 import com.shuli.reader.core.data.SyncMethodConst
 import com.shuli.reader.core.i18n.LocalAppStrings
+import com.shuli.reader.ui.theme.AppBackground
+import com.shuli.reader.ui.theme.AppDarkBackground
+import com.shuli.reader.ui.theme.AppDarkPrimary
+import com.shuli.reader.ui.theme.AppDarkTextPrimary
+import com.shuli.reader.ui.theme.AppPrimary
+import com.shuli.reader.ui.theme.AppTextPrimary
+import com.shuli.reader.ui.theme.ReaderPaperColorScheme
+import com.shuli.reader.ui.testing.UiTestTags
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,7 +113,7 @@ fun SettingsScreen(
         viewModel.events.collect { event ->
             when (event) {
                 is SettingsEvent.ShowMessage -> {
-                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, event.message(strings), Toast.LENGTH_SHORT).show()
                 }
                 else -> {}
             }
@@ -116,13 +125,16 @@ fun SettingsScreen(
             TopAppBar(
                 title = { Text(strings.settings, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
+                    IconButton(
+                        onClick = onBackClick,
+                        modifier = Modifier.testTag(UiTestTags.SETTINGS_BACK_BUTTON),
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
                     }
                 }
             )
         },
-        modifier = modifier
+        modifier = modifier.testTag(UiTestTags.SETTINGS_SCREEN)
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -176,12 +188,16 @@ fun SettingsScreen(
                                 ) {
                                     // 显示当前选中主题 of 3 点调色盘预览
                                     when (uiState.themeMode) {
-                                        "light" -> ThemePreviewDots(primary = Color(0xFF0070F3), background = Color(0xFFFFFFFF), text = Color(0xFF000000))
-                                        "dark" -> ThemePreviewDots(primary = Color(0xFF0070F3), background = Color(0xFF000000), text = Color(0xFFFFFFFF))
-                                        "paper" -> ThemePreviewDots(primary = Color(0xFF8C6239), background = Color(0xFFF4ECD8), text = Color(0xFF2B2B2B))
+                                        "light" -> ThemePreviewDots(primary = AppPrimary, background = AppBackground, text = AppTextPrimary)
+                                        "dark" -> ThemePreviewDots(primary = AppDarkPrimary, background = AppDarkBackground, text = AppDarkTextPrimary)
+                                        "paper" -> ThemePreviewDots(
+                                            primary = ReaderPaperColorScheme.accent,
+                                            background = ReaderPaperColorScheme.background,
+                                            text = ReaderPaperColorScheme.textPrimary,
+                                        )
                                         else -> {
                                             // 跟随系统，并排渲染亮和暗的小色盘
-                                            ThemePreviewDots(primary = Color(0xFF0070F3), background = Color(0xFFFFFFFF), text = Color(0xFF000000))
+                                            ThemePreviewDots(primary = AppPrimary, background = AppBackground, text = AppTextPrimary)
                                         }
                                     }
                                 }
@@ -242,6 +258,40 @@ fun SettingsScreen(
                             onClick = { showPageAnimDialog = true }
                         )
 
+                        // 段间距
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(strings.paragraphSpacing, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text(String.format("%.1f em", uiState.defaultParagraphSpacing), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                            }
+                            Slider(
+                                value = uiState.defaultParagraphSpacing,
+                                onValueChange = { viewModel.updateDefaultParagraphSpacing(it) },
+                                valueRange = 0.5f..3.0f,
+                                steps = 24
+                            )
+                        }
+
+                        // 首行缩进
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(strings.firstLineIndent, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text(String.format("%.1f em", uiState.defaultIndent), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                            }
+                            Slider(
+                                value = uiState.defaultIndent,
+                                onValueChange = { viewModel.updateDefaultIndent(it) },
+                                valueRange = 0f..4f,
+                                steps = 31
+                            )
+                        }
+
                         // 翻页方向
                         val pageTurnDirText = when (uiState.pageTurnDir) {
                             PageTurnDirConst.HORIZONTAL -> strings.pageTurnHorizontal
@@ -253,13 +303,49 @@ fun SettingsScreen(
                             subtitle = pageTurnDirText,
                             onClick = { showPageDirDialog = true }
                         )
+
+                        // 全屏模式
+                        SettingsSwitchItem(
+                            title = strings.fullScreenMode,
+                            checked = uiState.fullScreen,
+                            onCheckedChange = { viewModel.updateFullScreen(it) }
+                        )
+
+                        // 屏幕常亮
+                        SettingsSwitchItem(
+                            title = strings.keepScreenOn,
+                            checked = uiState.keepScreenOn,
+                            onCheckedChange = { viewModel.updateKeepScreenOn(it) }
+                        )
+
+                        // 亮度调节
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(strings.brightness, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    if (uiState.brightness < 0) strings.brightnessFollowSystem
+                                    else "${(uiState.brightness * 100).toInt()}%",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Slider(
+                                value = if (uiState.brightness < 0) 0.5f else uiState.brightness,
+                                onValueChange = { viewModel.updateBrightness(it) },
+                                valueRange = 0f..1f,
+                                steps = 19
+                            )
+                        }
                     }
                 }
             }
 
             // ================= 书库与导入设置 =================
             item {
-                SettingsSectionHeader(title = strings.libraryImportSettings, icon = Icons.Outlined.LibraryBooks)
+                SettingsSectionHeader(title = strings.libraryImportSettings, icon = Icons.AutoMirrored.Outlined.LibraryBooks)
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column {
                         SettingsSwitchItem(
@@ -274,6 +360,29 @@ fun SettingsScreen(
                             checked = uiState.importCopyFile,
                             onCheckedChange = { viewModel.updateImportCopyFile(it) }
                         )
+                        val unifiedPalette by viewModel.unifiedCoverPaletteFlow
+                            .collectAsState(initial = com.shuli.reader.core.data.COVER_PALETTE_AUTO)
+                        val currentPaletteIndex = if (unifiedPalette == com.shuli.reader.core.data.COVER_PALETTE_AUTO) null
+                            else unifiedPalette.toIntOrNull()?.takeIf { it in 0..19 }
+                        var showCoverPaletteDialog by remember { mutableStateOf(false) }
+                        SettingsClickItem(
+                            title = strings.unifiedCoverColor,
+                            subtitle = if (currentPaletteIndex == null) strings.unifiedCoverColorAuto
+                                else strings.unifiedCoverColorActive(currentPaletteIndex + 1),
+                            onClick = { showCoverPaletteDialog = true }
+                        )
+                        if (showCoverPaletteDialog) {
+                            com.shuli.reader.feature.bookshelf.component.CoverColorPickerDialog(
+                                currentIndex = currentPaletteIndex,
+                                onSelected = { idx ->
+                                    viewModel.setUnifiedCoverPalette(
+                                        idx?.toString() ?: com.shuli.reader.core.data.COVER_PALETTE_AUTO
+                                    )
+                                    showCoverPaletteDialog = false
+                                },
+                                onDismiss = { showCoverPaletteDialog = false }
+                            )
+                        }
                         SettingsButtonItem(
                             title = strings.clearTempCache,
                             subtitle = strings.clearTempCacheDesc,
@@ -288,7 +397,7 @@ fun SettingsScreen(
 
             // ================= 阅读统计 =================
             item {
-                SettingsSectionHeader(title = strings.readingStats, icon = Icons.Outlined.ShowChart)
+                SettingsSectionHeader(title = strings.readingStats, icon = Icons.AutoMirrored.Outlined.ShowChart)
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column(modifier = Modifier.padding(vertical = 8.dp)) {
                         SettingsSwitchItem(
@@ -305,7 +414,7 @@ fun SettingsScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(strings.statsDailyTarget, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                    Text("${uiState.readingDailyTarget} 分钟 / Min", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                                    Text(strings.readingTargetMinutes(uiState.readingDailyTarget), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                                 }
                                 Slider(
                                     value = uiState.readingDailyTarget.toFloat(),
@@ -368,7 +477,7 @@ fun SettingsScreen(
 
             // ================= 朗读设置 =================
             item {
-                SettingsSectionHeader(title = strings.ttsSettings, icon = Icons.Outlined.VolumeUp)
+                SettingsSectionHeader(title = strings.ttsSettings, icon = Icons.AutoMirrored.Outlined.VolumeUp)
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column(modifier = Modifier.padding(vertical = 8.dp)) {
                         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {

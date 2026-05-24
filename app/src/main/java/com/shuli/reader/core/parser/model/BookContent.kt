@@ -6,7 +6,7 @@ data class BookContent(
     val encoding: String,
     val totalLength: Long,
     val chapters: List<Chapter>,
-    val content: String,
+    val content: String = "",
 )
 
 data class Chapter(

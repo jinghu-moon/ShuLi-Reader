@@ -28,6 +28,9 @@ object SyncMethodConst {
     const val WEBDAV = "webdav"
 }
 
+/** 统一封面颜色模式：[COVER_PALETTE_AUTO] 走自动散列；其他取值是 "0".."19" 强制使用对应色盘索引。 */
+const val COVER_PALETTE_AUTO = "auto"
+
 class UserPreferences(
     private val dataStore: DataStore<Preferences>
 ) {
@@ -40,12 +43,21 @@ class UserPreferences(
         // 阅读器偏好
         val KEY_DEFAULT_FONT_SIZE = floatPreferencesKey("default_font_size")
         val KEY_DEFAULT_LINE_SPACING = floatPreferencesKey("default_line_spacing")
+        val KEY_DEFAULT_PARAGRAPH_SPACING = floatPreferencesKey("default_paragraph_spacing")
+        val KEY_DEFAULT_INDENT = floatPreferencesKey("default_indent")
         val KEY_DEFAULT_PAGE_ANIM = stringPreferencesKey("default_page_anim")
         val KEY_PAGE_TURN_DIR = stringPreferencesKey("page_turn_dir")
+        val KEY_FULL_SCREEN = booleanPreferencesKey("full_screen")
+        val KEY_KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
+        val KEY_BRIGHTNESS = floatPreferencesKey("brightness")
+        val KEY_MARGIN_HORIZONTAL = floatPreferencesKey("margin_horizontal")
+        val KEY_MARGIN_VERTICAL = floatPreferencesKey("margin_vertical")
+        val KEY_READING_FONT = stringPreferencesKey("reading_font")
 
         // 书库与导入
         val KEY_DUPLICATE_CHECK = booleanPreferencesKey("duplicate_check_enabled")
         val KEY_IMPORT_COPY = booleanPreferencesKey("import_copy_file")
+        val KEY_UNIFIED_COVER_PALETTE = stringPreferencesKey("unified_cover_palette")
 
         // 阅读统计
         val KEY_READING_TIME_ENABLED = booleanPreferencesKey("reading_time_enabled")
@@ -75,11 +87,20 @@ class UserPreferences(
 
     val defaultFontSize: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_FONT_SIZE] ?: 16f }
     val defaultLineSpacing: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_LINE_SPACING] ?: 1.5f }
+    val defaultParagraphSpacing: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_PARAGRAPH_SPACING] ?: 1.0f }
+    val defaultIndent: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_INDENT] ?: 2.0f }
     val defaultPageAnim: Flow<String> = dataStore.data.map { it[KEY_DEFAULT_PAGE_ANIM] ?: PageAnimConst.OVERLAY }
     val pageTurnDir: Flow<String> = dataStore.data.map { it[KEY_PAGE_TURN_DIR] ?: PageTurnDirConst.HORIZONTAL }
+    val fullScreen: Flow<Boolean> = dataStore.data.map { it[KEY_FULL_SCREEN] ?: false }
+    val keepScreenOn: Flow<Boolean> = dataStore.data.map { it[KEY_KEEP_SCREEN_ON] ?: false }
+    val brightness: Flow<Float> = dataStore.data.map { it[KEY_BRIGHTNESS] ?: -1f } // -1 表示跟随系统
+    val marginHorizontal: Flow<Float> = dataStore.data.map { it[KEY_MARGIN_HORIZONTAL] ?: 24f }
+    val marginVertical: Flow<Float> = dataStore.data.map { it[KEY_MARGIN_VERTICAL] ?: 48f }
+    val readingFont: Flow<String> = dataStore.data.map { it[KEY_READING_FONT] ?: "system" }
 
     val duplicateCheckEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_DUPLICATE_CHECK] ?: true }
     val importCopyFile: Flow<Boolean> = dataStore.data.map { it[KEY_IMPORT_COPY] ?: true }
+    val unifiedCoverPalette: Flow<String> = dataStore.data.map { it[KEY_UNIFIED_COVER_PALETTE] ?: COVER_PALETTE_AUTO }
 
     val readingTimeEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_READING_TIME_ENABLED] ?: true }
     val readingDailyTarget: Flow<Int> = dataStore.data.map { it[KEY_READING_DAILY_TARGET] ?: 30 }
@@ -104,11 +125,20 @@ class UserPreferences(
 
     suspend fun setDefaultFontSize(value: Float) = dataStore.edit { it[KEY_DEFAULT_FONT_SIZE] = value }
     suspend fun setDefaultLineSpacing(value: Float) = dataStore.edit { it[KEY_DEFAULT_LINE_SPACING] = value }
+    suspend fun setDefaultParagraphSpacing(value: Float) = dataStore.edit { it[KEY_DEFAULT_PARAGRAPH_SPACING] = value }
+    suspend fun setDefaultIndent(value: Float) = dataStore.edit { it[KEY_DEFAULT_INDENT] = value }
     suspend fun setDefaultPageAnim(value: String) = dataStore.edit { it[KEY_DEFAULT_PAGE_ANIM] = value }
     suspend fun setPageTurnDir(value: String) = dataStore.edit { it[KEY_PAGE_TURN_DIR] = value }
+    suspend fun setFullScreen(value: Boolean) = dataStore.edit { it[KEY_FULL_SCREEN] = value }
+    suspend fun setKeepScreenOn(value: Boolean) = dataStore.edit { it[KEY_KEEP_SCREEN_ON] = value }
+    suspend fun setBrightness(value: Float) = dataStore.edit { it[KEY_BRIGHTNESS] = value }
+    suspend fun setMarginHorizontal(value: Float) = dataStore.edit { it[KEY_MARGIN_HORIZONTAL] = value }
+    suspend fun setMarginVertical(value: Float) = dataStore.edit { it[KEY_MARGIN_VERTICAL] = value }
+    suspend fun setReadingFont(value: String) = dataStore.edit { it[KEY_READING_FONT] = value }
 
     suspend fun setDuplicateCheckEnabled(value: Boolean) = dataStore.edit { it[KEY_DUPLICATE_CHECK] = value }
     suspend fun setImportCopyFile(value: Boolean) = dataStore.edit { it[KEY_IMPORT_COPY] = value }
+    suspend fun setUnifiedCoverPalette(value: String) = dataStore.edit { it[KEY_UNIFIED_COVER_PALETTE] = value }
 
     suspend fun setReadingTimeEnabled(value: Boolean) = dataStore.edit { it[KEY_READING_TIME_ENABLED] = value }
     suspend fun setReadingDailyTarget(value: Int) = dataStore.edit { it[KEY_READING_DAILY_TARGET] = value }

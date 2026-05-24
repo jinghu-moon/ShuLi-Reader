@@ -26,4 +26,8 @@ data class NoteEntity(
     val content: String?,
     val color: String?,
     val createdTime: Long,
+    // 章节级定位
+    val chapterIndex: Int = 0,
+    val chapterStartPos: Int = 0,
+    val chapterEndPos: Int = 0,
 )

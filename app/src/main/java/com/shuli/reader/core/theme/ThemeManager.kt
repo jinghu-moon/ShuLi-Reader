@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.shuli.reader.core.data.ReaderTheme as ReaderThemeId
+import com.shuli.reader.ui.theme.ReaderColorScheme
+import com.shuli.reader.ui.theme.toReaderColorScheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -27,54 +30,46 @@ class ThemeManager(
     val currentTheme: StateFlow<ReaderTheme> = _currentTheme
 
     companion object {
-        // Geist 风格暗色主题
-        val DarkTheme = ReaderTheme(
+        private fun ReaderThemeId.toLegacyTheme(id: String, name: String): ReaderTheme {
+            return toReaderColorScheme().toLegacyTheme(id = id, name = name)
+        }
+
+        private fun ReaderColorScheme.toLegacyTheme(id: String, name: String): ReaderTheme {
+            return ReaderTheme(
+                id = id,
+                name = name,
+                background = background,
+                textColor = textPrimary,
+                secondaryTextColor = textSecondary,
+                accentColor = accent,
+                borderColor = divider,
+            )
+        }
+
+        val DarkTheme = ReaderThemeId.DARK.toLegacyTheme(
             id = "dark",
-            name = "暗色",
-            background = Color(0xFF080808),
-            textColor = Color(0xFFF5F5F5),
-            secondaryTextColor = Color(0xFFA1A1AA),
-            accentColor = Color(0xFF4F8CFF),
-            borderColor = Color(0x14FFFFFF),
+            name = "Dark",
         )
 
-        // Geist 风格亮色主题
-        val LightTheme = ReaderTheme(
+        val LightTheme = ReaderThemeId.LIGHT.toLegacyTheme(
             id = "light",
-            name = "亮色",
-            background = Color(0xFFFAFAFA),
-            textColor = Color(0xFF0A0A0A),
-            secondaryTextColor = Color(0xFF71717A),
-            accentColor = Color(0xFF3B82F6),
-            borderColor = Color(0x14000000),
+            name = "Light",
         )
 
-        // 纸质阅读主题
-        val PaperTheme = ReaderTheme(
+        val PaperTheme = ReaderThemeId.PAPER.toLegacyTheme(
             id = "paper",
-            name = "纸质",
-            background = Color(0xFFF5EDE0),
-            textColor = Color(0xFF3A3028),
-            secondaryTextColor = Color(0xFF8B7D6B),
-            accentColor = Color(0xFFD97706),
-            borderColor = Color(0x24000000),
+            name = "Paper",
         )
 
-        // 沉浸式暗色主题 (适合阅读)
-        val ImmersiveDarkTheme = ReaderTheme(
-            id = "immersive_dark",
-            name = "沉浸暗色",
-            background = Color(0xFF000000),
-            textColor = Color(0xFFE5E5E5),
-            secondaryTextColor = Color(0xFF737373),
-            accentColor = Color(0xFF4F8CFF),
-            borderColor = Color(0x0FFFFFFF),
+        val OledTheme = ReaderThemeId.OLED.toLegacyTheme(
+            id = "oled",
+            name = "OLED",
         )
 
-        val BUILTIN_THEMES = listOf(DarkTheme, LightTheme, PaperTheme, ImmersiveDarkTheme)
+        val BUILTIN_THEMES = listOf(PaperTheme, LightTheme, DarkTheme, OledTheme)
     }
 
-    private fun getDefaultTheme(): ReaderTheme = DarkTheme
+    private fun getDefaultTheme(): ReaderTheme = PaperTheme
 
     fun setTheme(theme: ReaderTheme) {
         _currentTheme.value = theme

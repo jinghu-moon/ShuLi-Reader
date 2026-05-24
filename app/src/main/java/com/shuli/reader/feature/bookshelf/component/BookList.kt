@@ -2,6 +2,7 @@ package com.shuli.reader.feature.bookshelf.component
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import com.shuli.reader.core.i18n.LocalAppStrings
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.lazy.LazyListState
@@ -51,6 +52,8 @@ fun BookList(
     onDelete: (Long) -> Unit,
     onShowInfo: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    unifiedCoverPaletteIndex: Int? = null,
+    onCustomizeCover: ((Long) -> Unit)? = null,
 ) {
     LazyColumn(
         state = listState,
@@ -65,6 +68,8 @@ fun BookList(
                 onDelete = onDelete,
                 onShowInfo = onShowInfo,
                 onClick = { onBookClick(book.id) },
+                unifiedCoverPaletteIndex = unifiedCoverPaletteIndex,
+                onCustomizeCover = onCustomizeCover,
             )
             if (book != books.last()) {
                 HorizontalDivider(
@@ -87,7 +92,10 @@ private fun BookListItem(
     onShowInfo: (Long) -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    unifiedCoverPaletteIndex: Int? = null,
+    onCustomizeCover: ((Long) -> Unit)? = null,
 ) {
+    val strings = LocalAppStrings.current
     var expanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
@@ -101,7 +109,7 @@ private fun BookListItem(
         if (book.coverUrl != null) {
             AsyncImage(
                 model = book.coverUrl,
-                contentDescription = null,
+                contentDescription = strings.coverImageDesc,
                 modifier = Modifier
                     .width(48.dp)
                     .height(64.dp)
@@ -116,7 +124,8 @@ private fun BookListItem(
                 modifier = Modifier
                     .width(48.dp)
                     .height(64.dp),
-                isSmall = true
+                isSmall = true,
+                paletteIndexOverride = unifiedCoverPaletteIndex ?: book.customCoverPaletteIndex,
             )
         }
 
@@ -142,7 +151,7 @@ private fun BookListItem(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = if (book.readingProgress > 0f)
-                        "已读 ${(book.readingProgress * 100).toInt()}%" else "未开始",
+                        strings.readProgress((book.readingProgress * 100).toInt()) else strings.notStartedLabel,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -159,7 +168,7 @@ private fun BookListItem(
         if (book.isFavorite) {
             Icon(
                 imageVector = Icons.Filled.Star,
-                contentDescription = "已收藏",
+                contentDescription = strings.favoritedDesc,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(18.dp),
             )
@@ -188,6 +197,7 @@ private fun BookListItem(
             onToggleFavorite = onToggleFavorite,
             onDelete = onDelete,
             onShowInfo = onShowInfo,
+            onCustomizeCover = onCustomizeCover,
         )
     }
 }

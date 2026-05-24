@@ -2,7 +2,11 @@ package com.shuli.reader.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.shuli.reader.core.data.PageAnimConst
+import com.shuli.reader.core.data.PageTurnDirConst
+import com.shuli.reader.core.data.SyncMethodConst
 import com.shuli.reader.core.data.UserPreferences
+import com.shuli.reader.core.i18n.AppStrings
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,13 +22,18 @@ data class SettingsUiState(
     val appFont: String = "lxgw",
     val defaultFontSize: Float = 16f,
     val defaultLineSpacing: Float = 1.5f,
-    val defaultPageAnim: String = "覆盖",
-    val pageTurnDir: String = "左右滑动",
+    val defaultParagraphSpacing: Float = 1.0f,
+    val defaultIndent: Float = 2.0f,
+    val defaultPageAnim: String = PageAnimConst.OVERLAY,
+    val pageTurnDir: String = PageTurnDirConst.HORIZONTAL,
+    val fullScreen: Boolean = false,
+    val keepScreenOn: Boolean = false,
+    val brightness: Float = -1f,
     val duplicateCheckEnabled: Boolean = true,
     val importCopyFile: Boolean = true,
     val readingTimeEnabled: Boolean = true,
     val readingDailyTarget: Int = 30,
-    val syncMethod: String = "本地备份",
+    val syncMethod: String = SyncMethodConst.LOCAL,
     val webdavUrl: String = "",
     val webdavUser: String = "",
     val webdavPassword: String = "",
@@ -38,7 +47,7 @@ data class SettingsUiState(
 
 sealed interface SettingsEvent {
     data object Recreate : SettingsEvent
-    data class ShowMessage(val message: String) : SettingsEvent
+    data class ShowMessage(val message: (AppStrings) -> String) : SettingsEvent
 }
 
 class SettingsViewModel(
@@ -49,14 +58,19 @@ class SettingsViewModel(
     val events: SharedFlow<SettingsEvent> = _events.asSharedFlow()
 
     // 组合全部设置项流
-    val uiState: StateFlow<SettingsUiState> = combine(
+    val uiState: StateFlow<SettingsUiState> = combine<Any, SettingsUiState>(
         userPreferences.language,
         userPreferences.themeMode,
         userPreferences.appFont,
         userPreferences.defaultFontSize,
         userPreferences.defaultLineSpacing,
+        userPreferences.defaultParagraphSpacing,
+        userPreferences.defaultIndent,
         userPreferences.defaultPageAnim,
         userPreferences.pageTurnDir,
+        userPreferences.fullScreen,
+        userPreferences.keepScreenOn,
+        userPreferences.brightness,
         userPreferences.duplicateCheckEnabled,
         userPreferences.importCopyFile,
         userPreferences.readingTimeEnabled,
@@ -78,22 +92,27 @@ class SettingsViewModel(
             appFont = arr[2] as String,
             defaultFontSize = arr[3] as Float,
             defaultLineSpacing = arr[4] as Float,
-            defaultPageAnim = arr[5] as String,
-            pageTurnDir = arr[6] as String,
-            duplicateCheckEnabled = arr[7] as Boolean,
-            importCopyFile = arr[8] as Boolean,
-            readingTimeEnabled = arr[9] as Boolean,
-            readingDailyTarget = arr[10] as Int,
-            syncMethod = arr[11] as String,
-            webdavUrl = arr[12] as String,
-            webdavUser = arr[13] as String,
-            webdavPassword = arr[14] as String,
-            ttsSpeed = arr[15] as Float,
-            ttsPitch = arr[16] as Float,
-            ttsAutoPage = arr[17] as Boolean,
-            ttsHighlightSentence = arr[18] as Boolean,
-            gpuAcceleration = arr[19] as Boolean,
-            loggingEnabled = arr[20] as Boolean
+            defaultParagraphSpacing = arr[5] as Float,
+            defaultIndent = arr[6] as Float,
+            defaultPageAnim = arr[7] as String,
+            pageTurnDir = arr[8] as String,
+            fullScreen = arr[9] as Boolean,
+            keepScreenOn = arr[10] as Boolean,
+            brightness = arr[11] as Float,
+            duplicateCheckEnabled = arr[12] as Boolean,
+            importCopyFile = arr[13] as Boolean,
+            readingTimeEnabled = arr[14] as Boolean,
+            readingDailyTarget = arr[15] as Int,
+            syncMethod = arr[16] as String,
+            webdavUrl = arr[17] as String,
+            webdavUser = arr[18] as String,
+            webdavPassword = arr[19] as String,
+            ttsSpeed = arr[20] as Float,
+            ttsPitch = arr[21] as Float,
+            ttsAutoPage = arr[22] as Boolean,
+            ttsHighlightSentence = arr[23] as Boolean,
+            gpuAcceleration = arr[24] as Boolean,
+            loggingEnabled = arr[25] as Boolean
         )
     }.stateIn(
         scope = viewModelScope,
@@ -111,7 +130,7 @@ class SettingsViewModel(
                     _events.emit(SettingsEvent.Recreate)
                 }
             }.onFailure {
-                _events.emit(SettingsEvent.ShowMessage("保存设置失败 / Failed to save settings"))
+                _events.emit(SettingsEvent.ShowMessage { it.saveFailed })
             }
         }
     }
@@ -122,11 +141,21 @@ class SettingsViewModel(
 
     fun updateDefaultFontSize(value: Float) = updateSetting({ userPreferences.setDefaultFontSize(value) })
     fun updateDefaultLineSpacing(value: Float) = updateSetting({ userPreferences.setDefaultLineSpacing(value) })
+    fun updateDefaultParagraphSpacing(value: Float) = updateSetting({ userPreferences.setDefaultParagraphSpacing(value) })
+    fun updateDefaultIndent(value: Float) = updateSetting({ userPreferences.setDefaultIndent(value) })
     fun updateDefaultPageAnim(value: String) = updateSetting({ userPreferences.setDefaultPageAnim(value) })
     fun updatePageTurnDir(value: String) = updateSetting({ userPreferences.setPageTurnDir(value) })
+    fun updateFullScreen(value: Boolean) = updateSetting({ userPreferences.setFullScreen(value) })
+    fun updateKeepScreenOn(value: Boolean) = updateSetting({ userPreferences.setKeepScreenOn(value) })
+    fun updateBrightness(value: Float) = updateSetting({ userPreferences.setBrightness(value) })
 
     fun updateDuplicateCheckEnabled(value: Boolean) = updateSetting({ userPreferences.setDuplicateCheckEnabled(value) })
     fun updateImportCopyFile(value: Boolean) = updateSetting({ userPreferences.setImportCopyFile(value) })
+
+    /** 设置全局统一封面色盘。传 [com.shuli.reader.core.data.COVER_PALETTE_AUTO] 走自动散列。 */
+    fun setUnifiedCoverPalette(value: String) = updateSetting({ userPreferences.setUnifiedCoverPalette(value) })
+
+    val unifiedCoverPaletteFlow: kotlinx.coroutines.flow.Flow<String> = userPreferences.unifiedCoverPalette
 
     fun updateReadingTimeEnabled(value: Boolean) = updateSetting({ userPreferences.setReadingTimeEnabled(value) })
     fun updateReadingDailyTarget(value: Int) = updateSetting({ userPreferences.setReadingDailyTarget(value) })

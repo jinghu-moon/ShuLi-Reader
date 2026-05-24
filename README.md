@@ -1,4 +1,4 @@
-# ShuLi-Reader (书笠阅读器)
+# ShuLi-Reader (书里阅读)
 
 ShuLi-Reader 是一款基于现代 Android 技术栈（Jetpack Compose、Material 3、Coroutines、Flows、Room）打造的超轻量、高性能本地 TXT/EPUB 电子书阅读器。项目致力于提供丝滑的阅读体验与零卡顿的图书库管理。
 
@@ -26,6 +26,23 @@ ShuLi-Reader 是一款基于现代 Android 技术栈（Jetpack Compose、Materia
 *   **持久化数据库**：Room Database (支持底层高效 SQL 路径查询)
 *   **图片处理**：Coil (极速图像渲染)
 *   **构建配置**：Gradle Kotlin DSL (`.gradle.kts`)
+
+## ✅ 开发与验证命令
+
+```powershell
+./gradlew.bat :app:testDebugUnitTest
+./gradlew.bat :app:compileDebugAndroidTestKotlin
+./gradlew.bat :app:assembleDebug
+./gradlew.bat :app:assembleRelease
+./gradlew.bat :benchmark:assembleDebug
+```
+
+需要连接设备或模拟器时再执行：
+
+```powershell
+./gradlew.bat :app:connectedDebugAndroidTest
+./gradlew.bat :benchmark:connectedCheck
+```
 
 ## 📦 快速上手
 

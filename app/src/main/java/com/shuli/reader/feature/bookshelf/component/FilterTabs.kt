@@ -6,6 +6,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.bookshelf.model.FilterType
 
 @Composable
@@ -14,11 +15,12 @@ fun FilterTabs(
     onSelect: (FilterType) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     val tabs = listOf(
-        FilterType.RECENT to "最近",
-        FilterType.ALL to "全部",
-        FilterType.FINISHED to "已读完",
-        FilterType.FAVORITE to "收藏",
+        FilterType.RECENT to strings.filterRecent,
+        FilterType.ALL to strings.filterAll,
+        FilterType.FINISHED to strings.filterFinished,
+        FilterType.FAVORITE to strings.filterFavorite,
     )
 
     TabRow(

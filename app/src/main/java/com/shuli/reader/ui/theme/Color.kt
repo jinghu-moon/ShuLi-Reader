@@ -2,48 +2,64 @@ package com.shuli.reader.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Geist 风格配色方案
-// 灵感来源: Vercel Geist / Linear / Raycast / Notion Dark
+val MoTuInk50 = Color(0xFFF6F4F0)
+val MoTuInk100 = Color(0xFFEAE5DC)
+val MoTuInk200 = Color(0xFFD4CCC0)
+val MoTuInk300 = Color(0xFFB9AFA0)
+val MoTuInk400 = Color(0xFF9C9082)
+val MoTuInk500 = Color(0xFF7D7162)
+val MoTuInk600 = Color(0xFF5E5346)
+val MoTuInk700 = Color(0xFF453B2E)
+val MoTuInk800 = Color(0xFF2C231A)
+val MoTuInk900 = Color(0xFF1A130B)
+val MoTuInk950 = Color(0xFF0C0804)
 
-// 暗色主题 (主主题)
-val GeistBackground = Color(0xFF080808)
-val GeistSurfaceSecondary = Color(0xFF101010)
-val GeistSurfaceHover = Color(0xFF181818)
-val GeistCard = Color(0xFF121212)
+val AppBackground = MoTuInk50
+val AppSurface = Color(0xFFFFFFFF)
+val AppSurfaceVariant = MoTuInk100
+val AppSurfaceContainer = Color(0xFFFFFFFF)
+val AppTextPrimary = MoTuInk900
+val AppTextSecondary = MoTuInk600
+val AppTextTertiary = MoTuInk400
+val AppPrimary = MoTuInk700
+val AppOnPrimary = Color(0xFFFFFFFF)
+val AppOutline = MoTuInk300
+val AppDivider = MoTuInk200
 
-val GeistTextPrimary = Color(0xFFF5F5F5)
-val GeistTextSecondary = Color(0xFFA1A1AA)
-val GeistTextTertiary = Color(0xFF6B7280)
+val AppDarkBackground = MoTuInk950
+val AppDarkSurface = MoTuInk900
+val AppDarkSurfaceVariant = MoTuInk800
+val AppDarkSurfaceContainer = MoTuInk800
+val AppDarkTextPrimary = MoTuInk100
+val AppDarkTextSecondary = MoTuInk400
+val AppDarkTextTertiary = MoTuInk600
+val AppDarkPrimary = MoTuInk200
+val AppDarkOnPrimary = MoTuInk950
+val AppDarkOutline = MoTuInk600
+val AppDarkDivider = MoTuInk700
 
-val GeistBorder = Color(0x14FFFFFF) // rgba(255,255,255,.08)
-val GeistBorderStrong = Color(0x24FFFFFF) // rgba(255,255,255,.14)
+val StateSuccess = Color(0xFF2D7A52)
+val StateSuccessContainer = Color(0xFFE8F4EE)
+val StateOnSuccessContainer = Color(0xFF1A5035)
+val StateWarning = Color(0xFF9A6500)
+val StateWarningContainer = Color(0xFFF5ECD8)
+val StateOnWarningContainer = Color(0xFF6B4400)
+val StateError = Color(0xFF9B3525)
+val StateErrorContainer = Color(0xFFF5E5E2)
+val StateOnErrorContainer = Color(0xFF6A1E12)
+val StateInfo = Color(0xFF3A607A)
+val StateInfoContainer = Color(0xFFE2EDF4)
+val StateOnInfoContainer = Color(0xFF1E3F55)
 
-val GeistAccent = Color(0xFF4F8CFF)
-val GeistSuccess = Color(0xFF4ADE80)
-val GeistWarning = Color(0xFFF59E0B)
-val GeistDanger = Color(0xFFEF4444)
-
-// 亮色主题
-val LightBackground = Color(0xFFFAFAFA)
-val LightSurfaceSecondary = Color(0xFFFFFFFF)
-val LightSurfaceHover = Color(0xFFF5F5F5)
-val LightCard = Color(0xFFFFFFFF)
-
-val LightTextPrimary = Color(0xFF0A0A0A)
-val LightTextSecondary = Color(0xFF71717A)
-val LightTextTertiary = Color(0xFFA1A1AA)
-
-val LightBorder = Color(0x14000000) // rgba(0,0,0,.08)
-val LightBorderStrong = Color(0x24000000) // rgba(0,0,0,.14)
-
-val LightAccent = Color(0xFF3B82F6)
-val LightSuccess = Color(0xFF22C55E)
-val LightWarning = Color(0xFFF59E0B)
-val LightDanger = Color(0xFFEF4444)
-
-// 纸质阅读主题 (暖色调)
-val PaperBackground = Color(0xFFF5EDE0)
-val PaperSurface = Color(0xFFFAF5ED)
-val PaperText = Color(0xFF3A3028)
-val PaperTextSecondary = Color(0xFF8B7D6B)
-val PaperAccent = Color(0xFFD97706)
+val StateDarkSuccess = Color(0xFF5DBE8A)
+val StateDarkSuccessContainer = Color(0xFF0E2A1E)
+val StateDarkOnSuccessContainer = Color(0xFF9ADDB5)
+val StateDarkWarning = Color(0xFFE0A020)
+val StateDarkWarningContainer = Color(0xFF2A1E00)
+val StateDarkOnWarningContainer = Color(0xFFF5C860)
+val StateDarkError = Color(0xFFD46050)
+val StateDarkErrorContainer = Color(0xFF2A0E0A)
+val StateDarkOnErrorContainer = Color(0xFFED9C8C)
+val StateDarkInfo = Color(0xFF6AA0BE)
+val StateDarkInfoContainer = Color(0xFF0A1E2A)
+val StateDarkOnInfoContainer = Color(0xFFA0C8E0)

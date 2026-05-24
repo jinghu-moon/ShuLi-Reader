@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "ShuLi-Reader"
 include(":app")
+include(":benchmark")
