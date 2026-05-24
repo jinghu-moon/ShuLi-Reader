@@ -14,12 +14,14 @@ import com.shuli.reader.R
 import com.shuli.reader.core.data.ReaderTheme
 import com.shuli.reader.core.data.ThemeColors
 import com.shuli.reader.core.reader.animation.PageDelegate
+import com.shuli.reader.core.reader.model.PageRenderMode
 import com.shuli.reader.core.reader.model.SelectionRange
 import com.shuli.reader.core.reader.model.TextPage
 import com.shuli.reader.core.canvasrecorder.CanvasRecorder
 import com.shuli.reader.core.canvasrecorder.recordIfNeeded
 import com.shuli.reader.ui.theme.toCanvasThemeColors
 import com.shuli.reader.ui.theme.toReaderColorScheme
+import java.util.concurrent.Executors
 
 /**
  * 阅读器 Canvas 视图
@@ -98,7 +100,6 @@ class ReaderCanvasView @JvmOverloads constructor(
     fun setBatteryLevel(level: Int) {
         if (renderContext.batteryLevel == level) return
         renderContext.batteryLevel = level
-        if (isAnimating()) return
         currentPage?.invalidate()
         invalidate()
     }
@@ -117,7 +118,7 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     private var isTextSelectionGesture = false
 
-    /** 录制单页：命中缓存则直接 draw，不会重录。 */
+    /** 主线程同步录制单页（兜底用）。 */
     private fun recordPage(page: TextPage) {
         val w = width
         val h = height
@@ -136,6 +137,45 @@ class ReaderCanvasView @JvmOverloads constructor(
                 selectionPaint = selectionPaint,
                 backgroundPaint = backgroundPaint,
             )
+        }
+    }
+
+    /**
+     * 后台线程录制页面。CanvasRecorderLocked 内部 ReentrantLock 保证线程安全。
+     * 返回 true 表示实际产生了录制（即 recorder 之前是脏的）。
+     */
+    private fun recordPageOffMain(page: TextPage, w: Int, h: Int): Boolean {
+        return page.canvasRecorder.recordIfNeeded(w, h) {
+            pageRenderer.render(
+                canvas = this,
+                page = page,
+                headerText = renderContext.headerText,
+                footerText = renderContext.footerText,
+                showProgress = renderContext.showProgress,
+                batteryLevel = renderContext.batteryLevel,
+                ttsActiveRange = renderContext.ttsActiveRange,
+                selectedRange = renderContext.selectedRange,
+                ttsHighlightPaint = ttsHighlightPaint,
+                selectionPaint = selectionPaint,
+                backgroundPaint = backgroundPaint,
+            )
+        }
+    }
+
+    /** 提交后台预渲染任务：录制 current/next/prev 三页，完成后触发重绘。 */
+    private fun submitRenderTask() {
+        val w = width
+        val h = height
+        if (w <= 0 || h <= 0) return
+        renderThread.execute {
+            val cur = currentPage
+            val nxt = nextPage
+            val prv = prevPage
+            var dirty = false
+            cur?.let { if (recordPageOffMain(it, w, h)) dirty = true }
+            nxt?.let { if (recordPageOffMain(it, w, h)) dirty = true }
+            prv?.let { if (recordPageOffMain(it, w, h)) dirty = true }
+            if (dirty) postInvalidate()
         }
     }
 
@@ -175,23 +215,51 @@ class ReaderCanvasView @JvmOverloads constructor(
     /**
      * 设置页面内容。
      * CanvasRecorder 自带缓存，仅在 invalidate 后下次绘制时重录。
+     * @param mode 渲染模式：SEQUENTIAL 预热邻页，JUMP/SCRUBBING 仅当前页
      */
-    fun setPage(page: TextPage, next: TextPage? = null, prev: TextPage? = null) {
+    fun setPage(
+        page: TextPage,
+        next: TextPage? = null,
+        prev: TextPage? = null,
+        mode: PageRenderMode = PageRenderMode.SEQUENTIAL,
+    ) {
         val changed = currentPage !== page || nextPage !== next || prevPage !== prev
+
+        // M4: 回收不再引用的旧页面的 RenderNode/Picture 资源
+        if (changed) {
+            val oldCurrent = currentPage
+            val oldNext = nextPage
+            val oldPrev = prevPage
+            val newPages = setOfNotNull<Any>(page, next, prev)
+            if (oldCurrent != null && oldCurrent !== page && oldCurrent !in newPages) {
+                oldCurrent.recycleRecorders()
+            }
+            if (oldNext != null && oldNext !== next && oldNext !in newPages) {
+                oldNext.recycleRecorders()
+            }
+            if (oldPrev != null && oldPrev !== prev && oldPrev !in newPages) {
+                oldPrev.recycleRecorders()
+            }
+        }
+
         currentPage = page
-        nextPage = next
-        prevPage = prev
+        when (mode) {
+            PageRenderMode.SEQUENTIAL -> {
+                nextPage = next
+                prevPage = prev
+            }
+            PageRenderMode.JUMP, PageRenderMode.SCRUBBING -> {
+                nextPage = null
+                prevPage = null
+                pageDelegate?.abort() // 取消进行中的动画
+            }
+        }
 
         if (changed) {
             renderContext.selectedRange = null
         }
+        submitRenderTask()
         invalidate()
-    }
-
-    private fun isAnimating(): Boolean {
-        return pageDelegate?.let {
-            it.state == PageDelegate.State.DRAGGING || it.state == PageDelegate.State.ANIMATING
-        } == true
     }
 
     private fun isAnimationDisabled(): Boolean {
@@ -234,7 +302,6 @@ class ReaderCanvasView @JvmOverloads constructor(
     fun setHeaderText(text: String) {
         if (renderContext.headerText == text) return
         renderContext.headerText = text
-        if (isAnimating()) return
         currentPage?.invalidate()
         invalidate()
     }
@@ -245,7 +312,6 @@ class ReaderCanvasView @JvmOverloads constructor(
     fun setFooterText(text: String) {
         if (renderContext.footerText == text) return
         renderContext.footerText = text
-        if (isAnimating()) return
         currentPage?.invalidate()
         invalidate()
     }
@@ -256,7 +322,6 @@ class ReaderCanvasView @JvmOverloads constructor(
     fun setShowProgress(show: Boolean) {
         if (renderContext.showProgress == show) return
         renderContext.showProgress = show
-        if (isAnimating()) return
         currentPage?.invalidate()
         invalidate()
     }
@@ -267,6 +332,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         headerPaint.textSize = textSize * HEADER_TEXT_RATIO
         footerPaint.textSize = textSize * FOOTER_TEXT_RATIO
         invalidateAllRecorders()
+        submitRenderTask()
         invalidate()
     }
 
@@ -285,13 +351,13 @@ class ReaderCanvasView @JvmOverloads constructor(
         if (textPaint.typeface == typeface) return
         textPaint.typeface = typeface
         invalidateAllRecorders()
+        submitRenderTask()
         invalidate()
     }
 
     fun clearSelection() {
         if (renderContext.selectedRange == null) return
         renderContext.selectedRange = null
-        if (isAnimating()) return
         currentPage?.invalidate()
         invalidate()
     }
@@ -299,7 +365,6 @@ class ReaderCanvasView @JvmOverloads constructor(
     fun setTtsActiveRange(range: SelectionRange?) {
         if (renderContext.ttsActiveRange == range) return
         renderContext.ttsActiveRange = range
-        if (isAnimating()) return
         currentPage?.invalidate()
         invalidate()
     }
@@ -331,6 +396,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         selectionPaint.color = progressColor.withAlpha(SELECTION_ALPHA)
         ttsHighlightPaint.color = progressColor.withAlpha(TTS_HIGHLIGHT_ALPHA)
         invalidateAllRecorders()
+        submitRenderTask()
         invalidate()
     }
 
@@ -389,6 +455,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         super.onSizeChanged(width, height, oldWidth, oldHeight)
         if (width != oldWidth || height != oldHeight) {
             invalidateAllRecorders()
+            submitRenderTask()
         }
     }
 
@@ -402,7 +469,11 @@ class ReaderCanvasView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val current = currentPage ?: return
-        recordPage(current)
+
+        // 兜底：若后台尚未录制完成（首帧），主线程同步录制
+        if (current.canvasRecorder.needRecord()) {
+            recordPage(current)
+        }
 
         val delegate = pageDelegate
         if (delegate != null) {
@@ -412,7 +483,9 @@ class ReaderCanvasView @JvmOverloads constructor(
                 else -> false
             }
             val target = if (isPrevDirection) prevPage else nextPage
-            target?.let { recordPage(it) }
+            target?.let {
+                if (it.canvasRecorder.needRecord()) recordPage(it)
+            }
             delegate.onDraw(canvas, current.canvasRecorder, target?.canvasRecorder ?: current.canvasRecorder)
         } else {
             current.canvasRecorder.draw(canvas)
@@ -460,6 +533,13 @@ class ReaderCanvasView @JvmOverloads constructor(
     }
 
     private companion object {
+        /** 后台预渲染线程，单线程，优先级略低于主线程 */
+        private val renderThread by lazy {
+            Executors.newSingleThreadExecutor { r ->
+                Thread(r, "ShuLi-PageRender").apply { priority = Thread.NORM_PRIORITY - 1 }
+            }
+        }
+
         private const val TEXT_END_PADDING = 20f
         private const val HEADER_TEXT_RATIO = 0.75f
         private const val FOOTER_TEXT_RATIO = 0.75f

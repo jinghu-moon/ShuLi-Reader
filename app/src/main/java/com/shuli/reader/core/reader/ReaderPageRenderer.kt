@@ -3,7 +3,10 @@ package com.shuli.reader.core.reader
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import com.shuli.reader.core.canvasrecorder.CanvasRecorderFactory
+import com.shuli.reader.core.canvasrecorder.recordIfNeeded
 import com.shuli.reader.core.reader.model.SelectionRange
+import com.shuli.reader.core.reader.model.TextLine
 import com.shuli.reader.core.reader.model.TextPage
 
 /**
@@ -54,10 +57,9 @@ class ReaderPageRenderer(
             }
         }
 
-        // 3. 绘制正文文本
+        // 3. 绘制正文文本（per-line CanvasRecorder 优化）
         for (line in page.lines) {
-            val startX = page.marginHorizontal + line.startXOffset
-            canvas.drawText(line.text, startX, line.baseline, textPaint)
+            drawLineWithRecorder(canvas, line, page)
         }
 
         // 4. 绘制页眉（40% 透明度）
@@ -100,6 +102,30 @@ class ReaderPageRenderer(
             val progressRect = RectF(0f, canvas.height - 3f * density, progressWidth, canvas.height.toFloat())
             canvas.drawRect(progressRect, progressPaint)
         }
+    }
+
+    /**
+     * 使用 per-line CanvasRecorder 绘制单行文本
+     * 选区/TTS 高亮变化时仅重画受影响的行，而非整页
+     */
+    private fun drawLineWithRecorder(canvas: Canvas, line: TextLine, page: TextPage) {
+        val recorder = line.canvasRecorder
+            ?: CanvasRecorderFactory.create().also { line.canvasRecorder = it }
+
+        val lineHeight = (line.bottom - line.top).toInt()
+        val startX = page.marginHorizontal + line.startXOffset
+
+        recorder.recordIfNeeded(canvas.width, lineHeight) {
+            // 绘制文本（相对于行顶部）
+            val relativeBaseline = line.baseline - line.top
+            drawText(line.text, startX, relativeBaseline, textPaint)
+        }
+
+        // 平移到行顶部绘制
+        canvas.save()
+        canvas.translate(0f, line.top)
+        recorder.draw(canvas)
+        canvas.restore()
     }
 
     private fun intersects(range: SelectionRange?, start: Int, end: Int): Boolean {

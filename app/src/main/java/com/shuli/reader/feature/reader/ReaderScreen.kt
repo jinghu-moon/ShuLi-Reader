@@ -56,6 +56,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Slider
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.BrightnessMedium
 import androidx.compose.material.icons.outlined.List
@@ -77,6 +78,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.shuli.reader.core.data.ReaderTheme
 import com.shuli.reader.core.i18n.LocalAppStrings
+import com.shuli.reader.core.reader.model.PageRenderMode
 import com.shuli.reader.core.reader.ReaderCanvasView
 import android.app.Activity
 import android.content.BroadcastReceiver
@@ -242,8 +244,8 @@ fun ReaderScreen(
                     },
                     update = { view ->
                         val page = uiState.currentPage ?: return@AndroidView
-                        val nextPage = uiState.currentChapter?.pages?.getOrNull(uiState.pageIndex + 1)
-                        val prevPage = uiState.currentChapter?.pages?.getOrNull(uiState.pageIndex - 1)
+                        val nextPage = uiState.currentChapter?.getPage(uiState.pageIndex + 1)
+                        val prevPage = uiState.currentChapter?.getPage(uiState.pageIndex - 1)
                         view.onTextSelected = viewModel::selectText
                         view.setThemeColors(uiState.themeColors)
                         view.setTextSizePx(uiState.readerPreferences.fontSize * density)
@@ -251,7 +253,7 @@ fun ReaderScreen(
                         view.setPageDelegate(viewModel.pageDelegate)
                         view.setHeaderText(uiState.chapterTitle)
                         view.setFooterText("${uiState.pageIndex + 1} / ${uiState.totalPages.coerceAtLeast(1)}")
-                        view.setPage(page, nextPage, prevPage)
+                        view.setPage(page, nextPage, prevPage, uiState.pageRenderMode)
                         view.setTtsActiveRange(uiState.ttsActiveRange)
                         view.setBatteryLevel(batteryLevel)
                         if (uiState.selectedRange == null) {
@@ -362,6 +364,51 @@ fun ReaderScreen(
                                     onClick = { if (uiState.chapterIndex + 1 < uiState.totalChapters) viewModel.openChapter(uiState.chapterIndex + 1) }
                                 ) {
                                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = strings.nextChapter, tint = readerColors.textPrimary)
+                                }
+                            }
+
+                            // 页码进度条
+                            if (uiState.totalPages > 1) {
+                                var isScrubbing by remember { mutableStateOf(false) }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "${uiState.pageIndex + 1}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = readerColors.textSecondary,
+                                        modifier = Modifier.width(32.dp)
+                                    )
+                                    Slider(
+                                        value = uiState.pageIndex.toFloat(),
+                                        onValueChange = { v ->
+                                            val p = v.roundToInt()
+                                            if (!isScrubbing) {
+                                                viewModel.startPageScrub()
+                                                isScrubbing = true
+                                            }
+                                            viewModel.scrubToPage(p)
+                                        },
+                                        onValueChangeFinished = {
+                                            viewModel.commitPageScrub()
+                                            isScrubbing = false
+                                        },
+                                        valueRange = 0f..(uiState.totalPages - 1).coerceAtLeast(1).toFloat(),
+                                        colors = androidx.compose.material3.SliderDefaults.colors(
+                                            thumbColor = readerColors.accent,
+                                            activeTrackColor = readerColors.accent,
+                                            inactiveTrackColor = readerColors.divider,
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Text(
+                                        text = "${uiState.totalPages}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = readerColors.textSecondary,
+                                        modifier = Modifier.width(32.dp),
+                                        textAlign = TextAlign.End
+                                    )
                                 }
                             }
 

@@ -4,6 +4,8 @@ import com.shuli.reader.core.reader.model.ReaderLayoutConfig
 import com.shuli.reader.core.reader.model.TextChapter
 import com.shuli.reader.core.reader.model.TextLine
 import com.shuli.reader.core.reader.model.TextPage
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 
 /**
  * 分页器，负责将文本内容分页
@@ -61,6 +63,33 @@ class Paginator(
             content = content,
             pages = pages,
         )
+    }
+
+    /**
+     * 流式分页。每生成一页 emit 一次。
+     * 调用方应在背景 Dispatcher 里 collect。
+     */
+    fun paginateStreaming(
+        chapter: TextChapter,
+        content: String,
+        config: ReaderLayoutConfig,
+    ): Flow<TextPage> = flow {
+        var currentOffset = 0
+        var pageIndex = 0
+
+        while (currentOffset < content.length) {
+            val page = paginatePage(
+                chapterIndex = chapter.chapterIndex,
+                pageIndex = pageIndex,
+                content = content,
+                startOffset = currentOffset,
+                config = config,
+            )
+            chapter.addPage(page)
+            emit(page)
+            currentOffset = page.endCharOffset
+            pageIndex++
+        }
     }
 
     /**

@@ -22,6 +22,7 @@ import com.shuli.reader.core.reader.animation.PageDelegate
 import com.shuli.reader.core.reader.animation.PageDelegateFactory
 import com.shuli.reader.core.reader.cache.CacheManager
 import com.shuli.reader.core.reader.model.PageSize
+import com.shuli.reader.core.reader.model.PageRenderMode
 import com.shuli.reader.core.reader.model.ReaderLayoutConfig
 import com.shuli.reader.core.reader.model.SelectionRange
 import com.shuli.reader.core.reader.model.TextChapter
@@ -37,15 +38,20 @@ import com.shuli.reader.ui.theme.toReaderColorScheme
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * 阅读器 UI 状态
@@ -71,6 +77,7 @@ data class ReaderUiState(
     val showMenu: Boolean = false,
     val showSearch: Boolean = false,
     val pageAnimType: PageDelegateFactory.PageAnimType = PageDelegateFactory.PageAnimType.HORIZONTAL,
+    val pageRenderMode: PageRenderMode = PageRenderMode.SEQUENTIAL,
     val readerPreferences: ReaderPreferences = ReaderPreferences(),
     val bookmarks: List<BookmarkEntity> = emptyList(),
     val notes: List<NoteEntity> = emptyList(),
@@ -123,6 +130,9 @@ class ReaderViewModel(
     private var bookmarksJob: Job? = null
     private var notesJob: Job? = null
 
+    // M1: 章节加载 Job（防止快速连续调用导致多个 openChapter 并发）
+    private var chapterJob: Job? = null
+
     // R7: 章节缓存管理器
     private val cacheManager = CacheManager.forMemoryClass(256)
 
@@ -153,6 +163,7 @@ class ReaderViewModel(
      */
     var pageDelegate: PageDelegate = PageDelegateFactory.create(_uiState.value.pageAnimType)
         private set
+
 
     private var loadedBookContent: BookContent? = null
     /** 缓存当前书籍文件路径，避免 paginateChapter 重复查询 DB */
@@ -272,19 +283,11 @@ class ReaderViewModel(
 
                 val chapterCount = content.normalizedChapters().size
                 val chapterIndex = book.durChapterIndex.coerceIn(0, (chapterCount - 1).coerceAtLeast(0))
-                val chapter = paginateChapter(content, chapterIndex)
-                val pageIndex = chapter?.getPageIndexByCharIndex(book.durChapterPos) ?: 0
-                val currentPage = chapter?.pages?.getOrNull(pageIndex)
 
                 _uiState.value = _uiState.value.copy(
-                    isLoading = false,
                     bookTitle = book.title,
-                    chapterTitle = chapter?.title ?: book.durChapterTitle.orEmpty(),
-                    currentChapter = chapter,
-                    currentPage = currentPage,
+                    chapterTitle = book.durChapterTitle.orEmpty(),
                     chapterIndex = chapterIndex,
-                    pageIndex = pageIndex,
-                    totalPages = chapter?.pages?.size ?: 0,
                     totalChapters = chapterCount,
                     chapterTitles = content.normalizedChapters().map { it.title },
                 )
@@ -294,10 +297,15 @@ class ReaderViewModel(
                 }
                 loadBookmarks()
                 loadNotes()
-
-                // R7: 启动阅读会话 + 预加载相邻章节
                 readingStateManager.startSession()
-                preloadAdjacentChapters(content, chapterIndex)
+
+                // 流式分页：首页秒开，目标位置自动跳转
+                chapterJob = paginateChapterStreaming(
+                    content = content,
+                    index = chapterIndex,
+                    targetCharOffset = book.durChapterPos,
+                    onDone = { preloadAdjacentChapters(content, chapterIndex) },
+                )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -314,13 +322,16 @@ class ReaderViewModel(
         val state = _uiState.value
         val chapter = state.currentChapter ?: return
 
-        if (state.pageIndex < chapter.pages.size - 1) {
+        if (state.pageIndex < chapter.lastIndex) {
             _uiState.value = state.copy(
                 pageIndex = state.pageIndex + 1,
-                currentPage = chapter.pages[state.pageIndex + 1],
+                currentPage = chapter.getPage(state.pageIndex + 1),
             )
             // R7: 翻页时防抖保存阅读进度
             saveReadingProgress(immediate = false)
+        } else if (loadedBookContent != null && state.chapterIndex < loadedBookContent!!.normalizedChapters().size - 1) {
+            // 跨章：打开下一章
+            openChapter(state.chapterIndex + 1)
         }
     }
 
@@ -334,11 +345,92 @@ class ReaderViewModel(
         if (state.pageIndex > 0) {
             _uiState.value = state.copy(
                 pageIndex = state.pageIndex - 1,
-                currentPage = chapter.pages[state.pageIndex - 1],
+                currentPage = chapter.getPage(state.pageIndex - 1),
             )
             // R7: 翻页时防抖保存阅读进度
             saveReadingProgress(immediate = false)
+        } else if (state.chapterIndex > 0) {
+            // 跨章：打开上一章末页
+            openChapter(state.chapterIndex - 1, targetToLastPage = true)
         }
+    }
+
+    /**
+     * 跳转到指定页码
+     */
+    fun jumpToPage(pageIndex: Int) {
+        val chapter = _uiState.value.currentChapter ?: return
+        val safe = pageIndex.coerceIn(0, chapter.lastIndex)
+        if (safe == _uiState.value.pageIndex) return
+
+        _uiState.value = _uiState.value.copy(
+            pageIndex = safe,
+            currentPage = chapter.getPage(safe),
+            pageRenderMode = PageRenderMode.JUMP,
+            selectedRange = null,
+            ttsActiveRange = null,
+        )
+        saveReadingProgress(immediate = true)
+        // 一帧后回到 SEQUENTIAL，让 View 自然预热邻页
+        viewModelScope.launch {
+            delay(16)
+            _uiState.value = _uiState.value.copy(pageRenderMode = PageRenderMode.SEQUENTIAL)
+        }
+    }
+
+    /**
+     * 跳转到章节内指定字符偏移位置
+     */
+    fun jumpToChapterPosition(chapterIndex: Int, charOffset: Int) {
+        val state = _uiState.value
+        val chapter = state.currentChapter
+        if (chapter?.chapterIndex == chapterIndex && chapter.pageSize > 0) {
+            val pi = chapter.getPageIndexByCharIndex(charOffset)
+            jumpToPage(pi)
+        } else {
+            openChapter(chapterIndex, targetCharOffset = charOffset)
+        }
+    }
+
+    // ── 进度条 Scrub 接口 ──────────────────────────────────────
+
+    private val scrubChannel = Channel<Int>(Channel.CONFLATED)
+
+    init {
+        viewModelScope.launch {
+            scrubChannel.consumeAsFlow()
+                .sample(80.milliseconds)
+                .collect { pageIndex -> emitScrubFrame(pageIndex) }
+        }
+    }
+
+    fun startPageScrub() {
+        _uiState.value = _uiState.value.copy(pageRenderMode = PageRenderMode.SCRUBBING)
+    }
+
+    fun scrubToPage(pageIndex: Int) {
+        val chapter = _uiState.value.currentChapter ?: return
+        val safe = pageIndex.coerceIn(0, chapter.lastIndex)
+        // 立即更新 pageIndex（页脚数字跟手）
+        _uiState.value = _uiState.value.copy(pageIndex = safe)
+        // 把"换页"扔进节流 channel
+        scrubChannel.trySend(safe)
+    }
+
+    private fun emitScrubFrame(pageIndex: Int) {
+        val chapter = _uiState.value.currentChapter ?: return
+        _uiState.value = _uiState.value.copy(currentPage = chapter.getPage(pageIndex))
+    }
+
+    fun commitPageScrub() {
+        val state = _uiState.value
+        val pi = state.pageIndex
+        val chapter = state.currentChapter ?: return
+        _uiState.value = state.copy(
+            currentPage = chapter.getPage(pi),
+            pageRenderMode = PageRenderMode.SEQUENTIAL,
+        )
+        saveReadingProgress(immediate = true)
     }
 
     /**
@@ -380,43 +472,49 @@ class ReaderViewModel(
 
     /**
      * 打开章节
+     * @param targetToLastPage 是否跳转到末页（跨章前翻时使用）
+     * @param targetCharOffset 目标字符偏移（书签/笔记跳转时使用）
      */
-    fun openChapter(index: Int) {
+    fun openChapter(
+        index: Int,
+        targetToLastPage: Boolean = false,
+        targetCharOffset: Int = -1,
+    ) {
         resetToolbarAutoHide()
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-
-            try {
-                val content = loadedBookContent
-                if (content == null) {
-                    openFallbackChapter(index)
-                    return@launch
-                }
-
-                val safeIndex = index.coerceIn(0, (content.normalizedChapters().size - 1).coerceAtLeast(0))
-                val chapter = paginateChapter(content, safeIndex)
-                val currentPage = chapter?.pages?.firstOrNull()
-
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    currentChapter = chapter,
-                    currentPage = currentPage,
-                    chapterIndex = safeIndex,
-                    chapterTitle = chapter?.title.orEmpty(),
-                    pageIndex = 0,
-                    totalPages = chapter?.pages?.size ?: 0,
-                )
-
-                // R7: 章节切换时立即保存进度 + 预加载相邻章节
-                saveReadingProgress(immediate = true)
-                content.let { preloadAdjacentChapters(it, safeIndex) }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message,
-                )
-            }
+        val content = loadedBookContent
+        if (content == null) {
+            viewModelScope.launch { openFallbackChapter(index) }
+            return
         }
+
+        val safeIndex = index.coerceIn(0, (content.normalizedChapters().size - 1).coerceAtLeast(0))
+
+        // M1: 取消上一次章节加载，防止快速连续调用导致并发冲突
+        chapterJob?.cancel()
+
+        // 流式分页：首页秒开
+        // targetToLastPage 时传 -1，由 LayoutListener 的 onLayoutCompleted 处理跳末页
+        val effectiveCharOffset = if (targetToLastPage) -1 else targetCharOffset
+        chapterJob = paginateChapterStreaming(
+            content = content,
+            index = safeIndex,
+            targetCharOffset = effectiveCharOffset,
+            onDone = {
+                // targetToLastPage：分页完成后跳转到末页
+                if (targetToLastPage) {
+                    val chapter = _uiState.value.currentChapter ?: return@paginateChapterStreaming
+                    val lastIdx = chapter.lastIndex
+                    if (lastIdx >= 0) {
+                        _uiState.value = _uiState.value.copy(
+                            pageIndex = lastIdx,
+                            currentPage = chapter.getPage(lastIdx),
+                        )
+                    }
+                }
+                saveReadingProgress(immediate = true)
+                preloadAdjacentChapters(content, safeIndex)
+            },
+        )
     }
 
     /**
@@ -676,10 +774,14 @@ class ReaderViewModel(
 
     fun selectText(range: SelectionRange) {
         _uiState.value = _uiState.value.copy(selectedRange = range)
+        // 选区变化只需重绘整页（选区矩形在 page canvas 上绘制，不在 line recorder 里）
+        // line 文字内容未变，line recorder 缓存仍然有效
+        _uiState.value.currentPage?.invalidate()
     }
 
     fun clearTextSelection() {
         _uiState.value = _uiState.value.copy(selectedRange = null)
+        _uiState.value.currentPage?.invalidate()
     }
 
     fun addBookmarkFromSelection() {
@@ -827,7 +929,7 @@ class ReaderViewModel(
     }
 
     private fun navigateToSearchResult(result: SearchResult) {
-        navigateToChapterPosition(result.chapterIndex, result.charOffset)
+        jumpToChapterPosition(result.chapterIndex, result.charOffset)
     }
 
     // ── 书签管理 ──────────────────────────────────────────────
@@ -879,7 +981,7 @@ class ReaderViewModel(
      * 跳转到书签位置
      */
     fun goToBookmark(bookmark: BookmarkEntity) {
-        navigateToChapterPosition(bookmark.chapterIndex, bookmark.chapterPos)
+        jumpToChapterPosition(bookmark.chapterIndex, bookmark.chapterPos)
     }
 
     /**
@@ -947,7 +1049,7 @@ class ReaderViewModel(
      * 跳转到笔记位置
      */
     fun goToNote(note: NoteEntity) {
-        navigateToChapterPosition(note.chapterIndex, note.chapterStartPos)
+        jumpToChapterPosition(note.chapterIndex, note.chapterStartPos)
     }
 
     /**
@@ -966,22 +1068,6 @@ class ReaderViewModel(
         }
     }
 
-    private fun navigateToChapterPosition(chapterIndex: Int, chapterPos: Int) {
-        val state = _uiState.value
-        val chapter = state.currentChapter
-        if (chapter?.chapterIndex == chapterIndex && chapter.pages.isNotEmpty()) {
-            val pageIndex = chapter.getPageIndexByCharIndex(chapterPos)
-            _uiState.value = state.copy(
-                chapterIndex = chapterIndex,
-                chapterTitle = chapter.title,
-                pageIndex = pageIndex,
-                currentPage = chapter.pages[pageIndex],
-            )
-            return
-        }
-
-        openChapter(chapterIndex)
-    }
 
     private fun handleTtsUtteranceCompleted() {
         val nextIndex = ttsSentenceIndex + 1
@@ -1024,10 +1110,13 @@ class ReaderViewModel(
         }
 
         controller.play(text)
+        val newRange = if (activeTtsConfig.highlightSentence) range else null
         _uiState.value = _uiState.value.copy(
             ttsState = controller.state,
-            ttsActiveRange = if (activeTtsConfig.highlightSentence) range else null,
+            ttsActiveRange = newRange,
         )
+        // TTS 高亮变化只需重绘整页（高亮矩形在 page canvas 上绘制）
+        _uiState.value.currentPage?.invalidate()
     }
 
     private fun sentenceRangesForCurrentPage(): List<SelectionRange> {
@@ -1157,6 +1246,132 @@ class ReaderViewModel(
     }
 
     /**
+     * 流式分页：首页先显示，其余后台继续
+     */
+    private fun paginateChapterStreaming(
+        content: BookContent,
+        index: Int,
+        targetCharOffset: Int = 0,
+        onDone: (() -> Unit)? = null,
+    ): Job {
+        val chapters = content.normalizedChapters()
+        val chapterMeta = chapters.getOrNull(index) ?: return Job().apply { complete() }
+
+        val config = layoutConfigFor(_uiState.value.readerPreferences)
+        val repository = bookRepository
+        val filePath = currentBookFilePath
+
+        // R1: 缓存命中快路径——跳过 IO + 分页，直接恢复 UI 状态
+        val cacheKey = CacheManager.ChapterCacheKey(
+            bookId = _uiState.value.bookId.toString(),
+            chapterIndex = index,
+            textSize = config.textSize,
+            lineHeight = config.lineHeight,
+            pageWidth = config.pageSize.width,
+            pageHeight = config.pageSize.height,
+        )
+        cacheManager.getChapter(cacheKey)?.let { cached ->
+            return viewModelScope.launch {
+                _uiState.value = _uiState.value.copy(
+                    currentChapter = cached,
+                    chapterIndex = index,
+                    chapterTitle = chapterMeta.title,
+                    totalPages = cached.pageSize,
+                    isLoading = false,
+                )
+                // P6: 按 targetCharOffset 跳转或显示首页
+                val startPage = if (targetCharOffset > 0) {
+                    cached.getPageIndexByCharIndex(targetCharOffset)
+                } else {
+                    0
+                }
+                _uiState.value = _uiState.value.copy(
+                    pageIndex = startPage,
+                    currentPage = cached.getPage(startPage),
+                )
+                onDone?.invoke()
+            }
+        }
+
+        return viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+
+            try {
+                val chapterText = if (repository != null && filePath != null) {
+                    withContext(Dispatchers.IO) {
+                        repository.getChapterText(File(filePath), index, content)
+                    }
+                } else {
+                    content.chapterText(chapterMeta)
+                }
+
+                val chapter = TextChapter(
+                    chapterIndex = index,
+                    title = chapterMeta.title,
+                    content = chapterText,
+                )
+
+                // 设置监听器：首页就绪时立即显示
+                chapter.layoutListener = object : TextChapter.LayoutListener {
+                    override fun onPageReady(pageIndex: Int, page: TextPage) {
+                        val currentState = _uiState.value
+                        if (currentState.chapterIndex != index) return
+
+                        // P6: targetCharOffset > 0 时等待目标页，不显示第 0 页避免闪烁
+                        if (targetCharOffset <= 0 && pageIndex == 0 && currentState.currentPage == null) {
+                            _uiState.value = currentState.copy(
+                                currentPage = page,
+                                pageIndex = 0,
+                            )
+                        } else if (targetCharOffset > 0 &&
+                            page.startCharOffset <= targetCharOffset &&
+                            targetCharOffset < page.endCharOffset
+                        ) {
+                            _uiState.value = _uiState.value.copy(
+                                currentPage = page,
+                                pageIndex = pageIndex,
+                            )
+                        }
+                    }
+
+                    override fun onLayoutCompleted() {
+                        val currentState = _uiState.value
+                        if (currentState.chapterIndex != index) return
+                        _uiState.value = currentState.copy(
+                            totalPages = chapter.pageSize,
+                            isLoading = false,
+                        )
+                        // 存入缓存
+                        cacheManager.putChapter(cacheKey, chapter)
+                    }
+                }
+
+                _uiState.value = _uiState.value.copy(
+                    currentChapter = chapter,
+                    chapterIndex = index,
+                    chapterTitle = chapterMeta.title,
+                    currentPage = null,
+                    pageIndex = 0,
+                    totalPages = 0,
+                )
+
+                // 流式分页
+                withContext(Dispatchers.Default) {
+                    paginator.paginateStreaming(chapter, chapterText, config).collect()
+                    chapter.markCompleted()
+                }
+
+                onDone?.invoke()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = e.message,
+                )
+            }
+        }
+    }
+
+    /**
      * R7: 预加载相邻章节（异步，不阻塞当前流程）
      */
     private fun preloadAdjacentChapters(content: BookContent, currentIndex: Int) {
@@ -1206,6 +1421,7 @@ class ReaderViewModel(
         val state = _uiState.value
         val chapter = state.currentChapter ?: return
         val charOffset = state.currentPage?.startCharOffset ?: 0
+        val content = loadedBookContent ?: return
         reflowJob?.cancel()
         reflowJob = viewModelScope.launch {
             delay(100L) // 100ms 防抖，避免滑块连续拖动时频繁分页
@@ -1213,33 +1429,11 @@ class ReaderViewModel(
             // R7: 布局参数变化时清理旧缓存（key 中的 textSize/lineHeight/pageSize 已变）
             cacheManager.clearBook(state.bookId.toString())
 
-            val config = layoutConfigFor(preferences)
-            val repaged = withContext(Dispatchers.Default) {
-                paginator.paginateChapter(
-                    chapterIndex = chapter.chapterIndex,
-                    title = chapter.title,
-                    content = chapter.content,
-                    config = config,
-                )
-            }
-
-            // R7: 存入缓存
-            val cacheKey = CacheManager.ChapterCacheKey(
-                bookId = state.bookId.toString(),
-                chapterIndex = chapter.chapterIndex,
-                textSize = config.textSize,
-                lineHeight = config.lineHeight,
-                pageWidth = config.pageSize.width,
-                pageHeight = config.pageSize.height,
-            )
-            cacheManager.putChapter(cacheKey, repaged)
-
-            val pageIndex = repaged.getPageIndexByCharIndex(charOffset)
-            _uiState.value = _uiState.value.copy(
-                currentChapter = repaged,
-                currentPage = repaged.pages.getOrNull(pageIndex),
-                pageIndex = pageIndex,
-                totalPages = repaged.pages.size,
+            // 流式分页：首页秒开，自动跳转到之前的阅读位置
+            paginateChapterStreaming(
+                content = content,
+                index = chapter.chapterIndex,
+                targetCharOffset = charOffset,
             )
         }
     }
