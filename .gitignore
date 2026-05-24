@@ -1,16 +1,23 @@
 *.iml
 .gradle
-/local.properties
-/.idea
+gradle.properties
+local.properties
 .DS_Store
-/build
-/captures
 .externalNativeBuild
 .cxx
-local.properties
-/app/build
+captures/
+
+# IDE
+/.idea
+
+# 构建产物（所有模块）
+**/build/
+
+# 生成的 schema
 /app/schemas
+
+# 本地/临时目录
 /refer
+/scratch
 .kotlin/
 .serena/
-/scratch
