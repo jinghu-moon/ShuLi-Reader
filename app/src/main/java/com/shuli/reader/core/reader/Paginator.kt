@@ -332,12 +332,20 @@ class Paginator(
         val consumedChars = charCount + if (consumesLineBreak) 1 else 0
         val isParagraphEnd = consumesLineBreak
 
-        // 构建 CharColumn 列表（仅保留有效字符的宽度）
-        val charColumns = text.mapIndexed { index: Int, char: Char ->
-            CharColumn(char.toString(), charWidths[index])
+        // 构建 CharColumn 列表
+        // 注意：中文分行回溯/前推可能使 charCount 与原始 charWidths.size 不一致，
+        // 需要按最终 text 长度重新收集宽度
+        val finalCharWidths = if (text.length == charWidths.size) {
+            charWidths
+        } else {
+            // charCount 被调整过，重新测量最终文本的每个字符
+            text.map { char -> textMeasurer.measureCharWidth(char, textSize) }
         }
-        val measuredWidth = if (charWidths.isNotEmpty()) {
-            charWidths.sum() + letterSpacingPx * (charWidths.size - 1).coerceAtLeast(0)
+        val charColumns = text.mapIndexed { index: Int, char: Char ->
+            CharColumn(char.toString(), finalCharWidths[index])
+        }
+        val measuredWidth = if (finalCharWidths.isNotEmpty()) {
+            finalCharWidths.sum() + letterSpacingPx * (finalCharWidths.size - 1).coerceAtLeast(0)
         } else {
             0f
         }

@@ -372,7 +372,6 @@ class ReaderViewModel(
                     _uiState.value = _uiState.value.copy(
                         readerPreferences = updated,
                         pageAnimType = factoryType,
-                        themeColors = updated.backgroundColor.toReaderColorScheme().toCanvasThemeColors(),
                     )
                     pageDelegate = PageDelegateFactory.create(factoryType)
                 }

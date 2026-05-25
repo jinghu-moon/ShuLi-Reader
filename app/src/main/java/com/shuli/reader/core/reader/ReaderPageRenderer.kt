@@ -281,7 +281,7 @@ class ReaderPageRenderer(
             return
         }
 
-        val spacingPerChar = extraSpace / (line.charColumns.size - 1)
+        val spacingPerChar = if (line.charColumns.size > 1) extraSpace / (line.charColumns.size - 1) else 0f
         var currentX = x
 
         for (col in line.charColumns) {
