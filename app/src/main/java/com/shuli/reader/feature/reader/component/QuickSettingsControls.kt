@@ -47,36 +47,6 @@ import com.shuli.reader.ui.theme.LocalReaderColorScheme
 val SETTINGS_LABEL_WIDTH = 64.dp
 
 /**
- * 滑块行：委托给 [ReaderValueSlider]
- */
-@Composable
-fun ReaderSliderRow(
-    label: String,
-    value: Float,
-    valueRange: ClosedFloatingPointRange<Float>,
-    steps: Int = 0,
-    format: (Float) -> String,
-    onValueChange: (Float) -> Unit,
-    modifier: Modifier = Modifier,
-    showSlider: Boolean = true,
-    onValueClick: (() -> Unit)? = null,
-    sliderFraction: Float = 0.55f,
-) {
-    ReaderValueSlider(
-        label = label,
-        value = value,
-        valueRange = valueRange,
-        steps = steps,
-        format = format,
-        onValueChange = onValueChange,
-        modifier = modifier,
-        showSlider = showSlider,
-        onValueClick = onValueClick,
-        sliderFraction = sliderFraction,
-    )
-}
-
-/**
  * 分段选择行
  */
 @Composable

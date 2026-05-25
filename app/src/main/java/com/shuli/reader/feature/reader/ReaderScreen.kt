@@ -102,6 +102,7 @@ import com.shuli.reader.core.data.toFactoryType
 import com.shuli.reader.core.reader.HeaderVisibility
 import com.shuli.reader.core.reader.SlotResolution
 import com.shuli.reader.feature.reader.component.DirectoryDialog
+import com.shuli.reader.feature.reader.component.QuickSettingsActions
 import com.shuli.reader.feature.reader.component.QuickSettingsSheet
 import com.shuli.reader.ui.testing.UiTestTags
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
@@ -515,49 +516,53 @@ fun ReaderScreen(
         // ModalBottomSheet 放在 Box 外部，作为 Scaffold 直接子项
         // 避免嵌套 Box 导致 enableEdgeToEdge() 下布局异常
         if (uiState.showQuickSettings) {
+            val quickSettingsActions = remember(viewModel) {
+                QuickSettingsActions(
+                    onDismiss = viewModel::toggleQuickSettings,
+                    onBrightnessChange = viewModel::setBrightness,
+                    onFontSizeChange = viewModel::setFontSize,
+                    onLineSpacingChange = viewModel::setLineSpacing,
+                    onParagraphSpacingChange = viewModel::setParagraphSpacing,
+                    onIndentChange = viewModel::setIndent,
+                    onMarginVerticalChange = viewModel::setMarginVertical,
+                    onMarginHorizontalChange = viewModel::setMarginHorizontal,
+                    onReadingFontChange = viewModel::setReadingFont,
+                    onPageAnimTypeChange = { type ->
+                        viewModel.setPageAnimType(type.toFactoryType())
+                    },
+                    onThemeChange = viewModel::setReaderTheme,
+                    onLetterSpacingChange = viewModel::setLetterSpacing,
+                    onFontWeightChange = viewModel::setFontWeight,
+                    onTextAlignChange = viewModel::setTextAlign,
+                    onChineseConvertChange = viewModel::setChineseConvert,
+                    onUseZhLayoutChange = viewModel::setUseZhLayout,
+                    onApplyPreset = viewModel::applyPreset,
+                    onSavePreset = viewModel::saveCurrentAsPreset,
+                    onRenamePreset = viewModel::renamePreset,
+                    onDeletePreset = viewModel::deletePreset,
+                    onResetToDefault = viewModel::resetToDefault,
+                    onHeaderVisibilityChange = viewModel::setHeaderVisibility,
+                    onHeaderLeftChange = viewModel::setHeaderLeft,
+                    onHeaderCenterChange = viewModel::setHeaderCenter,
+                    onHeaderRightChange = viewModel::setHeaderRight,
+                    onFooterVisibilityChange = viewModel::setFooterVisibility,
+                    onFooterLeftChange = viewModel::setFooterLeft,
+                    onFooterCenterChange = viewModel::setFooterCenter,
+                    onFooterRightChange = viewModel::setFooterRight,
+                    onHeaderFooterAlphaChange = viewModel::setHeaderFooterAlpha,
+                    onShowProgressChange = viewModel::setShowProgress,
+                    onTitleAlignChange = viewModel::setTitleAlign,
+                    onTitleSizeOffsetChange = viewModel::setTitleSizeOffset,
+                    onTitleMarginTopChange = viewModel::setTitleMarginTop,
+                    onTitleMarginBottomChange = viewModel::setTitleMarginBottom,
+                    onKeepScreenOnChange = viewModel::setKeepScreenOn,
+                    onVolumeKeyTurnPageChange = viewModel::setVolumeKeyTurnPage,
+                    onEdgeTurnPageChange = viewModel::setEdgeTurnPage,
+                )
+            }
             QuickSettingsSheet(
                 uiState = uiState,
-                onDismiss = viewModel::toggleQuickSettings,
-                onBrightnessChange = viewModel::setBrightness,
-                onFontSizeChange = viewModel::setFontSize,
-                onLineSpacingChange = viewModel::setLineSpacing,
-                onParagraphSpacingChange = viewModel::setParagraphSpacing,
-                onIndentChange = viewModel::setIndent,
-                onMarginVerticalChange = viewModel::setMarginVertical,
-                onMarginHorizontalChange = viewModel::setMarginHorizontal,
-                onReadingFontChange = viewModel::setReadingFont,
-                onPageAnimTypeChange = { type ->
-                    viewModel.setPageAnimType(type.toFactoryType())
-                },
-                onThemeChange = viewModel::setReaderTheme,
-                onLetterSpacingChange = viewModel::setLetterSpacing,
-                onFontWeightChange = viewModel::setFontWeight,
-                onTextAlignChange = viewModel::setTextAlign,
-                onChineseConvertChange = viewModel::setChineseConvert,
-                onUseZhLayoutChange = viewModel::setUseZhLayout,
-                onApplyPreset = viewModel::applyPreset,
-                onSavePreset = viewModel::saveCurrentAsPreset,
-                onRenamePreset = viewModel::renamePreset,
-                onDeletePreset = viewModel::deletePreset,
-                onResetToDefault = viewModel::resetToDefault,
-                // 页眉脚回调
-                onHeaderVisibilityChange = viewModel::setHeaderVisibility,
-                onHeaderLeftChange = viewModel::setHeaderLeft,
-                onHeaderCenterChange = viewModel::setHeaderCenter,
-                onHeaderRightChange = viewModel::setHeaderRight,
-                onFooterVisibilityChange = viewModel::setFooterVisibility,
-                onFooterLeftChange = viewModel::setFooterLeft,
-                onFooterCenterChange = viewModel::setFooterCenter,
-                onFooterRightChange = viewModel::setFooterRight,
-                onHeaderFooterAlphaChange = viewModel::setHeaderFooterAlpha,
-                onShowProgressChange = viewModel::setShowProgress,
-                onTitleAlignChange = viewModel::setTitleAlign,
-                onTitleSizeOffsetChange = viewModel::setTitleSizeOffset,
-                onTitleMarginTopChange = viewModel::setTitleMarginTop,
-                onTitleMarginBottomChange = viewModel::setTitleMarginBottom,
-                onKeepScreenOnChange = viewModel::setKeepScreenOn,
-                onVolumeKeyTurnPageChange = viewModel::setVolumeKeyTurnPage,
-                onEdgeTurnPageChange = viewModel::setEdgeTurnPage,
+                actions = quickSettingsActions,
             )
         }
     }

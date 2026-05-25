@@ -342,22 +342,18 @@ class ReaderCanvasView @JvmOverloads constructor(
      * 设置页眉多槽位内容
      */
     fun setHeaderSlots(slots: SlotResolution) {
-        if (renderContext.headerSlots == slots) return
-        renderContext.headerSlots = slots
-        invalidateAllRecorders()
-        submitRenderTask()
-        invalidate()
+        updateRenderProperty(renderContext.headerSlots != slots) {
+            renderContext.headerSlots = slots
+        }
     }
 
     /**
      * 设置页脚多槽位内容
      */
     fun setFooterSlots(slots: SlotResolution) {
-        if (renderContext.footerSlots == slots) return
-        renderContext.footerSlots = slots
-        invalidateAllRecorders()
-        submitRenderTask()
-        invalidate()
+        updateRenderProperty(renderContext.footerSlots != slots) {
+            renderContext.footerSlots = slots
+        }
     }
 
     /**
@@ -404,35 +400,29 @@ class ReaderCanvasView @JvmOverloads constructor(
     }
 
     fun setTextSizePx(textSize: Float) {
-        if (textPaint.textSize == textSize) return
-        textPaint.textSize = textSize
-        headerPaint.textSize = textSize * HEADER_TEXT_RATIO
-        footerPaint.textSize = textSize * FOOTER_TEXT_RATIO
-        invalidateAllRecorders()
-        submitRenderTask()
-        invalidate()
+        updateRenderProperty(textPaint.textSize != textSize) {
+            textPaint.textSize = textSize
+            headerPaint.textSize = textSize * HEADER_TEXT_RATIO
+            footerPaint.textSize = textSize * FOOTER_TEXT_RATIO
+        }
     }
 
     /**
      * 设置字距（em 单位，Paint.letterSpacing 接受 em）
      */
     fun setLetterSpacing(emSpacing: Float) {
-        if (textPaint.letterSpacing == emSpacing) return
-        textPaint.letterSpacing = emSpacing
-        invalidateAllRecorders()
-        submitRenderTask()
-        invalidate()
+        updateRenderProperty(textPaint.letterSpacing != emSpacing) {
+            textPaint.letterSpacing = emSpacing
+        }
     }
 
     /**
      * 设置字重（FakeBold 模式）
      */
     fun setFakeBoldText(fakeBold: Boolean) {
-        if (textPaint.isFakeBoldText == fakeBold) return
-        textPaint.isFakeBoldText = fakeBold
-        invalidateAllRecorders()
-        submitRenderTask()
-        invalidate()
+        updateRenderProperty(textPaint.isFakeBoldText != fakeBold) {
+            textPaint.isFakeBoldText = fakeBold
+        }
     }
 
     /**
@@ -572,6 +562,23 @@ class ReaderCanvasView @JvmOverloads constructor(
         currentPage?.invalidate()
         nextPage?.invalidate()
         prevPage?.invalidate()
+    }
+
+    /**
+     * 更新渲染属性的公共模板
+     *
+     * 消除 setTextSizePx / setLetterSpacing / setFakeBoldText 等 setter 中
+     * "if (same) return → update → invalidateAllRecorders → submitRenderTask → invalidate" 样板代码。
+     *
+     * @param changed 值是否发生变化（调用方负责比较）
+     * @param apply 实际更新属性的 lambda
+     */
+    private inline fun updateRenderProperty(changed: Boolean, apply: () -> Unit) {
+        if (!changed) return
+        apply()
+        invalidateAllRecorders()
+        submitRenderTask()
+        invalidate()
     }
 
     // --- 触摸状态 ---

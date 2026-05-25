@@ -49,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.Immutable
 import com.shuli.reader.core.data.ChineseConvert
 import com.shuli.reader.core.data.PageAnimType
 import com.shuli.reader.core.data.ReaderFontWeight
@@ -65,6 +66,54 @@ import com.shuli.reader.ui.theme.toCanvasThemeColors
 import com.shuli.reader.ui.theme.toReaderColorScheme
 
 /**
+ * 快捷设置面板的所有回调动作
+ *
+ * 使用 @Immutable 标注，Compose 可将其视为稳定对象，
+ * 避免因 lambda 重建导致不必要的重组。
+ */
+@Immutable
+data class QuickSettingsActions(
+    val onDismiss: () -> Unit = {},
+    val onBrightnessChange: (Float) -> Unit = {},
+    val onFontSizeChange: (Float) -> Unit = {},
+    val onLineSpacingChange: (Float) -> Unit = {},
+    val onParagraphSpacingChange: (Float) -> Unit = {},
+    val onIndentChange: (Float) -> Unit = {},
+    val onMarginVerticalChange: (Float) -> Unit = {},
+    val onMarginHorizontalChange: (Float) -> Unit = {},
+    val onReadingFontChange: (String) -> Unit = {},
+    val onPageAnimTypeChange: (PageAnimType) -> Unit = {},
+    val onThemeChange: (ReaderTheme) -> Unit = {},
+    val onLetterSpacingChange: (Float) -> Unit = {},
+    val onFontWeightChange: (ReaderFontWeight) -> Unit = {},
+    val onTextAlignChange: (ReaderTextAlign) -> Unit = {},
+    val onChineseConvertChange: (ChineseConvert) -> Unit = {},
+    val onUseZhLayoutChange: (Boolean) -> Unit = {},
+    val onApplyPreset: (Long) -> Unit = {},
+    val onSavePreset: (String) -> Unit = {},
+    val onRenamePreset: (Long, String) -> Unit = { _, _ -> },
+    val onDeletePreset: (Long) -> Unit = {},
+    val onResetToDefault: () -> Unit = {},
+    val onHeaderVisibilityChange: (HeaderVisibility) -> Unit = {},
+    val onHeaderLeftChange: (SlotContent) -> Unit = {},
+    val onHeaderCenterChange: (SlotContent) -> Unit = {},
+    val onHeaderRightChange: (SlotContent) -> Unit = {},
+    val onFooterVisibilityChange: (HeaderVisibility) -> Unit = {},
+    val onFooterLeftChange: (SlotContent) -> Unit = {},
+    val onFooterCenterChange: (SlotContent) -> Unit = {},
+    val onFooterRightChange: (SlotContent) -> Unit = {},
+    val onHeaderFooterAlphaChange: (Float) -> Unit = {},
+    val onShowProgressChange: (Boolean) -> Unit = {},
+    val onTitleAlignChange: (TitleAlign) -> Unit = {},
+    val onTitleSizeOffsetChange: (Int) -> Unit = {},
+    val onTitleMarginTopChange: (Float) -> Unit = {},
+    val onTitleMarginBottomChange: (Float) -> Unit = {},
+    val onKeepScreenOnChange: (Boolean) -> Unit = {},
+    val onVolumeKeyTurnPageChange: (Boolean) -> Unit = {},
+    val onEdgeTurnPageChange: (Boolean) -> Unit = {},
+)
+
+/**
  * Tab 索引
  */
 private const val TAB_FONT_SIZE = 0
@@ -78,49 +127,7 @@ private const val TAB_MORE = 5
 @Composable
 fun QuickSettingsSheet(
     uiState: ReaderUiState,
-    onDismiss: () -> Unit,
-    onBrightnessChange: (Float) -> Unit,
-    onFontSizeChange: (Float) -> Unit,
-    onLineSpacingChange: (Float) -> Unit,
-    onParagraphSpacingChange: (Float) -> Unit,
-    onIndentChange: (Float) -> Unit,
-    onMarginVerticalChange: (Float) -> Unit,
-    onMarginHorizontalChange: (Float) -> Unit,
-    onReadingFontChange: (String) -> Unit,
-    onPageAnimTypeChange: (PageAnimType) -> Unit,
-    onThemeChange: (ReaderTheme) -> Unit,
-    // 阶段三新增回调
-    onLetterSpacingChange: (Float) -> Unit = {},
-    onFontWeightChange: (ReaderFontWeight) -> Unit = {},
-    onTextAlignChange: (ReaderTextAlign) -> Unit = {},
-    onChineseConvertChange: (ChineseConvert) -> Unit = {},
-    onUseZhLayoutChange: (Boolean) -> Unit = {},
-    // 阶段四新增回调
-    onApplyPreset: (Long) -> Unit = {},
-    onSavePreset: (String) -> Unit = {},
-    onRenamePreset: (Long, String) -> Unit = { _, _ -> },
-    onDeletePreset: (Long) -> Unit = {},
-    onResetToDefault: () -> Unit = {},
-    // 阶段五新增回调：页眉脚
-    onHeaderVisibilityChange: (HeaderVisibility) -> Unit = {},
-    onHeaderLeftChange: (SlotContent) -> Unit = {},
-    onHeaderCenterChange: (SlotContent) -> Unit = {},
-    onHeaderRightChange: (SlotContent) -> Unit = {},
-    onFooterVisibilityChange: (HeaderVisibility) -> Unit = {},
-    onFooterLeftChange: (SlotContent) -> Unit = {},
-    onFooterCenterChange: (SlotContent) -> Unit = {},
-    onFooterRightChange: (SlotContent) -> Unit = {},
-    onHeaderFooterAlphaChange: (Float) -> Unit = {},
-    onShowProgressChange: (Boolean) -> Unit = {},
-    // 阶段五新增回调：正文标题样式
-    onTitleAlignChange: (TitleAlign) -> Unit = {},
-    onTitleSizeOffsetChange: (Int) -> Unit = {},
-    onTitleMarginTopChange: (Float) -> Unit = {},
-    onTitleMarginBottomChange: (Float) -> Unit = {},
-    // 阶段六新增回调
-    onKeepScreenOnChange: (Boolean) -> Unit = {},
-    onVolumeKeyTurnPageChange: (Boolean) -> Unit = {},
-    onEdgeTurnPageChange: (Boolean) -> Unit = {},
+    actions: QuickSettingsActions,
 ) {
     val strings = LocalAppStrings.current
     val readerColors = LocalReaderColorScheme.current
@@ -129,7 +136,7 @@ fun QuickSettingsSheet(
     val scrollState = rememberScrollState()
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = actions.onDismiss,
         sheetState = sheetState,
         containerColor = readerColors.surface,
         contentColor = readerColors.textPrimary,
@@ -141,7 +148,7 @@ fun QuickSettingsSheet(
         // 常驻亮度栏
         BrightnessBar(
             brightness = uiState.readerPreferences.brightness,
-            onBrightnessChange = onBrightnessChange,
+            onBrightnessChange = actions.onBrightnessChange,
         )
         HorizontalDivider(color = readerColors.divider)
 
@@ -197,61 +204,61 @@ fun QuickSettingsSheet(
             when (selectedTab) {
                 TAB_FONT_SIZE -> FontSizePanel(
                     prefs = uiState.readerPreferences,
-                    onFontSizeChange = onFontSizeChange,
-                    onLetterSpacingChange = onLetterSpacingChange,
-                    onLineSpacingChange = onLineSpacingChange,
-                    onParagraphSpacingChange = onParagraphSpacingChange,
-                    onIndentChange = onIndentChange,
+                    onFontSizeChange = actions.onFontSizeChange,
+                    onLetterSpacingChange = actions.onLetterSpacingChange,
+                    onLineSpacingChange = actions.onLineSpacingChange,
+                    onParagraphSpacingChange = actions.onParagraphSpacingChange,
+                    onIndentChange = actions.onIndentChange,
                 )
                 TAB_FONT -> FontPanel(
                     prefs = uiState.readerPreferences,
-                    onReadingFontChange = onReadingFontChange,
-                    onFontWeightChange = onFontWeightChange,
-                    onTextAlignChange = onTextAlignChange,
-                    onChineseConvertChange = onChineseConvertChange,
-                    onUseZhLayoutChange = onUseZhLayoutChange,
+                    onReadingFontChange = actions.onReadingFontChange,
+                    onFontWeightChange = actions.onFontWeightChange,
+                    onTextAlignChange = actions.onTextAlignChange,
+                    onChineseConvertChange = actions.onChineseConvertChange,
+                    onUseZhLayoutChange = actions.onUseZhLayoutChange,
                 )
                 TAB_MARGIN -> MarginPanel(
                     prefs = uiState.readerPreferences,
-                    onMarginVerticalChange = onMarginVerticalChange,
-                    onMarginHorizontalChange = onMarginHorizontalChange,
+                    onMarginVerticalChange = actions.onMarginVerticalChange,
+                    onMarginHorizontalChange = actions.onMarginHorizontalChange,
                 )
                 TAB_DISPLAY -> DisplayPanel(
                     prefs = uiState.readerPreferences,
-                    onPageAnimTypeChange = onPageAnimTypeChange,
-                    onThemeChange = onThemeChange,
-                    onHeaderVisibilityChange = onHeaderVisibilityChange,
-                    onFooterVisibilityChange = onFooterVisibilityChange,
-                    onShowProgressChange = onShowProgressChange,
+                    onPageAnimTypeChange = actions.onPageAnimTypeChange,
+                    onThemeChange = actions.onThemeChange,
+                    onHeaderVisibilityChange = actions.onHeaderVisibilityChange,
+                    onFooterVisibilityChange = actions.onFooterVisibilityChange,
+                    onShowProgressChange = actions.onShowProgressChange,
                 )
                 TAB_HEADER_FOOTER -> HeaderFooterPanel(
                     prefs = uiState.readerPreferences,
-                    onTitleAlignChange = onTitleAlignChange,
-                    onTitleSizeOffsetChange = onTitleSizeOffsetChange,
-                    onTitleMarginTopChange = onTitleMarginTopChange,
-                    onTitleMarginBottomChange = onTitleMarginBottomChange,
-                    onHeaderVisibilityChange = onHeaderVisibilityChange,
-                    onHeaderLeftChange = onHeaderLeftChange,
-                    onHeaderCenterChange = onHeaderCenterChange,
-                    onHeaderRightChange = onHeaderRightChange,
-                    onFooterVisibilityChange = onFooterVisibilityChange,
-                    onFooterLeftChange = onFooterLeftChange,
-                    onFooterCenterChange = onFooterCenterChange,
-                    onFooterRightChange = onFooterRightChange,
-                    onHeaderFooterAlphaChange = onHeaderFooterAlphaChange,
-                    onShowProgressChange = onShowProgressChange,
+                    onTitleAlignChange = actions.onTitleAlignChange,
+                    onTitleSizeOffsetChange = actions.onTitleSizeOffsetChange,
+                    onTitleMarginTopChange = actions.onTitleMarginTopChange,
+                    onTitleMarginBottomChange = actions.onTitleMarginBottomChange,
+                    onHeaderVisibilityChange = actions.onHeaderVisibilityChange,
+                    onHeaderLeftChange = actions.onHeaderLeftChange,
+                    onHeaderCenterChange = actions.onHeaderCenterChange,
+                    onHeaderRightChange = actions.onHeaderRightChange,
+                    onFooterVisibilityChange = actions.onFooterVisibilityChange,
+                    onFooterLeftChange = actions.onFooterLeftChange,
+                    onFooterCenterChange = actions.onFooterCenterChange,
+                    onFooterRightChange = actions.onFooterRightChange,
+                    onHeaderFooterAlphaChange = actions.onHeaderFooterAlphaChange,
+                    onShowProgressChange = actions.onShowProgressChange,
                 )
                 TAB_MORE -> MorePanel(
                     prefs = uiState.readerPreferences,
                     presets = uiState.presets,
-                    onApplyPreset = onApplyPreset,
-                    onSavePreset = onSavePreset,
-                    onRenamePreset = onRenamePreset,
-                    onDeletePreset = onDeletePreset,
-                    onResetToDefault = onResetToDefault,
-                    onKeepScreenOnChange = onKeepScreenOnChange,
-                    onVolumeKeyTurnPageChange = onVolumeKeyTurnPageChange,
-                    onEdgeTurnPageChange = onEdgeTurnPageChange,
+                    onApplyPreset = actions.onApplyPreset,
+                    onSavePreset = actions.onSavePreset,
+                    onRenamePreset = actions.onRenamePreset,
+                    onDeletePreset = actions.onDeletePreset,
+                    onResetToDefault = actions.onResetToDefault,
+                    onKeepScreenOnChange = actions.onKeepScreenOnChange,
+                    onVolumeKeyTurnPageChange = actions.onVolumeKeyTurnPageChange,
+                    onEdgeTurnPageChange = actions.onEdgeTurnPageChange,
                 )
             }
         }
@@ -271,7 +278,7 @@ private fun BrightnessBar(
 ) {
     val readerColors = LocalReaderColorScheme.current
     val isAuto = brightness < 0f
-    ReaderSliderRow(
+    ReaderValueSlider(
         label = "亮度",
         value = if (isAuto) 0.5f else brightness,
         valueRange = 0.01f..1f,
@@ -298,7 +305,7 @@ private fun FontSizePanel(
 ) {
     val strings = LocalAppStrings.current
 
-    ReaderSliderRow(
+    ReaderValueSlider(
         label = strings.defaultFontSize,
         value = prefs.fontSize,
         valueRange = 10f..32f,
@@ -306,7 +313,7 @@ private fun FontSizePanel(
         format = { "${it.toInt()}sp" },
         onValueChange = onFontSizeChange,
     )
-    ReaderSliderRow(
+    ReaderValueSlider(
         label = "字距",
         value = prefs.letterSpacing,
         valueRange = 0f..0.2f,
@@ -314,7 +321,7 @@ private fun FontSizePanel(
         format = { "%.2f".format(it) },
         onValueChange = onLetterSpacingChange,
     )
-    ReaderSliderRow(
+    ReaderValueSlider(
         label = strings.defaultLineSpacing,
         value = prefs.lineSpacing,
         valueRange = 0.8f..3.0f,
@@ -322,7 +329,7 @@ private fun FontSizePanel(
         format = { "%.1f".format(it) },
         onValueChange = onLineSpacingChange,
     )
-    ReaderSliderRow(
+    ReaderValueSlider(
         label = strings.paragraphSpacing,
         value = prefs.paragraphSpacing,
         valueRange = 0f..5.0f,
@@ -330,7 +337,7 @@ private fun FontSizePanel(
         format = { "%.1f".format(it) },
         onValueChange = onParagraphSpacingChange,
     )
-    ReaderSliderRow(
+    ReaderValueSlider(
         label = strings.firstLineIndent,
         value = prefs.indent,
         valueRange = 0f..10f,
@@ -411,7 +418,7 @@ private fun MarginPanel(
 ) {
     val strings = LocalAppStrings.current
 
-    ReaderSliderRow(
+    ReaderValueSlider(
         label = strings.marginTopBottom,
         value = prefs.marginVertical,
         valueRange = 0f..96f,
@@ -419,7 +426,7 @@ private fun MarginPanel(
         format = { "${it.toInt()}dp" },
         onValueChange = onMarginVerticalChange,
     )
-    ReaderSliderRow(
+    ReaderValueSlider(
         label = strings.marginLeftRight,
         value = prefs.marginHorizontal,
         valueRange = 0f..64f,
@@ -565,7 +572,7 @@ private fun HeaderFooterPanel(
         onSelect = onTitleAlignChange,
     )
     if (prefs.titleStyle.align != TitleAlign.HIDDEN) {
-        ReaderSliderRow(
+        ReaderValueSlider(
             label = "字号偏移",
             value = prefs.titleStyle.sizeOffsetSp.toFloat(),
             valueRange = 0f..16f,
@@ -573,7 +580,7 @@ private fun HeaderFooterPanel(
             format = { "+${it.toInt()}sp" },
             onValueChange = { onTitleSizeOffsetChange(it.toInt()) },
         )
-        ReaderSliderRow(
+        ReaderValueSlider(
             label = "上距",
             value = prefs.titleStyle.marginTopDp,
             valueRange = 0f..60f,
@@ -581,7 +588,7 @@ private fun HeaderFooterPanel(
             format = { "${it.toInt()}dp" },
             onValueChange = onTitleMarginTopChange,
         )
-        ReaderSliderRow(
+        ReaderValueSlider(
             label = "下距",
             value = prefs.titleStyle.marginBottomDp,
             valueRange = 0f..120f,
@@ -689,7 +696,7 @@ private fun HeaderFooterPanel(
     )
 
     // 通用设置
-    ReaderSliderRow(
+    ReaderValueSlider(
         label = "透明度",
         value = prefs.headerFooterAlpha,
         valueRange = 0.1f..1.0f,
