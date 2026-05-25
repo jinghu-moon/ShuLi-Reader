@@ -113,7 +113,7 @@ class ReaderPageRenderer(
         // 2. 绘制高亮背景（TTS高亮与用户选区）
         page.lines.forEach { line ->
             val startX = page.marginHorizontal + line.startXOffset
-            val textWidth = textPaint.measureText(line.text)
+            val textWidth = line.measuredWidth
             val top = line.top
             val bottom = line.bottom
             val rect = RectF(startX - 6f, top, startX + textWidth + 6f, bottom)
@@ -255,8 +255,8 @@ class ReaderPageRenderer(
             // 判断是否需要两端对齐：JUSTIFY 模式且非段落末行
             val shouldJustify = textAlign == ReaderTextAlign.JUSTIFY && !line.isParagraphEnd
 
-            if (shouldJustify && line.text.length > 1) {
-                drawTextJustified(line.text, startX, relativeBaseline, page)
+            if (shouldJustify && line.charColumns.isNotEmpty()) {
+                drawTextJustified(line, startX, relativeBaseline, page)
             } else {
                 drawText(line.text, startX, relativeBaseline, textPaint)
             }
@@ -270,24 +270,23 @@ class ReaderPageRenderer(
     }
 
     /**
-     * 两端对齐绘制：将额外空间均匀分配到字符之间
+     * 两端对齐绘制：使用预计算的 charColumns 避免逐字符 measureText
      */
-    private fun Canvas.drawTextJustified(text: String, x: Float, y: Float, page: TextPage) {
+    private fun Canvas.drawTextJustified(line: TextLine, x: Float, y: Float, page: TextPage) {
         val availableWidth = page.pageSize.width - page.marginHorizontal * 2
-        val actualTextWidth = textPaint.measureText(text)
-        val extraSpace = availableWidth - actualTextWidth
+        val extraSpace = availableWidth - line.measuredWidth
 
         if (extraSpace <= 0f) {
-            drawText(text, x, y, textPaint)
+            drawText(line.text, x, y, textPaint)
             return
         }
 
-        val spacingPerChar = extraSpace / (text.length - 1)
+        val spacingPerChar = extraSpace / (line.charColumns.size - 1)
         var currentX = x
 
-        for (char in text) {
-            drawText(char.toString(), currentX, y, textPaint)
-            currentX += textPaint.measureText(char.toString()) + spacingPerChar
+        for (col in line.charColumns) {
+            drawText(col.charData, currentX, y, textPaint)
+            currentX += col.charWidth + spacingPerChar
         }
     }
 

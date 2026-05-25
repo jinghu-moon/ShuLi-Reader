@@ -1,5 +1,6 @@
 package com.shuli.reader.core.reader
 
+import com.shuli.reader.core.reader.model.CharColumn
 import com.shuli.reader.core.reader.model.ReaderLayoutConfig
 import com.shuli.reader.core.reader.model.TextChapter
 import com.shuli.reader.core.reader.model.TextLine
@@ -189,6 +190,8 @@ class Paginator(
                 startCharOffset = currentOffset,
                 endCharOffset = currentOffset + skippedSpaces + lineResult.consumedChars,
                 startXOffset = if (isParagraphStart) indentWidth else 0f,
+                charColumns = lineResult.charColumns,
+                measuredWidth = lineResult.measuredWidth,
             )
             lines.add(line)
 
@@ -234,6 +237,8 @@ class Paginator(
                 startCharOffset = currentOffset,
                 endCharOffset = currentOffset + skippedSpaces + lineResult.consumedChars,
                 startXOffset = if (isParagraphStart) indentWidth else 0f,
+                charColumns = lineResult.charColumns,
+                measuredWidth = lineResult.measuredWidth,
             )
             lines.add(line)
             currentOffset += skippedSpaces + lineResult.consumedChars
@@ -279,9 +284,10 @@ class Paginator(
             return LineResult("", true, 1)
         }
 
-        // 计算能容纳的字符数（含字距）
+        // 计算能容纳的字符数（含字距），同时收集字符宽度
         var currentWidth = 0f
         var charCount = 0
+        val charWidths = mutableListOf<Float>()
 
         for (i in 0 until lineEnd) {
             val charWidth = textMeasurer.measureCharWidth(remaining[i], textSize)
@@ -290,6 +296,7 @@ class Paginator(
                 break
             }
             currentWidth += charWidth + spacing
+            charWidths.add(charWidth)
             charCount++
         }
 
@@ -325,7 +332,17 @@ class Paginator(
         val consumedChars = charCount + if (consumesLineBreak) 1 else 0
         val isParagraphEnd = consumesLineBreak
 
-        return LineResult(text, isParagraphEnd, consumedChars)
+        // 构建 CharColumn 列表（仅保留有效字符的宽度）
+        val charColumns = text.mapIndexed { index: Int, char: Char ->
+            CharColumn(char.toString(), charWidths[index])
+        }
+        val measuredWidth = if (charWidths.isNotEmpty()) {
+            charWidths.sum() + letterSpacingPx * (charWidths.size - 1).coerceAtLeast(0)
+        } else {
+            0f
+        }
+
+        return LineResult(text, isParagraphEnd, consumedChars, charColumns, measuredWidth)
     }
 
     /**
@@ -335,5 +352,9 @@ class Paginator(
         val text: String,
         val isParagraphEnd: Boolean,
         val consumedChars: Int,
+        /** 字符级宽度信息，用于两端对齐绘制 */
+        val charColumns: List<com.shuli.reader.core.reader.model.CharColumn> = emptyList(),
+        /** 文本总宽度（缓存） */
+        val measuredWidth: Float = 0f,
     )
 }

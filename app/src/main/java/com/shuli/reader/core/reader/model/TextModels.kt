@@ -40,6 +40,17 @@ data class TextColumn(
 )
 
 /**
+ * 字符级宽度信息，用于两端对齐预计算
+ *
+ * @param charData 字符内容（单个 grapheme cluster）
+ * @param charWidth 字符原始宽度（不含两端对齐额外间距）
+ */
+data class CharColumn(
+    val charData: String,
+    val charWidth: Float,
+)
+
+/**
  * 文本行
  *
  * 支持 per-line CanvasRecorder：选区/TTS 高亮变化时仅重画受影响的行。
@@ -56,6 +67,10 @@ data class TextLine(
     val startCharOffset: Int,
     val endCharOffset: Int,
     val startXOffset: Float = 0f,
+    /** 字符级宽度信息，用于两端对齐绘制（Paginator 分页时填充） */
+    val charColumns: List<CharColumn> = emptyList(),
+    /** 文本总宽度（缓存），避免渲染时重复 measureText */
+    val measuredWidth: Float = 0f,
 ) {
     /** 每行独立的渲染缓存，选区/TTS 变化时仅 invalidate 受影响行 */
     @Transient
