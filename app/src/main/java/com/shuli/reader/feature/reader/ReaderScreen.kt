@@ -266,7 +266,7 @@ fun ReaderScreen(
                         val nextPage = uiState.currentChapter?.getPage(uiState.pageIndex + 1)
                         val prevPage = uiState.currentChapter?.getPage(uiState.pageIndex - 1)
                         val prefs = uiState.readerPreferences
-                        view.onTextSelected = viewModel::selectText
+                        // 主题/字号/字体/字重/对齐 → 各 setter 内部短路检查，无变化时直接跳过
                         view.setThemeColors(uiState.themeColors)
                         view.setTextSizePx(prefs.fontSize * density)
                         view.setFontFamily(prefs.readingFont)
@@ -274,12 +274,16 @@ fun ReaderScreen(
                         view.setFakeBoldText(prefs.fontWeight == ReaderFontWeight.BOLD)
                         view.setTextAlign(prefs.textAlign)
                         view.setPageDelegate(viewModel.pageDelegate)
-                        // 页眉脚：使用 SlotResolver 解析后的多槽位
-                        val headerSlots = viewModel.resolveHeaderSlots()
-                        val footerSlots = viewModel.resolveFooterSlots()
-                        view.updateHeaderFooter(headerSlots, footerSlots, prefs.headerFooterAlpha, prefs.showProgress)
+                        // 页眉页脚：批量更新，内部 diff 后才触发重绘
+                        view.updateHeaderFooter(
+                            viewModel.resolveHeaderSlots(),
+                            viewModel.resolveFooterSlots(),
+                            prefs.headerFooterAlpha,
+                            prefs.showProgress,
+                        )
                         view.setEdgeTurnPageEnabled(prefs.edgeTurnPage)
                         view.setTitleStyle(prefs.titleStyle)
+                        // 页数据：setPage 内部引用比较，无变化时仅触发 invalidate
                         view.setPage(page, nextPage, prevPage, uiState.pageRenderMode)
                         view.setTtsActiveRange(uiState.ttsActiveRange)
                         view.setBatteryLevel(batteryLevel)

@@ -126,12 +126,9 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     private var isTextSelectionGesture = false
 
-    /** 主线程同步录制单页（兜底用）。 */
-    private fun recordPage(page: TextPage) {
-        val w = width
-        val h = height
-        if (w <= 0 || h <= 0) return
-        page.canvasRecorder.recordIfNeeded(w, h) {
+    /** 录制页面的公共实现。返回 true 表示实际产生了录制。 */
+    private fun doRecordPage(page: TextPage, w: Int, h: Int): Boolean {
+        return page.canvasRecorder.recordIfNeeded(w, h) {
             pageRenderer.render(
                 canvas = this,
                 page = page,
@@ -150,28 +147,20 @@ class ReaderCanvasView @JvmOverloads constructor(
         }
     }
 
+    /** 主线程同步录制单页（兜底用）。 */
+    private fun recordPage(page: TextPage) {
+        val w = width
+        val h = height
+        if (w <= 0 || h <= 0) return
+        doRecordPage(page, w, h)
+    }
+
     /**
      * 后台线程录制页面。CanvasRecorderLocked 内部 ReentrantLock 保证线程安全。
      * 返回 true 表示实际产生了录制（即 recorder 之前是脏的）。
      */
     private fun recordPageOffMain(page: TextPage, w: Int, h: Int): Boolean {
-        return page.canvasRecorder.recordIfNeeded(w, h) {
-            pageRenderer.render(
-                canvas = this,
-                page = page,
-                headerSlots = renderContext.headerSlots,
-                footerSlots = renderContext.footerSlots,
-                showProgress = renderContext.showProgress,
-                headerAlpha = renderContext.headerAlpha,
-                footerAlpha = renderContext.footerAlpha,
-                batteryLevel = renderContext.batteryLevel,
-                ttsActiveRange = renderContext.ttsActiveRange,
-                selectedRange = renderContext.selectedRange,
-                ttsHighlightPaint = ttsHighlightPaint,
-                selectionPaint = selectionPaint,
-                backgroundPaint = backgroundPaint,
-            )
-        }
+        return doRecordPage(page, w, h)
     }
 
     /** 提交后台预渲染任务：录制 current/next/prev 三页，完成后触发重绘。 */
@@ -271,16 +260,28 @@ class ReaderCanvasView @JvmOverloads constructor(
         invalidate()
     }
 
+    /** 缓存动画禁用检测结果，避免每次 setPageDelegate 查询 ContentProvider */
+    private var animationDisabledCache: Boolean? = null
+
     private fun isAnimationDisabled(): Boolean {
-        return try {
-            android.provider.Settings.Global.getFloat(
-                context.contentResolver,
-                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
-                1.0f
-            ) == 0f
-        } catch (e: Exception) {
-            false
+        return animationDisabledCache ?: run {
+            val disabled = try {
+                android.provider.Settings.Global.getFloat(
+                    context.contentResolver,
+                    android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                    1.0f
+                ) == 0f
+            } catch (e: Exception) {
+                false
+            }
+            animationDisabledCache = disabled
+            disabled
         }
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        animationDisabledCache = null // 重新检测
     }
 
     /**
@@ -451,10 +452,15 @@ class ReaderCanvasView @JvmOverloads constructor(
         pageRenderer.setTitleStyle(style)
     }
 
+    /** 缓存当前 fontKey，避免重复加载字体。空串表示尚未设置，首次调用必定执行 */
+    private var currentFontKey: String = ""
+
     /**
      * 设置阅读字体（"system" = 系统默认，其他 = LXGW 文楷）
      */
     fun setFontFamily(fontKey: String) {
+        if (fontKey == currentFontKey) return
+        currentFontKey = fontKey
         val typeface = when (fontKey) {
             "system" -> Typeface.DEFAULT
             "lxgw" -> try {

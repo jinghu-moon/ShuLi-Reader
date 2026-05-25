@@ -28,6 +28,16 @@ class ReaderPageRenderer(
         typeface = textPaint.typeface
     }
 
+    /** 电池绘制画笔（预分配，避免每帧 new Paint） */
+    private val batteryStrokePaint = Paint().apply {
+        style = Paint.Style.STROKE
+        isAntiAlias = true
+    }
+    private val batteryFillPaint = Paint().apply {
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
+
     /**
      * 更新对齐方式
      */
@@ -297,37 +307,25 @@ class ReaderPageRenderer(
         val batteryTop = footerBaseline - footerPaint.textSize * 0.8f
         val batteryBottom = batteryTop + batHeight
 
+        // 更新预分配画笔属性
+        batteryStrokePaint.color = footerPaint.color
+        batteryStrokePaint.alpha = 102
+        batteryStrokePaint.strokeWidth = 1f * density
+        batteryFillPaint.color = footerPaint.color
+        batteryFillPaint.alpha = 102
+
         // 1. 绘制电池外框
-        val strokePaint = Paint().apply {
-            color = footerPaint.color
-            alpha = 102
-            style = Paint.Style.STROKE
-            strokeWidth = 1f * density
-            isAntiAlias = true
-        }
         val batteryRect = RectF(batteryLeft, batteryTop, batteryRight, batteryBottom)
-        canvas.drawRoundRect(batteryRect, 1.5f * density, 1.5f * density, strokePaint)
+        canvas.drawRoundRect(batteryRect, 1.5f * density, 1.5f * density, batteryStrokePaint)
 
         // 2. 绘制电池头 (Cap)
         val capLeft = batteryRight
         val capRight = capLeft + capWidth
         val capTop = batteryTop + (batHeight - capHeight) / 2f
         val capBottom = capTop + capHeight
-        val capPaint = Paint().apply {
-            color = footerPaint.color
-            alpha = 102
-            style = Paint.Style.FILL
-            isAntiAlias = true
-        }
-        canvas.drawRect(RectF(capLeft, capTop, capRight, capBottom), capPaint)
+        canvas.drawRect(RectF(capLeft, capTop, capRight, capBottom), batteryFillPaint)
 
         // 3. 绘制电池内部填充
-        val fillPaint = Paint().apply {
-            color = footerPaint.color
-            alpha = 102
-            style = Paint.Style.FILL
-            isAntiAlias = true
-        }
         val innerPadding = 1.5f * density
         val maxFillWidth = batWidth - innerPadding * 2
         val fillWidth = maxFillWidth * (batteryLevel.coerceIn(0, 100) / 100f)
@@ -337,7 +335,7 @@ class ReaderPageRenderer(
             batteryLeft + innerPadding + fillWidth,
             batteryBottom - innerPadding
         )
-        canvas.drawRect(fillRect, fillPaint)
+        canvas.drawRect(fillRect, batteryFillPaint)
 
         // 4. 绘制电量百分比
         val percentText = "$batteryLevel%"

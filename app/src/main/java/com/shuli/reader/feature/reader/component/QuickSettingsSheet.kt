@@ -457,7 +457,12 @@ private fun DisplayPanel(
         onSelect = onPageAnimTypeChange,
     )
 
-    // 主题色块
+    // 主题色块（缓存转换结果，避免每次 recomposition 重复计算）
+    val themeColorMap = remember {
+        ReaderTheme.entries.associateWith {
+            it.toReaderColorScheme().toCanvasThemeColors()
+        }
+    }
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -470,7 +475,7 @@ private fun DisplayPanel(
         )
         ReaderTheme.entries.forEach { theme ->
             val isSelected = prefs.backgroundColor == theme
-            val themeColors = theme.toReaderColorScheme().toCanvasThemeColors()
+            val themeColors = themeColorMap[theme]!!
             androidx.compose.foundation.Canvas(
                 modifier = Modifier
                     .padding(end = 8.dp)

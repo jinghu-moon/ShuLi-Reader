@@ -74,6 +74,45 @@ import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
+ * 排版参数（变化时需 reflow）
+ */
+private data class ReaderLayoutPrefs(
+    val fontSize: Float,
+    val lineSpacing: Float,
+    val paragraphSpacing: Float,
+    val indent: Float,
+    val marginHorizontal: Float,
+    val marginVertical: Float,
+    val letterSpacing: Float,
+    val useZhLayout: Boolean,
+    val chineseConvert: com.shuli.reader.core.data.ChineseConvert,
+)
+
+/**
+ * 外观参数（变化时仅重绘）
+ */
+private data class ReaderVisualPrefs(
+    val readingFont: String,
+    val fontWeight: com.shuli.reader.core.data.ReaderFontWeight,
+    val textAlign: com.shuli.reader.core.data.ReaderTextAlign,
+    val pageAnimType: com.shuli.reader.core.data.PageAnimType,
+    val header: HeaderConfig,
+    val footer: FooterConfig,
+    val headerFooterAlpha: Float,
+    val showProgress: Boolean,
+)
+
+/**
+ * 行为参数（变化时仅更新标志位）
+ */
+private data class ReaderBehaviorPrefs(
+    val brightness: Float,
+    val keepScreenOn: Boolean,
+    val volumeKeyTurnPage: Boolean,
+    val edgeTurnPage: Boolean,
+)
+
+/**
  * 阅读器 UI 状态
  */
 enum class OverlayPanel {
@@ -109,15 +148,12 @@ data class ReaderUiState(
     val ttsState: TtsState = TtsState.IDLE,
     val ttsActiveRange: SelectionRange? = null,
     val presets: List<com.shuli.reader.core.database.entity.ReaderPresetEntity> = emptyList(),
+    /** 缓存的主题颜色，避免每次访问 themeColors 都创建中间对象 */
+    val themeColors: ThemeColors = readerPreferences.backgroundColor
+        .toReaderColorScheme().toCanvasThemeColors(),
 ) {
     val showDirectory: Boolean get() = overlayPanel == OverlayPanel.DIRECTORY
     val showQuickSettings: Boolean get() = overlayPanel == OverlayPanel.QUICK_SETTINGS
-
-    /** 当前主题颜色配置，派生自 readerPreferences.backgroundColor */
-    val themeColors: ThemeColors
-        get() = readerPreferences.backgroundColor
-            .toReaderColorScheme()
-            .toCanvasThemeColors()
 }
 
 /**
@@ -226,21 +262,69 @@ class ReaderViewModel(
     init {
         // 监听用户偏好设置变化
         userPreferences?.let { prefs ->
+            // Group A: 排版参数 → 变化时需 reflow（重新分页）
             viewModelScope.launch {
                 combine(
                     prefs.defaultFontSize,
                     prefs.defaultLineSpacing,
                     prefs.defaultParagraphSpacing,
                     prefs.defaultIndent,
-                    prefs.defaultPageAnim,
-                    prefs.brightness,
                     prefs.marginHorizontal,
                     prefs.marginVertical,
-                    prefs.readingFont,
                     prefs.letterSpacing,
+                    prefs.useZhLayout,
+                    prefs.chineseConvert,
+                    prefs.titleAlign,
+                    prefs.titleSizeOffset,
+                    prefs.titleMarginTop,
+                    prefs.titleMarginBottom,
+                ) { flows ->
+                    Triple(
+                        ReaderLayoutPrefs(
+                            fontSize = flows[0] as Float,
+                            lineSpacing = flows[1] as Float,
+                            paragraphSpacing = flows[2] as Float,
+                            indent = flows[3] as Float,
+                            marginHorizontal = flows[4] as Float,
+                            marginVertical = flows[5] as Float,
+                            letterSpacing = flows[6] as Float,
+                            useZhLayout = flows[7] as Boolean,
+                            chineseConvert = (flows[8] as String).toChineseConvert(),
+                        ),
+                        TitleStyleConfig(
+                            align = (flows[9] as String).toTitleAlign(),
+                            sizeOffsetSp = flows[10] as Int,
+                            marginTopDp = flows[11] as Float,
+                            marginBottomDp = flows[12] as Float,
+                        ),
+                        flows[8] as String, // chineseConvert raw
+                    )
+                }.collectLatest { (layoutPrefs, titleStyle, chineseConvertRaw) ->
+                    val current = _uiState.value.readerPreferences
+                    val updated = current.copy(
+                        fontSize = layoutPrefs.fontSize,
+                        lineSpacing = layoutPrefs.lineSpacing,
+                        paragraphSpacing = layoutPrefs.paragraphSpacing,
+                        indent = layoutPrefs.indent,
+                        marginHorizontal = layoutPrefs.marginHorizontal,
+                        marginVertical = layoutPrefs.marginVertical,
+                        letterSpacing = layoutPrefs.letterSpacing,
+                        useZhLayout = layoutPrefs.useZhLayout,
+                        chineseConvert = chineseConvertRaw.toChineseConvert(),
+                        titleStyle = titleStyle,
+                    )
+                    _uiState.value = _uiState.value.copy(readerPreferences = updated)
+                    reflowCurrentChapter(updated)
+                }
+            }
+
+            // Group B: 外观参数 → 变化时仅重绘（不 reflow）
+            viewModelScope.launch {
+                combine(
+                    prefs.readingFont,
                     prefs.fontWeight,
                     prefs.textAlign,
-                    prefs.chineseConvert,
+                    prefs.defaultPageAnim,
                     prefs.headerVisibility,
                     prefs.headerLeft,
                     prefs.headerCenter,
@@ -251,62 +335,73 @@ class ReaderViewModel(
                     prefs.footerRight,
                     prefs.headerFooterAlpha,
                     prefs.showProgress,
+                ) { flows ->
+                    ReaderVisualPrefs(
+                        readingFont = flows[0] as String,
+                        fontWeight = (flows[1] as String).toFontWeight(),
+                        textAlign = (flows[2] as String).toTextAlign(),
+                        pageAnimType = (flows[3] as String).toPageAnimType(),
+                        header = HeaderConfig(
+                            visibility = (flows[4] as String).toHeaderVisibility(),
+                            left = (flows[5] as String).toSlotContent(),
+                            center = (flows[6] as String).toSlotContent(),
+                            right = (flows[7] as String).toSlotContent(),
+                        ),
+                        footer = FooterConfig(
+                            visibility = (flows[8] as String).toHeaderVisibility(),
+                            left = (flows[9] as String).toSlotContent(),
+                            center = (flows[10] as String).toSlotContent(),
+                            right = (flows[11] as String).toSlotContent(),
+                        ),
+                        headerFooterAlpha = flows[12] as Float,
+                        showProgress = flows[13] as Boolean,
+                    )
+                }.collectLatest { visual ->
+                    val current = _uiState.value.readerPreferences
+                    val updated = current.copy(
+                        readingFont = visual.readingFont,
+                        fontWeight = visual.fontWeight,
+                        textAlign = visual.textAlign,
+                        pageAnimType = visual.pageAnimType,
+                        header = visual.header,
+                        footer = visual.footer,
+                        headerFooterAlpha = visual.headerFooterAlpha,
+                        showProgress = visual.showProgress,
+                    )
+                    val factoryType = visual.pageAnimType.toFactoryType()
+                    _uiState.value = _uiState.value.copy(
+                        readerPreferences = updated,
+                        pageAnimType = factoryType,
+                        themeColors = updated.backgroundColor.toReaderColorScheme().toCanvasThemeColors(),
+                    )
+                    pageDelegate = PageDelegateFactory.create(factoryType)
+                }
+            }
+
+            // Group C: 行为参数 → 变化时仅更新标志位（不重绘、不 reflow）
+            viewModelScope.launch {
+                combine(
+                    prefs.brightness,
                     prefs.keepScreenOn,
                     prefs.volumeKeyTurnPage,
                     prefs.edgeTurnPage,
-                    prefs.useZhLayout,
-                    prefs.titleAlign,
-                    prefs.titleSizeOffset,
-                    prefs.titleMarginTop,
-                    prefs.titleMarginBottom,
                 ) { flows ->
-                    ReaderPreferences(
-                        fontSize = flows[0] as Float,
-                        lineSpacing = flows[1] as Float,
-                        paragraphSpacing = flows[2] as Float,
-                        indent = flows[3] as Float,
-                        pageAnimType = (flows[4] as String).toPageAnimType(),
-                        brightness = flows[5] as Float,
-                        marginHorizontal = flows[6] as Float,
-                        marginVertical = flows[7] as Float,
-                        readingFont = flows[8] as String,
-                        letterSpacing = flows[9] as Float,
-                        fontWeight = (flows[10] as String).toFontWeight(),
-                        textAlign = (flows[11] as String).toTextAlign(),
-                        chineseConvert = (flows[12] as String).toChineseConvert(),
-                        header = HeaderConfig(
-                            visibility = (flows[13] as String).toHeaderVisibility(),
-                            left = (flows[14] as String).toSlotContent(),
-                            center = (flows[15] as String).toSlotContent(),
-                            right = (flows[16] as String).toSlotContent(),
-                        ),
-                        footer = FooterConfig(
-                            visibility = (flows[17] as String).toHeaderVisibility(),
-                            left = (flows[18] as String).toSlotContent(),
-                            center = (flows[19] as String).toSlotContent(),
-                            right = (flows[20] as String).toSlotContent(),
-                        ),
-                        headerFooterAlpha = flows[21] as Float,
-                        showProgress = flows[22] as Boolean,
-                        keepScreenOn = flows[23] as Boolean,
-                        volumeKeyTurnPage = flows[24] as Boolean,
-                        edgeTurnPage = flows[25] as Boolean,
-                        useZhLayout = flows[26] as Boolean,
-                        titleStyle = TitleStyleConfig(
-                            align = (flows[27] as String).toTitleAlign(),
-                            sizeOffsetSp = flows[28] as Int,
-                            marginTopDp = flows[29] as Float,
-                            marginBottomDp = flows[30] as Float,
-                        ),
+                    ReaderBehaviorPrefs(
+                        brightness = flows[0] as Float,
+                        keepScreenOn = flows[1] as Boolean,
+                        volumeKeyTurnPage = flows[2] as Boolean,
+                        edgeTurnPage = flows[3] as Boolean,
                     )
-                }.collectLatest { preferences ->
-                    val factoryType = preferences.pageAnimType.toFactoryType()
+                }.collectLatest { behavior ->
+                    val current = _uiState.value.readerPreferences
                     _uiState.value = _uiState.value.copy(
-                        readerPreferences = preferences,
-                        pageAnimType = factoryType,
+                        readerPreferences = current.copy(
+                            brightness = behavior.brightness,
+                            keepScreenOn = behavior.keepScreenOn,
+                            volumeKeyTurnPage = behavior.volumeKeyTurnPage,
+                            edgeTurnPage = behavior.edgeTurnPage,
+                        ),
                     )
-                    pageDelegate = PageDelegateFactory.create(factoryType)
-                    reflowCurrentChapter(preferences)
                 }
             }
         }
@@ -594,8 +689,10 @@ class ReaderViewModel(
      */
     fun setReaderTheme(theme: ReaderTheme) {
         val currentPrefs = _uiState.value.readerPreferences
+        val newPrefs = currentPrefs.copy(backgroundColor = theme)
         _uiState.value = _uiState.value.copy(
-            readerPreferences = currentPrefs.copy(backgroundColor = theme),
+            readerPreferences = newPrefs,
+            themeColors = theme.toReaderColorScheme().toCanvasThemeColors(),
         )
     }
 
