@@ -1,6 +1,7 @@
 package com.shuli.reader
 
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -27,6 +29,7 @@ import com.shuli.reader.feature.reader.ReaderViewModel
 import com.shuli.reader.feature.settings.SettingsEvent
 import com.shuli.reader.feature.settings.SettingsScreen
 import com.shuli.reader.feature.settings.SettingsViewModel
+import com.shuli.reader.ui.theme.LxgwFont
 import com.shuli.reader.ui.theme.ReadingFont
 import com.shuli.reader.ui.theme.ShuLiTheme
 import com.shuli.reader.ui.theme.Typography
@@ -42,6 +45,37 @@ sealed class ActiveScreen {
 }
 
 class MainActivity : ComponentActivity() {
+    // 音量键翻页：持有当前 ReaderViewModel 引用
+    private var currentReaderViewModel: ReaderViewModel? = null
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val viewModel = currentReaderViewModel
+        val state = viewModel?.uiState?.value
+        if (viewModel != null && state != null
+            && state.readerPreferences.volumeKeyTurnPage
+            && !state.showQuickSettings
+            && !state.showDirectory
+        ) {
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                when (event.keyCode) {
+                    KeyEvent.KEYCODE_VOLUME_UP -> {
+                        viewModel.prevPage()
+                        return true
+                    }
+                    KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                        viewModel.nextPage()
+                        return true
+                    }
+                }
+            }
+            // 音量键事件已被消费，不传递给系统（避免调节音量）
+            if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP || event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+                return true
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -118,7 +152,8 @@ class MainActivity : ComponentActivity() {
             // 计算全局字体
             val currentFontFamily = when (settingsState.appFont) {
                 "system" -> FontFamily.Default
-                else -> ReadingFont
+                "lxgw" -> LxgwFont
+                else -> ReadingFont // "harmony" → HarmonyOS Sans SC
             }
             val customTypography = Typography.withFontFamily(currentFontFamily)
 
@@ -156,7 +191,15 @@ class MainActivity : ComponentActivity() {
                                         bookRepository = appContainer.bookRepository,
                                         bookmarkDao = appContainer.database.bookmarkDao(),
                                         noteDao = appContainer.database.noteDao(),
+                                        presetDao = appContainer.database.readerPresetDao(),
                                     )
+                                }
+                                // 音量键翻页：设置/清理 ViewModel 引用
+                                LaunchedEffect(readerViewModel) {
+                                    currentReaderViewModel = readerViewModel
+                                }
+                                DisposableEffect(Unit) {
+                                    onDispose { currentReaderViewModel = null }
                                 }
                                 ReaderScreen(
                                     bookId = screen.bookId,

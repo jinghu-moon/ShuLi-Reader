@@ -60,6 +60,13 @@ class NoAnimPageDelegate : PageDelegate {
         callback?.onPageChanged(direction)
     }
 
+    override fun confirmPageSettled() {
+        if (state == PageDelegate.State.SETTLING) {
+            state = PageDelegate.State.IDLE
+            direction = PageDelegate.Direction.NONE
+        }
+    }
+
     override fun abort() {
         state = PageDelegate.State.IDLE
         direction = PageDelegate.Direction.NONE

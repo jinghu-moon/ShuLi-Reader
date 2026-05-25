@@ -58,7 +58,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Slider
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.BrightnessMedium
 import androidx.compose.material.icons.outlined.List
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.Search
@@ -87,7 +86,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.view.WindowManager
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.mutableIntStateOf
@@ -96,7 +94,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.width
+import com.shuli.reader.core.data.ChineseConvert
+import com.shuli.reader.core.data.PageAnimType
+import com.shuli.reader.core.data.ReaderFontWeight
+import com.shuli.reader.core.data.ReaderTextAlign
+import com.shuli.reader.core.data.toFactoryType
+import com.shuli.reader.core.reader.HeaderVisibility
+import com.shuli.reader.core.reader.SlotResolution
 import com.shuli.reader.feature.reader.component.DirectoryDialog
+import com.shuli.reader.feature.reader.component.QuickSettingsSheet
 import com.shuli.reader.ui.testing.UiTestTags
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 import com.shuli.reader.ui.theme.toCanvasThemeColors
@@ -141,14 +147,12 @@ fun ReaderScreen(
     BackHandler(
         enabled = uiState.selectedRange != null
             || uiState.showDirectory
-            || uiState.showBrightness
             || uiState.showQuickSettings
             || uiState.showToolbar,
     ) {
         when {
             uiState.selectedRange != null -> viewModel.clearTextSelection()
             uiState.showDirectory -> viewModel.toggleDirectory()
-            uiState.showBrightness -> viewModel.toggleBrightness()
             uiState.showQuickSettings -> viewModel.toggleQuickSettings()
             uiState.showToolbar -> viewModel.toggleToolbar()
         }
@@ -165,6 +169,18 @@ fun ReaderScreen(
                 brightness.coerceIn(0.01f, 1f)
             }
             window.attributes = layoutParams
+        }
+    }
+
+    // 监听屏幕常亮偏好
+    val keepScreenOn = uiState.readerPreferences.keepScreenOn
+    LaunchedEffect(keepScreenOn) {
+        activity?.window?.let { window ->
+            if (keepScreenOn) {
+                window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
         }
     }
 
@@ -238,6 +254,9 @@ fun ReaderScreen(
                                     .toCanvasThemeColors(),
                             )
                             onPageChanged = viewModel::handlePageDirection
+                            onPageChangedSlots = {
+                                Pair(viewModel.resolveHeaderSlots(), viewModel.resolveFooterSlots())
+                            }
                             onTextSelected = viewModel::selectText
                             onCenterClicked = viewModel::toggleToolbar
                         }
@@ -246,13 +265,21 @@ fun ReaderScreen(
                         val page = uiState.currentPage ?: return@AndroidView
                         val nextPage = uiState.currentChapter?.getPage(uiState.pageIndex + 1)
                         val prevPage = uiState.currentChapter?.getPage(uiState.pageIndex - 1)
+                        val prefs = uiState.readerPreferences
                         view.onTextSelected = viewModel::selectText
                         view.setThemeColors(uiState.themeColors)
-                        view.setTextSizePx(uiState.readerPreferences.fontSize * density)
-                        view.setFontFamily(uiState.readerPreferences.readingFont)
+                        view.setTextSizePx(prefs.fontSize * density)
+                        view.setFontFamily(prefs.readingFont)
+                        view.setLetterSpacing(prefs.letterSpacing)
+                        view.setFakeBoldText(prefs.fontWeight == ReaderFontWeight.BOLD)
+                        view.setTextAlign(prefs.textAlign)
                         view.setPageDelegate(viewModel.pageDelegate)
-                        view.setHeaderText(uiState.chapterTitle)
-                        view.setFooterText("${uiState.pageIndex + 1} / ${uiState.totalPages.coerceAtLeast(1)}")
+                        // 页眉脚：使用 SlotResolver 解析后的多槽位
+                        val headerSlots = viewModel.resolveHeaderSlots()
+                        val footerSlots = viewModel.resolveFooterSlots()
+                        view.updateHeaderFooter(headerSlots, footerSlots, prefs.headerFooterAlpha, prefs.showProgress)
+                        view.setEdgeTurnPageEnabled(prefs.edgeTurnPage)
+                        view.setTitleStyle(prefs.titleStyle)
                         view.setPage(page, nextPage, prevPage, uiState.pageRenderMode)
                         view.setTtsActiveRange(uiState.ttsActiveRange)
                         view.setBatteryLevel(batteryLevel)
@@ -261,7 +288,7 @@ fun ReaderScreen(
                         }
                     },
                 )
-                
+
                 // 悬浮顶部工具栏
                 AnimatedVisibility(
                     visible = uiState.showToolbar,
@@ -276,12 +303,12 @@ fun ReaderScreen(
                             .statusBarsPadding()
                     ) {
                         TopAppBar(
-                            title = { 
+                            title = {
                                 Text(
                                     text = uiState.bookTitle.ifBlank { "${strings.appName} - #$bookId" },
                                     style = MaterialTheme.typography.titleMedium,
                                     color = readerColors.textPrimary
-                                ) 
+                                )
                             },
                             navigationIcon = {
                                 IconButton(
@@ -289,7 +316,7 @@ fun ReaderScreen(
                                     modifier = Modifier.testTag(UiTestTags.READER_BACK_BUTTON),
                                 ) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack, 
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                         contentDescription = strings.backIconDesc,
                                         tint = readerColors.textPrimary
                                     )
@@ -424,194 +451,10 @@ fun ReaderScreen(
                                 ) {
                                     Icon(Icons.Outlined.List, contentDescription = strings.directoryTab, tint = readerColors.textPrimary)
                                 }
-                                IconButton(onClick = viewModel::toggleBrightness) {
-                                    Icon(Icons.Outlined.BrightnessMedium, contentDescription = strings.brightness, tint = readerColors.textPrimary)
-                                }
                                 IconButton(onClick = viewModel::toggleQuickSettings) {
                                     Icon(Icons.Outlined.Settings, contentDescription = strings.readerPreferences, tint = readerColors.textPrimary)
                                 }
                             }
-                        }
-                    }
-                }
-
-                // 亮度浮层面板
-                AnimatedVisibility(
-                    visible = uiState.showBrightness,
-                    enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())) + fadeIn(animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())),
-                    exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())) + fadeOut(animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())),
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                ) {
-                    Surface(
-                        color = readerColors.surface,
-                        contentColor = readerColors.textPrimary,
-                        tonalElevation = ReaderDimens.ElevationMedium,
-                        modifier = Modifier.fillMaxWidth().padding(16.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            Text(text = strings.brightness, style = MaterialTheme.typography.titleSmall, color = readerColors.textPrimary)
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-                            ) {
-                                Icon(Icons.Outlined.BrightnessMedium, contentDescription = null, tint = readerColors.textPrimary)
-                                val currentBrightness = uiState.readerPreferences.brightness
-                                val sliderValue = if (currentBrightness < 0f) 0.5f else currentBrightness
-                                Slider(
-                                    value = sliderValue,
-                                    onValueChange = { newValue ->
-                                        viewModel.setBrightness(newValue)
-                                    },
-                                    colors = androidx.compose.material3.SliderDefaults.colors(
-                                        thumbColor = readerColors.accent,
-                                        activeTrackColor = readerColors.accent,
-                                        inactiveTrackColor = readerColors.divider,
-                                    ),
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // 快捷设置面板
-                AnimatedVisibility(
-                    visible = uiState.showQuickSettings,
-                    enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())) + fadeIn(animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())),
-                    exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())) + fadeOut(animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())),
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                ) {
-                    Surface(
-                        color = readerColors.surface,
-                        contentColor = readerColors.textPrimary,
-                        tonalElevation = ReaderDimens.ElevationMedium,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(ReaderDimens.PaddingMedium)
-                    ) {
-                        Column(modifier = Modifier.padding(ReaderDimens.PaddingSmall)) {
-                            Text(
-                                text = strings.readerPreferences,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = readerColors.textPrimary,
-                                modifier = Modifier.padding(bottom = ReaderDimens.PaddingSmall)
-                            )
-
-                            // 阅读字体
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(text = strings.readingFont, modifier = Modifier.width(QUICK_SETTINGS_LABEL_WIDTH), style = MaterialTheme.typography.bodyMedium, color = readerColors.textPrimary)
-                                val fontOptions = listOf(
-                                    "system" to strings.readingFontSystem,
-                                    "lxgw" to strings.readingFontLxgw,
-                                )
-                                fontOptions.forEach { (key, label) ->
-                                    val isSelected = uiState.readerPreferences.readingFont == key
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = { viewModel.setReadingFont(key) },
-                                        label = { Text(label) },
-                                        colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
-                                            containerColor = readerColors.surface,
-                                            labelColor = readerColors.textPrimary,
-                                            selectedContainerColor = readerColors.accent,
-                                            selectedLabelColor = readerColors.background,
-                                        ),
-                                        modifier = Modifier.padding(end = ReaderDimens.PaddingSmall)
-                                    )
-                                }
-                            }
-
-                            // 字体大小
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(text = strings.defaultFontSize, modifier = Modifier.width(QUICK_SETTINGS_LABEL_WIDTH), style = MaterialTheme.typography.bodyMedium, color = readerColors.textPrimary)
-                                Spacer(modifier = Modifier.weight(1f))
-                                IconButton(
-                                    onClick = { viewModel.setFontSize(uiState.readerPreferences.fontSize - 1f) },
-                                    modifier = Modifier.size(32.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Remove,
-                                        contentDescription = null,
-                                        tint = readerColors.textPrimary,
-                                        modifier = Modifier.size(18.dp),
-                                    )
-                                }
-                                Text(
-                                    text = "${uiState.readerPreferences.fontSize.toInt()}sp",
-                                    modifier = Modifier.width(48.dp),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = readerColors.textPrimary,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                )
-                                IconButton(
-                                    onClick = { viewModel.setFontSize(uiState.readerPreferences.fontSize + 1f) },
-                                    modifier = Modifier.size(32.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Add,
-                                        contentDescription = null,
-                                        tint = readerColors.textPrimary,
-                                        modifier = Modifier.size(18.dp),
-                                    )
-                                }
-                            }
-
-                            // 首行缩进
-                            ReaderStepperRow(
-                                label = strings.firstLineIndent,
-                                value = uiState.readerPreferences.indent,
-                                step = 0.5f,
-                                valueRange = 0f..10f,
-                                format = { "%.1f".format(it) },
-                                onValueChange = { viewModel.setIndent(it) },
-                            )
-
-                            // 行间距
-                            ReaderStepperRow(
-                                label = strings.defaultLineSpacing,
-                                value = uiState.readerPreferences.lineSpacing,
-                                step = 0.1f,
-                                valueRange = 0.8f..3.0f,
-                                format = { "%.1f".format(it) },
-                                onValueChange = { viewModel.setLineSpacing(it) },
-                            )
-
-                            // 段间距
-                            ReaderStepperRow(
-                                label = strings.paragraphSpacing,
-                                value = uiState.readerPreferences.paragraphSpacing,
-                                step = 0.1f,
-                                valueRange = 0f..5.0f,
-                                format = { "%.1f".format(it) },
-                                onValueChange = { viewModel.setParagraphSpacing(it) },
-                            )
-
-                            // 上下边距
-                            ReaderStepperRow(
-                                label = strings.marginTopBottom,
-                                value = uiState.readerPreferences.marginVertical,
-                                step = 4f,
-                                valueRange = 0f..96f,
-                                format = { "${it.toInt()}dp" },
-                                onValueChange = { viewModel.setMarginVertical(it) },
-                            )
-
-                            // 左右边距
-                            ReaderStepperRow(
-                                label = strings.marginLeftRight,
-                                value = uiState.readerPreferences.marginHorizontal,
-                                step = 4f,
-                                valueRange = 0f..64f,
-                                format = { "${it.toInt()}dp" },
-                                onValueChange = { viewModel.setMarginHorizontal(it) },
-                            )
                         }
                     }
                 }
@@ -663,6 +506,55 @@ fun ReaderScreen(
                     )
                 }
             }
+        }
+
+        // ModalBottomSheet 放在 Box 外部，作为 Scaffold 直接子项
+        // 避免嵌套 Box 导致 enableEdgeToEdge() 下布局异常
+        if (uiState.showQuickSettings) {
+            QuickSettingsSheet(
+                uiState = uiState,
+                onDismiss = viewModel::toggleQuickSettings,
+                onBrightnessChange = viewModel::setBrightness,
+                onFontSizeChange = viewModel::setFontSize,
+                onLineSpacingChange = viewModel::setLineSpacing,
+                onParagraphSpacingChange = viewModel::setParagraphSpacing,
+                onIndentChange = viewModel::setIndent,
+                onMarginVerticalChange = viewModel::setMarginVertical,
+                onMarginHorizontalChange = viewModel::setMarginHorizontal,
+                onReadingFontChange = viewModel::setReadingFont,
+                onPageAnimTypeChange = { type ->
+                    viewModel.setPageAnimType(type.toFactoryType())
+                },
+                onThemeChange = viewModel::setReaderTheme,
+                onLetterSpacingChange = viewModel::setLetterSpacing,
+                onFontWeightChange = viewModel::setFontWeight,
+                onTextAlignChange = viewModel::setTextAlign,
+                onChineseConvertChange = viewModel::setChineseConvert,
+                onUseZhLayoutChange = viewModel::setUseZhLayout,
+                onApplyPreset = viewModel::applyPreset,
+                onSavePreset = viewModel::saveCurrentAsPreset,
+                onRenamePreset = viewModel::renamePreset,
+                onDeletePreset = viewModel::deletePreset,
+                onResetToDefault = viewModel::resetToDefault,
+                // 页眉脚回调
+                onHeaderVisibilityChange = viewModel::setHeaderVisibility,
+                onHeaderLeftChange = viewModel::setHeaderLeft,
+                onHeaderCenterChange = viewModel::setHeaderCenter,
+                onHeaderRightChange = viewModel::setHeaderRight,
+                onFooterVisibilityChange = viewModel::setFooterVisibility,
+                onFooterLeftChange = viewModel::setFooterLeft,
+                onFooterCenterChange = viewModel::setFooterCenter,
+                onFooterRightChange = viewModel::setFooterRight,
+                onHeaderFooterAlphaChange = viewModel::setHeaderFooterAlpha,
+                onShowProgressChange = viewModel::setShowProgress,
+                onTitleAlignChange = viewModel::setTitleAlign,
+                onTitleSizeOffsetChange = viewModel::setTitleSizeOffset,
+                onTitleMarginTopChange = viewModel::setTitleMarginTop,
+                onTitleMarginBottomChange = viewModel::setTitleMarginBottom,
+                onKeepScreenOnChange = viewModel::setKeepScreenOn,
+                onVolumeKeyTurnPageChange = viewModel::setVolumeKeyTurnPage,
+                onEdgeTurnPageChange = viewModel::setEdgeTurnPage,
+            )
         }
     }
 }

@@ -15,6 +15,7 @@ coil = "2.7.0"
 okhttp = "4.12.0"
 jsoup = "1.18.3"
 juniversalchardet = "2.4.0"
+opencc4j = "1.8.1"
 junit4 = "4.13.2"
 mockk = "1.13.13"
 
@@ -57,6 +58,8 @@ com-squareup-okhttp3 = { group = "com.squareup.okhttp3", name = "okhttp", versio
 org-jsoup-jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 
 com-github-albfernandez-juniversalchardet = { group = "com.github.albfernandez", name = "juniversalchardet", version.ref = "juniversalchardet" }
+
+com-houbb-opencc4j = { group = "com.github.houbb", name = "opencc4j", version.ref = "opencc4j" }
 
 junit4 = { group = "junit", name = "junit", version.ref = "junit4" }
 io-mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }

@@ -36,6 +36,7 @@ sealed interface AppStrings {
     val themePaper: String
     val appFontLabel: String
     val appFontSystem: String
+    val appFontHarmony: String
     val appFontLxgw: String
     val languageLabel: String
     val languageCn: String
@@ -71,6 +72,7 @@ sealed interface AppStrings {
     val brightnessFollowSystem: String
     val readingFont: String
     val readingFontSystem: String
+    val readingFontHarmony: String
     val readingFontLxgw: String
     val marginTopBottom: String
     val marginLeftRight: String
@@ -249,6 +251,7 @@ sealed interface AppStrings {
         override val themePaper = "纸质护眼"
         override val appFontLabel = "界面字体"
         override val appFontSystem = "系统默认"
+        override val appFontHarmony = "鸿蒙字体"
         override val appFontLxgw = "霞鹜文楷"
         override val languageLabel = "界面语言"
         override val languageCn = "简体中文"
@@ -256,8 +259,8 @@ sealed interface AppStrings {
         override val languageEn = "English"
 
         override val readerPreferences = "阅读器显示偏好"
-        override val defaultFontSize = "字体大小"
-        override val defaultLineSpacing = "行间距"
+        override val defaultFontSize = "字号"
+        override val defaultLineSpacing = "行距"
         override val lineSpacingCompact = "紧凑 (1.2)"
         override val lineSpacingMedium = "适中 (1.5)"
         override val lineSpacingWide = "宽敞 (1.8)"
@@ -270,11 +273,11 @@ sealed interface AppStrings {
         override val pageTurnDirection = "翻页方向"
         override val pageTurnHorizontal = "左右滑动"
         override val pageTurnVertical = "上下滚动"
-        override val paragraphSpacing = "段间距"
+        override val paragraphSpacing = "段距"
         override val paragraphSpacingCompact = "紧凑"
         override val paragraphSpacingNormal = "标准"
         override val paragraphSpacingWide = "宽敞"
-        override val firstLineIndent = "首行缩进"
+        override val firstLineIndent = "缩进"
         override val indentNone = "无"
         override val indentTwoChars = "2字"
         override val fullScreenMode = "全屏模式"
@@ -283,6 +286,7 @@ sealed interface AppStrings {
         override val brightnessFollowSystem = "跟随系统"
         override val readingFont = "阅读字体"
         override val readingFontSystem = "系统默认"
+        override val readingFontHarmony = "鸿蒙字体"
         override val readingFontLxgw = "霞鹜文楷"
         override val marginTopBottom = "上下边距"
         override val marginLeftRight = "左右边距"
@@ -447,6 +451,7 @@ sealed interface AppStrings {
         override val themePaper = "紙質護眼"
         override val appFontLabel = "介面字體"
         override val appFontSystem = "系統預設"
+        override val appFontHarmony = "鴻蒙字體"
         override val appFontLxgw = "霞鶩文楷"
         override val languageLabel = "介面語言"
         override val languageCn = "簡體中文"
@@ -454,8 +459,8 @@ sealed interface AppStrings {
         override val languageEn = "English"
 
         override val readerPreferences = "閱讀器顯示偏好"
-        override val defaultFontSize = "字體大小"
-        override val defaultLineSpacing = "行間距"
+        override val defaultFontSize = "字號"
+        override val defaultLineSpacing = "行距"
         override val lineSpacingCompact = "緊湊 (1.2)"
         override val lineSpacingMedium = "適中 (1.5)"
         override val lineSpacingWide = "寬敞 (1.8)"
@@ -468,11 +473,11 @@ sealed interface AppStrings {
         override val pageTurnDirection = "翻頁方向"
         override val pageTurnHorizontal = "左右滑動"
         override val pageTurnVertical = "上下滾動"
-        override val paragraphSpacing = "段間距"
+        override val paragraphSpacing = "段距"
         override val paragraphSpacingCompact = "緊湊"
         override val paragraphSpacingNormal = "標準"
         override val paragraphSpacingWide = "寬敞"
-        override val firstLineIndent = "首行縮排"
+        override val firstLineIndent = "縮排"
         override val indentNone = "無"
         override val indentTwoChars = "2字"
         override val fullScreenMode = "全螢幕模式"
@@ -481,6 +486,7 @@ sealed interface AppStrings {
         override val brightnessFollowSystem = "跟隨系統"
         override val readingFont = "閱讀字體"
         override val readingFontSystem = "系統預設"
+        override val readingFontHarmony = "鴻蒙字體"
         override val readingFontLxgw = "霞鶩文楷"
         override val marginTopBottom = "上下邊距"
         override val marginLeftRight = "左右邊距"
@@ -645,6 +651,7 @@ sealed interface AppStrings {
         override val themePaper = "Paper Mode"
         override val appFontLabel = "App UI Font"
         override val appFontSystem = "System Default"
+        override val appFontHarmony = "HarmonyOS Sans"
         override val appFontLxgw = "LXGW Wenkai"
         override val languageLabel = "App Language"
         override val languageCn = "简体中文"
@@ -652,8 +659,8 @@ sealed interface AppStrings {
         override val languageEn = "English"
 
         override val readerPreferences = "Reader Preferences"
-        override val defaultFontSize = "Font Size"
-        override val defaultLineSpacing = "Line Spacing"
+        override val defaultFontSize = "Size"
+        override val defaultLineSpacing = "Spacing"
         override val lineSpacingCompact = "Compact (1.2)"
         override val lineSpacingMedium = "Medium (1.5)"
         override val lineSpacingWide = "Wide (1.8)"
@@ -666,11 +673,11 @@ sealed interface AppStrings {
         override val pageTurnDirection = "Page Turn Direction"
         override val pageTurnHorizontal = "Horizontal"
         override val pageTurnVertical = "Vertical"
-        override val paragraphSpacing = "Paragraph Spacing"
+        override val paragraphSpacing = "Para Space"
         override val paragraphSpacingCompact = "Compact"
         override val paragraphSpacingNormal = "Normal"
         override val paragraphSpacingWide = "Wide"
-        override val firstLineIndent = "First Line Indent"
+        override val firstLineIndent = "Indent"
         override val indentNone = "None"
         override val indentTwoChars = "2 Chars"
         override val fullScreenMode = "Full Screen Mode"
@@ -679,6 +686,7 @@ sealed interface AppStrings {
         override val brightnessFollowSystem = "Follow System"
         override val readingFont = "Reading Font"
         override val readingFontSystem = "System Default"
+        override val readingFontHarmony = "HarmonyOS Sans"
         override val readingFontLxgw = "LXGW Wenkai"
         override val marginTopBottom = "Top/Bottom Margin"
         override val marginLeftRight = "Left/Right Margin"

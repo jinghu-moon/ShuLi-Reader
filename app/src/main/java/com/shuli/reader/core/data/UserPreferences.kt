@@ -53,6 +53,32 @@ class UserPreferences(
         val KEY_MARGIN_HORIZONTAL = floatPreferencesKey("margin_horizontal")
         val KEY_MARGIN_VERTICAL = floatPreferencesKey("margin_vertical")
         val KEY_READING_FONT = stringPreferencesKey("reading_font")
+        // 阶段三新增
+        val KEY_LETTER_SPACING = floatPreferencesKey("letter_spacing")
+        val KEY_FONT_WEIGHT = stringPreferencesKey("font_weight")
+        val KEY_TEXT_ALIGN = stringPreferencesKey("text_align")
+        val KEY_CHINESE_CONVERT = stringPreferencesKey("chinese_convert")
+        // 阶段五新增：页眉脚
+        val KEY_HEADER_VISIBILITY = stringPreferencesKey("header_visibility")
+        val KEY_HEADER_LEFT = stringPreferencesKey("header_left")
+        val KEY_HEADER_CENTER = stringPreferencesKey("header_center")
+        val KEY_HEADER_RIGHT = stringPreferencesKey("header_right")
+        val KEY_FOOTER_VISIBILITY = stringPreferencesKey("footer_visibility")
+        val KEY_FOOTER_LEFT = stringPreferencesKey("footer_left")
+        val KEY_FOOTER_CENTER = stringPreferencesKey("footer_center")
+        val KEY_FOOTER_RIGHT = stringPreferencesKey("footer_right")
+        val KEY_HEADER_FOOTER_ALPHA = floatPreferencesKey("header_footer_alpha")
+        val KEY_SHOW_PROGRESS = booleanPreferencesKey("show_progress")
+        // 阶段五新增：正文标题样式
+        val KEY_TITLE_ALIGN = stringPreferencesKey("title_align")
+        val KEY_TITLE_SIZE_OFFSET = intPreferencesKey("title_size_offset")
+        val KEY_TITLE_MARGIN_TOP = floatPreferencesKey("title_margin_top")
+        val KEY_TITLE_MARGIN_BOTTOM = floatPreferencesKey("title_margin_bottom")
+        // 排版增强
+        val KEY_USE_ZH_LAYOUT = booleanPreferencesKey("use_zh_layout")
+        // 阶段六新增
+        val KEY_VOLUME_KEY_TURN_PAGE = booleanPreferencesKey("volume_key_turn_page")
+        val KEY_EDGE_TURN_PAGE = booleanPreferencesKey("edge_turn_page")
 
         // 书库与导入
         val KEY_DUPLICATE_CHECK = booleanPreferencesKey("duplicate_check_enabled")
@@ -83,7 +109,7 @@ class UserPreferences(
     // 状态读取流 (提供首启默认值)
     val language: Flow<String> = dataStore.data.map { it[KEY_LANGUAGE] ?: "zh-CN" }
     val themeMode: Flow<String> = dataStore.data.map { it[KEY_THEME_MODE] ?: "system" }
-    val appFont: Flow<String> = dataStore.data.map { it[KEY_APP_FONT] ?: "lxgw" }
+    val appFont: Flow<String> = dataStore.data.map { it[KEY_APP_FONT] ?: "harmony" }
 
     val defaultFontSize: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_FONT_SIZE] ?: 16f }
     val defaultLineSpacing: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_LINE_SPACING] ?: 1.5f }
@@ -96,7 +122,33 @@ class UserPreferences(
     val brightness: Flow<Float> = dataStore.data.map { it[KEY_BRIGHTNESS] ?: -1f } // -1 表示跟随系统
     val marginHorizontal: Flow<Float> = dataStore.data.map { it[KEY_MARGIN_HORIZONTAL] ?: 24f }
     val marginVertical: Flow<Float> = dataStore.data.map { it[KEY_MARGIN_VERTICAL] ?: 48f }
-    val readingFont: Flow<String> = dataStore.data.map { it[KEY_READING_FONT] ?: "system" }
+    val readingFont: Flow<String> = dataStore.data.map { it[KEY_READING_FONT] ?: "harmony" }
+    // 阶段三新增
+    val letterSpacing: Flow<Float> = dataStore.data.map { it[KEY_LETTER_SPACING] ?: 0f }
+    val fontWeight: Flow<String> = dataStore.data.map { it[KEY_FONT_WEIGHT] ?: "normal" }
+    val textAlign: Flow<String> = dataStore.data.map { it[KEY_TEXT_ALIGN] ?: "left" }
+    val chineseConvert: Flow<String> = dataStore.data.map { it[KEY_CHINESE_CONVERT] ?: "none" }
+    // 阶段五新增：页眉脚
+    val headerVisibility: Flow<String> = dataStore.data.map { it[KEY_HEADER_VISIBILITY] ?: "hide_when_status_bar" }
+    val headerLeft: Flow<String> = dataStore.data.map { it[KEY_HEADER_LEFT] ?: "chapter_title" }
+    val headerCenter: Flow<String> = dataStore.data.map { it[KEY_HEADER_CENTER] ?: "none" }
+    val headerRight: Flow<String> = dataStore.data.map { it[KEY_HEADER_RIGHT] ?: "none" }
+    val footerVisibility: Flow<String> = dataStore.data.map { it[KEY_FOOTER_VISIBILITY] ?: "always_show" }
+    val footerLeft: Flow<String> = dataStore.data.map { it[KEY_FOOTER_LEFT] ?: "progress" }
+    val footerCenter: Flow<String> = dataStore.data.map { it[KEY_FOOTER_CENTER] ?: "page_number" }
+    val footerRight: Flow<String> = dataStore.data.map { it[KEY_FOOTER_RIGHT] ?: "time" }
+    val headerFooterAlpha: Flow<Float> = dataStore.data.map { it[KEY_HEADER_FOOTER_ALPHA] ?: 0.4f }
+    val showProgress: Flow<Boolean> = dataStore.data.map { it[KEY_SHOW_PROGRESS] ?: true }
+    // 阶段五新增：正文标题样式
+    val titleAlign: Flow<String> = dataStore.data.map { it[KEY_TITLE_ALIGN] ?: "center" }
+    val titleSizeOffset: Flow<Int> = dataStore.data.map { it[KEY_TITLE_SIZE_OFFSET] ?: 4 }
+    val titleMarginTop: Flow<Float> = dataStore.data.map { it[KEY_TITLE_MARGIN_TOP] ?: 9f }
+    val titleMarginBottom: Flow<Float> = dataStore.data.map { it[KEY_TITLE_MARGIN_BOTTOM] ?: 60f }
+    // 排版增强
+    val useZhLayout: Flow<Boolean> = dataStore.data.map { it[KEY_USE_ZH_LAYOUT] ?: false }
+    // 阶段六新增
+    val volumeKeyTurnPage: Flow<Boolean> = dataStore.data.map { it[KEY_VOLUME_KEY_TURN_PAGE] ?: false }
+    val edgeTurnPage: Flow<Boolean> = dataStore.data.map { it[KEY_EDGE_TURN_PAGE] ?: true }
 
     val duplicateCheckEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_DUPLICATE_CHECK] ?: true }
     val importCopyFile: Flow<Boolean> = dataStore.data.map { it[KEY_IMPORT_COPY] ?: true }
@@ -135,6 +187,32 @@ class UserPreferences(
     suspend fun setMarginHorizontal(value: Float) = dataStore.edit { it[KEY_MARGIN_HORIZONTAL] = value }
     suspend fun setMarginVertical(value: Float) = dataStore.edit { it[KEY_MARGIN_VERTICAL] = value }
     suspend fun setReadingFont(value: String) = dataStore.edit { it[KEY_READING_FONT] = value }
+    // 阶段三新增
+    suspend fun setLetterSpacing(value: Float) = dataStore.edit { it[KEY_LETTER_SPACING] = value }
+    suspend fun setFontWeight(value: String) = dataStore.edit { it[KEY_FONT_WEIGHT] = value }
+    suspend fun setTextAlign(value: String) = dataStore.edit { it[KEY_TEXT_ALIGN] = value }
+    suspend fun setChineseConvert(value: String) = dataStore.edit { it[KEY_CHINESE_CONVERT] = value }
+    // 阶段五新增：页眉脚
+    suspend fun setHeaderVisibility(value: String) = dataStore.edit { it[KEY_HEADER_VISIBILITY] = value }
+    suspend fun setHeaderLeft(value: String) = dataStore.edit { it[KEY_HEADER_LEFT] = value }
+    suspend fun setHeaderCenter(value: String) = dataStore.edit { it[KEY_HEADER_CENTER] = value }
+    suspend fun setHeaderRight(value: String) = dataStore.edit { it[KEY_HEADER_RIGHT] = value }
+    suspend fun setFooterVisibility(value: String) = dataStore.edit { it[KEY_FOOTER_VISIBILITY] = value }
+    suspend fun setFooterLeft(value: String) = dataStore.edit { it[KEY_FOOTER_LEFT] = value }
+    suspend fun setFooterCenter(value: String) = dataStore.edit { it[KEY_FOOTER_CENTER] = value }
+    suspend fun setFooterRight(value: String) = dataStore.edit { it[KEY_FOOTER_RIGHT] = value }
+    suspend fun setHeaderFooterAlpha(value: Float) = dataStore.edit { it[KEY_HEADER_FOOTER_ALPHA] = value }
+    suspend fun setShowProgress(value: Boolean) = dataStore.edit { it[KEY_SHOW_PROGRESS] = value }
+    // 阶段五新增：正文标题样式
+    suspend fun setTitleAlign(value: String) = dataStore.edit { it[KEY_TITLE_ALIGN] = value }
+    suspend fun setTitleSizeOffset(value: Int) = dataStore.edit { it[KEY_TITLE_SIZE_OFFSET] = value }
+    suspend fun setTitleMarginTop(value: Float) = dataStore.edit { it[KEY_TITLE_MARGIN_TOP] = value }
+    suspend fun setTitleMarginBottom(value: Float) = dataStore.edit { it[KEY_TITLE_MARGIN_BOTTOM] = value }
+    // 排版增强
+    suspend fun setUseZhLayout(value: Boolean) = dataStore.edit { it[KEY_USE_ZH_LAYOUT] = value }
+    // 阶段六新增
+    suspend fun setVolumeKeyTurnPage(value: Boolean) = dataStore.edit { it[KEY_VOLUME_KEY_TURN_PAGE] = value }
+    suspend fun setEdgeTurnPage(value: Boolean) = dataStore.edit { it[KEY_EDGE_TURN_PAGE] = value }
 
     suspend fun setDuplicateCheckEnabled(value: Boolean) = dataStore.edit { it[KEY_DUPLICATE_CHECK] = value }
     suspend fun setImportCopyFile(value: Boolean) = dataStore.edit { it[KEY_IMPORT_COPY] = value }

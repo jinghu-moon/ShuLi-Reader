@@ -6,7 +6,14 @@ package com.shuli.reader.core.reader
  */
 class SimpleTextMeasurer : TextMeasurer {
     override fun measureTextWidth(text: String, textSize: Float): Float {
-        return text.sumOf { char -> measureCharWidth(char, textSize).toDouble() }.toFloat()
+        return measureTextWidth(text, textSize, 0f)
+    }
+
+    fun measureTextWidth(text: String, textSize: Float, letterSpacingPx: Float): Float {
+        if (text.isEmpty()) return 0f
+        val baseWidth = text.sumOf { char -> measureCharWidth(char, textSize).toDouble() }.toFloat()
+        val spacing = letterSpacingPx * (text.length - 1).coerceAtLeast(0)
+        return baseWidth + spacing
     }
 
     override fun measureTextHeight(textSize: Float, lineHeight: Float): Float {

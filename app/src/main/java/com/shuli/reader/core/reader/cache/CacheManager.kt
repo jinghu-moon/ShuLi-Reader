@@ -51,6 +51,18 @@ class CacheManager(
         val lineHeight: Float,
         val pageWidth: Int,
         val pageHeight: Int,
+        val letterSpacingPx: Float = 0f,
+        val marginHorizontal: Float = 0f,
+        val marginVertical: Float = 0f,
+        val indent: Float = 2f,
+        val showHeader: Boolean = true,
+        val showFooter: Boolean = true,
+        val chineseConvert: Int = 0,  // ChineseConvert ordinal
+        // 正文标题样式（影响首页 titleAreaHeight 进而改变首页字符数）
+        val titleAlignOrdinal: Int = 1,  // TitleAlign ordinal（CENTER 默认 1）
+        val titleSizeOffsetSp: Int = 4,
+        val titleMarginTopDp: Float = 9f,
+        val titleMarginBottomDp: Float = 60f,
     )
 
     // 页面缓存

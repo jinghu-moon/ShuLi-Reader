@@ -127,6 +127,9 @@ dependencies {
     // Charset Detection
     implementation(libs.com.github.albfernandez.juniversalchardet)
 
+    // Chinese Conversion (OpenCC)
+    implementation(libs.com.houbb.opencc4j)
+
     // Testing
     testImplementation(libs.junit4)
     testImplementation(libs.io.mockk)

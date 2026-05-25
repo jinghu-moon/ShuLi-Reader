@@ -2,6 +2,7 @@ package com.shuli.reader.core.reader.model
 
 import com.shuli.reader.core.canvasrecorder.CanvasRecorder
 import com.shuli.reader.core.canvasrecorder.CanvasRecorderFactory
+import com.shuli.reader.core.reader.TitleStyleConfig
 
 /**
  * 页面尺寸配置
@@ -23,6 +24,9 @@ data class ReaderLayoutConfig(
     val marginVertical: Float,
     val indent: Float,
     val density: Float = 3f,
+    val letterSpacingPx: Float = 0f,  // 字距，已转为绝对像素
+    val titleStyle: TitleStyleConfig = TitleStyleConfig(),
+    val useZhLayout: Boolean = false,  // 自定义中文分行（标点避头尾）
 )
 
 /**
@@ -94,6 +98,10 @@ class TextPage(
     val density: Float = 3f,
     /** 章节正文总字符数（不含标题），用于计算阅读进度 */
     val chapterContentLength: Int = 0,
+    /** 章节标题，仅首页（pageIndex == 0）有值，渲染时用于绘制标题 */
+    val chapterTitle: String = "",
+    /** 正文起始 Y 坐标（已含 marginVertical + headerHeight + titleAreaHeight），渲染器据此定位标题基线 */
+    val topContentY: Float = 0f,
 ) {
     /** 渲染缓存，每页一份，跨章节共享池资源。 */
     @Transient

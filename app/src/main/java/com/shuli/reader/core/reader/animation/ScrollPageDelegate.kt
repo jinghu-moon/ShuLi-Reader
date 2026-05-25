@@ -25,6 +25,8 @@ class ScrollPageDelegate : PageDelegate {
     private var screenHeight: Float = 1920f
 
     private var animator: ValueAnimator? = null
+    private var pendingResetOffset = false
+    private var isAborting = false
 
     override fun setCallback(callback: PageDelegate.Callback) {
         this.callback = callback
@@ -89,14 +91,28 @@ class ScrollPageDelegate : PageDelegate {
     }
 
     private fun checkChapterBoundary() {
+        if (isAborting) return
         if (scrollOffset < -screenHeight) {
             direction = PageDelegate.Direction.NEXT
+            state = PageDelegate.State.SETTLING
+            pendingResetOffset = true
             callback?.onPageChanged(direction)
-            scrollOffset = 0f
         } else if (scrollOffset > screenHeight) {
             direction = PageDelegate.Direction.PREV
+            state = PageDelegate.State.SETTLING
+            pendingResetOffset = true
             callback?.onPageChanged(direction)
-            scrollOffset = 0f
+        }
+    }
+
+    override fun confirmPageSettled() {
+        if (state == PageDelegate.State.SETTLING) {
+            if (pendingResetOffset) {
+                scrollOffset = 0f
+                pendingResetOffset = false
+            }
+            state = PageDelegate.State.IDLE
+            direction = PageDelegate.Direction.NONE
         }
     }
 
@@ -154,7 +170,9 @@ class ScrollPageDelegate : PageDelegate {
     }
 
     override fun abort() {
+        isAborting = true
         animator?.cancel()
+        isAborting = false
         animator = null
         state = PageDelegate.State.IDLE
         direction = PageDelegate.Direction.NONE

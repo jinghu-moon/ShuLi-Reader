@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 data class SettingsUiState(
     val language: String = "zh-CN",
     val themeMode: String = "system",
-    val appFont: String = "lxgw",
+    val appFont: String = "harmony",
     val defaultFontSize: Float = 16f,
     val defaultLineSpacing: Float = 1.5f,
     val defaultParagraphSpacing: Float = 1.0f,

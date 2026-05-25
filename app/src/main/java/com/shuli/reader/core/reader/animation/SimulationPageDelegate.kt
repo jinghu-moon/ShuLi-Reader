@@ -57,6 +57,7 @@ class SimulationPageDelegate : PageDelegate {
 
     private var animator: ValueAnimator? = null
     private var animationProgress: Float = 0f
+    private var isAborting = false
 
     override fun setCallback(callback: PageDelegate.Callback) {
         this.callback = callback
@@ -146,6 +147,9 @@ class SimulationPageDelegate : PageDelegate {
         when (state) {
             PageDelegate.State.IDLE -> {
                 current.draw(canvas)
+            }
+            PageDelegate.State.SETTLING -> {
+                target.draw(canvas)
             }
             PageDelegate.State.DRAGGING -> {
                 drawSimulationPage(canvas, current, target, 1f)
@@ -281,12 +285,29 @@ class SimulationPageDelegate : PageDelegate {
         startAnimation()
     }
 
+    override fun confirmPageSettled() {
+        if (state == PageDelegate.State.SETTLING) {
+            state = PageDelegate.State.IDLE
+            direction = PageDelegate.Direction.NONE
+        }
+    }
+
     override fun abort() {
+        val wasCommitted = state == PageDelegate.State.ANIMATING && !isCancel
+        val prevDirection = direction
+
+        isAborting = true
         animator?.cancel()
+        isAborting = false
         animator = null
         state = PageDelegate.State.IDLE
         direction = PageDelegate.Direction.NONE
         animationProgress = 0f
+
+        // Like Legado's fillPage: if committed animation was interrupted, still commit page
+        if (wasCommitted && prevDirection != PageDelegate.Direction.NONE) {
+            callback?.onPageChanged(prevDirection)
+        }
     }
 
     override fun isDraggingBackward(): Boolean {
@@ -322,10 +343,14 @@ class SimulationPageDelegate : PageDelegate {
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
-                    state = PageDelegate.State.IDLE
-                    animationProgress = 0f
+                    if (isAborting) return
                     if (shouldNotify) {
+                        state = PageDelegate.State.SETTLING
                         callback?.onPageChanged(direction)
+                    } else {
+                        state = PageDelegate.State.IDLE
+                        direction = PageDelegate.Direction.NONE
+                        animationProgress = 0f
                     }
                 }
             })

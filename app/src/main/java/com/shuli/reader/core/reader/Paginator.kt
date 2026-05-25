@@ -14,20 +14,38 @@ class Paginator(
     private val textMeasurer: TextMeasurer,
 ) {
     private companion object {
+        /** \u7981\u6b62\u51fa\u73b0\u5728\u884c\u9996\u7684\u6807\u70b9\uff08\u53f3\u5f15\u53f7\u3001\u53f3\u62ec\u53f7\u3001\u53e5\u672b\u6807\u70b9\u7b49\uff09 */
         private val FORBIDDEN_LINE_START_CHARS = setOf(
-            '\u3001',
-            '\u3002',
-            '\uff0c',
-            '\uff1b',
-            '\uff1a',
-            '\uff1f',
-            '\uff01',
-            '\uff09',
-            '\u3011',
-            '\u300b',
-            '\u300d',
-            '\u300f',
-            '\u2026',
+            '\u3001',  // \u3001
+            '\u3002',  // \u3002
+            '\uff0c',  // \uff0c
+            '\uff1b',  // \uff1b
+            '\uff1a',  // \uff1a
+            '\uff1f',  // \uff1f
+            '\uff01',  // \uff01
+            '\uff09',  // \uff09
+            '\u3011',  // \u3011
+            '\u300b',  // \u300b
+            '\u300d',  // \u300d
+            '\u300f',  // \u300f
+            '\u2026',  // \u2026
+            '\uff0e',  // \uff0e
+            '\u201d',  // "
+            '\u2019',  // '
+            ')', '>', ']', '}',
+            ',', '.', '?', '!', ':', ';',
+        )
+
+        /** \u7981\u6b62\u51fa\u73b0\u5728\u884c\u5c3e\u7684\u6807\u70b9\uff08\u5de6\u5f15\u53f7\u3001\u5de6\u62ec\u53f7\u7b49\uff09 */
+        private val FORBIDDEN_LINE_END_CHARS = setOf(
+            '\u201c',  // "
+            '\u2018',  // '
+            '\uff08',  // \uff08
+            '\u300a',  // \u300a
+            '\u3010',  // \u3010
+            '\u300c',  // \u300c
+            '\u300e',  // \u300e
+            '(', '<', '[', '{',
         )
     }
 
@@ -39,6 +57,8 @@ class Paginator(
         title: String,
         content: String,
         config: ReaderLayoutConfig,
+        showHeader: Boolean = true,
+        showFooter: Boolean = true,
     ): TextChapter {
         val pages = mutableListOf<TextPage>()
         var currentOffset = 0
@@ -51,6 +71,9 @@ class Paginator(
                 content = content,
                 startOffset = currentOffset,
                 config = config,
+                showHeader = showHeader,
+                showFooter = showFooter,
+                chapterTitle = title,
             )
             pages.add(page)
             currentOffset = page.endCharOffset
@@ -73,6 +96,8 @@ class Paginator(
         chapter: TextChapter,
         content: String,
         config: ReaderLayoutConfig,
+        showHeader: Boolean = true,
+        showFooter: Boolean = true,
     ): Flow<TextPage> = flow {
         var currentOffset = 0
         var pageIndex = 0
@@ -84,6 +109,9 @@ class Paginator(
                 content = content,
                 startOffset = currentOffset,
                 config = config,
+                showHeader = showHeader,
+                showFooter = showFooter,
+                chapterTitle = chapter.title,
             )
             chapter.addPage(page)
             emit(page)
@@ -101,6 +129,9 @@ class Paginator(
         content: String,
         startOffset: Int,
         config: ReaderLayoutConfig,
+        showHeader: Boolean = true,
+        showFooter: Boolean = true,
+        chapterTitle: String = "",
     ): TextPage {
         val lines = mutableListOf<TextLine>()
         val columns = mutableListOf<com.shuli.reader.core.reader.model.TextColumn>()
@@ -108,11 +139,20 @@ class Paginator(
         val lineHeight = textMeasurer.measureTextHeight(config.textSize, config.lineHeight)
         val availableWidth = config.pageSize.width - config.marginHorizontal * 2
         val density = config.density
-        val headerHeight = 24f * density
-        val footerHeight = 24f * density
+        val headerHeight = if (showHeader) 24f * density else 0f
+        val footerHeight = if (showFooter) 24f * density else 0f
         val maxAvailableY = config.pageSize.height - config.marginVertical - footerHeight
 
-        var currentY = config.marginVertical + headerHeight
+        // S1: 首页计算标题区域高度
+        val titleStyle = config.titleStyle
+        val titleAreaHeight = if (pageIndex == 0 && titleStyle.align != TitleAlign.HIDDEN) {
+            val titleTextSize = config.textSize + titleStyle.sizeOffsetSp * density
+            titleStyle.marginTopDp * density + titleTextSize + titleStyle.marginBottomDp * density
+        } else {
+            0f
+        }
+
+        var currentY = config.marginVertical + headerHeight + titleAreaHeight
         var currentOffset = startOffset
 
         // 按行分页
@@ -136,6 +176,8 @@ class Paginator(
                 startOffset = tempOffset,
                 availableWidth = if (isParagraphStart) availableWidth - indentWidth else availableWidth,
                 textSize = config.textSize,
+                letterSpacingPx = config.letterSpacingPx,
+                useZhLayout = config.useZhLayout,
             )
 
             val line = TextLine(
@@ -178,9 +220,11 @@ class Paginator(
                 startOffset = tempOffset,
                 availableWidth = if (isParagraphStart) availableWidth - indentWidth else availableWidth,
                 textSize = config.textSize,
+                letterSpacingPx = config.letterSpacingPx,
+                useZhLayout = config.useZhLayout,
             )
 
-            val startY = config.marginVertical + headerHeight
+            val startY = config.marginVertical + headerHeight + titleAreaHeight
             val line = TextLine(
                 text = lineResult.text,
                 baseline = startY + lineHeight * 0.8f,
@@ -206,6 +250,8 @@ class Paginator(
             columns = columns,
             density = config.density,
             chapterContentLength = content.length,
+            chapterTitle = if (pageIndex == 0) chapterTitle else "",
+            topContentY = config.marginVertical + headerHeight + titleAreaHeight,
         )
     }
 
@@ -217,6 +263,8 @@ class Paginator(
         startOffset: Int,
         availableWidth: Float,
         textSize: Float,
+        letterSpacingPx: Float = 0f,
+        useZhLayout: Boolean = false,
     ): LineResult {
         val remaining = content.substring(startOffset)
         if (remaining.isEmpty()) {
@@ -231,16 +279,17 @@ class Paginator(
             return LineResult("", true, 1)
         }
 
-        // 计算能容纳的字符数
+        // 计算能容纳的字符数（含字距）
         var currentWidth = 0f
         var charCount = 0
 
         for (i in 0 until lineEnd) {
             val charWidth = textMeasurer.measureCharWidth(remaining[i], textSize)
-            if (currentWidth + charWidth > availableWidth) {
+            val spacing = if (charCount > 0) letterSpacingPx else 0f
+            if (currentWidth + charWidth + spacing > availableWidth) {
                 break
             }
-            currentWidth += charWidth
+            currentWidth += charWidth + spacing
             charCount++
         }
 
@@ -254,8 +303,21 @@ class Paginator(
             return LineResult("", false, 0)
         }
 
-        if (charCount < lineEnd && remaining[charCount] in FORBIDDEN_LINE_START_CHARS) {
-            charCount++
+        if (useZhLayout) {
+            // 中文分行：回溯避免行尾出现禁头标点，前推避免行首出现禁尾标点
+            // 回溯：行尾不能是 FORBIDDEN_LINE_END_CHARS（左引号、左括号等）
+            while (charCount > 1 && remaining[charCount - 1] in FORBIDDEN_LINE_END_CHARS) {
+                charCount--
+            }
+            // 前推：行首不能是 FORBIDDEN_LINE_START_CHARS（右引号、右括号、句末标点等）
+            if (charCount < lineEnd && remaining[charCount] in FORBIDDEN_LINE_START_CHARS) {
+                charCount++
+            }
+        } else {
+            // 默认行为：仅处理行首禁尾标点
+            if (charCount < lineEnd && remaining[charCount] in FORBIDDEN_LINE_START_CHARS) {
+                charCount++
+            }
         }
 
         val consumesLineBreak = newlineIndex >= 0 && charCount == lineEnd

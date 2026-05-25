@@ -10,6 +10,14 @@ import com.shuli.reader.R
 
 val ReadingFont: FontFamily = try {
     FontFamily(
+        Font(R.font.harmonyos_sanssc_regular, FontWeight.Normal),
+    )
+} catch (e: Exception) {
+    FontFamily.Default
+}
+
+val LxgwFont: FontFamily = try {
+    FontFamily(
         Font(R.font.lxgw_wenkai_regular, FontWeight.Normal),
     )
 } catch (e: Exception) {

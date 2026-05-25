@@ -9,6 +9,7 @@ import android.view.GestureDetector
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import androidx.core.content.res.ResourcesCompat
 import com.shuli.reader.R
 import com.shuli.reader.core.data.ReaderTheme
@@ -89,7 +90,11 @@ class ReaderCanvasView @JvmOverloads constructor(
     private inner class RenderContext {
         var headerText: String = ""
         var footerText: String = ""
+        var headerSlots: SlotResolution = SlotResolution()
+        var footerSlots: SlotResolution = SlotResolution()
         var showProgress: Boolean = true
+        var headerAlpha: Float = 0.4f
+        var footerAlpha: Float = 0.4f
         var batteryLevel: Int = 100
         var ttsActiveRange: SelectionRange? = null
         var selectedRange: SelectionRange? = null
@@ -110,6 +115,9 @@ class ReaderCanvasView @JvmOverloads constructor(
     // 翻页回调
     var onPageChanged: ((PageDelegate.Direction) -> Unit)? = null
 
+    // 翻页后立即获取新页眉页脚槽位（同步更新，避免页码延迟）
+    var onPageChangedSlots: (() -> Pair<SlotResolution, SlotResolution>)? = null
+
     // 文本选区回调
     var onTextSelected: ((SelectionRange) -> Unit)? = null
 
@@ -127,9 +135,11 @@ class ReaderCanvasView @JvmOverloads constructor(
             pageRenderer.render(
                 canvas = this,
                 page = page,
-                headerText = renderContext.headerText,
-                footerText = renderContext.footerText,
+                headerSlots = renderContext.headerSlots,
+                footerSlots = renderContext.footerSlots,
                 showProgress = renderContext.showProgress,
+                headerAlpha = renderContext.headerAlpha,
+                footerAlpha = renderContext.footerAlpha,
                 batteryLevel = renderContext.batteryLevel,
                 ttsActiveRange = renderContext.ttsActiveRange,
                 selectedRange = renderContext.selectedRange,
@@ -149,9 +159,11 @@ class ReaderCanvasView @JvmOverloads constructor(
             pageRenderer.render(
                 canvas = this,
                 page = page,
-                headerText = renderContext.headerText,
-                footerText = renderContext.footerText,
+                headerSlots = renderContext.headerSlots,
+                footerSlots = renderContext.footerSlots,
                 showProgress = renderContext.showProgress,
+                headerAlpha = renderContext.headerAlpha,
+                footerAlpha = renderContext.footerAlpha,
                 batteryLevel = renderContext.batteryLevel,
                 ttsActiveRange = renderContext.ttsActiveRange,
                 selectedRange = renderContext.selectedRange,
@@ -195,16 +207,10 @@ class ReaderCanvasView @JvmOverloads constructor(
                 val w = width.toFloat()
                 val h = height.toFloat()
 
+                // 仅处理中心区域点击（边缘点击在 onTouchEvent 中手动处理）
                 val isCenter = x > w / 3f && x < w * 2f / 3f && y > h / 3f && y < h * 2f / 3f
-
                 if (isCenter) {
                     onCenterClicked?.invoke()
-                    return true
-                } else if (x <= w / 3f) {
-                    pageDelegate?.startPrev() ?: onPageChanged?.invoke(PageDelegate.Direction.PREV)
-                    return true
-                } else if (x >= w * 2f / 3f) {
-                    pageDelegate?.startNext() ?: onPageChanged?.invoke(PageDelegate.Direction.NEXT)
                     return true
                 }
                 return false
@@ -255,6 +261,9 @@ class ReaderCanvasView @JvmOverloads constructor(
             }
         }
 
+        // 页面引用已切换，结束 SETTLING 状态，恢复正常 IDLE 渲染
+        pageDelegate?.confirmPageSettled()
+
         if (changed) {
             renderContext.selectedRange = null
         }
@@ -287,7 +296,19 @@ class ReaderCanvasView @JvmOverloads constructor(
         pageDelegate = actualDelegate
         actualDelegate?.setCallback(object : PageDelegate.Callback {
             override fun onPageChanged(direction: PageDelegate.Direction) {
+                // 同步旋转页面引用（如 Legado 的 fillPage），
+                // 确保后续手势立即操作新页面，不等 Compose recomposition
+                fillPage(direction)
+                // 触发 ViewModel 更新 pageIndex
                 onPageChanged?.invoke(direction)
+                // 再获取新页眉页脚槽位（此时 pageIndex 已更新）
+                onPageChangedSlots?.invoke()?.let { (h, f) ->
+                    if (renderContext.headerSlots != h || renderContext.footerSlots != f) {
+                        renderContext.headerSlots = h
+                        renderContext.footerSlots = f
+                        invalidateAllRecorders()
+                    }
+                }
             }
 
             override fun invalidate() {
@@ -317,13 +338,68 @@ class ReaderCanvasView @JvmOverloads constructor(
     }
 
     /**
+     * 设置页眉多槽位内容
+     */
+    fun setHeaderSlots(slots: SlotResolution) {
+        if (renderContext.headerSlots == slots) return
+        renderContext.headerSlots = slots
+        invalidateAllRecorders()
+        submitRenderTask()
+        invalidate()
+    }
+
+    /**
+     * 设置页脚多槽位内容
+     */
+    fun setFooterSlots(slots: SlotResolution) {
+        if (renderContext.footerSlots == slots) return
+        renderContext.footerSlots = slots
+        invalidateAllRecorders()
+        submitRenderTask()
+        invalidate()
+    }
+
+    /**
+     * 批量更新页眉页脚相关参数（仅触发一次重绘）
+     */
+    fun updateHeaderFooter(
+        headerSlots: SlotResolution,
+        footerSlots: SlotResolution,
+        alpha: Float,
+        showProgress: Boolean,
+    ) {
+        val changed = renderContext.headerSlots != headerSlots
+                || renderContext.footerSlots != footerSlots
+                || renderContext.headerAlpha != alpha
+                || renderContext.footerAlpha != alpha
+                || renderContext.showProgress != showProgress
+        if (!changed) return
+
+        renderContext.headerSlots = headerSlots
+        renderContext.footerSlots = footerSlots
+        renderContext.headerAlpha = alpha
+        renderContext.footerAlpha = alpha
+        renderContext.showProgress = showProgress
+        invalidateAllRecorders()
+        submitRenderTask()
+        invalidate()
+    }
+
+    /**
      * 设置是否显示进度条
      */
     fun setShowProgress(show: Boolean) {
         if (renderContext.showProgress == show) return
         renderContext.showProgress = show
-        currentPage?.invalidate()
-        invalidate()
+    }
+
+    /**
+     * 设置页眉页脚透明度
+     */
+    fun setHeaderFooterAlpha(alpha: Float) {
+        if (renderContext.headerAlpha == alpha && renderContext.footerAlpha == alpha) return
+        renderContext.headerAlpha = alpha
+        renderContext.footerAlpha = alpha
     }
 
     fun setTextSizePx(textSize: Float) {
@@ -337,13 +413,57 @@ class ReaderCanvasView @JvmOverloads constructor(
     }
 
     /**
+     * 设置字距（em 单位，Paint.letterSpacing 接受 em）
+     */
+    fun setLetterSpacing(emSpacing: Float) {
+        if (textPaint.letterSpacing == emSpacing) return
+        textPaint.letterSpacing = emSpacing
+        invalidateAllRecorders()
+        submitRenderTask()
+        invalidate()
+    }
+
+    /**
+     * 设置字重（FakeBold 模式）
+     */
+    fun setFakeBoldText(fakeBold: Boolean) {
+        if (textPaint.isFakeBoldText == fakeBold) return
+        textPaint.isFakeBoldText = fakeBold
+        invalidateAllRecorders()
+        submitRenderTask()
+        invalidate()
+    }
+
+    /**
+     * 设置文本对齐方式
+     */
+    fun setTextAlign(align: com.shuli.reader.core.data.ReaderTextAlign) {
+        pageRenderer.setTextAlign(align)
+        invalidateAllRecorders()
+        submitRenderTask()
+        invalidate()
+    }
+
+    /**
+     * 设置标题样式
+     */
+    fun setTitleStyle(style: com.shuli.reader.core.reader.TitleStyleConfig) {
+        pageRenderer.setTitleStyle(style)
+    }
+
+    /**
      * 设置阅读字体（"system" = 系统默认，其他 = LXGW 文楷）
      */
     fun setFontFamily(fontKey: String) {
         val typeface = when (fontKey) {
             "system" -> Typeface.DEFAULT
-            else -> try {
+            "lxgw" -> try {
                 ResourcesCompat.getFont(context, R.font.lxgw_wenkai_regular)
+            } catch (_: Exception) {
+                Typeface.DEFAULT
+            }
+            else -> try {
+                ResourcesCompat.getFont(context, R.font.harmonyos_sanssc_regular)
             } catch (_: Exception) {
                 Typeface.DEFAULT
             }
@@ -413,6 +533,34 @@ class ReaderCanvasView @JvmOverloads constructor(
         )
     }
 
+    /** 边缘翻页开关 */
+    private var edgeTurnPageEnabled = true
+
+    /** 设置边缘翻页是否启用 */
+    fun setEdgeTurnPageEnabled(enabled: Boolean) {
+        edgeTurnPageEnabled = enabled
+    }
+
+    /**
+     * 同步旋转页面引用（如 Legado 的 fillPage）。
+     * 在动画完成/中断提交后调用，确保后续绘制和手势操作正确的页面。
+     */
+    private fun fillPage(direction: PageDelegate.Direction) {
+        when (direction) {
+            PageDelegate.Direction.NEXT -> {
+                prevPage = currentPage
+                currentPage = nextPage
+                nextPage = null
+            }
+            PageDelegate.Direction.PREV -> {
+                nextPage = currentPage
+                currentPage = prevPage
+                prevPage = null
+            }
+            PageDelegate.Direction.NONE -> {}
+        }
+    }
+
     /** 使所有页面 recorder 失效（字体/主题/尺寸等全局变化时使用） */
     private fun invalidateAllRecorders() {
         currentPage?.invalidate()
@@ -420,8 +568,14 @@ class ReaderCanvasView @JvmOverloads constructor(
         prevPage?.invalidate()
     }
 
+    // --- 触摸状态 ---
+    private var touchDownX: Float = 0f
+    private var touchDownY: Float = 0f
+    private var touchMoved: Boolean = false  // 是否超过 slop 阈值
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private val slopSquare = touchSlop * touchSlop
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        val gestureHandled = gestureDetector.onTouchEvent(event)
         if (isTextSelectionGesture) {
             if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
                 isTextSelectionGesture = false
@@ -429,24 +583,79 @@ class ReaderCanvasView @JvmOverloads constructor(
             return true
         }
 
-        val x = event.x
         val w = width.toFloat()
-        val isInCenterZone = x > w / 3f && x < w * 2f / 3f
-
+        val h = height.toFloat()
         val delegate = pageDelegate
-        if (delegate != null) {
-            if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
-                val delegateActive = delegate.state == PageDelegate.State.DRAGGING ||
-                    delegate.state == PageDelegate.State.ANIMATING
-                if (delegateActive) {
-                    return delegate.onTouch(event)
+
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                touchDownX = event.x
+                touchDownY = event.y
+                touchMoved = false
+
+                // 边缘区域：直接交给 delegate 开始拖拽
+                val isEdge = event.x <= w / 3f || event.x >= w * 2f / 3f
+                if (isEdge && delegate != null) {
+                    delegate.onTouch(event)
+                    return true
                 }
-                return gestureHandled
+                // 中心区域：让 gestureDetector 初始化（后续判断 tap/longPress）
+                gestureDetector.onTouchEvent(event)
+                return true
             }
-            if (!isInCenterZone) {
-                return delegate.onTouch(event)
+
+            MotionEvent.ACTION_MOVE -> {
+                if (!touchMoved) {
+                    val dx = event.x - touchDownX
+                    val dy = event.y - touchDownY
+                    val distSq = dx * dx + dy * dy
+                    if (distSq > slopSquare) {
+                        touchMoved = true
+                    }
+                }
+
+                // 超过 slop 且从边缘开始：交给 delegate 处理拖拽
+                if (touchMoved) {
+                    val isEdgeStart = touchDownX <= w / 3f || touchDownX >= w * 2f / 3f
+                    if (isEdgeStart && delegate != null) {
+                        delegate.onTouch(event)
+                        return true
+                    }
+                }
+                // 未超过 slop 或从中心开始：交给 gestureDetector
+                gestureDetector.onTouchEvent(event)
+                return true
             }
-            return gestureHandled
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                val isEdgeStart = touchDownX <= w / 3f || touchDownX >= w * 2f / 3f
+                val wasMoved = touchMoved
+                touchMoved = false
+
+                if (wasMoved && isEdgeStart && delegate != null) {
+                    // 边缘拖拽结束：delegate 处理翻页动画
+                    delegate.onTouch(event)
+                    return true
+                }
+
+                // 未移动或从中心开始：交给 gestureDetector 判断 tap
+                gestureDetector.onTouchEvent(event)
+
+                // 手动处理边缘点击翻页（gestureDetector 仅处理中心区域）
+                if (!wasMoved && isEdgeStart && edgeTurnPageEnabled) {
+                    val isCenter = touchDownX > w / 3f && touchDownX < w * 2f / 3f &&
+                        touchDownY > h / 3f && touchDownY < h * 2f / 3f
+                    if (!isCenter) {
+                        if (touchDownX <= w / 3f) {
+                            delegate?.startPrev() ?: onPageChanged?.invoke(PageDelegate.Direction.PREV)
+                        } else {
+                            delegate?.startNext() ?: onPageChanged?.invoke(PageDelegate.Direction.NEXT)
+                        }
+                        return true
+                    }
+                }
+                return true
+            }
         }
         return super.onTouchEvent(event)
     }
@@ -480,7 +689,8 @@ class ReaderCanvasView @JvmOverloads constructor(
             val isPrevDirection = when (delegate.state) {
                 PageDelegate.State.DRAGGING -> delegate.isDraggingBackward()
                 PageDelegate.State.ANIMATING -> delegate.direction == PageDelegate.Direction.PREV
-                else -> false
+                PageDelegate.State.SETTLING -> delegate.direction == PageDelegate.Direction.PREV
+                PageDelegate.State.IDLE -> false
             }
             val target = if (isPrevDirection) prevPage else nextPage
             target?.let {

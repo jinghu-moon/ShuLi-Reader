@@ -176,17 +176,6 @@ class ReaderViewModelTest {
         assertEquals(false, state2.showQuickSettings)
     }
 
-    @Test
-    fun toggleBrightness_updatesVisibility() = runTest {
-        viewModel.toggleBrightness()
-        val state = viewModel.uiState.first { it.showBrightness }
-        assertEquals(true, state.showBrightness)
-
-        viewModel.toggleBrightness()
-        val state2 = viewModel.uiState.first { !it.showBrightness }
-        assertEquals(false, state2.showBrightness)
-    }
-
     // T9.2 - 主题系统测试
 
     @Test

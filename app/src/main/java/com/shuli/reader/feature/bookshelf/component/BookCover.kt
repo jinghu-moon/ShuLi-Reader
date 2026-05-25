@@ -98,6 +98,7 @@ fun DefaultBookCover(
     fileType: FileType,
     modifier: Modifier = Modifier,
     isSmall: Boolean = false,
+    readingProgress: Float = 0f,
     paletteIndexOverride: Int? = null,
 ) {
     // 三模式优先级：override（统一/自定义）> 散列自动
@@ -220,6 +221,17 @@ fun DefaultBookCover(
                             .size(6.dp)
                             .background(tagColor, CircleShape)
                     )
+
+                    // 阅读进度百分比（仅 > 0% 时显示）
+                    if (readingProgress > 0f) {
+                        Text(
+                            text = "${(readingProgress * 100).toInt()}%",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textColor.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(start = 6.dp)
+                        )
+                    }
 
                     Box(
                         modifier = Modifier.weight(1f),

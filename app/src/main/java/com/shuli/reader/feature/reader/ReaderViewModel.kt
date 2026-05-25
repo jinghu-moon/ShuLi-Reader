@@ -2,12 +2,31 @@ package com.shuli.reader.feature.reader
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.shuli.reader.core.data.ChineseConvert
+import com.shuli.reader.core.data.ReaderFontWeight
+import com.shuli.reader.core.text.ChineseConverter
 import com.shuli.reader.core.data.ReaderPreferences
+import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.data.ReaderTheme
 import com.shuli.reader.core.data.ThemeColors
 import com.shuli.reader.core.data.UserPreferences
 import com.shuli.reader.core.data.toFactoryType
+import com.shuli.reader.core.data.toFontWeight
 import com.shuli.reader.core.data.toPageAnimType
+import com.shuli.reader.core.data.toStorageString
+import com.shuli.reader.core.data.toTextAlign
+import com.shuli.reader.core.data.toChineseConvert
+import com.shuli.reader.core.data.toHeaderVisibility
+import com.shuli.reader.core.data.toSlotContent
+import com.shuli.reader.core.data.toTitleAlign
+import com.shuli.reader.core.reader.HeaderConfig
+import com.shuli.reader.core.reader.FooterConfig
+import com.shuli.reader.core.reader.HeaderVisibility
+import com.shuli.reader.core.reader.SlotContent
+import com.shuli.reader.core.reader.SlotResolver
+import com.shuli.reader.core.reader.SlotResolution
+import com.shuli.reader.core.reader.TitleAlign
+import com.shuli.reader.core.reader.TitleStyleConfig
 import com.shuli.reader.core.database.dao.BookmarkDao
 import com.shuli.reader.core.database.dao.NoteDao
 import com.shuli.reader.core.database.entity.BookmarkEntity
@@ -37,6 +56,7 @@ import com.shuli.reader.ui.theme.toCanvasThemeColors
 import com.shuli.reader.ui.theme.toReaderColorScheme
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -57,7 +77,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * 阅读器 UI 状态
  */
 enum class OverlayPanel {
-    NONE, DIRECTORY, BRIGHTNESS, QUICK_SETTINGS
+    NONE, DIRECTORY, QUICK_SETTINGS
 }
 
 data class ReaderUiState(
@@ -88,10 +108,10 @@ data class ReaderUiState(
     val selectedRange: SelectionRange? = null,
     val ttsState: TtsState = TtsState.IDLE,
     val ttsActiveRange: SelectionRange? = null,
+    val presets: List<com.shuli.reader.core.database.entity.ReaderPresetEntity> = emptyList(),
 ) {
     val showDirectory: Boolean get() = overlayPanel == OverlayPanel.DIRECTORY
     val showQuickSettings: Boolean get() = overlayPanel == OverlayPanel.QUICK_SETTINGS
-    val showBrightness: Boolean get() = overlayPanel == OverlayPanel.BRIGHTNESS
 
     /** 当前主题颜色配置，派生自 readerPreferences.backgroundColor */
     val themeColors: ThemeColors
@@ -108,6 +128,7 @@ class ReaderViewModel(
     private val bookRepository: BookRepository? = null,
     private val bookmarkDao: BookmarkDao? = null,
     private val noteDao: NoteDao? = null,
+    private val presetDao: com.shuli.reader.core.database.dao.ReaderPresetDao? = null,
     private val paginator: Paginator = Paginator(SimpleTextMeasurer()),
     ttsEngine: TtsEngine? = null,
 ) : ViewModel() {
@@ -156,6 +177,7 @@ class ReaderViewModel(
                 )
             },
         )
+        loadPresets()
     }
 
     /**
@@ -215,6 +237,28 @@ class ReaderViewModel(
                     prefs.marginHorizontal,
                     prefs.marginVertical,
                     prefs.readingFont,
+                    prefs.letterSpacing,
+                    prefs.fontWeight,
+                    prefs.textAlign,
+                    prefs.chineseConvert,
+                    prefs.headerVisibility,
+                    prefs.headerLeft,
+                    prefs.headerCenter,
+                    prefs.headerRight,
+                    prefs.footerVisibility,
+                    prefs.footerLeft,
+                    prefs.footerCenter,
+                    prefs.footerRight,
+                    prefs.headerFooterAlpha,
+                    prefs.showProgress,
+                    prefs.keepScreenOn,
+                    prefs.volumeKeyTurnPage,
+                    prefs.edgeTurnPage,
+                    prefs.useZhLayout,
+                    prefs.titleAlign,
+                    prefs.titleSizeOffset,
+                    prefs.titleMarginTop,
+                    prefs.titleMarginBottom,
                 ) { flows ->
                     ReaderPreferences(
                         fontSize = flows[0] as Float,
@@ -226,6 +270,34 @@ class ReaderViewModel(
                         marginHorizontal = flows[6] as Float,
                         marginVertical = flows[7] as Float,
                         readingFont = flows[8] as String,
+                        letterSpacing = flows[9] as Float,
+                        fontWeight = (flows[10] as String).toFontWeight(),
+                        textAlign = (flows[11] as String).toTextAlign(),
+                        chineseConvert = (flows[12] as String).toChineseConvert(),
+                        header = HeaderConfig(
+                            visibility = (flows[13] as String).toHeaderVisibility(),
+                            left = (flows[14] as String).toSlotContent(),
+                            center = (flows[15] as String).toSlotContent(),
+                            right = (flows[16] as String).toSlotContent(),
+                        ),
+                        footer = FooterConfig(
+                            visibility = (flows[17] as String).toHeaderVisibility(),
+                            left = (flows[18] as String).toSlotContent(),
+                            center = (flows[19] as String).toSlotContent(),
+                            right = (flows[20] as String).toSlotContent(),
+                        ),
+                        headerFooterAlpha = flows[21] as Float,
+                        showProgress = flows[22] as Boolean,
+                        keepScreenOn = flows[23] as Boolean,
+                        volumeKeyTurnPage = flows[24] as Boolean,
+                        edgeTurnPage = flows[25] as Boolean,
+                        useZhLayout = flows[26] as Boolean,
+                        titleStyle = TitleStyleConfig(
+                            align = (flows[27] as String).toTitleAlign(),
+                            sizeOffsetSp = flows[28] as Int,
+                            marginTopDp = flows[29] as Float,
+                            marginBottomDp = flows[30] as Float,
+                        ),
                     )
                 }.collectLatest { preferences ->
                     val factoryType = preferences.pageAnimType.toFactoryType()
@@ -669,6 +741,259 @@ class ReaderViewModel(
     }
 
     /**
+     * 更新字距
+     */
+    fun setLetterSpacing(spacing: Float) {
+        resetToolbarAutoHide()
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(letterSpacing = spacing)
+        _uiState.value = _uiState.value.copy(
+            readerPreferences = updatedPrefs,
+        )
+        reflowCurrentChapter(updatedPrefs)
+        viewModelScope.launch {
+            userPreferences?.setLetterSpacing(spacing)
+        }
+    }
+
+    /**
+     * 更新字重（FakeBold 不改变字宽，无需 reflow）
+     */
+    fun setFontWeight(weight: ReaderFontWeight) {
+        resetToolbarAutoHide()
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(fontWeight = weight)
+        _uiState.value = _uiState.value.copy(
+            readerPreferences = updatedPrefs,
+        )
+        currentPageInvalidate()
+        viewModelScope.launch {
+            userPreferences?.setFontWeight(weight.toStorageString())
+        }
+    }
+
+    /**
+     * 更新对齐方式（对齐不改变每行字符数，无需 reflow）
+     */
+    fun setTextAlign(align: ReaderTextAlign) {
+        resetToolbarAutoHide()
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(textAlign = align)
+        _uiState.value = _uiState.value.copy(
+            readerPreferences = updatedPrefs,
+        )
+        currentPageInvalidate()
+        viewModelScope.launch {
+            userPreferences?.setTextAlign(align.toStorageString())
+        }
+    }
+
+    /**
+     * 更新简繁转换
+     */
+    fun setChineseConvert(convert: ChineseConvert) {
+        resetToolbarAutoHide()
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(chineseConvert = convert)
+        _uiState.value = _uiState.value.copy(
+            readerPreferences = updatedPrefs,
+        )
+        reflowCurrentChapter(updatedPrefs)
+        viewModelScope.launch {
+            userPreferences?.setChineseConvert(convert.toStorageString())
+        }
+    }
+
+    /**
+     * 更新中文分行模式（改变断行位置，需要 reflow）
+     */
+    fun setUseZhLayout(enabled: Boolean) {
+        resetToolbarAutoHide()
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(useZhLayout = enabled)
+        _uiState.value = _uiState.value.copy(
+            readerPreferences = updatedPrefs,
+        )
+        reflowCurrentChapter(updatedPrefs)
+        viewModelScope.launch {
+            userPreferences?.setUseZhLayout(enabled)
+        }
+    }
+
+    // ── 页眉脚设置 ──────────────────────────────────────────────
+
+    fun setHeaderVisibility(visibility: HeaderVisibility) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(header = currentPrefs.header.copy(visibility = visibility))
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        reflowCurrentChapter(updatedPrefs)
+        viewModelScope.launch {
+            userPreferences?.setHeaderVisibility(visibility.toStorageString())
+        }
+    }
+
+    fun setHeaderLeft(slot: SlotContent) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(header = currentPrefs.header.copy(left = slot))
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        currentPageInvalidate()
+        viewModelScope.launch {
+            userPreferences?.setHeaderLeft(slot.toStorageString())
+        }
+    }
+
+    fun setHeaderCenter(slot: SlotContent) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(header = currentPrefs.header.copy(center = slot))
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        currentPageInvalidate()
+        viewModelScope.launch {
+            userPreferences?.setHeaderCenter(slot.toStorageString())
+        }
+    }
+
+    fun setHeaderRight(slot: SlotContent) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(header = currentPrefs.header.copy(right = slot))
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        currentPageInvalidate()
+        viewModelScope.launch {
+            userPreferences?.setHeaderRight(slot.toStorageString())
+        }
+    }
+
+    fun setFooterVisibility(visibility: HeaderVisibility) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(footer = currentPrefs.footer.copy(visibility = visibility))
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        reflowCurrentChapter(updatedPrefs)
+        viewModelScope.launch {
+            userPreferences?.setFooterVisibility(visibility.toStorageString())
+        }
+    }
+
+    fun setFooterLeft(slot: SlotContent) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(footer = currentPrefs.footer.copy(left = slot))
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        currentPageInvalidate()
+        viewModelScope.launch {
+            userPreferences?.setFooterLeft(slot.toStorageString())
+        }
+    }
+
+    fun setFooterCenter(slot: SlotContent) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(footer = currentPrefs.footer.copy(center = slot))
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        currentPageInvalidate()
+        viewModelScope.launch {
+            userPreferences?.setFooterCenter(slot.toStorageString())
+        }
+    }
+
+    fun setFooterRight(slot: SlotContent) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(footer = currentPrefs.footer.copy(right = slot))
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        currentPageInvalidate()
+        viewModelScope.launch {
+            userPreferences?.setFooterRight(slot.toStorageString())
+        }
+    }
+
+    fun setHeaderFooterAlpha(alpha: Float) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(headerFooterAlpha = alpha)
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        currentPageInvalidate()
+        viewModelScope.launch {
+            userPreferences?.setHeaderFooterAlpha(alpha)
+        }
+    }
+
+    fun setShowProgress(show: Boolean) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(showProgress = show)
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        currentPageInvalidate()
+        viewModelScope.launch {
+            userPreferences?.setShowProgress(show)
+        }
+    }
+
+    // ── 正文标题样式（章首页标题）──────────────────────────────
+
+    /** 标题对齐：LEFT / CENTER / HIDDEN。改变后影响 titleAreaHeight，需重排 */
+    fun setTitleAlign(align: TitleAlign) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(titleStyle = currentPrefs.titleStyle.copy(align = align))
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        reflowCurrentChapter(updatedPrefs)
+        viewModelScope.launch {
+            userPreferences?.setTitleAlign(align.toStorageString())
+        }
+    }
+
+    /** 标题字号偏移（相对正文字号，sp）。改变后影响 titleAreaHeight，需重排 */
+    fun setTitleSizeOffset(offsetSp: Int) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(titleStyle = currentPrefs.titleStyle.copy(sizeOffsetSp = offsetSp))
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        reflowCurrentChapter(updatedPrefs)
+        viewModelScope.launch {
+            userPreferences?.setTitleSizeOffset(offsetSp)
+        }
+    }
+
+    /** 标题上距（dp）。影响 titleAreaHeight，需重排 */
+    fun setTitleMarginTop(dp: Float) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(titleStyle = currentPrefs.titleStyle.copy(marginTopDp = dp))
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        reflowCurrentChapter(updatedPrefs)
+        viewModelScope.launch {
+            userPreferences?.setTitleMarginTop(dp)
+        }
+    }
+
+    /** 标题下距（dp）。影响 titleAreaHeight，需重排 */
+    fun setTitleMarginBottom(dp: Float) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(titleStyle = currentPrefs.titleStyle.copy(marginBottomDp = dp))
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        reflowCurrentChapter(updatedPrefs)
+        viewModelScope.launch {
+            userPreferences?.setTitleMarginBottom(dp)
+        }
+    }
+
+    /** 使当前页 recorder 失效并触发重绘（页眉脚/进度条变化时使用） */
+    private fun currentPageInvalidate() {
+        _uiState.value.currentPage?.invalidate()
+    }
+
+    // ── 阶段六：杂项设置 ──────────────────────────────────────
+
+    fun setKeepScreenOn(enabled: Boolean) {
+        val currentPrefs = _uiState.value.readerPreferences
+        _uiState.value = _uiState.value.copy(readerPreferences = currentPrefs.copy(keepScreenOn = enabled))
+        viewModelScope.launch { userPreferences?.setKeepScreenOn(enabled) }
+    }
+
+    fun setVolumeKeyTurnPage(enabled: Boolean) {
+        val currentPrefs = _uiState.value.readerPreferences
+        _uiState.value = _uiState.value.copy(readerPreferences = currentPrefs.copy(volumeKeyTurnPage = enabled))
+        viewModelScope.launch { userPreferences?.setVolumeKeyTurnPage(enabled) }
+    }
+
+    fun setEdgeTurnPage(enabled: Boolean) {
+        val currentPrefs = _uiState.value.readerPreferences
+        _uiState.value = _uiState.value.copy(readerPreferences = currentPrefs.copy(edgeTurnPage = enabled))
+        viewModelScope.launch { userPreferences?.setEdgeTurnPage(enabled) }
+    }
+
+    /**
      * 显示/隐藏工具栏
      */
     fun toggleToolbar() {
@@ -715,13 +1040,6 @@ class ReaderViewModel(
      */
     fun toggleQuickSettings() {
         toggleOverlay(OverlayPanel.QUICK_SETTINGS)
-    }
-
-    /**
-     * 显示/隐藏亮度调节
-     */
-    fun toggleBrightness() {
-        toggleOverlay(OverlayPanel.BRIGHTNESS)
     }
 
     private fun toggleOverlay(panel: OverlayPanel) {
@@ -1212,6 +1530,7 @@ class ReaderViewModel(
 
         // R7: 查询章节缓存
         val config = layoutConfigFor(_uiState.value.readerPreferences)
+        val prefs = _uiState.value.readerPreferences
         val cacheKey = CacheManager.ChapterCacheKey(
             bookId = _uiState.value.bookId.toString(),
             chapterIndex = index,
@@ -1219,6 +1538,17 @@ class ReaderViewModel(
             lineHeight = config.lineHeight,
             pageWidth = config.pageSize.width,
             pageHeight = config.pageSize.height,
+            letterSpacingPx = config.letterSpacingPx,
+            marginHorizontal = config.marginHorizontal,
+            marginVertical = config.marginVertical,
+            indent = config.indent,
+            showHeader = prefs.header.visibility != HeaderVisibility.ALWAYS_HIDE,
+            showFooter = prefs.footer.visibility != HeaderVisibility.ALWAYS_HIDE,
+            chineseConvert = prefs.chineseConvert.ordinal,
+            titleAlignOrdinal = prefs.titleStyle.align.ordinal,
+            titleSizeOffsetSp = prefs.titleStyle.sizeOffsetSp,
+            titleMarginTopDp = prefs.titleStyle.marginTopDp,
+            titleMarginBottomDp = prefs.titleStyle.marginBottomDp,
         )
         cacheManager.getChapter(cacheKey)?.let { return it }
 
@@ -1232,12 +1562,24 @@ class ReaderViewModel(
             content.chapterText(chapter)
         }
 
+        // 应用简繁转换
+        val convertedText = when (prefs.chineseConvert) {
+            ChineseConvert.NONE -> chapterText
+            ChineseConvert.SIMPLIFIED -> ChineseConverter.toSimplified(chapterText)
+            ChineseConvert.TRADITIONAL -> ChineseConverter.toTraditional(chapterText)
+        }
+
+        val showHeader = prefs.header.visibility != HeaderVisibility.ALWAYS_HIDE
+        val showFooter = prefs.footer.visibility != HeaderVisibility.ALWAYS_HIDE
+
         return withContext(Dispatchers.Default) {
             paginator.paginateChapter(
                 chapterIndex = index,
                 title = chapter.title,
-                content = chapterText,
+                content = convertedText,
                 config = config,
+                showHeader = showHeader,
+                showFooter = showFooter,
             ).also { result ->
                 // R7: 存入章节缓存
                 cacheManager.putChapter(cacheKey, result)
@@ -1262,6 +1604,7 @@ class ReaderViewModel(
         val filePath = currentBookFilePath
 
         // R1: 缓存命中快路径——跳过 IO + 分页，直接恢复 UI 状态
+        val prefs = _uiState.value.readerPreferences
         val cacheKey = CacheManager.ChapterCacheKey(
             bookId = _uiState.value.bookId.toString(),
             chapterIndex = index,
@@ -1269,6 +1612,17 @@ class ReaderViewModel(
             lineHeight = config.lineHeight,
             pageWidth = config.pageSize.width,
             pageHeight = config.pageSize.height,
+            letterSpacingPx = config.letterSpacingPx,
+            marginHorizontal = config.marginHorizontal,
+            marginVertical = config.marginVertical,
+            indent = config.indent,
+            showHeader = prefs.header.visibility != HeaderVisibility.ALWAYS_HIDE,
+            showFooter = prefs.footer.visibility != HeaderVisibility.ALWAYS_HIDE,
+            chineseConvert = prefs.chineseConvert.ordinal,
+            titleAlignOrdinal = prefs.titleStyle.align.ordinal,
+            titleSizeOffsetSp = prefs.titleStyle.sizeOffsetSp,
+            titleMarginTopDp = prefs.titleStyle.marginTopDp,
+            titleMarginBottomDp = prefs.titleStyle.marginBottomDp,
         )
         cacheManager.getChapter(cacheKey)?.let { cached ->
             return viewModelScope.launch {
@@ -1303,6 +1657,13 @@ class ReaderViewModel(
                     }
                 } else {
                     content.chapterText(chapterMeta)
+                }
+
+                // 应用简繁转换
+                val convertedText = when (_uiState.value.readerPreferences.chineseConvert) {
+                    ChineseConvert.NONE -> chapterText
+                    ChineseConvert.SIMPLIFIED -> ChineseConverter.toSimplified(chapterText)
+                    ChineseConvert.TRADITIONAL -> ChineseConverter.toTraditional(chapterText)
                 }
 
                 val chapter = TextChapter(
@@ -1356,8 +1717,10 @@ class ReaderViewModel(
                 )
 
                 // 流式分页
+                val showHeader = _uiState.value.readerPreferences.header.visibility != HeaderVisibility.ALWAYS_HIDE
+                val showFooter = _uiState.value.readerPreferences.footer.visibility != HeaderVisibility.ALWAYS_HIDE
                 withContext(Dispatchers.Default) {
-                    paginator.paginateStreaming(chapter, chapterText, config).collect()
+                    paginator.paginateStreaming(chapter, convertedText, config, showHeader = showHeader, showFooter = showFooter).collect()
                     chapter.markCompleted()
                 }
 
@@ -1384,6 +1747,7 @@ class ReaderViewModel(
             (currentIndex + 1).takeIf { it < chapters.size },
         )
 
+        val prefs = _uiState.value.readerPreferences
         for (index in indicesToPreload) {
             val cacheKey = CacheManager.ChapterCacheKey(
                 bookId = bookId,
@@ -1392,6 +1756,17 @@ class ReaderViewModel(
                 lineHeight = config.lineHeight,
                 pageWidth = config.pageSize.width,
                 pageHeight = config.pageSize.height,
+                letterSpacingPx = config.letterSpacingPx,
+                marginHorizontal = config.marginHorizontal,
+                marginVertical = config.marginVertical,
+                indent = config.indent,
+                showHeader = prefs.header.visibility != HeaderVisibility.ALWAYS_HIDE,
+                showFooter = prefs.footer.visibility != HeaderVisibility.ALWAYS_HIDE,
+                chineseConvert = prefs.chineseConvert.ordinal,
+                titleAlignOrdinal = prefs.titleStyle.align.ordinal,
+                titleSizeOffsetSp = prefs.titleStyle.sizeOffsetSp,
+                titleMarginTopDp = prefs.titleStyle.marginTopDp,
+                titleMarginBottomDp = prefs.titleStyle.marginBottomDp,
             )
             if (cacheManager.getChapter(cacheKey) != null) continue
 
@@ -1438,16 +1813,195 @@ class ReaderViewModel(
         }
     }
 
+    // ── 预设管理 ──────────────────────────────────────────────
+
+    /**
+     * 加载预设列表
+     */
+    fun loadPresets() {
+        val dao = presetDao ?: return
+        viewModelScope.launch {
+            dao.observeAll().collect { presets ->
+                _uiState.value = _uiState.value.copy(presets = presets)
+            }
+        }
+    }
+
+    /**
+     * 保存当前设置为预设
+     */
+    fun saveCurrentAsPreset(name: String) {
+        val dao = presetDao ?: return
+        viewModelScope.launch {
+            val currentPrefs = _uiState.value.readerPreferences
+            val configJson = kotlinx.serialization.json.Json.encodeToString(
+                ReaderPreferences.serializer(),
+                currentPrefs,
+            )
+            val entity = com.shuli.reader.core.database.entity.ReaderPresetEntity(
+                name = name,
+                createdAt = System.currentTimeMillis(),
+                configJson = configJson,
+            )
+            dao.insert(entity)
+        }
+    }
+
+    /**
+     * 应用预设
+     */
+    fun applyPreset(presetId: Long) {
+        val dao = presetDao ?: return
+        viewModelScope.launch {
+            val entity = dao.getById(presetId) ?: return@launch
+            try {
+                val prefs = kotlinx.serialization.json.Json.decodeFromString(
+                    ReaderPreferences.serializer(),
+                    entity.configJson,
+                )
+                // 依次调用 setter 应用所有设置
+                setFontSize(prefs.fontSize)
+                setLineSpacing(prefs.lineSpacing)
+                setParagraphSpacing(prefs.paragraphSpacing)
+                setIndent(prefs.indent)
+                setMarginHorizontal(prefs.marginHorizontal)
+                setMarginVertical(prefs.marginVertical)
+                setReadingFont(prefs.readingFont)
+                setPageAnimType(prefs.pageAnimType.toFactoryType())
+                setReaderTheme(prefs.backgroundColor)
+                setLetterSpacing(prefs.letterSpacing)
+                setFontWeight(prefs.fontWeight)
+                setTextAlign(prefs.textAlign)
+                setChineseConvert(prefs.chineseConvert)
+                setBrightness(prefs.brightness)
+                setHeaderVisibility(prefs.header.visibility)
+                setHeaderLeft(prefs.header.left)
+                setHeaderCenter(prefs.header.center)
+                setHeaderRight(prefs.header.right)
+                setFooterVisibility(prefs.footer.visibility)
+                setFooterLeft(prefs.footer.left)
+                setFooterCenter(prefs.footer.center)
+                setFooterRight(prefs.footer.right)
+                setHeaderFooterAlpha(prefs.headerFooterAlpha)
+                setShowProgress(prefs.showProgress)
+                setTitleAlign(prefs.titleStyle.align)
+                setTitleSizeOffset(prefs.titleStyle.sizeOffsetSp)
+                setTitleMarginTop(prefs.titleStyle.marginTopDp)
+                setTitleMarginBottom(prefs.titleStyle.marginBottomDp)
+                setKeepScreenOn(prefs.keepScreenOn)
+                setVolumeKeyTurnPage(prefs.volumeKeyTurnPage)
+                setEdgeTurnPage(prefs.edgeTurnPage)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = "Failed to apply preset: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * 重命名预设
+     */
+    fun renamePreset(presetId: Long, newName: String) {
+        val dao = presetDao ?: return
+        viewModelScope.launch {
+            val entity = dao.getById(presetId) ?: return@launch
+            dao.update(entity.copy(name = newName))
+        }
+    }
+
+    /**
+     * 删除预设
+     */
+    fun deletePreset(presetId: Long) {
+        val dao = presetDao ?: return
+        viewModelScope.launch {
+            dao.deleteById(presetId)
+        }
+    }
+
+    /**
+     * 恢复默认设置
+     */
+    fun resetToDefault() {
+        val defaults = ReaderPreferences()
+        setFontSize(defaults.fontSize)
+        setLineSpacing(defaults.lineSpacing)
+        setParagraphSpacing(defaults.paragraphSpacing)
+        setIndent(defaults.indent)
+        setMarginHorizontal(defaults.marginHorizontal)
+        setMarginVertical(defaults.marginVertical)
+        setReadingFont(defaults.readingFont)
+        setPageAnimType(defaults.pageAnimType.toFactoryType())
+        setReaderTheme(defaults.backgroundColor)
+        setLetterSpacing(defaults.letterSpacing)
+        setFontWeight(defaults.fontWeight)
+        setTextAlign(defaults.textAlign)
+        setChineseConvert(defaults.chineseConvert)
+        setBrightness(defaults.brightness)
+        setHeaderVisibility(defaults.header.visibility)
+        setHeaderLeft(defaults.header.left)
+        setHeaderCenter(defaults.header.center)
+        setHeaderRight(defaults.header.right)
+        setFooterVisibility(defaults.footer.visibility)
+        setFooterLeft(defaults.footer.left)
+        setFooterCenter(defaults.footer.center)
+        setFooterRight(defaults.footer.right)
+        setHeaderFooterAlpha(defaults.headerFooterAlpha)
+        setShowProgress(defaults.showProgress)
+        setTitleAlign(defaults.titleStyle.align)
+        setTitleSizeOffset(defaults.titleStyle.sizeOffsetSp)
+        setTitleMarginTop(defaults.titleStyle.marginTopDp)
+        setTitleMarginBottom(defaults.titleStyle.marginBottomDp)
+        setKeepScreenOn(defaults.keepScreenOn)
+        setVolumeKeyTurnPage(defaults.volumeKeyTurnPage)
+        setEdgeTurnPage(defaults.edgeTurnPage)
+    }
+
+    /** 解析页眉槽位为 SlotResolution */
+    fun resolveHeaderSlots(): SlotResolution {
+        val prefs = _uiState.value.readerPreferences
+        if (prefs.header.visibility == HeaderVisibility.ALWAYS_HIDE) return SlotResolution()
+        val state = _uiState.value
+        return SlotResolver.resolveHeader(
+            config = prefs.header,
+            chapterTitle = state.chapterTitle,
+            bookTitle = state.bookTitle,
+            pageNumber = state.pageIndex + 1,
+            totalPages = state.totalPages.coerceAtLeast(1),
+            progress = if (state.totalPages > 0) state.pageIndex.toFloat() / state.totalPages else 0f,
+            batteryLevel = 100, // 由 ReaderScreen 传入
+        )
+    }
+
+    /** 解析页脚槽位为 SlotResolution */
+    fun resolveFooterSlots(): SlotResolution {
+        val prefs = _uiState.value.readerPreferences
+        if (prefs.footer.visibility == HeaderVisibility.ALWAYS_HIDE) return SlotResolution()
+        val state = _uiState.value
+        return SlotResolver.resolveFooter(
+            config = prefs.footer,
+            chapterTitle = state.chapterTitle,
+            bookTitle = state.bookTitle,
+            pageNumber = state.pageIndex + 1,
+            totalPages = state.totalPages.coerceAtLeast(1),
+            progress = if (state.totalPages > 0) state.pageIndex.toFloat() / state.totalPages else 0f,
+            batteryLevel = 100, // 由 ReaderScreen 传入
+        )
+    }
+
     private fun layoutConfigFor(preferences: ReaderPreferences): ReaderLayoutConfig {
+        val textSizePx = preferences.fontSize * density
         return ReaderLayoutConfig(
             pageSize = PageSize(screenWidthPx, screenHeightPx),
-            textSize = preferences.fontSize * density,
+            textSize = textSizePx,
             lineHeight = preferences.lineSpacing,
             paragraphSpacing = preferences.paragraphSpacing * PARAGRAPH_SPACING_PX,
             marginHorizontal = preferences.marginHorizontal * density,
             marginVertical = preferences.marginVertical * density,
             indent = preferences.indent,
             density = this.density,
+            letterSpacingPx = preferences.letterSpacing * textSizePx,
+            titleStyle = preferences.titleStyle,
+            useZhLayout = preferences.useZhLayout,
         )
     }
 

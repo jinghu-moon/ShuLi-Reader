@@ -130,6 +130,7 @@ private fun BookGridItem(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(0.75f),
+                    readingProgress = book.readingProgress,
                     paletteIndexOverride = unifiedCoverPaletteIndex ?: book.customCoverPaletteIndex,
                 )
             }
@@ -157,23 +158,13 @@ private fun BookGridItem(
             overflow = TextOverflow.Ellipsis,
         )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
+        if (book.readingDuration.isNotBlank()) {
             Text(
-                text = if (book.readingProgress > 0f)
-                    "${(book.readingProgress * 100).toInt()}%" else strings.unreadLabel,
+                text = book.readingDuration,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.fillMaxWidth(),
             )
-            if (book.readingDuration.isNotBlank()) {
-                Text(
-                    text = book.readingDuration,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary,
-                )
-            }
         }
         }
         

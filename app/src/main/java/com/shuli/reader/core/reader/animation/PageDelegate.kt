@@ -17,6 +17,7 @@ interface PageDelegate {
         IDLE,      // 空闲
         DRAGGING,  // 拖拽中
         ANIMATING, // 动画中
+        SETTLING,  // 动画结束，等待页面引用切换（保持目标页渲染，防止闪烁）
     }
 
     /**
@@ -80,6 +81,11 @@ interface PageDelegate {
      * 中断动画
      */
     fun abort()
+
+    /**
+     * 页面引用已切换，结束 SETTLING 状态
+     */
+    fun confirmPageSettled()
 
     /**
      * 设置回调
