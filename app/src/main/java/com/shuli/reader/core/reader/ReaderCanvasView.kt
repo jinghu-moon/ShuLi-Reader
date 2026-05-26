@@ -1,6 +1,10 @@
 package com.shuli.reader.core.reader
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
@@ -10,6 +14,7 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.animation.DecelerateInterpolator
 import androidx.core.content.res.ResourcesCompat
 import com.shuli.reader.R
 import com.shuli.reader.core.data.ReaderTheme
@@ -79,10 +84,19 @@ class ReaderCanvasView @JvmOverloads constructor(
         isAntiAlias = true
     }
 
+    private val crossfadePaint = Paint().apply {
+        isAntiAlias = true
+    }
+
     // 页面引用
     private var currentPage: TextPage? = null
     private var nextPage: TextPage? = null
     private var prevPage: TextPage? = null
+
+    // 排版变化 crossfade 动画
+    private var oldPageBitmap: Bitmap? = null
+    private var crossfadeAnimator: ValueAnimator? = null
+    private var crossfadeAlpha: Float = 0f
 
     // 渲染参数（recordPage 闭包上下文）
     private val renderContext = RenderContext()
@@ -211,14 +225,21 @@ class ReaderCanvasView @JvmOverloads constructor(
      * 设置页面内容。
      * CanvasRecorder 自带缓存，仅在 invalidate 后下次绘制时重录。
      * @param mode 渲染模式：SEQUENTIAL 预热邻页，JUMP/SCRUBBING 仅当前页
+     * @param isLayoutChange 是否为排版参数变化导致的页面重建（触发 crossfade 过渡）
      */
     fun setPage(
         page: TextPage,
         next: TextPage? = null,
         prev: TextPage? = null,
         mode: PageRenderMode = PageRenderMode.SEQUENTIAL,
+        isLayoutChange: Boolean = false,
     ) {
         val changed = currentPage !== page || nextPage !== next || prevPage !== prev
+
+        // 排版变化 crossfade：必须在回收旧资源和更新引用之前捕获旧页面快照
+        if (isLayoutChange && changed) {
+            startLayoutCrossfade()
+        }
 
         // M4: 回收不再引用的旧页面的 RenderNode/Picture 资源
         if (changed) {
@@ -256,6 +277,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         if (changed) {
             renderContext.selectedRange = null
         }
+
         submitRenderTask()
         invalidate()
     }
@@ -559,9 +581,49 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     /** 使所有页面 recorder 失效（字体/主题/尺寸等全局变化时使用） */
     private fun invalidateAllRecorders() {
-        currentPage?.invalidate()
-        nextPage?.invalidate()
-        prevPage?.invalidate()
+        currentPage?.invalidateAll()
+        nextPage?.invalidateAll()
+        prevPage?.invalidateAll()
+    }
+
+    /**
+     * 排版变化 crossfade：将当前页面快照为 Bitmap，启动 alpha 过渡动画。
+     * 旧页面从 alpha 1→0 淡出，新页面从底层显示。
+     */
+    private fun startLayoutCrossfade() {
+        val w = width
+        val h = height
+        val cur = currentPage
+        if (w <= 0 || h <= 0 || cur == null) return
+
+        // 捕获旧页面为 Bitmap
+        val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val captureCanvas = Canvas(bitmap)
+        cur.canvasRecorder.draw(captureCanvas)
+
+        // 清理旧资源
+        crossfadeAnimator?.cancel()
+        oldPageBitmap?.recycle()
+
+        oldPageBitmap = bitmap
+        crossfadeAlpha = 1f
+
+        crossfadeAnimator = ValueAnimator.ofFloat(1f, 0f).apply {
+            duration = 200
+            interpolator = DecelerateInterpolator()
+            addUpdateListener {
+                crossfadeAlpha = it.animatedValue as Float
+                invalidate()
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    oldPageBitmap?.recycle()
+                    oldPageBitmap = null
+                    crossfadeAlpha = 0f
+                }
+            })
+            start()
+        }
     }
 
     /**
@@ -682,6 +744,9 @@ class ReaderCanvasView @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
+        crossfadeAnimator?.cancel()
+        oldPageBitmap?.recycle()
+        oldPageBitmap = null
         currentPage?.recycleRecorders()
         nextPage?.recycleRecorders()
         prevPage?.recycleRecorders()
@@ -712,6 +777,14 @@ class ReaderCanvasView @JvmOverloads constructor(
             delegate.onDraw(canvas, current.canvasRecorder, target?.canvasRecorder ?: current.canvasRecorder)
         } else {
             current.canvasRecorder.draw(canvas)
+        }
+
+        // 排版变化 crossfade：叠加旧页面快照（alpha 从 1→0）
+        oldPageBitmap?.let { bitmap ->
+            if (crossfadeAlpha > 0f) {
+                crossfadePaint.alpha = (crossfadeAlpha * 255).toInt()
+                canvas.drawBitmap(bitmap, 0f, 0f, crossfadePaint)
+            }
         }
     }
 

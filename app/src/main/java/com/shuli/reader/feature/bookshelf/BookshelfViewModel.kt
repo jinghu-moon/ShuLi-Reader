@@ -10,7 +10,10 @@ import com.shuli.reader.core.repository.BookRepository
 import com.shuli.reader.core.repository.ImportConfig
 import com.shuli.reader.core.repository.ImportResult
 import com.shuli.reader.core.database.entity.BookShelfRow
+import com.shuli.reader.core.database.entity.FolderEntity
 import com.shuli.reader.feature.bookshelf.model.BookItem
+import com.shuli.reader.feature.bookshelf.model.BookshelfNode
+import com.shuli.reader.feature.bookshelf.model.FolderItem
 import com.shuli.reader.feature.bookshelf.model.BookshelfUiState
 import com.shuli.reader.feature.bookshelf.model.FilterType
 import com.shuli.reader.feature.bookshelf.model.SortOrder
@@ -51,6 +54,10 @@ class BookshelfViewModel(
     private val _isAscending = MutableStateFlow(false)
     private val _searchQuery = MutableStateFlow("")
     private val _isSearching = MutableStateFlow(false)
+    private val _isEditMode = MutableStateFlow(false)
+    private val _selectedNodeIds = MutableStateFlow<Set<Long>>(emptySet())
+    private val _openFolderId = MutableStateFlow<Long?>(null)
+    val openFolderId: StateFlow<Long?> = _openFolderId.asStateFlow()
 
     private val _events = MutableSharedFlow<BookshelfEvent>()
     val events = _events.asSharedFlow()
@@ -74,6 +81,8 @@ class BookshelfViewModel(
             }
         }
 
+    private val foldersFlow = bookRepository.getAllFolders()
+
     val uiState: StateFlow<BookshelfUiState> = combine(
         booksFlow,
         bookRepository.getReadingDurations(),
@@ -85,6 +94,9 @@ class BookshelfViewModel(
         _searchQuery,
         _isSearching,
         unifiedCoverPaletteFlow,
+        foldersFlow,
+        _isEditMode,
+        _selectedNodeIds,
     ) { values ->
         val books = values[0] as List<*>
         val durations = values[1] as Map<*, *>
@@ -96,6 +108,13 @@ class BookshelfViewModel(
         val searchQuery = values[7] as String
         val isSearching = values[8] as Boolean
         val unifiedPalette = values[9] as Int?
+        
+        @Suppress("UNCHECKED_CAST")
+        val folderEntities = values[10] as List<FolderEntity>
+        val isEditMode = values[11] as Boolean
+        
+        @Suppress("UNCHECKED_CAST")
+        val selectedNodeIds = values[12] as Set<Long>
 
         @Suppress("UNCHECKED_CAST")
         val bookRows = books as List<BookShelfRow>
@@ -108,12 +127,34 @@ class BookshelfViewModel(
             row.toBookItem(duration)
         }
 
-        val filtered = bookItems.applyFilter(filterType)
+        // 按 folderId 分组
+        val booksByFolder = bookItems.groupBy { it.folderId }
+        val rootNodes = mutableListOf<BookshelfNode>()
+
+        // 1. 组装 FolderItem
+        folderEntities.forEach { folder ->
+            val folderUiId = -folder.id
+            val folderBooks = booksByFolder[folder.id] ?: emptyList()
+            rootNodes.add(
+                FolderItem(
+                    id = folderUiId,
+                    title = folder.name,
+                    orderIndex = folder.orderIndex,
+                    books = folderBooks.sortedBy { it.orderIndex }
+                )
+            )
+        }
+
+        // 2. 组装根目录下的 BookItem
+        val rootBooks = booksByFolder[null] ?: emptyList()
+        rootNodes.addAll(rootBooks)
+
+        val filtered = rootNodes.applyFilter(filterType)
         val searched = if (isSearching && searchQuery.isBlank()) emptyList() else filtered
         val sorted = searched.applySorting(sortOrder, isAscending)
 
         BookshelfUiState(
-            books = sorted,
+            nodes = sorted,
             viewMode = viewMode,
             sortOrder = sortOrder,
             isAscending = isAscending,
@@ -124,6 +165,8 @@ class BookshelfViewModel(
             todayReadingMinutes = todayTime ?: 0L,
             isLoading = false,
             isEmpty = sorted.isEmpty(),
+            isEditMode = isEditMode,
+            selectedNodeIds = selectedNodeIds,
             unifiedCoverPaletteIndex = unifiedPalette,
         )
     }.stateIn(
@@ -177,6 +220,119 @@ class BookshelfViewModel(
         viewModelScope.launch {
             bookRepository.deleteBook(bookId)
             _events.emit(BookshelfEvent.ShowMessage { it.bookDeleted })
+        }
+    }
+
+    // --- Edit Mode & Grouping Operations ---
+
+    fun onFolderClick(folderId: Long) {
+        _openFolderId.value = folderId
+    }
+
+    fun onFolderDismiss() {
+        _openFolderId.value = null
+    }
+
+    fun onToggleEditMode(selectNodeId: Long? = null) {
+        _isEditMode.value = !_isEditMode.value
+        if (_isEditMode.value && selectNodeId != null) {
+            _selectedNodeIds.value = setOf(selectNodeId)
+        } else if (!_isEditMode.value) {
+            _selectedNodeIds.value = emptySet()
+        }
+    }
+
+    fun onToggleNodeSelection(nodeId: Long) {
+        val current = _selectedNodeIds.value.toMutableSet()
+        if (current.contains(nodeId)) {
+            current.remove(nodeId)
+        } else {
+            current.add(nodeId)
+        }
+        _selectedNodeIds.value = current
+    }
+
+    fun onSelectAllNodes(nodes: List<BookshelfNode>) {
+        if (_selectedNodeIds.value.size == nodes.size) {
+            _selectedNodeIds.value = emptySet()
+        } else {
+            _selectedNodeIds.value = nodes.map { it.id }.toSet()
+        }
+    }
+
+    fun onCreateFolderAndMove(folderName: String, sourceNodeId: Long, targetNodeId: Long) {
+        viewModelScope.launch {
+            // 获取当前最大排序号
+            val orderIndex = System.currentTimeMillis() // 简易排序值
+            val folderId = bookRepository.createFolder(folderName, orderIndex)
+            bookRepository.moveBooksToFolder(listOf(sourceNodeId, targetNodeId), folderId)
+            
+            // 自动切换到自定义排序，以便反映拖拽结果
+            _sortOrder.value = SortOrder.CUSTOM
+            _events.emit(BookshelfEvent.ShowMessage { "分组创建成功" })
+        }
+    }
+
+    fun onMoveSelectedToFolder(folderId: Long?) {
+        val selectedIds = _selectedNodeIds.value.toList()
+        if (selectedIds.isEmpty()) return
+        val bookIds = selectedIds.filter { it > 0 }
+        val realFolderId = folderId?.let { if (it < 0) -it else it }
+
+        viewModelScope.launch {
+            if (bookIds.isNotEmpty()) bookRepository.moveBooksToFolder(bookIds, realFolderId)
+            onToggleEditMode()
+            _events.emit(BookshelfEvent.ShowMessage { if (folderId == null) "已移出分组" else "已放入分组" })
+        }
+    }
+
+    fun deleteNodes(nodeIds: Set<Long>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val nodesToDelete = uiState.value.nodes.filter { it.id in nodeIds }
+            nodesToDelete.forEach { node ->
+                if (node is BookItem) bookRepository.deleteBook(node.id)
+                else if (node is FolderItem) bookRepository.deleteFolder(-node.id)
+            }
+        }
+        _selectedNodeIds.value = emptySet()
+        _isEditMode.value = false
+    }
+
+    fun onMoveSelectedToNewFolder(folderName: String) {
+        val selectedIds = _selectedNodeIds.value.toList()
+        if (selectedIds.isEmpty()) return
+        val bookIds = selectedIds.filter { it > 0 }
+
+        viewModelScope.launch {
+            val folderId = bookRepository.createFolder(folderName, System.currentTimeMillis())
+            if (bookIds.isNotEmpty()) bookRepository.moveBooksToFolder(bookIds, folderId)
+            onToggleEditMode()
+            _events.emit(BookshelfEvent.ShowMessage { "已创建分组并移动" })
+        }
+    }
+
+    fun mergeNodes(sourceId: Long, targetId: Long, sourceIsFolder: Boolean, targetIsFolder: Boolean) {
+        val srcIsFolder = sourceIsFolder || sourceId < 0
+        val tgtIsFolder = targetIsFolder || targetId < 0
+        if (srcIsFolder || sourceId == targetId) return
+
+        viewModelScope.launch(Dispatchers.IO) {
+            if (tgtIsFolder) {
+                bookRepository.moveBooksToFolder(listOf(sourceId), -targetId)
+            } else {
+                val newFolderId = bookRepository.createFolder("新建文件夹", System.currentTimeMillis())
+                bookRepository.moveBooksToFolder(listOf(sourceId, targetId), newFolderId)
+            }
+        }
+    }
+
+    fun commitOrderToDatabase(nodes: List<BookshelfNode>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            nodes.forEachIndexed { index, node ->
+                val orderIndex = index.toLong()
+                if (node is BookItem) bookRepository.updateBookOrderIndex(node.id, orderIndex)
+                else if (node is FolderItem) bookRepository.updateFolderOrderIndex(-node.id, orderIndex)
+            }
         }
     }
 
@@ -312,22 +468,38 @@ class BookshelfViewModel(
         return name
     }
 
-    private fun List<BookItem>.applyFilter(filter: FilterType): List<BookItem> {
+    private fun List<BookshelfNode>.applyFilter(filter: FilterType): List<BookshelfNode> {
         return when (filter) {
             FilterType.ALL -> this
-            FilterType.RECENT -> filter { it.isRecent }
-            FilterType.FINISHED -> filter { it.readingProgress >= 0.99f }
-            FilterType.FAVORITE -> filter { it.isFavorite }
+            FilterType.RECENT -> filter { 
+                if (it is BookItem) it.isRecent else false 
+            }
+            FilterType.FINISHED -> filter { 
+                if (it is BookItem) it.readingProgress >= 0.99f else false 
+            }
+            FilterType.FAVORITE -> filter { 
+                if (it is BookItem) it.isFavorite else false 
+            }
         }
     }
 
-    private fun List<BookItem>.applySorting(order: SortOrder, isAscending: Boolean): List<BookItem> {
+    private fun List<BookshelfNode>.applySorting(order: SortOrder, isAscending: Boolean): List<BookshelfNode> {
         return when (order) {
-            SortOrder.LAST_READ -> if (isAscending) sortedBy { it.lastReadTime ?: 0L } else sortedByDescending { it.lastReadTime ?: 0L }
+            SortOrder.LAST_READ -> {
+                val selector: (BookshelfNode) -> Long = { if (it is BookItem) it.lastReadTime ?: 0L else 0L }
+                if (isAscending) sortedBy(selector) else sortedByDescending(selector)
+            }
             SortOrder.ADD_TIME -> if (isAscending) sortedBy { it.id } else sortedByDescending { it.id }
             SortOrder.TITLE -> if (isAscending) sortedBy { it.title } else sortedByDescending { it.title }
-            SortOrder.FILE_SIZE -> if (isAscending) sortedBy { it.readingDurationMinutes } else sortedByDescending { it.readingDurationMinutes }
-            SortOrder.PROGRESS -> if (isAscending) sortedBy { it.readingProgress } else sortedByDescending { it.readingProgress }
+            SortOrder.FILE_SIZE -> {
+                val selector: (BookshelfNode) -> Long = { if (it is BookItem) it.readingDurationMinutes else 0L }
+                if (isAscending) sortedBy(selector) else sortedByDescending(selector)
+            }
+            SortOrder.PROGRESS -> {
+                val selector: (BookshelfNode) -> Float = { if (it is BookItem) it.readingProgress else 0f }
+                if (isAscending) sortedBy(selector) else sortedByDescending(selector)
+            }
+            SortOrder.CUSTOM -> if (isAscending) sortedBy { it.orderIndex } else sortedByDescending { it.orderIndex }
         }
     }
 }

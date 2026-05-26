@@ -122,8 +122,14 @@ class TextPage(
     @Transient
     val canvasRecorder: CanvasRecorder = CanvasRecorderFactory.create(locked = true)
 
-    /** 标记 recorder 失效，下次绘制时会重录。 */
+    /** 标记页面级 recorder 失效，下次绘制时会重录。 */
     fun invalidate() = canvasRecorder.invalidate()
+
+    /** 标记页面级 + 所有行级 recorder 失效（textPaint 属性变化时使用）。 */
+    fun invalidateAll() {
+        canvasRecorder.invalidate()
+        lines.forEach { it.invalidateSelf() }
+    }
 
     /** 释放 recorder 对应的 RenderNode/Picture 回池。 */
     fun recycleRecorders() {

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.shuli.reader.core.data.ChineseConvert
 import com.shuli.reader.core.data.ReaderFontWeight
 import com.shuli.reader.core.text.ChineseConverter
+import com.shuli.reader.core.text.PanguSpacing
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.data.ReaderTheme
@@ -57,6 +58,7 @@ import com.shuli.reader.ui.theme.toReaderColorScheme
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -86,6 +88,7 @@ private data class ReaderLayoutPrefs(
     val letterSpacing: Float,
     val useZhLayout: Boolean,
     val chineseConvert: com.shuli.reader.core.data.ChineseConvert,
+    val usePanguSpacing: Boolean,
 )
 
 /**
@@ -141,6 +144,7 @@ data class ReaderUiState(
     val bookmarks: List<BookmarkEntity> = emptyList(),
     val notes: List<NoteEntity> = emptyList(),
     val chapterTitles: List<String> = emptyList(),
+    val chapterWordCounts: List<Int> = emptyList(),
     val searchQuery: String = "",
     val searchResults: List<SearchResult> = emptyList(),
     val currentSearchResultIndex: Int = -1,
@@ -151,6 +155,8 @@ data class ReaderUiState(
     /** 缓存的主题颜色，避免每次访问 themeColors 都创建中间对象 */
     val themeColors: ThemeColors = readerPreferences.backgroundColor
         .toReaderColorScheme().toCanvasThemeColors(),
+    /** 排版版本号，每次 reflow 递增，用于 Canvas 层 crossfade 判断 */
+    val layoutVersion: Int = 0,
 ) {
     val showDirectory: Boolean get() = overlayPanel == OverlayPanel.DIRECTORY
     val showQuickSettings: Boolean get() = overlayPanel == OverlayPanel.QUICK_SETTINGS
@@ -159,6 +165,7 @@ data class ReaderUiState(
 /**
  * 阅读器 ViewModel
  */
+@OptIn(FlowPreview::class)
 class ReaderViewModel(
     private val userPreferences: UserPreferences? = null,
     private val bookRepository: BookRepository? = null,
@@ -171,7 +178,6 @@ class ReaderViewModel(
 
     companion object {
         private const val TOOLBAR_AUTO_HIDE_DELAY_MS = 5000L
-        private const val PARAGRAPH_SPACING_PX = 12f
     }
 
     private val _uiState = MutableStateFlow(ReaderUiState())
@@ -278,7 +284,8 @@ class ReaderViewModel(
                     prefs.titleSizeOffset,
                     prefs.titleMarginTop,
                     prefs.titleMarginBottom,
-                ) { flows ->
+                    prefs.usePanguSpacing,
+                ) { flows: Array<Any> ->
                     Triple(
                         ReaderLayoutPrefs(
                             fontSize = flows[0] as Float,
@@ -290,6 +297,7 @@ class ReaderViewModel(
                             letterSpacing = flows[6] as Float,
                             useZhLayout = flows[7] as Boolean,
                             chineseConvert = (flows[8] as String).toChineseConvert(),
+                            usePanguSpacing = flows[13] as Boolean,
                         ),
                         TitleStyleConfig(
                             align = (flows[9] as String).toTitleAlign(),
@@ -311,6 +319,7 @@ class ReaderViewModel(
                         letterSpacing = layoutPrefs.letterSpacing,
                         useZhLayout = layoutPrefs.useZhLayout,
                         chineseConvert = chineseConvertRaw.toChineseConvert(),
+                        usePanguSpacing = layoutPrefs.usePanguSpacing,
                         titleStyle = titleStyle,
                     )
                     _uiState.value = _uiState.value.copy(readerPreferences = updated)
@@ -335,7 +344,7 @@ class ReaderViewModel(
                     prefs.footerRight,
                     prefs.headerFooterAlpha,
                     prefs.showProgress,
-                ) { flows ->
+                ) { flows: Array<Any> ->
                     ReaderVisualPrefs(
                         readingFont = flows[0] as String,
                         fontWeight = (flows[1] as String).toFontWeight(),
@@ -384,7 +393,7 @@ class ReaderViewModel(
                     prefs.keepScreenOn,
                     prefs.volumeKeyTurnPage,
                     prefs.edgeTurnPage,
-                ) { flows ->
+                ) { flows: Array<Any> ->
                     ReaderBehaviorPrefs(
                         brightness = flows[0] as Float,
                         keepScreenOn = flows[1] as Boolean,
@@ -450,12 +459,16 @@ class ReaderViewModel(
                 val chapterCount = content.normalizedChapters().size
                 val chapterIndex = book.durChapterIndex.coerceIn(0, (chapterCount - 1).coerceAtLeast(0))
 
+                val chapters = content.normalizedChapters()
                 _uiState.value = _uiState.value.copy(
                     bookTitle = book.title,
                     chapterTitle = book.durChapterTitle.orEmpty(),
                     chapterIndex = chapterIndex,
                     totalChapters = chapterCount,
-                    chapterTitles = content.normalizedChapters().map { it.title },
+                    chapterTitles = chapters.map { it.title },
+                    chapterWordCounts = chapters.map { chapter ->
+                        countChapterWords(content.content, chapter.startIndex, chapter.endIndex)
+                    },
                 )
 
                 withContext(Dispatchers.IO) {
@@ -868,6 +881,24 @@ class ReaderViewModel(
         }
     }
 
+    fun setTtsSpeed(speed: Float) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(ttsSpeed = speed)
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        viewModelScope.launch {
+            userPreferences?.setTtsSpeed(speed)
+        }
+    }
+
+    fun setTtsPitch(pitch: Float) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(ttsPitch = pitch)
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        viewModelScope.launch {
+            userPreferences?.setTtsPitch(pitch)
+        }
+    }
+
     /**
      * 更新对齐方式（对齐不改变每行字符数，无需 reflow）
      */
@@ -913,6 +944,22 @@ class ReaderViewModel(
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
             userPreferences?.setUseZhLayout(enabled)
+        }
+    }
+
+    /**
+     * 更新盘古之白（中英文间加空格，需要 reflow）
+     */
+    fun setPanguSpacing(enabled: Boolean) {
+        resetToolbarAutoHide()
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(usePanguSpacing = enabled)
+        _uiState.value = _uiState.value.copy(
+            readerPreferences = updatedPrefs,
+        )
+        reflowCurrentChapter(updatedPrefs)
+        viewModelScope.launch {
+            userPreferences?.setUsePanguSpacing(enabled)
         }
     }
 
@@ -1608,6 +1655,7 @@ class ReaderViewModel(
             chapterTitle = "Chapter 1",
             totalChapters = 10,
             chapterTitles = (1..10).map { "Chapter $it" },
+            chapterWordCounts = (1..10).map { (it * 1500) + 500 },
         )
     }
 
@@ -1618,6 +1666,37 @@ class ReaderViewModel(
             chapterTitle = "Chapter ${index + 1}",
             pageIndex = 0,
         )
+    }
+
+    /**
+     * 统计章节字数：中文每个字算1，英文每个空格分隔的单词算1，过滤空格和换行。
+     */
+    private fun countChapterWords(content: String, start: Int, end: Int): Int {
+        var count = 0
+        var inEnglish = false
+        for (i in start until end.coerceAtMost(content.length)) {
+            val c = content[i]
+            if (c == ' ' || c == '\n' || c == '\r') {
+                inEnglish = false
+                continue
+            }
+            if (c.code in 0x4E00..0x9FFF || c.code in 0x3400..0x4DBF) {
+                // CJK 统一汉字：每个字算1
+                count++
+                inEnglish = false
+            } else if (c in 'a'..'z' || c in 'A'..'Z') {
+                if (!inEnglish) {
+                    // 英文单词开始
+                    count++
+                    inEnglish = true
+                }
+            } else {
+                // 数字、标点等：每个算1
+                count++
+                inEnglish = false
+            }
+        }
+        return count
     }
 
     private suspend fun paginateChapter(content: BookContent, index: Int): TextChapter? {
@@ -1641,6 +1720,7 @@ class ReaderViewModel(
             showHeader = prefs.header.visibility != HeaderVisibility.ALWAYS_HIDE,
             showFooter = prefs.footer.visibility != HeaderVisibility.ALWAYS_HIDE,
             chineseConvert = prefs.chineseConvert.ordinal,
+            usePanguSpacing = prefs.usePanguSpacing,
             titleAlignOrdinal = prefs.titleStyle.align.ordinal,
             titleSizeOffsetSp = prefs.titleStyle.sizeOffsetSp,
             titleMarginTopDp = prefs.titleStyle.marginTopDp,
@@ -1665,6 +1745,9 @@ class ReaderViewModel(
             ChineseConvert.TRADITIONAL -> ChineseConverter.toTraditional(chapterText)
         }
 
+        // 应用盘古之白
+        val finalText = if (prefs.usePanguSpacing) PanguSpacing.insert(convertedText) else convertedText
+
         val showHeader = prefs.header.visibility != HeaderVisibility.ALWAYS_HIDE
         val showFooter = prefs.footer.visibility != HeaderVisibility.ALWAYS_HIDE
 
@@ -1672,7 +1755,7 @@ class ReaderViewModel(
             paginator.paginateChapter(
                 chapterIndex = index,
                 title = chapter.title,
-                content = convertedText,
+                content = finalText,
                 config = config,
                 showHeader = showHeader,
                 showFooter = showFooter,
@@ -1715,6 +1798,7 @@ class ReaderViewModel(
             showHeader = prefs.header.visibility != HeaderVisibility.ALWAYS_HIDE,
             showFooter = prefs.footer.visibility != HeaderVisibility.ALWAYS_HIDE,
             chineseConvert = prefs.chineseConvert.ordinal,
+            usePanguSpacing = prefs.usePanguSpacing,
             titleAlignOrdinal = prefs.titleStyle.align.ordinal,
             titleSizeOffsetSp = prefs.titleStyle.sizeOffsetSp,
             titleMarginTopDp = prefs.titleStyle.marginTopDp,
@@ -1762,10 +1846,14 @@ class ReaderViewModel(
                     ChineseConvert.TRADITIONAL -> ChineseConverter.toTraditional(chapterText)
                 }
 
+                // 应用盘古之白
+                val panguPrefs = _uiState.value.readerPreferences
+                val finalText = if (panguPrefs.usePanguSpacing) PanguSpacing.insert(convertedText) else convertedText
+
                 val chapter = TextChapter(
                     chapterIndex = index,
                     title = chapterMeta.title,
-                    content = chapterText,
+                    content = finalText,
                 )
 
                 // 设置监听器：首页就绪时立即显示
@@ -1816,7 +1904,7 @@ class ReaderViewModel(
                 val showHeader = _uiState.value.readerPreferences.header.visibility != HeaderVisibility.ALWAYS_HIDE
                 val showFooter = _uiState.value.readerPreferences.footer.visibility != HeaderVisibility.ALWAYS_HIDE
                 withContext(Dispatchers.Default) {
-                    paginator.paginateStreaming(chapter, convertedText, config, showHeader = showHeader, showFooter = showFooter).collect()
+                    paginator.paginateStreaming(chapter, finalText, config, showHeader = showHeader, showFooter = showFooter).collect()
                     chapter.markCompleted()
                 }
 
@@ -1899,6 +1987,11 @@ class ReaderViewModel(
 
             // R7: 布局参数变化时清理旧缓存（key 中的 textSize/lineHeight/pageSize 已变）
             cacheManager.clearBook(state.bookId.toString())
+
+            // 递增排版版本号，触发 Canvas 层 crossfade
+            _uiState.value = _uiState.value.copy(
+                layoutVersion = _uiState.value.layoutVersion + 1,
+            )
 
             // 流式分页：首页秒开，自动跳转到之前的阅读位置
             paginateChapterStreaming(
@@ -2090,7 +2183,7 @@ class ReaderViewModel(
             pageSize = PageSize(screenWidthPx, screenHeightPx),
             textSize = textSizePx,
             lineHeight = preferences.lineSpacing,
-            paragraphSpacing = preferences.paragraphSpacing * PARAGRAPH_SPACING_PX,
+            paragraphSpacing = preferences.paragraphSpacing * textSizePx * preferences.lineSpacing,
             marginHorizontal = preferences.marginHorizontal * density,
             marginVertical = preferences.marginVertical * density,
             indent = preferences.indent,

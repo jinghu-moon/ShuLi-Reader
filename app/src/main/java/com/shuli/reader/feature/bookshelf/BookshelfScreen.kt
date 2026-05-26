@@ -1,68 +1,45 @@
 package com.shuli.reader.feature.bookshelf
 
-import android.content.Context
 import android.net.Uri
-import android.provider.DocumentsContract
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.bookshelf.component.BookGrid
@@ -72,9 +49,13 @@ import com.shuli.reader.feature.bookshelf.component.BookshelfTopBar
 import com.shuli.reader.feature.bookshelf.component.FilterTabs
 import com.shuli.reader.feature.bookshelf.component.SortBottomSheet
 import com.shuli.reader.feature.bookshelf.model.BookItem
-import com.shuli.reader.feature.bookshelf.model.ViewMode
-import androidx.compose.material3.CardDefaults
+import com.shuli.reader.feature.bookshelf.model.BookshelfNode
+import com.shuli.reader.feature.bookshelf.model.FolderItem
 import com.shuli.reader.ui.testing.UiTestTags
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun BookshelfScreen(
@@ -84,6 +65,7 @@ fun BookshelfScreen(
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val openFolderId by viewModel.openFolderId.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val strings = LocalAppStrings.current
@@ -103,6 +85,9 @@ fun BookshelfScreen(
     var showStatisticsSheet by remember { mutableStateOf(false) }
     var selectedInfoBookId by remember { mutableStateOf<Long?>(null) }
     var selectedCoverColorBookId by remember { mutableStateOf<Long?>(null) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var showGroupDialog by remember { mutableStateOf(false) }
+    var showMoreSheet by remember { mutableStateOf(false) }
 
     // 搜索激活时返回先退出搜索，不退出 App
     BackHandler(enabled = uiState.isSearching) {
@@ -145,12 +130,12 @@ fun BookshelfScreen(
                     }
                 }
                 is BookshelfEvent.HighlightBook -> {
-                    val currentBooks = viewModel.uiState.value.books
-                    val index = currentBooks.indexOfFirst { it.id == event.bookId }
+                    val currentNodes = viewModel.uiState.value.nodes
+                    val index = currentNodes.indexOfFirst { it.id == event.bookId }
                     if (index != -1) {
                         highlightedBookId = event.bookId
                         scope.launch {
-                            if (viewModel.uiState.value.viewMode == ViewMode.GRID) {
+                            if (viewModel.uiState.value.viewMode == com.shuli.reader.feature.bookshelf.model.ViewMode.GRID) {
                                 gridState.animateScrollToItem(index)
                             } else {
                                 listState.animateScrollToItem(index)
@@ -171,39 +156,57 @@ fun BookshelfScreen(
     Scaffold(
         topBar = {
             Column {
-                BookshelfTopBar(
-                    todayReadingTime = uiState.todayReadingTime,
-                    viewMode = uiState.viewMode,
-                    onViewModeToggle = {
-                        val newMode = if (uiState.viewMode == ViewMode.GRID) ViewMode.LIST else ViewMode.GRID
-                        viewModel.onViewModeChanged(newMode)
-                    },
-                    onSortClick = { showSortSheet = true },
-                    isSearching = uiState.isSearching,
-                    searchQuery = uiState.searchQuery,
-                    onSearchQueryChange = viewModel::onSearchQueryChanged,
-                    onSearchActiveChange = viewModel::onSearchActiveChanged,
-                    onStatisticsClick = { showStatisticsSheet = true },
-                    onSettingsClick = onNavigateToSettings,
-                )
-                if (!uiState.isSearching) {
-                    FilterTabs(
-                        selected = uiState.filterType,
-                        onSelect = viewModel::onFilterChanged,
+                if (uiState.isEditMode) {
+                    EditModeTopBar(
+                        selectedCount = uiState.selectedNodeIds.size,
+                        onCancel = viewModel::onToggleEditMode,
+                        onSelectAll = { viewModel.onSelectAllNodes(uiState.nodes) }
                     )
+                } else {
+                    BookshelfTopBar(
+                        todayReadingTime = uiState.todayReadingTime,
+                        viewMode = uiState.viewMode,
+                        onViewModeToggle = {
+                            val newMode = if (uiState.viewMode == com.shuli.reader.feature.bookshelf.model.ViewMode.GRID) com.shuli.reader.feature.bookshelf.model.ViewMode.LIST else com.shuli.reader.feature.bookshelf.model.ViewMode.GRID
+                            viewModel.onViewModeChanged(newMode)
+                        },
+                        onSortClick = { showSortSheet = true },
+                        isSearching = uiState.isSearching,
+                        searchQuery = uiState.searchQuery,
+                        onSearchQueryChange = viewModel::onSearchQueryChanged,
+                        onSearchActiveChange = viewModel::onSearchActiveChanged,
+                        onStatisticsClick = { showStatisticsSheet = true },
+                        onSettingsClick = onNavigateToSettings,
+                    )
+                    if (!uiState.isSearching) {
+                        FilterTabs(
+                            selected = uiState.filterType,
+                            onSelect = viewModel::onFilterChanged,
+                        )
+                    }
                 }
             }
         },
+        bottomBar = {
+            if (uiState.isEditMode) {
+                EditModeBottomBar(
+                    selectedCount = uiState.selectedNodeIds.size,
+                    onGroupClick = { showGroupDialog = true },
+                    onDeleteClick = { showDeleteConfirmDialog = true },
+                    onMoreClick = { showMoreSheet = true },
+                )
+            }
+        },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    showImportOptionSheet = true
-                },
-                modifier = Modifier.testTag(UiTestTags.BOOKSHELF_IMPORT_FAB),
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = strings.libraryImportSettings)
+            if (!uiState.isEditMode) {
+                FloatingActionButton(
+                    onClick = { showImportOptionSheet = true },
+                    modifier = Modifier.testTag(UiTestTags.BOOKSHELF_IMPORT_FAB),
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = strings.libraryImportSettings)
+                }
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -234,24 +237,30 @@ fun BookshelfScreen(
                 }
                 else -> {
                     BookContent(
-                        books = uiState.books,
+                        books = uiState.nodes,
                         viewMode = uiState.viewMode,
                         gridState = gridState,
                         listState = listState,
                         highlightedBookId = highlightedBookId,
                         onBookClick = viewModel::onBookClick,
-                        onToggleFavorite = viewModel::onToggleFavorite,
-                        onDelete = viewModel::onDeleteBook,
+                        onFolderClick = viewModel::onFolderClick,
                         onShowInfo = { selectedInfoBookId = it },
                         searchQuery = uiState.searchQuery,
                         unifiedCoverPaletteIndex = uiState.unifiedCoverPaletteIndex,
                         onCustomizeCover = { selectedCoverColorBookId = it },
+                        isEditMode = uiState.isEditMode,
+                        selectedNodeIds = uiState.selectedNodeIds,
+                        onToggleSelection = viewModel::onToggleNodeSelection,
+                        onLongPressToEdit = { nodeId -> viewModel.onToggleEditMode(nodeId) },
+                        onReorder = { reorderedNodes -> viewModel.commitOrderToDatabase(reorderedNodes) },
+                        onMerge = { sourceId, targetId -> viewModel.mergeNodes(sourceId, targetId, sourceIsFolder = false, targetIsFolder = false) },
                     )
                 }
             }
         }
     }
 
+    // ── 排序 ──
     if (showSortSheet) {
         SortBottomSheet(
             selected = uiState.sortOrder,
@@ -262,6 +271,7 @@ fun BookshelfScreen(
         )
     }
 
+    // ── 导入 ──
     if (showImportOptionSheet) {
         ImportOptionBottomSheet(
             onImportFile = {
@@ -270,7 +280,7 @@ fun BookshelfScreen(
             onImportFolder = {
                 folderPicker.launch(null)
             },
-            onDismiss = { showImportOptionSheet = false }
+            onDismiss = { showImportOptionSheet = false },
         )
     }
 
@@ -280,29 +290,32 @@ fun BookshelfScreen(
             onConfirm = { selectedUris ->
                 viewModel.onImportBooks(context, selectedUris)
             },
-            onDismiss = { showFolderImportDialog = false }
+            onDismiss = { showFolderImportDialog = false },
         )
     }
 
+    // ── 统计 ──
     if (showStatisticsSheet) {
         StatisticsBottomSheet(
-            booksCount = uiState.books.size,
+            booksCount = uiState.nodes.size,
             todayReadingTime = uiState.todayReadingTime,
             todayReadingMinutes = uiState.todayReadingMinutes,
             dailyTargetMinutes = dailyTargetMinutes,
-            onDismiss = { showStatisticsSheet = false }
+            onDismiss = { showStatisticsSheet = false },
         )
     }
 
+    // ── 书籍信息 ──
     if (selectedInfoBookId != null) {
         BookInfoBottomSheet(
-            book = uiState.books.firstOrNull { it.id == selectedInfoBookId },
+            book = uiState.nodes.firstOrNull { it.id == selectedInfoBookId } as? BookItem,
             onDismiss = { selectedInfoBookId = null },
         )
     }
 
+    // ── 封面色盘 ──
     if (selectedCoverColorBookId != null) {
-        val targetBook = uiState.books.firstOrNull { it.id == selectedCoverColorBookId }
+        val targetBook = uiState.nodes.firstOrNull { it.id == selectedCoverColorBookId } as? BookItem
         com.shuli.reader.feature.bookshelf.component.CoverColorPickerDialog(
             currentIndex = targetBook?.customCoverPaletteIndex,
             onSelected = { index ->
@@ -312,50 +325,142 @@ fun BookshelfScreen(
             onDismiss = { selectedCoverColorBookId = null },
         )
     }
+
+    // ── 编辑模式：删除确认 ──
+    if (showDeleteConfirmDialog) {
+        val count = uiState.selectedNodeIds.size
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = { Text("确认删除") },
+            text = { Text("确定要删除选中的 $count 项吗？此操作不可撤销。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteNodes(uiState.selectedNodeIds)
+                    showDeleteConfirmDialog = false
+                }) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("取消")
+                }
+            },
+        )
+    }
+
+    // ── 编辑模式：分组 ──
+    if (showGroupDialog) {
+        val existingFolders = uiState.nodes.filterIsInstance<FolderItem>()
+        GroupPickerDialog(
+            folders = existingFolders,
+            onMoveToFolder = { folderId ->
+                viewModel.onMoveSelectedToFolder(folderId)
+                showGroupDialog = false
+            },
+            onCreateNewFolder = { folderName ->
+                val selectedIds = uiState.selectedNodeIds.toList()
+                if (selectedIds.isNotEmpty()) {
+                    viewModel.onMoveSelectedToNewFolder(folderName)
+                }
+                showGroupDialog = false
+            },
+            onRemoveFromFolder = {
+                viewModel.onMoveSelectedToFolder(null)
+                showGroupDialog = false
+            },
+            onDismiss = { showGroupDialog = false },
+        )
+    }
+
+    // ── 编辑模式：更多 ──
+    if (showMoreSheet) {
+        MoreActionsSheet(
+            onSelectAll = {
+                viewModel.onSelectAllNodes(uiState.nodes)
+                showMoreSheet = false
+            },
+            onMoveOut = {
+                viewModel.onMoveSelectedToFolder(null)
+                showMoreSheet = false
+            },
+            onDismiss = { showMoreSheet = false },
+        )
+    }
+
+    // ── 文件夹详情 ──
+    if (openFolderId != null) {
+        val folder = uiState.nodes.filterIsInstance<FolderItem>()
+            .firstOrNull { it.id == openFolderId }
+        if (folder != null) {
+            FolderDetailSheet(
+                folder = folder,
+                onBookClick = { bookId ->
+                    viewModel.onFolderDismiss()
+                    viewModel.onBookClick(bookId)
+                },
+                onDismiss = viewModel::onFolderDismiss,
+            )
+        }
+    }
 }
 
 @Composable
 private fun BookContent(
-    books: List<BookItem>,
-    viewMode: ViewMode,
+    books: List<BookshelfNode>,
+    viewMode: com.shuli.reader.feature.bookshelf.model.ViewMode,
     gridState: LazyGridState,
     listState: LazyListState,
     highlightedBookId: Long?,
     onBookClick: (Long) -> Unit,
-    onToggleFavorite: (Long) -> Unit,
-    onDelete: (Long) -> Unit,
+    onFolderClick: (Long) -> Unit = {},
     onShowInfo: (Long) -> Unit,
     searchQuery: String,
     modifier: Modifier = Modifier,
     unifiedCoverPaletteIndex: Int? = null,
     onCustomizeCover: ((Long) -> Unit)? = null,
+    isEditMode: Boolean = false,
+    selectedNodeIds: Set<Long> = emptySet(),
+    onToggleSelection: (Long) -> Unit = {},
+    onLongPressToEdit: (Long) -> Unit = {},
+    onReorder: (List<BookshelfNode>) -> Unit = {},
+    onMerge: (Long, Long) -> Unit = { _, _ -> },
 ) {
     when (viewMode) {
-        ViewMode.GRID -> BookGrid(
+        com.shuli.reader.feature.bookshelf.model.ViewMode.GRID -> BookGrid(
             books = books,
             searchQuery = searchQuery,
-            gridState = gridState,
             highlightedBookId = highlightedBookId,
             onBookClick = onBookClick,
-            onToggleFavorite = onToggleFavorite,
-            onDelete = onDelete,
+            onFolderClick = onFolderClick,
             onShowInfo = onShowInfo,
             modifier = modifier,
             unifiedCoverPaletteIndex = unifiedCoverPaletteIndex,
             onCustomizeCover = onCustomizeCover,
+            isEditMode = isEditMode,
+            selectedNodeIds = selectedNodeIds,
+            onToggleSelection = onToggleSelection,
+            onLongPressToEdit = onLongPressToEdit,
+            onReorder = onReorder,
+            onMerge = onMerge,
         )
-        ViewMode.LIST -> BookList(
+        com.shuli.reader.feature.bookshelf.model.ViewMode.LIST -> BookList(
             books = books,
             searchQuery = searchQuery,
             listState = listState,
             highlightedBookId = highlightedBookId,
             onBookClick = onBookClick,
-            onToggleFavorite = onToggleFavorite,
-            onDelete = onDelete,
+            onFolderClick = onFolderClick,
             onShowInfo = onShowInfo,
             modifier = modifier,
             unifiedCoverPaletteIndex = unifiedCoverPaletteIndex,
             onCustomizeCover = onCustomizeCover,
+            isEditMode = isEditMode,
+            selectedNodeIds = selectedNodeIds,
+            onToggleSelection = onToggleSelection,
+            onLongPressToEdit = onLongPressToEdit,
+            onReorder = onReorder,
+            onMerge = onMerge,
         )
     }
 }
@@ -363,7 +468,7 @@ private fun BookContent(
 @Composable
 private fun EmptyState(
     isSearching: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val strings = LocalAppStrings.current
     Column(
@@ -389,7 +494,7 @@ private fun SearchGuideState(modifier: Modifier = Modifier) {
             imageVector = Icons.Outlined.Search,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            modifier = Modifier.size(48.dp)
+            modifier = Modifier.size(48.dp),
         )
         Spacer(Modifier.height(12.dp))
         Text(
@@ -403,335 +508,5 @@ private fun SearchGuideState(modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
         )
-    }
-}
-
-private fun getFilesFromTree(context: Context, treeUri: Uri): List<Pair<Uri, String>> {
-    val files = mutableListOf<Pair<Uri, String>>()
-    try {
-        val documentId = DocumentsContract.getTreeDocumentId(treeUri)
-        val childQueryUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, documentId)
-        
-        val projection = arrayOf(
-            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-            DocumentsContract.Document.COLUMN_MIME_TYPE
-        )
-        
-        context.contentResolver.query(childQueryUri, projection, null, null, null)?.use { cursor ->
-            val idIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
-            val nameIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-            val mimeIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
-            
-            while (cursor.moveToNext()) {
-                val docId = cursor.getString(idIndex)
-                val displayName = cursor.getString(nameIndex) ?: ""
-                val mimeType = cursor.getString(mimeIndex) ?: ""
-                
-                val isText = displayName.endsWith(".txt", ignoreCase = true) || mimeType == "text/plain"
-                val isEpub = displayName.endsWith(".epub", ignoreCase = true) || mimeType == "application/epub+zip"
-                
-                if (isText || isEpub) {
-                    val fileUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
-                    files.add(fileUri to displayName)
-                }
-            }
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-    return files
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ImportOptionBottomSheet(
-    onImportFile: () -> Unit,
-    onImportFolder: () -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val strings = LocalAppStrings.current
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        modifier = modifier,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 32.dp)
-        ) {
-            Text(
-                text = strings.libraryImportSettings,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-            )
-            
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        onImportFile()
-                        onDismiss()
-                    }
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Description,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(Modifier.width(16.dp))
-                Column {
-                    Text(strings.importCopy, style = MaterialTheme.typography.bodyLarge)
-                    Text(strings.importCopyDesc, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        onImportFolder()
-                        onDismiss()
-                    }
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Folder,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(Modifier.width(16.dp))
-                Column {
-                    Text(strings.libraryImportSettings + " (Dir)", style = MaterialTheme.typography.bodyLarge)
-                    Text(strings.folderImportDesc, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FolderImportDialog(
-    files: List<Pair<Uri, String>>,
-    onConfirm: (List<Uri>) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val strings = LocalAppStrings.current
-    val selectedStates = remember(files) {
-        mutableStateMapOf<Uri, Boolean>().apply {
-            files.forEach { this[it.first] = true }
-        }
-    }
-
-    val selectedCount = selectedStates.values.count { it }
-    val isAllSelected = selectedCount == files.size
-
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        androidx.compose.material3.Surface(
-            shape = RoundedCornerShape(16.dp),
-            tonalElevation = 6.dp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 24.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(20.dp)
-                    .fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = strings.libraryImportSettings,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f)
-                    )
-                    
-                    androidx.compose.material3.TextButton(
-                        onClick = {
-                            val target = !isAllSelected
-                            files.forEach { selectedStates[it.first] = target }
-                        }
-                    ) {
-                        Text(if (isAllSelected) strings.deselectAll else strings.selectAll)
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .heightIn(max = 350.dp)
-                ) {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        items(files) { (uri, name) ->
-                            val isSelected = selectedStates[uri] ?: false
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { selectedStates[uri] = !isSelected }
-                                    .padding(vertical = 8.dp, horizontal = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = if (name.endsWith(".epub", ignoreCase = true)) 
-                                        Icons.Default.Book else Icons.Default.Description,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.secondary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Text(
-                                    text = name,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                androidx.compose.material3.Checkbox(
-                                    checked = isSelected,
-                                    onCheckedChange = { selectedStates[uri] = it }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    androidx.compose.material3.TextButton(onClick = onDismiss) {
-                        Text(strings.backIconDesc)
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    androidx.compose.material3.Button(
-                        onClick = {
-                            val selectedUris = files.map { it.first }.filter { selectedStates[it] == true }
-                            onConfirm(selectedUris)
-                            onDismiss()
-                        },
-                        enabled = selectedCount > 0
-                    ) {
-                        Text(strings.importSelected(selectedCount))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun StatisticsBottomSheet(
-    booksCount: Int,
-    todayReadingTime: String,
-    todayReadingMinutes: Long,
-    dailyTargetMinutes: Int,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val strings = LocalAppStrings.current
-    val progress = remember(todayReadingMinutes, dailyTargetMinutes) {
-        if (dailyTargetMinutes > 0) {
-            (todayReadingMinutes.toFloat() / dailyTargetMinutes.toFloat()).coerceIn(0f, 1f)
-        } else {
-            0f
-        }
-    }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        modifier = modifier
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 36.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = strings.statsTitle,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(vertical = 12.dp)
-            )
-            
-            Spacer(Modifier.height(16.dp))
-            
-            Box(contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier.size(120.dp),
-                    strokeWidth = 8.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = todayReadingTime,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = strings.todayReadingProgress,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            
-            Spacer(Modifier.height(24.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Card(
-                    modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(strings.totalBooksCount, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.height(4.dp))
-                        Text("$booksCount", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    }
-                }
-                Card(
-                    modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(strings.totalReadingTime, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.height(4.dp))
-                        Text(todayReadingTime, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
     }
 }

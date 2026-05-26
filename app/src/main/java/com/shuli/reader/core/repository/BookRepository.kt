@@ -62,6 +62,41 @@ class BookRepository(
 
     fun searchBooks(query: String): Flow<List<BookEntity>> = bookDao.searchBooks(query)
 
+    // --- Folder & Grouping Support ---
+
+    fun getAllFolders(): Flow<List<com.shuli.reader.core.database.entity.FolderEntity>> = bookDao.getAllFolders()
+
+    suspend fun createFolder(name: String, orderIndex: Long): Long {
+        return bookDao.insertFolder(
+            com.shuli.reader.core.database.entity.FolderEntity(
+                name = name,
+                orderIndex = orderIndex
+            )
+        )
+    }
+
+    suspend fun updateFolder(folder: com.shuli.reader.core.database.entity.FolderEntity) {
+        bookDao.updateFolder(folder)
+    }
+
+    suspend fun deleteFolder(folderId: Long) {
+        // 删除文件夹的同时，应将里面的书籍移出。这里暂时让 ViewModel 处理，或者在 DAO 层处理。
+        // 这里提供简单删除。
+        bookDao.deleteFolderById(folderId)
+    }
+
+    suspend fun moveBooksToFolder(bookIds: List<Long>, folderId: Long?) {
+        bookDao.moveBooksToFolder(bookIds, folderId)
+    }
+
+    suspend fun updateBookOrderIndex(bookId: Long, orderIndex: Long) {
+        bookDao.updateBookOrderIndex(bookId, orderIndex)
+    }
+
+    suspend fun updateFolderOrderIndex(folderId: Long, orderIndex: Long) {
+        bookDao.updateFolderOrderIndex(folderId, orderIndex)
+    }
+
     fun searchBooksPage(
         query: String,
         limit: Int = DEFAULT_BOOKSHELF_PAGE_SIZE,
@@ -152,11 +187,14 @@ class BookRepository(
     }
 
     suspend fun getChapterText(file: File, chapterIndex: Int, bookContent: BookContent): String = withContext(Dispatchers.IO) {
+        val chapters = bookContent.chapters
+        val chapter = chapters.getOrNull(chapterIndex) ?: return@withContext ""
         return@withContext if (file.name.endsWith(".epub", ignoreCase = true)) {
-            epubParser.parseChapter(file, chapterIndex)
+            // 使用 chapter.spineIndex（原始 spine 位置）而非 chapterIndex（过滤后索引）
+            // 因为 parseChaptersWithContent 会跳过空白 spine 条目（封面、目录等），
+            // 导致 chapters 列表索引与 spine 索引不一致
+            epubParser.parseChapter(file, chapter.spineIndex)
         } else {
-            val chapters = bookContent.chapters
-            val chapter = chapters.getOrNull(chapterIndex) ?: return@withContext ""
             val start = chapter.startIndex.coerceIn(0, bookContent.content.length)
             val end = chapter.endIndex.coerceIn(start, bookContent.content.length)
             bookContent.content.substring(start, end)

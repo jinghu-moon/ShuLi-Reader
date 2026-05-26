@@ -4,13 +4,28 @@ import com.shuli.reader.core.database.entity.BookEntity
 import com.shuli.reader.core.database.entity.BookShelfRow
 
 enum class ViewMode { GRID, LIST }
-enum class SortOrder { LAST_READ, ADD_TIME, TITLE, FILE_SIZE, PROGRESS }
+enum class SortOrder { LAST_READ, ADD_TIME, TITLE, FILE_SIZE, PROGRESS, CUSTOM }
 enum class FilterType { ALL, RECENT, FINISHED, FAVORITE }
 enum class FileType { TXT, EPUB }
 
+sealed interface BookshelfNode {
+    val id: Long
+    val title: String
+    val orderIndex: Long
+}
+
+data class FolderItem(
+    override val id: Long,
+    override val title: String,
+    override val orderIndex: Long,
+    val books: List<BookItem>
+) : BookshelfNode
+
 data class BookItem(
-    val id: Long,
-    val title: String,
+    override val id: Long,
+    override val title: String,
+    override val orderIndex: Long,
+    val folderId: Long?,
     val author: String?,
     val coverUrl: String?,
     val filePath: String,
@@ -23,10 +38,10 @@ data class BookItem(
     val isFavorite: Boolean,
     val isRecent: Boolean,
     val customCoverPaletteIndex: Int? = null,
-)
+) : BookshelfNode
 
 data class BookshelfUiState(
-    val books: List<BookItem> = emptyList(),
+    val nodes: List<BookshelfNode> = emptyList(),
     val viewMode: ViewMode = ViewMode.GRID,
     val sortOrder: SortOrder = SortOrder.LAST_READ,
     val isAscending: Boolean = false,
@@ -37,6 +52,8 @@ data class BookshelfUiState(
     val todayReadingMinutes: Long = 0L,
     val isLoading: Boolean = true,
     val isEmpty: Boolean = false,
+    val isEditMode: Boolean = false,
+    val selectedNodeIds: Set<Long> = emptySet(),
     /** 全局统一封面色盘索引；null/-1 表示走自动散列（每本独立色盘）。 */
     val unifiedCoverPaletteIndex: Int? = null,
 )
@@ -73,6 +90,8 @@ fun BookEntity.toBookItem(readingDurationMinutes: Long = 0): BookItem {
         lastReadTime = lastReadTime,
         isFavorite = isFavorite,
         customCoverPaletteIndex = customCoverPaletteIndex,
+        folderId = folderId,
+        orderIndex = orderIndex,
     )
 }
 
@@ -89,6 +108,8 @@ fun BookShelfRow.toBookItem(readingDurationMinutes: Long = 0): BookItem {
         lastReadTime = lastReadTime,
         isFavorite = isFavorite,
         customCoverPaletteIndex = customCoverPaletteIndex,
+        folderId = folderId,
+        orderIndex = orderIndex,
     )
 }
 
@@ -104,6 +125,8 @@ private fun toBookItem(
     lastReadTime: Long?,
     isFavorite: Boolean,
     customCoverPaletteIndex: Int?,
+    folderId: Long?,
+    orderIndex: Long,
 ): BookItem {
     val type = when {
         rawFileType.equals("EPUB", ignoreCase = true) -> FileType.EPUB
@@ -128,6 +151,8 @@ private fun toBookItem(
         isFavorite = isFavorite,
         isRecent = lastReadTime != null && (System.currentTimeMillis() - lastReadTime) < RECENT_WINDOW_MS,
         customCoverPaletteIndex = customCoverPaletteIndex,
+        folderId = folderId,
+        orderIndex = orderIndex,
     )
 }
 

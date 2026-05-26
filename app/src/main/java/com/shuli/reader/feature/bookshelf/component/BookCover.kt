@@ -98,6 +98,7 @@ fun DefaultBookCover(
     fileType: FileType,
     modifier: Modifier = Modifier,
     isSmall: Boolean = false,
+    isMini: Boolean = false,
     readingProgress: Float = 0f,
     paletteIndexOverride: Int? = null,
 ) {
@@ -179,71 +180,73 @@ fun DefaultBookCover(
                 }
             }
 
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                // 顶部书名文字
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 14.dp),
-                    contentAlignment = Alignment.TopStart
+            if (!isMini) {
+                Column(
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    Text(
-                        text = title,
-                        fontFamily = FontFamily.Serif,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = textColor,
-                        maxLines = 4,
-                        overflow = TextOverflow.Ellipsis,
-                        lineHeight = 18.sp
-                    )
-                }
-
-                HorizontalDivider(
-                    thickness = 1.dp,
-                    color = MoTuInk950.copy(alpha = 0.08f)
-                )
-
-                // 底部精致下沉式腰封
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(30.dp)
-                        .background(AppSurface.copy(alpha = 0.15f))
-                        .padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                    // 顶部书名文字
                     Box(
                         modifier = Modifier
-                            .size(6.dp)
-                            .background(tagColor, CircleShape)
-                    )
-
-                    // 阅读进度百分比（仅 > 0% 时显示）
-                    if (readingProgress > 0f) {
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 14.dp),
+                        contentAlignment = Alignment.TopStart
+                    ) {
                         Text(
-                            text = "${(readingProgress * 100).toInt()}%",
-                            fontSize = 9.sp,
+                            text = title,
+                            fontFamily = FontFamily.Serif,
                             fontWeight = FontWeight.Bold,
-                            color = textColor.copy(alpha = 0.7f),
-                            modifier = Modifier.padding(start = 6.dp)
+                            fontSize = 14.sp,
+                            color = textColor,
+                            maxLines = 4,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 18.sp
                         )
                     }
 
-                    Box(
-                        modifier = Modifier.weight(1f),
-                        contentAlignment = Alignment.CenterEnd
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MoTuInk950.copy(alpha = 0.08f)
+                    )
+
+                    // 底部精致下沉式腰封
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(30.dp)
+                            .background(AppSurface.copy(alpha = 0.15f))
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = fileType.name,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = tagColor,
-                            letterSpacing = 1.sp
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(tagColor, CircleShape)
                         )
+
+                        // 阅读进度百分比（仅 > 0% 时显示）
+                        if (readingProgress > 0f) {
+                            Text(
+                                text = "${(readingProgress * 100).toInt()}%",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = textColor.copy(alpha = 0.7f),
+                                modifier = Modifier.padding(start = 6.dp)
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            Text(
+                                text = fileType.name,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = tagColor,
+                                letterSpacing = 1.sp
+                            )
+                        }
                     }
                 }
             }

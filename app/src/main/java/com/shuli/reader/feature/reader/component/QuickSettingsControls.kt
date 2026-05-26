@@ -148,22 +148,12 @@ fun ReaderSwitchRow(
     ) {
         Text(
             text = label,
-            modifier = Modifier.width(SETTINGS_LABEL_WIDTH),
+            modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium,
             color = readerColors.textPrimary,
             maxLines = 1,
             softWrap = false,
         )
-        if (description != null) {
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = readerColors.textSecondary,
-                modifier = Modifier.weight(1f),
-            )
-        } else {
-            Spacer(Modifier.weight(1f))
-        }
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
@@ -264,7 +254,6 @@ fun <T> ReaderPickerRow(
  * 行尾显示当前值 + ›，点击弹出半屏 BottomSheet 选择面板。
  * 适合所有 3+ 选项的单选场景，视觉极度统一，永不挤压。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun <T> ReaderFormPickerRow(
     label: String,
@@ -310,52 +299,12 @@ fun <T> ReaderFormPickerRow(
     }
 
     if (expanded) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
-            onDismissRequest = { expanded = false },
-            sheetState = sheetState,
-            containerColor = readerColors.surface,
-            dragHandle = { BottomSheetDefaults.DragHandle() },
-        ) {
-            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-                Text(
-                    text = sheetTitle,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = readerColors.textPrimary,
-                )
-                options.forEach { (key, optionLabel) ->
-                    val isSelected = key == selected
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onSelect(key)
-                                expanded = false
-                            }
-                            .background(
-                                if (isSelected) readerColors.accent.copy(alpha = 0.08f)
-                                else androidx.compose.ui.graphics.Color.Transparent,
-                            )
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = optionLabel,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if (isSelected) readerColors.accent else readerColors.textPrimary,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Outlined.Check,
-                                contentDescription = null,
-                                tint = readerColors.accent,
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        PickerSheet(
+            title = sheetTitle,
+            options = options,
+            selected = selected,
+            onSelect = onSelect,
+            onDismiss = { expanded = false },
+        )
     }
 }

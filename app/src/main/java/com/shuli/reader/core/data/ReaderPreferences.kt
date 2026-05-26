@@ -35,10 +35,14 @@ data class ReaderPreferences(
     val showProgress: Boolean = true,
     // 排版增强
     val useZhLayout: Boolean = false,    // 自定义中文分行（标点避头尾）
+    val usePanguSpacing: Boolean = false, // 中英文之间自动加空格
     // 阶段六新增字段
     val keepScreenOn: Boolean = false,
     val volumeKeyTurnPage: Boolean = false,
     val edgeTurnPage: Boolean = true,
+    // TTS 设置
+    val ttsSpeed: Float = 1.0f,
+    val ttsPitch: Float = 1.0f,
 )
 
 /**

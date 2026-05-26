@@ -141,7 +141,7 @@ class EpubParser {
         val result = mutableListOf<Pair<Chapter, String>>()
         var currentPosition = 0
 
-        for (spineItem in spineItems) {
+        for ((spineIdx, spineItem) in spineItems.withIndex()) {
             val href = manifestItems[spineItem] ?: continue
             val fullPath = if (opfDir.isNotEmpty()) "$opfDir/$href" else href
 
@@ -158,6 +158,7 @@ class EpubParser {
                     title = title,
                     startIndex = currentPosition,
                     endIndex = currentPosition + textContent.length,
+                    spineIndex = spineIdx,
                 )
                 result.add(chapter to textContent)
                 currentPosition += textContent.length + 2

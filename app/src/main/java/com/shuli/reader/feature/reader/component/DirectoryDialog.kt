@@ -1,5 +1,12 @@
 package com.shuli.reader.feature.reader.component
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.automirrored.outlined.Note
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -27,10 +35,12 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -39,6 +49,7 @@ import androidx.compose.ui.platform.testTag
 import com.shuli.reader.ui.testing.UiTestTags
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.shuli.reader.core.database.entity.BookmarkEntity
 import com.shuli.reader.core.database.entity.NoteEntity
 import com.shuli.reader.core.i18n.LocalAppStrings
@@ -55,6 +66,7 @@ import java.util.Locale
 fun DirectoryDialog(
     chapters: List<String>,
     currentChapterIndex: Int,
+    chapterWordCounts: List<Int>,
     bookmarks: List<BookmarkEntity>,
     notes: List<NoteEntity>,
     onChapterClick: (Int) -> Unit,
@@ -93,22 +105,37 @@ fun DirectoryDialog(
                 }
             }
 
-            when (selectedTab) {
-                0 -> ChapterList(
-                    chapters = chapters,
-                    currentIndex = currentChapterIndex,
-                    onChapterClick = onChapterClick,
-                )
-                1 -> BookmarkList(
-                    bookmarks = bookmarks,
-                    onBookmarkClick = onBookmarkClick,
-                    onBookmarkDelete = onBookmarkDelete,
-                )
-                2 -> NoteList(
-                    notes = notes,
-                    onNoteClick = onNoteClick,
-                    onNoteDelete = onNoteDelete,
-                )
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        slideInHorizontally { it / 4 } + fadeIn(tween(200)) togetherWith
+                            slideOutHorizontally { -it / 4 } + fadeOut(tween(150))
+                    } else {
+                        slideInHorizontally { -it / 4 } + fadeIn(tween(200)) togetherWith
+                            slideOutHorizontally { it / 4 } + fadeOut(tween(150))
+                    }
+                },
+                label = "directory-tab-content",
+            ) { tab ->
+                when (tab) {
+                    0 -> ChapterList(
+                        chapters = chapters,
+                        currentIndex = currentChapterIndex,
+                        wordCounts = chapterWordCounts,
+                        onChapterClick = onChapterClick,
+                    )
+                    1 -> BookmarkList(
+                        bookmarks = bookmarks,
+                        onBookmarkClick = onBookmarkClick,
+                        onBookmarkDelete = onBookmarkDelete,
+                    )
+                    2 -> NoteList(
+                        notes = notes,
+                        onNoteClick = onNoteClick,
+                        onNoteDelete = onNoteDelete,
+                    )
+                }
             }
 
             Spacer(Modifier.height(16.dp))
@@ -120,6 +147,7 @@ fun DirectoryDialog(
 private fun ChapterList(
     chapters: List<String>,
     currentIndex: Int,
+    wordCounts: List<Int>,
     onChapterClick: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -166,7 +194,9 @@ private fun ChapterList(
             ) {
                 Text(
                     text = chapters[index],
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = (MaterialTheme.typography.bodyLarge.fontSize.value - 2).sp,
+                    ),
                     color = if (index == currentIndex) {
                         readerColors.accent
                     } else {
@@ -182,6 +212,14 @@ private fun ChapterList(
                         text = strings.currentChapterLabel,
                         style = MaterialTheme.typography.labelSmall,
                         color = readerColors.accent,
+                    )
+                }
+                if (index < wordCounts.size) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = formatWordCount(wordCounts[index]),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = readerColors.textTertiary,
                     )
                 }
             }
@@ -205,6 +243,7 @@ private fun BookmarkList(
     val strings = LocalAppStrings.current
     val readerColors = LocalReaderColorScheme.current
     val dateFormat = remember { SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()) }
+    var bookmarkToDelete by remember { mutableStateOf<BookmarkEntity?>(null) }
 
     if (bookmarks.isEmpty()) {
         Box(
@@ -265,7 +304,7 @@ private fun BookmarkList(
                         color = readerColors.textTertiary,
                     )
                 }
-                IconButton(onClick = { onBookmarkDelete(bookmark) }) {
+                IconButton(onClick = { bookmarkToDelete = bookmark }) {
                     Icon(
                         imageVector = Icons.Outlined.Delete,
                         contentDescription = strings.deleteIconDesc,
@@ -280,6 +319,26 @@ private fun BookmarkList(
             )
         }
     }
+
+    // 删除确认对话框
+    bookmarkToDelete?.let { bookmark ->
+        AlertDialog(
+            onDismissRequest = { bookmarkToDelete = null },
+            title = { Text(strings.deleteBookmarkTitle) },
+            text = { Text(strings.deleteBookmarkConfirm) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onBookmarkDelete(bookmark)
+                        bookmarkToDelete = null
+                    },
+                ) { Text(strings.deleteAction) }
+            },
+            dismissButton = {
+                TextButton(onClick = { bookmarkToDelete = null }) { Text(strings.cancelAction) }
+            },
+        )
+    }
 }
 
 @Composable
@@ -292,6 +351,7 @@ private fun NoteList(
     val strings = LocalAppStrings.current
     val readerColors = LocalReaderColorScheme.current
     val dateFormat = remember { SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()) }
+    var noteToDelete by remember { mutableStateOf<NoteEntity?>(null) }
 
     if (notes.isEmpty()) {
         Box(
@@ -346,7 +406,7 @@ private fun NoteList(
                         color = readerColors.textTertiary,
                     )
                 }
-                IconButton(onClick = { onNoteDelete(note) }) {
+                IconButton(onClick = { noteToDelete = note }) {
                     Icon(
                         imageVector = Icons.Outlined.Delete,
                         contentDescription = strings.deleteIconDesc,
@@ -360,5 +420,32 @@ private fun NoteList(
                 color = readerColors.divider,
             )
         }
+    }
+
+    // 删除确认对话框
+    noteToDelete?.let { note ->
+        AlertDialog(
+            onDismissRequest = { noteToDelete = null },
+            title = { Text(strings.deleteNoteTitle) },
+            text = { Text(strings.deleteNoteConfirm) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onNoteDelete(note)
+                        noteToDelete = null
+                    },
+                ) { Text(strings.deleteAction) }
+            },
+            dismissButton = {
+                TextButton(onClick = { noteToDelete = null }) { Text(strings.cancelAction) }
+            },
+        )
+    }
+}
+
+private fun formatWordCount(count: Int): String {
+    return when {
+        count >= 10000 -> String.format("%.2f万字", count / 10000.0)
+        else -> "${count}字"
     }
 }

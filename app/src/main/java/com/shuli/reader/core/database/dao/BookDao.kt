@@ -36,7 +36,9 @@ interface BookDao {
             lastReadTime,
             readingProgress,
             isFavorite,
-            customCoverPaletteIndex
+            customCoverPaletteIndex,
+            folderId,
+            orderIndex
         FROM books
         ORDER BY COALESCE(lastReadTime, addedTime) DESC
         LIMIT :limit OFFSET :offset
@@ -87,7 +89,9 @@ interface BookDao {
             books.lastReadTime,
             books.readingProgress,
             books.isFavorite,
-            books.customCoverPaletteIndex
+            books.customCoverPaletteIndex,
+            books.folderId,
+            books.orderIndex
         FROM books
         JOIN books_fts ON books.id = books_fts.rowid
         WHERE books_fts MATCH :query
@@ -168,4 +172,33 @@ interface BookDao {
         ORDER BY chapterIndex ASC
     """)
     suspend fun searchBookContentIndex(bookId: Long, query: String): List<BookContentIndexEntity>
+
+    // --- Folder & Grouping Support ---
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertFolder(folder: com.shuli.reader.core.database.entity.FolderEntity): Long
+
+    @Update
+    suspend fun updateFolder(folder: com.shuli.reader.core.database.entity.FolderEntity)
+
+    @Delete
+    suspend fun deleteFolder(folder: com.shuli.reader.core.database.entity.FolderEntity)
+
+    @Query("DELETE FROM folders WHERE id = :id")
+    suspend fun deleteFolderById(id: Long)
+
+    @Query("SELECT * FROM folders WHERE id = :id")
+    suspend fun getFolderById(id: Long): com.shuli.reader.core.database.entity.FolderEntity?
+
+    @Query("SELECT * FROM folders ORDER BY orderIndex ASC")
+    fun getAllFolders(): Flow<List<com.shuli.reader.core.database.entity.FolderEntity>>
+
+    @Query("UPDATE books SET folderId = :folderId WHERE id IN (:bookIds)")
+    suspend fun moveBooksToFolder(bookIds: List<Long>, folderId: Long?)
+
+    @Query("UPDATE books SET orderIndex = :orderIndex WHERE id = :bookId")
+    suspend fun updateBookOrderIndex(bookId: Long, orderIndex: Long)
+
+    @Query("UPDATE folders SET orderIndex = :orderIndex WHERE id = :folderId")
+    suspend fun updateFolderOrderIndex(folderId: Long, orderIndex: Long)
 }

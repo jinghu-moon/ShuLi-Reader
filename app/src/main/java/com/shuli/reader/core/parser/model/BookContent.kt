@@ -13,4 +13,6 @@ data class Chapter(
     val title: String,
     val startIndex: Int,
     val endIndex: Int,
+    /** EPUB spine 中的原始索引（用于按需加载章节内容），非 EPUB 格式时为 -1 */
+    val spineIndex: Int = -1,
 )

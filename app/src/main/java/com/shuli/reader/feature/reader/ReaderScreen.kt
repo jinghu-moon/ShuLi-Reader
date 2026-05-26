@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,10 +56,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Slider
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.List
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Close
@@ -77,6 +84,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.shuli.reader.core.data.ReaderTheme
 import com.shuli.reader.core.i18n.LocalAppStrings
+import com.shuli.reader.core.tts.TtsState
 import com.shuli.reader.core.reader.model.PageRenderMode
 import com.shuli.reader.core.reader.ReaderCanvasView
 import android.app.Activity
@@ -101,6 +109,7 @@ import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.data.toFactoryType
 import com.shuli.reader.core.reader.HeaderVisibility
 import com.shuli.reader.core.reader.SlotResolution
+import com.shuli.reader.feature.reader.component.CanvasSlider
 import com.shuli.reader.feature.reader.component.DirectoryDialog
 import com.shuli.reader.feature.reader.component.QuickSettingsActions
 import com.shuli.reader.feature.reader.component.QuickSettingsSheet
@@ -108,10 +117,6 @@ import com.shuli.reader.ui.testing.UiTestTags
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 import com.shuli.reader.ui.theme.toCanvasThemeColors
 import com.shuli.reader.ui.theme.toReaderColorScheme
-import androidx.compose.ui.unit.dp
-import kotlin.math.round
-
-private val QUICK_SETTINGS_LABEL_WIDTH = 96.dp
 
 /**
  * 阅读器页面。
@@ -230,7 +235,7 @@ fun ReaderScreen(
 
     Scaffold(
         containerColor = readerColors.background,
-    ) { padding ->
+    ) { _ ->
         Box(
             modifier = modifier
                 .fillMaxSize()
@@ -239,10 +244,47 @@ fun ReaderScreen(
             contentAlignment = Alignment.Center,
         ) {
             if (uiState.isLoading) {
-                Text(text = strings.loading, color = MaterialTheme.colorScheme.onBackground)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(48.dp),
+                        color = readerColors.accent,
+                        strokeWidth = 3.dp,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = strings.loading,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = readerColors.textSecondary,
+                    )
+                }
             } else if (uiState.error != null) {
-                Text(text = uiState.error.orEmpty(), color = MaterialTheme.colorScheme.error)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(32.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ErrorOutline,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = readerColors.textSecondary,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = uiState.error.orEmpty(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = readerColors.textPrimary,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             } else {
+                // 排版变化检测：在 update 块内追踪 layoutVersion，
+                // 确保 crossfade 在新页面实际到达时触发（而非版本号递增时）
+                val layoutVersionRef = remember { mutableIntStateOf(uiState.layoutVersion) }
+
                 AndroidView(
                     modifier = Modifier.fillMaxSize().testTag(UiTestTags.READER_CANVAS).onGloballyPositioned { coordinates ->
                         viewModel.setScreenSize(coordinates.size.width, coordinates.size.height)
@@ -267,6 +309,7 @@ fun ReaderScreen(
                         val nextPage = uiState.currentChapter?.getPage(uiState.pageIndex + 1)
                         val prevPage = uiState.currentChapter?.getPage(uiState.pageIndex - 1)
                         val prefs = uiState.readerPreferences
+
                         // 主题/字号/字体/字重/对齐 → 各 setter 内部短路检查，无变化时直接跳过
                         view.setThemeColors(uiState.themeColors)
                         view.setTextSizePx(prefs.fontSize * density)
@@ -285,7 +328,10 @@ fun ReaderScreen(
                         view.setEdgeTurnPageEnabled(prefs.edgeTurnPage)
                         view.setTitleStyle(prefs.titleStyle)
                         // 页数据：setPage 内部引用比较，无变化时仅触发 invalidate
-                        view.setPage(page, nextPage, prevPage, uiState.pageRenderMode)
+                        // layoutVersion 在 update 块内检测，确保新页面到达时才触发 crossfade
+                        val isLayoutChange = layoutVersionRef.intValue != uiState.layoutVersion
+                        if (isLayoutChange) layoutVersionRef.intValue = uiState.layoutVersion
+                        view.setPage(page, nextPage, prevPage, uiState.pageRenderMode, isLayoutChange = isLayoutChange)
                         view.setTtsActiveRange(uiState.ttsActiveRange)
                         view.setBatteryLevel(batteryLevel)
                         if (uiState.selectedRange == null) {
@@ -296,7 +342,7 @@ fun ReaderScreen(
 
                 // 悬浮顶部工具栏
                 AnimatedVisibility(
-                    visible = uiState.showToolbar,
+                    visible = uiState.showToolbar && !uiState.showSearch,
                     enter = slideInVertically(initialOffsetY = { -it }, animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())) + fadeIn(animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())),
                     exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())) + fadeOut(animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())),
                     modifier = Modifier.align(Alignment.TopCenter)
@@ -363,7 +409,7 @@ fun ReaderScreen(
 
                 // 悬浮底部工具栏
                 AnimatedVisibility(
-                    visible = uiState.showToolbar,
+                    visible = uiState.showToolbar && !uiState.showSearch,
                     enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())) + fadeIn(animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())),
                     exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())) + fadeOut(animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())),
                     modifier = Modifier.align(Alignment.BottomCenter)
@@ -390,7 +436,10 @@ fun ReaderScreen(
                                     text = uiState.chapterTitle,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = readerColors.textPrimary,
-                                    maxLines = 1
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                    textAlign = TextAlign.Center,
                                 )
                                 IconButton(
                                     onClick = { if (uiState.chapterIndex + 1 < uiState.totalChapters) viewModel.openChapter(uiState.chapterIndex + 1) }
@@ -412,7 +461,7 @@ fun ReaderScreen(
                                         color = readerColors.textSecondary,
                                         modifier = Modifier.width(32.dp)
                                     )
-                                    Slider(
+                                    CanvasSlider(
                                         value = uiState.pageIndex.toFloat(),
                                         onValueChange = { v ->
                                             val p = v.roundToInt()
@@ -427,11 +476,9 @@ fun ReaderScreen(
                                             isScrubbing = false
                                         },
                                         valueRange = 0f..(uiState.totalPages - 1).coerceAtLeast(1).toFloat(),
-                                        colors = androidx.compose.material3.SliderDefaults.colors(
-                                            thumbColor = readerColors.accent,
-                                            activeTrackColor = readerColors.accent,
-                                            inactiveTrackColor = readerColors.divider,
-                                        ),
+                                        thumbColor = readerColors.accent,
+                                        activeTrackColor = readerColors.accent,
+                                        inactiveTrackColor = readerColors.divider,
                                         modifier = Modifier.weight(1f)
                                     )
                                     Text(
@@ -454,7 +501,38 @@ fun ReaderScreen(
                                     onClick = viewModel::toggleDirectory,
                                     modifier = Modifier.testTag(UiTestTags.READER_DIRECTORY_BUTTON)
                                 ) {
+                                    @Suppress("DEPRECATION")
                                     Icon(Icons.Outlined.List, contentDescription = strings.directoryTab, tint = readerColors.textPrimary)
+                                }
+                                IconButton(onClick = { viewModel.cycleTheme() }) {
+                                    val isDark = uiState.readerPreferences.backgroundColor == ReaderTheme.DARK
+                                            || uiState.readerPreferences.backgroundColor == ReaderTheme.OLED
+                                    Icon(
+                                        imageVector = if (isDark) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
+                                        contentDescription = strings.themeModeLabel,
+                                        tint = readerColors.textPrimary,
+                                    )
+                                }
+                                IconButton(onClick = { viewModel.addBookmark() }) {
+                                    Icon(
+                                        Icons.Outlined.Bookmark,
+                                        contentDescription = strings.addBookmarkAction,
+                                        tint = readerColors.textPrimary,
+                                    )
+                                }
+                                IconButton(onClick = {
+                                    when (uiState.ttsState) {
+                                        TtsState.PLAYING -> viewModel.pauseTts()
+                                        TtsState.PAUSED -> viewModel.resumeTts()
+                                        else -> viewModel.startTts()
+                                    }
+                                }) {
+                                    val isPlaying = uiState.ttsState == TtsState.PLAYING
+                                    Icon(
+                                        imageVector = if (isPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+                                        contentDescription = if (isPlaying) strings.ttsPause else strings.ttsStart,
+                                        tint = readerColors.textPrimary,
+                                    )
                                 }
                                 IconButton(onClick = viewModel::toggleQuickSettings) {
                                     Icon(Icons.Outlined.Settings, contentDescription = strings.readerPreferences, tint = readerColors.textPrimary)
@@ -485,6 +563,7 @@ fun ReaderScreen(
                     DirectoryDialog(
                         chapters = uiState.chapterTitles,
                         currentChapterIndex = uiState.chapterIndex,
+                        chapterWordCounts = uiState.chapterWordCounts,
                         bookmarks = uiState.bookmarks,
                         notes = uiState.notes,
                         onChapterClick = { index ->
@@ -536,6 +615,7 @@ fun ReaderScreen(
                     onTextAlignChange = viewModel::setTextAlign,
                     onChineseConvertChange = viewModel::setChineseConvert,
                     onUseZhLayoutChange = viewModel::setUseZhLayout,
+                    onPanguSpacingChange = viewModel::setPanguSpacing,
                     onApplyPreset = viewModel::applyPreset,
                     onSavePreset = viewModel::saveCurrentAsPreset,
                     onRenamePreset = viewModel::renamePreset,
@@ -558,6 +638,12 @@ fun ReaderScreen(
                     onKeepScreenOnChange = viewModel::setKeepScreenOn,
                     onVolumeKeyTurnPageChange = viewModel::setVolumeKeyTurnPage,
                     onEdgeTurnPageChange = viewModel::setEdgeTurnPage,
+                    ttsState = uiState.ttsState,
+                    onTtsStart = { viewModel.startTts() },
+                    onTtsPause = { viewModel.pauseTts() },
+                    onTtsStop = { viewModel.stopTts() },
+                    onTtsSpeedChange = { viewModel.setTtsSpeed(it) },
+                    onTtsPitchChange = { viewModel.setTtsPitch(it) },
                 )
             }
             QuickSettingsSheet(
@@ -665,104 +751,6 @@ private fun ReaderSearchControls(
                 tint = readerColors.textPrimary,
             )
         }
-    }
-}
-
-/**
- * 步进器行组件 [- value +]
- * 点击中间数值可弹出对话框直接输入
- */
-@Composable
-private fun ReaderStepperRow(
-    label: String,
-    value: Float,
-    step: Float,
-    valueRange: ClosedFloatingPointRange<Float>,
-    format: (Float) -> String,
-    onValueChange: (Float) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val strings = LocalAppStrings.current
-    val readerColors = LocalReaderColorScheme.current
-    var showDialog by remember { mutableStateOf(false) }
-
-    Row(
-        modifier = modifier.fillMaxWidth().padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.width(QUICK_SETTINGS_LABEL_WIDTH),
-            style = MaterialTheme.typography.bodyMedium,
-            color = readerColors.textPrimary,
-        )
-        Spacer(modifier = Modifier.weight(1f))
-        IconButton(
-            onClick = {
-                val newValue = (value - step).coerceIn(valueRange)
-                onValueChange(newValue)
-            },
-            modifier = Modifier.size(32.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Remove,
-                contentDescription = null,
-                tint = readerColors.textPrimary,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-        Text(
-            text = format(value),
-            modifier = Modifier
-                .width(48.dp)
-                .clickable { showDialog = true },
-            style = MaterialTheme.typography.bodyMedium,
-            color = readerColors.textPrimary,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-        )
-        IconButton(
-            onClick = {
-                val newValue = (value + step).coerceIn(valueRange)
-                onValueChange(newValue)
-            },
-            modifier = Modifier.size(32.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Add,
-                contentDescription = null,
-                tint = readerColors.textPrimary,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-    }
-
-    if (showDialog) {
-        var inputText by remember { mutableStateOf(format(value)) }
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            containerColor = readerColors.surface,
-            titleContentColor = readerColors.textPrimary,
-            textContentColor = readerColors.textPrimary,
-            title = { Text(strings.editValue) },
-            text = {
-                OutlinedTextField(
-                    value = inputText,
-                    onValueChange = { inputText = it },
-                    singleLine = true,
-                )
-            },
-            confirmButton = {
-                FilledTonalButton(
-                    onClick = {
-                        val parsed = inputText.replace(Regex("[^0-9.]"), "").toFloatOrNull()
-                        if (parsed != null) {
-                            onValueChange(parsed.coerceIn(valueRange))
-                        }
-                        showDialog = false
-                    },
-                ) { Text(strings.confirm) }
-            },
-        )
     }
 }
 

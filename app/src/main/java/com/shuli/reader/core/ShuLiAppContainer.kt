@@ -35,6 +35,7 @@ class ShuLiAppContainer(
                 ShuLiDatabase.MIGRATION_5_6,
                 ShuLiDatabase.MIGRATION_6_7,
                 ShuLiDatabase.MIGRATION_7_8,
+                ShuLiDatabase.MIGRATION_8_9,
             )
             .build()
     }

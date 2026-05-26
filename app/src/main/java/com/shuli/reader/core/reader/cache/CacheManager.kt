@@ -58,6 +58,7 @@ class CacheManager(
         val showHeader: Boolean = true,
         val showFooter: Boolean = true,
         val chineseConvert: Int = 0,  // ChineseConvert ordinal
+        val usePanguSpacing: Boolean = false,
         // 正文标题样式（影响首页 titleAreaHeight 进而改变首页字符数）
         val titleAlignOrdinal: Int = 1,  // TitleAlign ordinal（CENTER 默认 1）
         val titleSizeOffsetSp: Int = 4,

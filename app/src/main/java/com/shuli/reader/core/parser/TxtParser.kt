@@ -130,21 +130,32 @@ class TxtParser {
     }
 
     fun detectChapters(content: String): List<Chapter> {
-        val lines = content.lines()
         val chapterPositions = mutableListOf<Pair<String, Int>>()
 
-        var currentPos = 0
-        for (line in lines) {
+        // 手动扫描行，正确处理 \r\n、\r、\n 三种换行符
+        var lineStart = 0
+        while (lineStart <= content.length) {
+            val lineEnd = content.indexOfAny(charArrayOf('\r', '\n'), lineStart)
+            val actualEnd = if (lineEnd < 0) content.length else lineEnd
+            val line = content.substring(lineStart, actualEnd)
             val trimmed = line.trim()
+
             if (trimmed.isNotEmpty()) {
                 for (pattern in CHAPTER_PATTERNS) {
                     if (pattern.containsMatchIn(trimmed)) {
-                        chapterPositions.add(trimmed to currentPos)
+                        chapterPositions.add(trimmed to lineStart)
                         break
                     }
                 }
             }
-            currentPos += line.length + 1
+
+            // 跳过换行符（\r\n 或单个 \r/\n）
+            lineStart = when {
+                lineEnd < 0 -> content.length + 1 // 到达末尾
+                lineEnd < content.length && content[lineEnd] == '\r' &&
+                    lineEnd + 1 < content.length && content[lineEnd + 1] == '\n' -> lineEnd + 2
+                else -> lineEnd + 1
+            }
         }
 
         if (chapterPositions.isEmpty()) {

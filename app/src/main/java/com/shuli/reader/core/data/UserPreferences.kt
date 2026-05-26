@@ -76,6 +76,7 @@ class UserPreferences(
         val KEY_TITLE_MARGIN_BOTTOM = floatPreferencesKey("title_margin_bottom")
         // 排版增强
         val KEY_USE_ZH_LAYOUT = booleanPreferencesKey("use_zh_layout")
+        val KEY_USE_PANGU_SPACING = booleanPreferencesKey("use_pangu_spacing")
         // 阶段六新增
         val KEY_VOLUME_KEY_TURN_PAGE = booleanPreferencesKey("volume_key_turn_page")
         val KEY_EDGE_TURN_PAGE = booleanPreferencesKey("edge_turn_page")
@@ -146,6 +147,7 @@ class UserPreferences(
     val titleMarginBottom: Flow<Float> = dataStore.data.map { it[KEY_TITLE_MARGIN_BOTTOM] ?: 60f }
     // 排版增强
     val useZhLayout: Flow<Boolean> = dataStore.data.map { it[KEY_USE_ZH_LAYOUT] ?: false }
+    val usePanguSpacing: Flow<Boolean> = dataStore.data.map { it[KEY_USE_PANGU_SPACING] ?: false }
     // 阶段六新增
     val volumeKeyTurnPage: Flow<Boolean> = dataStore.data.map { it[KEY_VOLUME_KEY_TURN_PAGE] ?: false }
     val edgeTurnPage: Flow<Boolean> = dataStore.data.map { it[KEY_EDGE_TURN_PAGE] ?: true }
@@ -210,6 +212,7 @@ class UserPreferences(
     suspend fun setTitleMarginBottom(value: Float) = dataStore.edit { it[KEY_TITLE_MARGIN_BOTTOM] = value }
     // 排版增强
     suspend fun setUseZhLayout(value: Boolean) = dataStore.edit { it[KEY_USE_ZH_LAYOUT] = value }
+    suspend fun setUsePanguSpacing(value: Boolean) = dataStore.edit { it[KEY_USE_PANGU_SPACING] = value }
     // 阶段六新增
     suspend fun setVolumeKeyTurnPage(value: Boolean) = dataStore.edit { it[KEY_VOLUME_KEY_TURN_PAGE] = value }
     suspend fun setEdgeTurnPage(value: Boolean) = dataStore.edit { it[KEY_EDGE_TURN_PAGE] = value }

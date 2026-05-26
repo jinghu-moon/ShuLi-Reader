@@ -26,6 +26,7 @@ sealed interface AppStrings {
     val coverImageDesc: String
     val bookmarkIconDesc: String
     val loading: String
+    val selected: String
 
     // 外观与通用配置
     val appearance: String
@@ -120,8 +121,88 @@ sealed interface AppStrings {
     val ttsPitch: String
     val ttsAutoPage: String
     val ttsHighlightSentence: String
+    val ttsStart: String
+    val ttsPause: String
+    val ttsStop: String
 
-    // 六、高级设置
+    // 六、快捷设置面板 (QuickSettingsSheet)
+    val layoutTab: String
+    val styleTab: String
+    val settingsTab: String
+    val letterSpacingLabel: String
+    val fontWeightLabel: String
+    val fontWeightLight: String
+    val fontWeightNormal: String
+    val fontWeightMedium: String
+    val fontWeightBold: String
+    val textAlignLabel: String
+    val textAlignLeft: String
+    val textAlignJustify: String
+    val chineseConvertLabel: String
+    val chineseConvertNone: String
+    val chineseConvertSimplified: String
+    val chineseConvertTraditional: String
+    val useZhLayoutLabel: String
+    val usePanguSpacingLabel: String
+    val slotNone: String
+    val slotChapterTitle: String
+    val slotBookTitle: String
+    val slotPageNumber: String
+    val slotProgress: String
+    val slotTime: String
+    val slotBattery: String
+    val slotDate: String
+    val headerLabel: String
+    val footerLabel: String
+    val progressBarLabel: String
+    val opacityLabel: String
+    val headerFooterCustom: String
+    val headerHidden: String
+    val footerHidden: String
+    val displayLabel: String
+    val displayFollowStatusBar: String
+    val displayAlwaysShow: String
+    val displayAlwaysHide: String
+    val positionLeft: String
+    val positionCenter: String
+    val positionRight: String
+    val headerLeft: String
+    val headerCenter: String
+    val headerRight: String
+    val footerLeft: String
+    val footerCenter: String
+    val footerRight: String
+    val titleStyleLabel: String
+    val titleAlignLeft: String
+    val titleAlignCenter: String
+    val titleAlignHidden: String
+    val titleSizeOffset: String
+    val titleMarginTop: String
+    val titleMarginBottom: String
+    val keepScreenOnLabel: String
+    val keepScreenOnDesc: String
+    val volumeKeyLabel: String
+    val volumeKeyDesc: String
+    val edgeTurnPageLabel: String
+    val edgeTurnPageDesc: String
+    val readingPresets: String
+    val savePresetAction: String
+    val resetToDefault: String
+    val resetToDefaultConfirm: String
+    val savePresetTitle: String
+    val presetNameLabel: String
+    val deletePresetTitle: String
+    val deletePresetConfirm: String
+    val confirmAction: String
+    val cancelAction: String
+    val saveAction: String
+    val deleteAction: String
+    val deleteBookmarkTitle: String
+    val deleteBookmarkConfirm: String
+    val deleteNoteTitle: String
+    val deleteNoteConfirm: String
+
+    // 七、高级设置
     val advancedSettings: String
     val gpuAcceleration: String
     val loggingEnabled: String
@@ -242,6 +323,7 @@ sealed interface AppStrings {
         override val coverImageDesc = "封面图片"
         override val bookmarkIconDesc = "书签"
         override val loading = "加载中..."
+        override val selected = "已选中"
 
         override val appearance = "外观"
         override val themeModeLabel = "深浅主题"
@@ -330,6 +412,85 @@ sealed interface AppStrings {
         override val ttsPitch = "音调调节"
         override val ttsAutoPage = "自动翻页"
         override val ttsHighlightSentence = "高亮当前句子"
+        override val ttsStart = "开始朗读"
+        override val ttsPause = "暂停朗读"
+        override val ttsStop = "停止朗读"
+
+        override val layoutTab = "排版"
+        override val styleTab = "样式"
+        override val settingsTab = "设置"
+        override val letterSpacingLabel = "字距"
+        override val fontWeightLabel = "字重"
+        override val fontWeightLight = "细"
+        override val fontWeightNormal = "常规"
+        override val fontWeightMedium = "中"
+        override val fontWeightBold = "粗"
+        override val textAlignLabel = "对齐"
+        override val textAlignLeft = "左对齐"
+        override val textAlignJustify = "两端"
+        override val chineseConvertLabel = "简繁"
+        override val chineseConvertNone = "原始"
+        override val chineseConvertSimplified = "简体"
+        override val chineseConvertTraditional = "繁体"
+        override val useZhLayoutLabel = "自定义中文分行"
+        override val usePanguSpacingLabel = "中英文间增加空格"
+        override val slotNone = "无"
+        override val slotChapterTitle = "章节名"
+        override val slotBookTitle = "书名"
+        override val slotPageNumber = "页码"
+        override val slotProgress = "进度"
+        override val slotTime = "时间"
+        override val slotBattery = "电量"
+        override val slotDate = "日期"
+        override val headerLabel = "页眉"
+        override val footerLabel = "页脚"
+        override val progressBarLabel = "进度条"
+        override val opacityLabel = "透明度"
+        override val headerFooterCustom = "页眉脚自定义"
+        override val headerHidden = "页眉已隐藏"
+        override val footerHidden = "页脚已隐藏"
+        override val displayLabel = "显示"
+        override val displayFollowStatusBar = "跟随状态栏"
+        override val displayAlwaysShow = "常显"
+        override val displayAlwaysHide = "隐藏"
+        override val positionLeft = "左"
+        override val positionCenter = "中"
+        override val positionRight = "右"
+        override val headerLeft = "页眉左"
+        override val headerCenter = "页眉中"
+        override val headerRight = "页眉右"
+        override val footerLeft = "页脚左"
+        override val footerCenter = "页脚中"
+        override val footerRight = "页脚右"
+        override val titleStyleLabel = "标题样式"
+        override val titleAlignLeft = "靠左"
+        override val titleAlignCenter = "居中"
+        override val titleAlignHidden = "隐藏"
+        override val titleSizeOffset = "字号偏移"
+        override val titleMarginTop = "上距"
+        override val titleMarginBottom = "下距"
+        override val keepScreenOnLabel = "屏幕常亮"
+        override val keepScreenOnDesc = "阅读时保持屏幕常亮"
+        override val volumeKeyLabel = "音量键"
+        override val volumeKeyDesc = "音量 +/- 键翻页"
+        override val edgeTurnPageLabel = "边缘翻页"
+        override val edgeTurnPageDesc = "点击屏幕左右边缘翻页"
+        override val readingPresets = "阅读预设"
+        override val savePresetAction = "＋ 保存当前"
+        override val resetToDefault = "恢复默认设置"
+        override val resetToDefaultConfirm = "确定要将所有阅读设置恢复为默认值吗？此操作不可撤销。"
+        override val savePresetTitle = "保存预设"
+        override val presetNameLabel = "预设名称"
+        override val deletePresetTitle = "删除预设"
+        override val deletePresetConfirm = "确定要删除这个预设吗？"
+        override val confirmAction = "确定"
+        override val cancelAction = "取消"
+        override val saveAction = "保存"
+        override val deleteAction = "删除"
+        override val deleteBookmarkTitle = "删除书签"
+        override val deleteBookmarkConfirm = "确定要删除这个书签吗？"
+        override val deleteNoteTitle = "删除笔记"
+        override val deleteNoteConfirm = "确定要删除这个笔记吗？"
 
         override val advancedSettings = "高级设置"
         override val gpuAcceleration = "GPU 硬件加速"
@@ -442,6 +603,7 @@ sealed interface AppStrings {
         override val coverImageDesc = "封面圖片"
         override val bookmarkIconDesc = "書籤"
         override val loading = "載入中..."
+        override val selected = "已選中"
 
         override val appearance = "外觀"
         override val themeModeLabel = "深淺主題"
@@ -530,6 +692,85 @@ sealed interface AppStrings {
         override val ttsPitch = "音調調節"
         override val ttsAutoPage = "自動翻頁"
         override val ttsHighlightSentence = "高亮當前句子"
+        override val ttsStart = "開始朗讀"
+        override val ttsPause = "暫停朗讀"
+        override val ttsStop = "停止朗讀"
+
+        override val layoutTab = "排版"
+        override val styleTab = "樣式"
+        override val settingsTab = "設定"
+        override val letterSpacingLabel = "字距"
+        override val fontWeightLabel = "字重"
+        override val fontWeightLight = "細"
+        override val fontWeightNormal = "常規"
+        override val fontWeightMedium = "中"
+        override val fontWeightBold = "粗"
+        override val textAlignLabel = "對齊"
+        override val textAlignLeft = "左對齊"
+        override val textAlignJustify = "兩端"
+        override val chineseConvertLabel = "簡繁"
+        override val chineseConvertNone = "原始"
+        override val chineseConvertSimplified = "簡體"
+        override val chineseConvertTraditional = "繁體"
+        override val useZhLayoutLabel = "自定義中文分行"
+        override val usePanguSpacingLabel = "中英文間增加空格"
+        override val slotNone = "無"
+        override val slotChapterTitle = "章節名"
+        override val slotBookTitle = "書名"
+        override val slotPageNumber = "頁碼"
+        override val slotProgress = "進度"
+        override val slotTime = "時間"
+        override val slotBattery = "電量"
+        override val slotDate = "日期"
+        override val headerLabel = "頁眉"
+        override val footerLabel = "頁腳"
+        override val progressBarLabel = "進度條"
+        override val opacityLabel = "透明度"
+        override val headerFooterCustom = "頁眉腳自定義"
+        override val headerHidden = "頁眉已隱藏"
+        override val footerHidden = "頁腳已隱藏"
+        override val displayLabel = "顯示"
+        override val displayFollowStatusBar = "跟隨狀態欄"
+        override val displayAlwaysShow = "常顯"
+        override val displayAlwaysHide = "隱藏"
+        override val positionLeft = "左"
+        override val positionCenter = "中"
+        override val positionRight = "右"
+        override val headerLeft = "頁眉左"
+        override val headerCenter = "頁眉中"
+        override val headerRight = "頁眉右"
+        override val footerLeft = "頁腳左"
+        override val footerCenter = "頁腳中"
+        override val footerRight = "頁腳右"
+        override val titleStyleLabel = "標題樣式"
+        override val titleAlignLeft = "靠左"
+        override val titleAlignCenter = "居中"
+        override val titleAlignHidden = "隱藏"
+        override val titleSizeOffset = "字號偏移"
+        override val titleMarginTop = "上距"
+        override val titleMarginBottom = "下距"
+        override val keepScreenOnLabel = "螢幕常亮"
+        override val keepScreenOnDesc = "閱讀時保持螢幕常亮"
+        override val volumeKeyLabel = "音量鍵"
+        override val volumeKeyDesc = "音量 +/- 鍵翻頁"
+        override val edgeTurnPageLabel = "邊緣翻頁"
+        override val edgeTurnPageDesc = "點擊螢幕左右邊緣翻頁"
+        override val readingPresets = "閱讀預設"
+        override val savePresetAction = "＋ 儲存當前"
+        override val resetToDefault = "恢復預設設定"
+        override val resetToDefaultConfirm = "確定要將所有閱讀設定恢復為預設值嗎？此操作不可撤銷。"
+        override val savePresetTitle = "儲存預設"
+        override val presetNameLabel = "預設名稱"
+        override val deletePresetTitle = "刪除預設"
+        override val deletePresetConfirm = "確定要刪除這個預設嗎？"
+        override val confirmAction = "確定"
+        override val cancelAction = "取消"
+        override val saveAction = "儲存"
+        override val deleteAction = "刪除"
+        override val deleteBookmarkTitle = "刪除書籤"
+        override val deleteBookmarkConfirm = "確定要刪除這個書籤嗎？"
+        override val deleteNoteTitle = "刪除筆記"
+        override val deleteNoteConfirm = "確定要刪除這個筆記嗎？"
 
         override val advancedSettings = "高級設定"
         override val gpuAcceleration = "GPU 硬體加速"
@@ -642,6 +883,7 @@ sealed interface AppStrings {
         override val coverImageDesc = "Cover Image"
         override val bookmarkIconDesc = "Bookmark"
         override val loading = "Loading..."
+        override val selected = "Selected"
 
         override val appearance = "Appearance"
         override val themeModeLabel = "Theme Mode"
@@ -730,6 +972,85 @@ sealed interface AppStrings {
         override val ttsPitch = "Speech Pitch"
         override val ttsAutoPage = "Auto Page Turn"
         override val ttsHighlightSentence = "Highlight Active Sentence"
+        override val ttsStart = "Start Reading"
+        override val ttsPause = "Pause Reading"
+        override val ttsStop = "Stop Reading"
+
+        override val layoutTab = "Layout"
+        override val styleTab = "Style"
+        override val settingsTab = "Settings"
+        override val letterSpacingLabel = "Letter Spacing"
+        override val fontWeightLabel = "Font Weight"
+        override val fontWeightLight = "Light"
+        override val fontWeightNormal = "Normal"
+        override val fontWeightMedium = "Medium"
+        override val fontWeightBold = "Bold"
+        override val textAlignLabel = "Alignment"
+        override val textAlignLeft = "Left"
+        override val textAlignJustify = "Justify"
+        override val chineseConvertLabel = "Chinese Convert"
+        override val chineseConvertNone = "Original"
+        override val chineseConvertSimplified = "Simplified"
+        override val chineseConvertTraditional = "Traditional"
+        override val useZhLayoutLabel = "Custom Chinese Layout"
+        override val usePanguSpacingLabel = "Space Between CJK and Latin"
+        override val slotNone = "None"
+        override val slotChapterTitle = "Chapter Title"
+        override val slotBookTitle = "Book Title"
+        override val slotPageNumber = "Page Number"
+        override val slotProgress = "Progress"
+        override val slotTime = "Time"
+        override val slotBattery = "Battery"
+        override val slotDate = "Date"
+        override val headerLabel = "Header"
+        override val footerLabel = "Footer"
+        override val progressBarLabel = "Progress Bar"
+        override val opacityLabel = "Opacity"
+        override val headerFooterCustom = "Header & Footer Customization"
+        override val headerHidden = "Header Hidden"
+        override val footerHidden = "Footer Hidden"
+        override val displayLabel = "Display"
+        override val displayFollowStatusBar = "Follow Status Bar"
+        override val displayAlwaysShow = "Always Show"
+        override val displayAlwaysHide = "Always Hide"
+        override val positionLeft = "Left"
+        override val positionCenter = "Center"
+        override val positionRight = "Right"
+        override val headerLeft = "Header Left"
+        override val headerCenter = "Header Center"
+        override val headerRight = "Header Right"
+        override val footerLeft = "Footer Left"
+        override val footerCenter = "Footer Center"
+        override val footerRight = "Footer Right"
+        override val titleStyleLabel = "Title Style"
+        override val titleAlignLeft = "Left"
+        override val titleAlignCenter = "Center"
+        override val titleAlignHidden = "Hidden"
+        override val titleSizeOffset = "Size Offset"
+        override val titleMarginTop = "Margin Top"
+        override val titleMarginBottom = "Margin Bottom"
+        override val keepScreenOnLabel = "Keep Screen On"
+        override val keepScreenOnDesc = "Keep screen on while reading"
+        override val volumeKeyLabel = "Volume Keys"
+        override val volumeKeyDesc = "Volume +/- to turn pages"
+        override val edgeTurnPageLabel = "Edge Turn Page"
+        override val edgeTurnPageDesc = "Tap screen edges to turn pages"
+        override val readingPresets = "Reading Presets"
+        override val savePresetAction = "+ Save Current"
+        override val resetToDefault = "Reset to Default"
+        override val resetToDefaultConfirm = "Are you sure you want to reset all reading settings to default? This action cannot be undone."
+        override val savePresetTitle = "Save Preset"
+        override val presetNameLabel = "Preset Name"
+        override val deletePresetTitle = "Delete Preset"
+        override val deletePresetConfirm = "Are you sure you want to delete this preset?"
+        override val confirmAction = "Confirm"
+        override val cancelAction = "Cancel"
+        override val saveAction = "Save"
+        override val deleteAction = "Delete"
+        override val deleteBookmarkTitle = "Delete Bookmark"
+        override val deleteBookmarkConfirm = "Are you sure you want to delete this bookmark?"
+        override val deleteNoteTitle = "Delete Note"
+        override val deleteNoteConfirm = "Are you sure you want to delete this note?"
 
         override val advancedSettings = "Advanced"
         override val gpuAcceleration = "GPU Hardware Acceleration"

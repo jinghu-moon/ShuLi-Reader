@@ -26,8 +26,9 @@ import com.shuli.reader.core.database.entity.ReadingProgressEntity
         NoteEntity::class,
         ReadingProgressEntity::class,
         ReaderPresetEntity::class,
+        com.shuli.reader.core.database.entity.FolderEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 abstract class ShuLiDatabase : RoomDatabase() {
@@ -146,6 +147,23 @@ abstract class ShuLiDatabase : RoomDatabase() {
                         configJson TEXT NOT NULL
                     )
                 """.trimIndent())
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 创建文件夹表
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS folders (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        orderIndex INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                // books 表增加分组和排序字段
+                db.execSQL("ALTER TABLE books ADD COLUMN folderId INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE books ADD COLUMN orderIndex INTEGER NOT NULL DEFAULT 0")
             }
         }
     }

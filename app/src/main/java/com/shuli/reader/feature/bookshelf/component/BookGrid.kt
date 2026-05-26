@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import com.shuli.reader.core.i18n.LocalAppStrings
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -42,43 +42,112 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
+import com.shuli.reader.feature.bookshelf.model.BookshelfNode
 import com.shuli.reader.feature.bookshelf.model.BookItem
+import com.shuli.reader.feature.bookshelf.model.FolderItem
+import androidx.compose.material.icons.filled.Folder
+import org.burnoutcrew.reorderable.ReorderableItem
+import org.burnoutcrew.reorderable.detectReorderAfterLongPress
+import org.burnoutcrew.reorderable.rememberReorderableLazyGridState
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BookGrid(
-    books: List<BookItem>,
+    books: List<BookshelfNode>,
     searchQuery: String,
-    gridState: LazyGridState,
     highlightedBookId: Long?,
     onBookClick: (Long) -> Unit,
-    onToggleFavorite: (Long) -> Unit,
-    onDelete: (Long) -> Unit,
     onShowInfo: (Long) -> Unit,
     modifier: Modifier = Modifier,
     unifiedCoverPaletteIndex: Int? = null,
     onCustomizeCover: ((Long) -> Unit)? = null,
+    isEditMode: Boolean = false,
+    selectedNodeIds: Set<Long> = emptySet(),
+    onToggleSelection: (Long) -> Unit = {},
+    onLongPressToEdit: (Long) -> Unit = {},
+    onReorder: (List<BookshelfNode>) -> Unit = {},
+    onMerge: (Long, Long) -> Unit = { _, _ -> },
+    onFolderClick: (Long) -> Unit = {},
 ) {
+    var isDragging by remember { mutableStateOf(false) }
+    var dragSourceId by remember { mutableStateOf<Long?>(null) }
+    var hoverTargetId by remember { mutableStateOf<Long?>(null) }
+
+    val reorderState = rememberReorderableLazyGridState(
+        onMove = { from, to ->
+            val mutable = books.toMutableList()
+            val fromIndex = from.index
+            val toIndex = to.index
+            if (fromIndex in mutable.indices && toIndex in mutable.indices) {
+                val item = mutable.removeAt(fromIndex)
+                mutable.add(toIndex, item)
+                onReorder(mutable)
+            }
+        },
+        canDragOver = { from, to ->
+            // 不允许拖拽到自身
+            from.index != to.index
+        },
+        onDragEnd = { startIndex, endIndex ->
+            isDragging = false
+            dragSourceId = null
+            hoverTargetId = null
+            // 持久化排序到数据库
+            onReorder(books)
+        },
+    )
+
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
-        state = gridState,
+        state = reorderState.gridState,
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = modifier.fillMaxSize(),
     ) {
-        items(books, key = { it.id }) { book ->
-            BookGridItem(
-                book = book,
-                searchQuery = searchQuery,
-                isHighlighted = book.id == highlightedBookId,
-                onToggleFavorite = onToggleFavorite,
-                onDelete = onDelete,
-                onShowInfo = onShowInfo,
-                onClick = { onBookClick(book.id) },
-                unifiedCoverPaletteIndex = unifiedCoverPaletteIndex,
-                onCustomizeCover = onCustomizeCover,
-            )
+        items(books, key = { it.id }) { node ->
+            ReorderableItem(reorderState, key = node.id) { isDraggingNow ->
+                val elevation = if (isDraggingNow) 8.dp else 0.dp
+                val scale = if (isDraggingNow) 1.05f else 1f
+
+                Box(
+                    modifier = Modifier
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            shadowElevation = elevation.toPx()
+                        }
+                        .zIndex(if (isDraggingNow) 1f else 0f)
+                        // detectReorderAfterLongPress 必须在 combinedClickable 之前，拦截长按手势
+                        .detectReorderAfterLongPress(reorderState)
+                ) {
+                    if (node is BookItem) {
+                        BookGridItem(
+                            book = node,
+                            searchQuery = searchQuery,
+                            isHighlighted = node.id == highlightedBookId,
+                            onClick = {
+                                if (isEditMode) onToggleSelection(node.id) else onBookClick(node.id)
+                            },
+                            onLongClick = { onLongPressToEdit(node.id) },
+                            unifiedCoverPaletteIndex = unifiedCoverPaletteIndex,
+                            isEditMode = isEditMode,
+                            isSelected = selectedNodeIds.contains(node.id),
+                        )
+                    } else if (node is FolderItem) {
+                        FolderGridItem(
+                            folder = node,
+                            isHighlighted = false,
+                            onClick = { if (isEditMode) onToggleSelection(node.id) else onFolderClick(node.id) },
+                            onLongClick = { onLongPressToEdit(node.id) },
+                            isEditMode = isEditMode,
+                            isSelected = selectedNodeIds.contains(node.id),
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -89,16 +158,14 @@ private fun BookGridItem(
     book: BookItem,
     searchQuery: String,
     isHighlighted: Boolean,
-    onToggleFavorite: (Long) -> Unit,
-    onDelete: (Long) -> Unit,
-    onShowInfo: (Long) -> Unit,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
     unifiedCoverPaletteIndex: Int? = null,
-    onCustomizeCover: ((Long) -> Unit)? = null,
+    isEditMode: Boolean = false,
+    isSelected: Boolean = false,
 ) {
     val strings = LocalAppStrings.current
-    var expanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
         Column(
@@ -106,7 +173,7 @@ private fun BookGridItem(
                 .clip(RoundedCornerShape(8.dp))
                 .combinedClickable(
                     onClick = onClick,
-                    onLongClick = { expanded = true },
+                    onLongClick = { if (!isEditMode) onLongClick() },
                 )
                 .padding(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -184,14 +251,82 @@ private fun BookGridItem(
             )
         }
         
-        BookActionMenu(
-            book = if (expanded) book else null,
-            onDismiss = { expanded = false },
-            onToggleFavorite = onToggleFavorite,
-            onDelete = onDelete,
-            onShowInfo = onShowInfo,
-            onCustomizeCover = onCustomizeCover,
-        )
+        if (isEditMode) {
+            androidx.compose.material3.Checkbox(
+                checked = isSelected,
+                onCheckedChange = null,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun FolderGridItem(
+    folder: FolderItem,
+    isHighlighted: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    isEditMode: Boolean = false,
+    isSelected: Boolean = false,
+) {
+    Box(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = { if (!isEditMode) onLongClick() },
+                )
+                .padding(4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            FolderCover(
+                books = folder.books,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(0.75f),
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                text = "${folder.title} (${folder.books.size})",
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        if (isHighlighted) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .border(
+                        width = 3.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .background(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+            )
+        }
+
+        if (isEditMode) {
+            androidx.compose.material3.Checkbox(
+                checked = isSelected,
+                onCheckedChange = null,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+            )
+        }
     }
 }
 
