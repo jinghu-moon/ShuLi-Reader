@@ -166,13 +166,13 @@ fun DefaultBookCover(
             // 中央半透明 Serif 巨大首字，实现极其高雅的图文交融感
             if (firstChar.isNotEmpty()) {
                 Box(
-                    modifier = Modifier.fillMaxSize().padding(bottom = 30.dp), // 避开底部腰封高度
+                    modifier = Modifier.fillMaxSize().padding(bottom = if (isMini) 0.dp else 30.dp), // 避开底部腰封高度
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = firstChar,
                         fontFamily = FontFamily.Serif,
-                        fontSize = 56.sp,
+                        fontSize = if (isMini) 28.sp else 56.sp,
                         fontWeight = FontWeight.Normal,
                         color = Color.White.copy(alpha = 0.35f),
                         letterSpacing = 0.sp
@@ -248,6 +248,24 @@ fun DefaultBookCover(
                             )
                         }
                     }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 6.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.TopStart
+                ) {
+                    Text(
+                        text = title,
+                        fontFamily = FontFamily.Serif,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 8.sp,
+                        color = textColor.copy(alpha = 0.9f),
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = 10.sp
+                    )
                 }
             }
         }
