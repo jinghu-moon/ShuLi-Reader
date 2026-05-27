@@ -1,5 +1,7 @@
 package com.shuli.reader.feature.reader.component
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -28,6 +30,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Pause
@@ -79,6 +83,7 @@ import com.shuli.reader.feature.reader.ReaderUiState
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 import com.shuli.reader.ui.theme.toCanvasThemeColors
 import com.shuli.reader.ui.theme.toReaderColorScheme
+import com.shuli.reader.core.font.FontManager
 
 /**
  * 快捷设置面板的所有回调动作
@@ -133,6 +138,9 @@ data class QuickSettingsActions(
     val onTtsStop: () -> Unit = {},
     val onTtsSpeedChange: (Float) -> Unit = {},
     val onTtsPitchChange: (Float) -> Unit = {},
+    val customFonts: List<com.shuli.reader.core.font.FontManager.FontEntry> = emptyList(),
+    val onImportFont: (android.net.Uri) -> Unit = {},
+    val onDeleteFont: (String) -> Unit = {},
 )
 
 /**
@@ -232,6 +240,9 @@ fun QuickSettingsSheet(
                         )
                         TAB_STYLE -> StylePanel(
                             prefs = uiState.readerPreferences,
+                            customFonts = actions.customFonts,
+                            onImportFont = actions.onImportFont,
+                            onDeleteFont = actions.onDeleteFont,
                             onPageAnimTypeChange = actions.onPageAnimTypeChange,
                             onReadingFontChange = actions.onReadingFontChange,
                             onFontWeightChange = actions.onFontWeightChange,
@@ -485,6 +496,9 @@ private fun LayoutPanel(
 @Composable
 private fun StylePanel(
     prefs: ReaderPreferences,
+    customFonts: List<com.shuli.reader.core.font.FontManager.FontEntry>,
+    onImportFont: (android.net.Uri) -> Unit,
+    onDeleteFont: (String) -> Unit,
     onPageAnimTypeChange: (PageAnimType) -> Unit,
     onReadingFontChange: (String) -> Unit,
     onFontWeightChange: (ReaderFontWeight) -> Unit,
@@ -494,6 +508,10 @@ private fun StylePanel(
     onPanguSpacingChange: (Boolean) -> Unit,
 ) {
     val strings = LocalAppStrings.current
+    val readerColors = LocalReaderColorScheme.current
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { onImportFont(it) } }
 
     // 翻页动画（提到最顶部）
     ReaderFormPickerRow(
@@ -510,16 +528,57 @@ private fun StylePanel(
     )
 
     // 字体
+    val fontOptions = buildList {
+        add("harmony" to strings.readingFontHarmony)
+        add("system" to strings.readingFontSystem)
+        customFonts.forEach { entry ->
+            add(entry.key to entry.name)
+        }
+    }
     ReaderFormPickerRow(
         label = strings.readingFont,
-        options = listOf(
-            "harmony" to strings.readingFontHarmony,
-            "lxgw" to strings.readingFontLxgw,
-            "system" to strings.readingFontSystem,
-        ),
+        options = fontOptions,
         selected = prefs.readingFont,
         onSelect = onReadingFontChange,
     )
+    // 导入字体按钮
+    androidx.compose.material3.TextButton(
+        onClick = { launcher.launch(arrayOf("font/ttf", "font/otf", "application/octet-stream")) },
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Add,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(strings.importFont, style = MaterialTheme.typography.bodySmall)
+    }
+    // 已导入字体列表（可删除）
+    if (customFonts.isNotEmpty()) {
+        Column(modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)) {
+            customFonts.forEach { entry ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                ) {
+                    Text(
+                        text = entry.name,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = readerColors.textSecondary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = "删除字体",
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clickable { onDeleteFont(entry.id) },
+                        tint = readerColors.textSecondary,
+                    )
+                }
+            }
+        }
+    }
     // 字重
     ReaderFormPickerRow(
         label = strings.fontWeightLabel,

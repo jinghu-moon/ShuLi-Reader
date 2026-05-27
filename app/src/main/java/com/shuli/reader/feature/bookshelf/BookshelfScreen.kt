@@ -43,6 +43,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.bookshelf.component.BookGrid
+import com.shuli.reader.feature.bookshelf.component.BookList
+import com.shuli.reader.feature.bookshelf.component.BookCompactList
+import com.shuli.reader.feature.bookshelf.model.ViewMode
 import com.shuli.reader.feature.bookshelf.component.BookInfoBottomSheet
 import com.shuli.reader.feature.bookshelf.component.BookList
 import com.shuli.reader.feature.bookshelf.component.BookshelfTopBar
@@ -171,10 +174,7 @@ fun BookshelfScreen(
                     BookshelfTopBar(
                         todayReadingTime = uiState.todayReadingTime,
                         viewMode = uiState.viewMode,
-                        onViewModeToggle = {
-                            val newMode = if (uiState.viewMode == com.shuli.reader.feature.bookshelf.model.ViewMode.GRID) com.shuli.reader.feature.bookshelf.model.ViewMode.LIST else com.shuli.reader.feature.bookshelf.model.ViewMode.GRID
-                            viewModel.onViewModeChanged(newMode)
-                        },
+                        onViewModeChange = viewModel::onViewModeChanged,
                         onSortClick = { showSortSheet = true },
                         isSearching = uiState.isSearching,
                         searchQuery = uiState.searchQuery,
@@ -257,7 +257,7 @@ fun BookshelfScreen(
                         selectedNodeIds = uiState.selectedNodeIds,
                         onToggleSelection = viewModel::onToggleNodeSelection,
                         onLongPressToEdit = { nodeId -> viewModel.onToggleEditMode(nodeId) },
-                        onReorder = { reorderedNodes -> viewModel.commitOrderToDatabase(reorderedNodes) },
+                        onDragToSlot = { nodeId, slot -> viewModel.pinNode(nodeId, slot) },
                         onMerge = { sourceId, targetId -> viewModel.mergeNodes(sourceId, targetId, sourceIsFolder = false, targetIsFolder = false) },
                     )
                 }
@@ -380,9 +380,21 @@ fun BookshelfScreen(
 
     // ── 编辑模式：更多 ──
     if (showMoreSheet) {
+        val selectedBooks = uiState.nodes
+            .filterIsInstance<BookItem>()
+            .filter { it.id in uiState.selectedNodeIds }
         MoreActionsSheet(
-            onSelectAll = {
-                viewModel.onSelectAllNodes(uiState.nodes)
+            selectedBooks = selectedBooks,
+            onToggleFavorite = {
+                selectedBooks.forEach { viewModel.onToggleFavorite(it.id) }
+                showMoreSheet = false
+            },
+            onShowInfo = {
+                selectedBooks.firstOrNull()?.let { selectedInfoBookId = it.id }
+                showMoreSheet = false
+            },
+            onCustomizeCover = {
+                selectedBooks.firstOrNull()?.let { selectedCoverColorBookId = it.id }
                 showMoreSheet = false
             },
             onMoveOut = {
@@ -413,7 +425,7 @@ fun BookshelfScreen(
 @Composable
 private fun BookContent(
     books: List<BookshelfNode>,
-    viewMode: com.shuli.reader.feature.bookshelf.model.ViewMode,
+    viewMode: ViewMode,
     gridState: LazyGridState,
     listState: LazyListState,
     highlightedBookId: Long?,
@@ -428,11 +440,11 @@ private fun BookContent(
     selectedNodeIds: Set<Long> = emptySet(),
     onToggleSelection: (Long) -> Unit = {},
     onLongPressToEdit: (Long) -> Unit = {},
-    onReorder: (List<BookshelfNode>) -> Unit = {},
+    onDragToSlot: (Long, Int) -> Unit = { _, _ -> },
     onMerge: (Long, Long) -> Unit = { _, _ -> },
 ) {
     when (viewMode) {
-        com.shuli.reader.feature.bookshelf.model.ViewMode.GRID -> BookGrid(
+        ViewMode.GRID -> BookGrid(
             books = books,
             searchQuery = searchQuery,
             highlightedBookId = highlightedBookId,
@@ -446,10 +458,10 @@ private fun BookContent(
             selectedNodeIds = selectedNodeIds,
             onToggleSelection = onToggleSelection,
             onLongPressToEdit = onLongPressToEdit,
-            onReorder = onReorder,
+            onDragToSlot = onDragToSlot,
             onMerge = onMerge,
         )
-        com.shuli.reader.feature.bookshelf.model.ViewMode.LIST -> BookList(
+        ViewMode.LIST -> BookList(
             books = books,
             searchQuery = searchQuery,
             listState = listState,
@@ -464,7 +476,23 @@ private fun BookContent(
             selectedNodeIds = selectedNodeIds,
             onToggleSelection = onToggleSelection,
             onLongPressToEdit = onLongPressToEdit,
-            onReorder = onReorder,
+            onDragToSlot = onDragToSlot,
+            onMerge = onMerge,
+        )
+        ViewMode.COMPACT_LIST -> BookCompactList(
+            books = books,
+            searchQuery = searchQuery,
+            listState = listState,
+            highlightedBookId = highlightedBookId,
+            onBookClick = onBookClick,
+            onFolderClick = onFolderClick,
+            onShowInfo = onShowInfo,
+            modifier = modifier,
+            isEditMode = isEditMode,
+            selectedNodeIds = selectedNodeIds,
+            onToggleSelection = onToggleSelection,
+            onLongPressToEdit = onLongPressToEdit,
+            onDragToSlot = onDragToSlot,
             onMerge = onMerge,
         )
     }

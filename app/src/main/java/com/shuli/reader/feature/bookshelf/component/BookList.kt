@@ -72,7 +72,7 @@ fun BookList(
     selectedNodeIds: Set<Long> = emptySet(),
     onToggleSelection: (Long) -> Unit = {},
     onLongPressToEdit: (Long) -> Unit = {},
-    onReorder: (List<BookshelfNode>) -> Unit = {},
+    onDragToSlot: (Long, Int) -> Unit = { _, _ -> },
     onMerge: (Long, Long) -> Unit = { _, _ -> },
     onFolderClick: (Long) -> Unit = {},
 ) {
@@ -151,9 +151,9 @@ fun BookList(
                                     isDragging = false
                                     onLongPressToEdit(node.id)
                                 } else {
-                                    // 实际拖拽 → 提交最终排序到 ViewModel
-                                    onReorder(localBooks.toList())
-                                    // 延迟解除拖拽标记，等 Room Flow 发射新的正确 order 后再同步
+                                    // 实际拖拽 → 计算目标槽位，O(1) 写入
+                                    val targetSlot = localBooks.indexOfFirst { it.id == node.id }
+                                    onDragToSlot(node.id, targetSlot)
                                     scope.launch {
                                         delay(500)
                                         isDragging = false
@@ -249,6 +249,7 @@ private fun BookListItem(
                     .width(48.dp)
                     .height(64.dp),
                 isSmall = true,
+                isFavorite = book.isFavorite,
                 paletteIndexOverride = unifiedCoverPaletteIndex ?: book.customCoverPaletteIndex,
             )
         }
@@ -378,6 +379,7 @@ private fun FolderListItem(
                             fileType = firstBook.fileType,
                             modifier = Modifier.fillMaxSize(),
                             isSmall = true,
+                            isFavorite = firstBook.isFavorite,
                             paletteIndexOverride = firstBook.customCoverPaletteIndex,
                         )
                     }

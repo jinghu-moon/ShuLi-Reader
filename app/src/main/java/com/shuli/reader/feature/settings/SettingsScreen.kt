@@ -163,7 +163,6 @@ fun SettingsScreen(
                         // 界面字体
                         val currentFontText = when (uiState.appFont) {
                             "system" -> strings.appFontSystem
-                            "lxgw" -> strings.appFontLxgw
                             else -> strings.appFontHarmony
                         }
                         SettingsClickItem(
@@ -634,8 +633,8 @@ fun SettingsScreen(
 
     // 2. 界面字体
     if (showFontDialog) {
-        val options = listOf("harmony", "lxgw", "system")
-        val optionLabels = listOf(strings.appFontHarmony, strings.appFontLxgw, strings.appFontSystem)
+        val options = listOf("harmony", "system")
+        val optionLabels = listOf(strings.appFontHarmony, strings.appFontSystem)
         AlertDialog(
             onDismissRequest = { showFontDialog = false },
             title = { Text(strings.appFontLabel) },

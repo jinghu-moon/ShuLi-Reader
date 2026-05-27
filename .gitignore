@@ -20,4 +20,6 @@ captures/
 /refer
 /scratch
 .kotlin/
-.serena/
+.serena/keystore/
+keystore.properties
+*.jks

@@ -38,7 +38,7 @@ class SettingsViewModelTest {
         val state = viewModel.uiState.value
         assertEquals("zh-CN", state.language)
         assertEquals("system", state.themeMode)
-        assertEquals("lxgw", state.appFont)
+        assertEquals("harmony", state.appFont)
         assertEquals(16f, state.defaultFontSize, 0.01f)
         assertEquals(1.5f, state.defaultLineSpacing, 0.01f)
         assertEquals(1.0f, state.defaultParagraphSpacing, 0.01f)

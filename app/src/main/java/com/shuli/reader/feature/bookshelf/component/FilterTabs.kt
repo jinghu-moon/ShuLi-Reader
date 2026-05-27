@@ -17,7 +17,6 @@ fun FilterTabs(
 ) {
     val strings = LocalAppStrings.current
     val tabs = listOf(
-        FilterType.RECENT to strings.filterRecent,
         FilterType.ALL to strings.filterAll,
         FilterType.FINISHED to strings.filterFinished,
         FilterType.FAVORITE to strings.filterFavorite,

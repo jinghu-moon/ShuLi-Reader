@@ -8,6 +8,7 @@ data class FolderEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val name: String,
-    val orderIndex: Long = 0L,
+    // 固定槽位：null = 自动排序, 非 null = 固定在该位置
+    val pinnedSlot: Int? = null,
     val createdAt: Long = System.currentTimeMillis()
 )

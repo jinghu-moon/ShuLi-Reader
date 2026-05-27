@@ -29,7 +29,6 @@ import com.shuli.reader.feature.reader.ReaderViewModel
 import com.shuli.reader.feature.settings.SettingsEvent
 import com.shuli.reader.feature.settings.SettingsScreen
 import com.shuli.reader.feature.settings.SettingsViewModel
-import com.shuli.reader.ui.theme.LxgwFont
 import com.shuli.reader.ui.theme.ReadingFont
 import com.shuli.reader.ui.theme.ShuLiTheme
 import com.shuli.reader.ui.theme.Typography
@@ -152,7 +151,6 @@ class MainActivity : ComponentActivity() {
             // 计算全局字体
             val currentFontFamily = when (settingsState.appFont) {
                 "system" -> FontFamily.Default
-                "lxgw" -> LxgwFont
                 else -> ReadingFont // "harmony" → HarmonyOS Sans SC
             }
             val customTypography = Typography.withFontFamily(currentFontFamily)

@@ -17,6 +17,9 @@ sealed interface AppStrings {
     val nextSearchResult: String
     val sortIconDesc: String
     val viewModeIconDesc: String
+    val viewModeGrid: String
+    val viewModeList: String
+    val viewModeCompact: String
     val moreIconDesc: String
     val backIconDesc: String
     val clearIconDesc: String
@@ -75,6 +78,7 @@ sealed interface AppStrings {
     val readingFontSystem: String
     val readingFontHarmony: String
     val readingFontLxgw: String
+    val importFont: String
     val marginTopBottom: String
     val marginLeftRight: String
     val editValue: String
@@ -248,7 +252,6 @@ sealed interface AppStrings {
     val cancel: String
 
     // 书架筛选、排序与信息
-    val filterRecent: String
     val filterAll: String
     val filterFinished: String
     val filterFavorite: String
@@ -314,6 +317,9 @@ sealed interface AppStrings {
         override val nextSearchResult = "下一个搜索结果"
         override val sortIconDesc = "排序"
         override val viewModeIconDesc = "切换视图"
+        override val viewModeGrid = "网格"
+        override val viewModeList = "列表"
+        override val viewModeCompact = "紧凑"
         override val moreIconDesc = "更多"
         override val backIconDesc = "返回"
         override val clearIconDesc = "清除"
@@ -370,6 +376,7 @@ sealed interface AppStrings {
         override val readingFontSystem = "系统默认"
         override val readingFontHarmony = "鸿蒙字体"
         override val readingFontLxgw = "霞鹜文楷"
+        override val importFont = "导入字体"
         override val marginTopBottom = "上下边距"
         override val marginLeftRight = "左右边距"
         override val editValue = "修改数值"
@@ -531,7 +538,6 @@ sealed interface AppStrings {
         override val deleteBookTitle = "删除书籍"
         override val deleteBookConfirm = { title: String -> "确定要删除《$title》吗？此操作不可撤销。" }
         override val cancel = "取消"
-        override val filterRecent = "最近"
         override val filterAll = "全部"
         override val filterFinished = "已读完"
         override val filterFavorite = "收藏"
@@ -594,6 +600,9 @@ sealed interface AppStrings {
         override val nextSearchResult = "下一個搜尋結果"
         override val sortIconDesc = "排序"
         override val viewModeIconDesc = "切換檢視"
+        override val viewModeGrid = "網格"
+        override val viewModeList = "列表"
+        override val viewModeCompact = "緊湊"
         override val moreIconDesc = "更多"
         override val backIconDesc = "返回"
         override val clearIconDesc = "清除"
@@ -650,6 +659,7 @@ sealed interface AppStrings {
         override val readingFontSystem = "系統預設"
         override val readingFontHarmony = "鴻蒙字體"
         override val readingFontLxgw = "霞鶩文楷"
+        override val importFont = "匯入字型"
         override val marginTopBottom = "上下邊距"
         override val marginLeftRight = "左右邊距"
         override val editValue = "修改數值"
@@ -811,7 +821,6 @@ sealed interface AppStrings {
         override val deleteBookTitle = "刪除書籍"
         override val deleteBookConfirm = { title: String -> "確定要刪除《$title》嗎？此操作不可撤銷。" }
         override val cancel = "取消"
-        override val filterRecent = "最近"
         override val filterAll = "全部"
         override val filterFinished = "已讀完"
         override val filterFavorite = "收藏"
@@ -874,6 +883,9 @@ sealed interface AppStrings {
         override val nextSearchResult = "Next search result"
         override val sortIconDesc = "Sort"
         override val viewModeIconDesc = "Toggle View"
+        override val viewModeGrid = "Grid"
+        override val viewModeList = "List"
+        override val viewModeCompact = "Compact"
         override val moreIconDesc = "More"
         override val backIconDesc = "Back"
         override val clearIconDesc = "Clear"
@@ -930,6 +942,7 @@ sealed interface AppStrings {
         override val readingFontSystem = "System Default"
         override val readingFontHarmony = "HarmonyOS Sans"
         override val readingFontLxgw = "LXGW Wenkai"
+        override val importFont = "Import Font"
         override val marginTopBottom = "Top/Bottom Margin"
         override val marginLeftRight = "Left/Right Margin"
         override val editValue = "Edit Value"
@@ -1091,7 +1104,6 @@ sealed interface AppStrings {
         override val deleteBookTitle = "Delete book"
         override val deleteBookConfirm = { title: String -> "Are you sure you want to delete \"$title\"? This action cannot be undone." }
         override val cancel = "Cancel"
-        override val filterRecent = "Recent"
         override val filterAll = "All"
         override val filterFinished = "Finished"
         override val filterFavorite = "Favorites"

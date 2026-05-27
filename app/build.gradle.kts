@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -8,6 +10,20 @@ plugins {
 }
 
 android {
+    signingConfigs {
+        create("release") {
+            val props = Properties()
+            val f = rootProject.file("keystore.properties")
+            if (f.exists()) {
+                props.load(f.inputStream())
+            }
+            storeFile = rootProject.file(props.getProperty("storeFile", ""))
+            storePassword = props.getProperty("storePassword", "")
+            keyAlias = props.getProperty("keyAlias", "")
+            keyPassword = props.getProperty("keyPassword", "")
+        }
+    }
+
     namespace = "com.shuli.reader"
     compileSdk = 35
 
@@ -33,6 +49,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -149,3 +166,4 @@ dependencies {
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+

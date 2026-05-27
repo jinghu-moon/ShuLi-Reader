@@ -48,6 +48,19 @@ class BookshelfViewModel(
         const val INITIAL_PAGE_SIZE = 100
     }
 
+    init {
+        viewModelScope.launch {
+            userPreferences?.viewMode?.collect { modeStr ->
+                val mode = try {
+                    ViewMode.valueOf(modeStr)
+                } catch (e: Exception) {
+                    ViewMode.GRID
+                }
+                _viewMode.value = mode
+            }
+        }
+    }
+
     private val _viewMode = MutableStateFlow(ViewMode.GRID)
     private val _sortOrder = MutableStateFlow(SortOrder.LAST_READ)
     private val _filterType = MutableStateFlow(FilterType.ALL)
@@ -139,8 +152,8 @@ class BookshelfViewModel(
                 FolderItem(
                     id = folderUiId,
                     title = folder.name,
-                    orderIndex = folder.orderIndex,
-                    books = folderBooks.sortedBy { it.orderIndex }
+                    pinnedSlot = folder.pinnedSlot,
+                    books = folderBooks.sortedBy { it.pinnedSlot ?: Int.MAX_VALUE }
                 )
             )
         }
@@ -151,7 +164,10 @@ class BookshelfViewModel(
 
         val filtered = rootNodes.applyFilter(filterType)
         val searched = if (isSearching && searchQuery.isBlank()) emptyList() else filtered
-        val sorted = searched.applySorting(sortOrder, isAscending)
+        // 分离固定项和自动项，自动项按当前排序方式排序，然后槽位合并
+        val pinned = searched.filter { it.pinnedSlot != null }
+        val autoSorted = searched.filter { it.pinnedSlot == null }.applySorting(sortOrder, isAscending)
+        val sorted = mergePinnedSlots(pinned, autoSorted)
 
         BookshelfUiState(
             nodes = sorted,
@@ -177,6 +193,9 @@ class BookshelfViewModel(
 
     fun onViewModeChanged(mode: ViewMode) {
         _viewMode.value = mode
+        viewModelScope.launch {
+            userPreferences?.setViewMode(mode.name)
+        }
     }
 
     fun onSortOrderChanged(order: SortOrder) {
@@ -262,13 +281,8 @@ class BookshelfViewModel(
 
     fun onCreateFolderAndMove(folderName: String, sourceNodeId: Long, targetNodeId: Long) {
         viewModelScope.launch {
-            // 获取当前最大排序号
-            val orderIndex = System.currentTimeMillis() // 简易排序值
-            val folderId = bookRepository.createFolder(folderName, orderIndex)
+            val folderId = bookRepository.createFolder(folderName)
             bookRepository.moveBooksToFolder(listOf(sourceNodeId, targetNodeId), folderId)
-            
-            // 自动切换到自定义排序，以便反映拖拽结果
-            _sortOrder.value = SortOrder.CUSTOM
             _events.emit(BookshelfEvent.ShowMessage { "分组创建成功" })
         }
     }
@@ -304,7 +318,7 @@ class BookshelfViewModel(
         val bookIds = selectedIds.filter { it > 0 }
 
         viewModelScope.launch {
-            val folderId = bookRepository.createFolder(folderName, System.currentTimeMillis())
+            val folderId = bookRepository.createFolder(folderName)
             if (bookIds.isNotEmpty()) bookRepository.moveBooksToFolder(bookIds, folderId)
             onToggleEditMode()
             _events.emit(BookshelfEvent.ShowMessage { "已创建分组并移动" })
@@ -320,18 +334,57 @@ class BookshelfViewModel(
             if (tgtIsFolder) {
                 bookRepository.moveBooksToFolder(listOf(sourceId), -targetId)
             } else {
-                val newFolderId = bookRepository.createFolder("新建文件夹", System.currentTimeMillis())
+                val newFolderId = bookRepository.createFolder("新建文件夹")
                 bookRepository.moveBooksToFolder(listOf(sourceId, targetId), newFolderId)
             }
         }
     }
 
-    fun commitOrderToDatabase(nodes: List<BookshelfNode>) {
+    /** 将节点固定到指定槽位（O(1) 写入） */
+    fun pinNode(nodeId: Long, slot: Int) {
         viewModelScope.launch(Dispatchers.IO) {
-            nodes.forEachIndexed { index, node ->
-                val orderIndex = index.toLong()
-                if (node is BookItem) bookRepository.updateBookOrderIndex(node.id, orderIndex)
-                else if (node is FolderItem) bookRepository.updateFolderOrderIndex(-node.id, orderIndex)
+            if (nodeId > 0) {
+                bookRepository.updateBookPinnedSlot(nodeId, slot)
+            } else {
+                bookRepository.updateFolderPinnedSlot(-nodeId, slot)
+            }
+        }
+    }
+
+    /** 取消节点固定（恢复自动排序） */
+    fun unpinNode(nodeId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (nodeId > 0) {
+                bookRepository.updateBookPinnedSlot(nodeId, null)
+            } else {
+                bookRepository.updateFolderPinnedSlot(-nodeId, null)
+            }
+        }
+    }
+
+    /** 清除所有固定项（重置为自动排序） */
+    fun clearAllPinnedSlots() {
+        viewModelScope.launch(Dispatchers.IO) {
+            bookRepository.clearAllPinnedSlots()
+        }
+    }
+
+    /**
+     * 拖拽排序后批量更新 pinnedSlot。
+     * 对比新旧列表，找出位置变化的项，只更新变化的项（O(k) 写入，k = 变化数）。
+     */
+    fun commitDragResult(newNodes: List<BookshelfNode>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            newNodes.forEachIndexed { index, node ->
+                val oldSlot = node.pinnedSlot
+                val newSlot = index
+                if (oldSlot != newSlot) {
+                    if (node is BookItem) {
+                        bookRepository.updateBookPinnedSlot(node.id, newSlot)
+                    } else if (node is FolderItem) {
+                        bookRepository.updateFolderPinnedSlot(-node.id, newSlot)
+                    }
+                }
             }
         }
     }
@@ -471,14 +524,11 @@ class BookshelfViewModel(
     private fun List<BookshelfNode>.applyFilter(filter: FilterType): List<BookshelfNode> {
         return when (filter) {
             FilterType.ALL -> this
-            FilterType.RECENT -> filter { 
-                if (it is BookItem) it.isRecent else false 
+            FilterType.FINISHED -> filter {
+                if (it is BookItem) it.readingProgress >= 0.99f else false
             }
-            FilterType.FINISHED -> filter { 
-                if (it is BookItem) it.readingProgress >= 0.99f else false 
-            }
-            FilterType.FAVORITE -> filter { 
-                if (it is BookItem) it.isFavorite else false 
+            FilterType.FAVORITE -> filter {
+                if (it is BookItem) it.isFavorite else false
             }
         }
     }
@@ -499,8 +549,41 @@ class BookshelfViewModel(
                 val selector: (BookshelfNode) -> Float = { if (it is BookItem) it.readingProgress else 0f }
                 if (isAscending) sortedBy(selector) else sortedByDescending(selector)
             }
-            SortOrder.CUSTOM -> if (isAscending) sortedBy { it.orderIndex } else sortedByDescending { it.orderIndex }
         }
+    }
+
+    /**
+     * 槽位合并：固定项占据指定位置，自动项填充空隙。
+     * 冲突处理：多个固定项指向同一槽位时，后者顺延到下一个空槽。
+     */
+    private fun mergePinnedSlots(
+        pinned: List<BookshelfNode>,
+        auto: List<BookshelfNode>,
+    ): List<BookshelfNode> {
+        if (pinned.isEmpty()) return auto
+        if (auto.isEmpty()) return pinned.sortedBy { it.pinnedSlot }
+
+        val total = pinned.size + auto.size
+        val result = ArrayList<BookshelfNode>(total)
+
+        // 解析固定槽位冲突：同槽位后者顺延
+        val resolvedPinned = mutableMapOf<Int, BookshelfNode>()
+        pinned.sortedBy { it.pinnedSlot }.forEach { node ->
+            var slot = node.pinnedSlot!!
+            while (resolvedPinned.containsKey(slot)) { slot++ }
+            resolvedPinned[slot] = node
+        }
+
+        val autoIterator = auto.iterator()
+        for (i in 0 until total) {
+            val pinnedNode = resolvedPinned[i]
+            if (pinnedNode != null) {
+                result.add(pinnedNode)
+            } else if (autoIterator.hasNext()) {
+                result.add(autoIterator.next())
+            }
+        }
+        return result
     }
 }
 

@@ -24,8 +24,11 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -247,22 +250,51 @@ fun GroupPickerDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MoreActionsSheet(
-    onSelectAll: () -> Unit,
+    selectedBooks: List<BookItem>,
+    onToggleFavorite: () -> Unit,
+    onShowInfo: () -> Unit,
+    onCustomizeCover: () -> Unit,
     onMoveOut: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val strings = LocalAppStrings.current
+    val hasUnfavorited = selectedBooks.any { !it.isFavorite }
+    val singleSelection = selectedBooks.size == 1
+
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 32.dp)
         ) {
+            // 收藏/取消收藏
             ListItem(
-                headlineContent = { Text(strings.selectAll) },
-                leadingContent = { Icon(Icons.Default.SelectAll, contentDescription = null) },
-                modifier = Modifier.clickable { onSelectAll() },
+                headlineContent = {
+                    Text(if (hasUnfavorited) strings.addFavorite else strings.removeFavorite)
+                },
+                leadingContent = {
+                    Icon(
+                        imageVector = if (hasUnfavorited) Icons.Default.FavoriteBorder else Icons.Default.Favorite,
+                        contentDescription = null,
+                    )
+                },
+                modifier = Modifier.clickable { onToggleFavorite() },
             )
+            // 书籍信息（仅单选时显示）
+            if (singleSelection) {
+                ListItem(
+                    headlineContent = { Text(strings.bookInfo) },
+                    leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                    modifier = Modifier.clickable { onShowInfo() },
+                )
+                // 自定义封面
+                ListItem(
+                    headlineContent = { Text(strings.customizeCover) },
+                    leadingContent = { Icon(Icons.Default.Palette, contentDescription = null) },
+                    modifier = Modifier.clickable { onCustomizeCover() },
+                )
+            }
+            // 从分组中移出
             ListItem(
                 headlineContent = { Text("从分组中移出") },
                 leadingContent = { Icon(Icons.Default.Folder, contentDescription = null) },
@@ -380,6 +412,7 @@ private fun FolderGridCover(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(0.75f),
+                    isFavorite = book.isFavorite,
                     readingProgress = book.readingProgress,
                 )
             }

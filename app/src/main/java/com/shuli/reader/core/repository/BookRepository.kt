@@ -66,11 +66,10 @@ class BookRepository(
 
     fun getAllFolders(): Flow<List<com.shuli.reader.core.database.entity.FolderEntity>> = bookDao.getAllFolders()
 
-    suspend fun createFolder(name: String, orderIndex: Long): Long {
+    suspend fun createFolder(name: String): Long {
         return bookDao.insertFolder(
             com.shuli.reader.core.database.entity.FolderEntity(
                 name = name,
-                orderIndex = orderIndex
             )
         )
     }
@@ -89,12 +88,17 @@ class BookRepository(
         bookDao.moveBooksToFolder(bookIds, folderId)
     }
 
-    suspend fun updateBookOrderIndex(bookId: Long, orderIndex: Long) {
-        bookDao.updateBookOrderIndex(bookId, orderIndex)
+    suspend fun updateBookPinnedSlot(bookId: Long, slot: Int?) {
+        bookDao.updateBookPinnedSlot(bookId, slot)
     }
 
-    suspend fun updateFolderOrderIndex(folderId: Long, orderIndex: Long) {
-        bookDao.updateFolderOrderIndex(folderId, orderIndex)
+    suspend fun updateFolderPinnedSlot(folderId: Long, slot: Int?) {
+        bookDao.updateFolderPinnedSlot(folderId, slot)
+    }
+
+    suspend fun clearAllPinnedSlots() {
+        bookDao.clearAllBookPinnedSlots()
+        bookDao.clearAllFolderPinnedSlots()
     }
 
     fun searchBooksPage(

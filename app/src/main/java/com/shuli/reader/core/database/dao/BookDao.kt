@@ -38,7 +38,7 @@ interface BookDao {
             isFavorite,
             customCoverPaletteIndex,
             folderId,
-            orderIndex
+            pinnedSlot
         FROM books
         ORDER BY COALESCE(lastReadTime, addedTime) DESC
         LIMIT :limit OFFSET :offset
@@ -91,7 +91,7 @@ interface BookDao {
             books.isFavorite,
             books.customCoverPaletteIndex,
             books.folderId,
-            books.orderIndex
+            books.pinnedSlot
         FROM books
         JOIN books_fts ON books.id = books_fts.rowid
         WHERE books_fts MATCH :query
@@ -190,15 +190,21 @@ interface BookDao {
     @Query("SELECT * FROM folders WHERE id = :id")
     suspend fun getFolderById(id: Long): com.shuli.reader.core.database.entity.FolderEntity?
 
-    @Query("SELECT * FROM folders ORDER BY orderIndex ASC")
+    @Query("SELECT * FROM folders ORDER BY id ASC")
     fun getAllFolders(): Flow<List<com.shuli.reader.core.database.entity.FolderEntity>>
 
     @Query("UPDATE books SET folderId = :folderId WHERE id IN (:bookIds)")
     suspend fun moveBooksToFolder(bookIds: List<Long>, folderId: Long?)
 
-    @Query("UPDATE books SET orderIndex = :orderIndex WHERE id = :bookId")
-    suspend fun updateBookOrderIndex(bookId: Long, orderIndex: Long)
+    @Query("UPDATE books SET pinnedSlot = :slot WHERE id = :bookId")
+    suspend fun updateBookPinnedSlot(bookId: Long, slot: Int?)
 
-    @Query("UPDATE folders SET orderIndex = :orderIndex WHERE id = :folderId")
-    suspend fun updateFolderOrderIndex(folderId: Long, orderIndex: Long)
+    @Query("UPDATE folders SET pinnedSlot = :slot WHERE id = :folderId")
+    suspend fun updateFolderPinnedSlot(folderId: Long, slot: Int?)
+
+    @Query("UPDATE books SET pinnedSlot = NULL")
+    suspend fun clearAllBookPinnedSlots()
+
+    @Query("UPDATE folders SET pinnedSlot = NULL")
+    suspend fun clearAllFolderPinnedSlots()
 }

@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -99,6 +102,7 @@ fun DefaultBookCover(
     modifier: Modifier = Modifier,
     isSmall: Boolean = false,
     isMini: Boolean = false,
+    isFavorite: Boolean = false,
     readingProgress: Float = 0f,
     paletteIndexOverride: Int? = null,
 ) {
@@ -111,8 +115,8 @@ fun DefaultBookCover(
         colors = colors
     )
     
-    // 首字提取并大写（英文）
-    val firstChar = title.trim().firstOrNull()?.toString()?.uppercase() ?: ""
+    // 首字提取并大写（英文），跳过标点符号，寻找第一个有效字符（字母或数字）
+    val firstChar = title.trim().find { it.isLetterOrDigit() }?.toString()?.uppercase() ?: ""
 
     // 浅灰边缘勾勒
     val coverBorder = BorderStroke(1.dp, MoTuInk300.copy(alpha = 0.6f))
@@ -154,6 +158,18 @@ fun DefaultBookCover(
                     .border(BorderStroke(1.dp, tagColor.copy(alpha = 0.2f)), RoundedCornerShape(3.dp))
                     .padding(horizontal = 4.dp, vertical = 1.dp)
             )
+            // 收藏标记
+            if (isFavorite) {
+                Icon(
+                    imageVector = Icons.Filled.Favorite,
+                    contentDescription = "收藏",
+                    tint = Color(0xFFE53935),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(2.dp)
+                        .size(10.dp)
+                )
+            }
         }
     } else {
         // 2. 网格模式下艺术派封面（正中央浮现巨大宋体首字 + 顶部四行书名 + 底部沉入式腰封）
@@ -163,6 +179,18 @@ fun DefaultBookCover(
                 .background(coverGradient)
                 .border(coverBorder, RoundedCornerShape(4.dp))
         ) {
+            // 收藏标记
+            if (isFavorite) {
+                Icon(
+                    imageVector = Icons.Filled.Favorite,
+                    contentDescription = "收藏",
+                    tint = Color(0xFFE53935),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(14.dp)
+                )
+            }
             // 中央半透明 Serif 巨大首字，实现极其高雅的图文交融感
             if (firstChar.isNotEmpty()) {
                 Box(

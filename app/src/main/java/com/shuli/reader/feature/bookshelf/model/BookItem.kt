@@ -3,28 +3,28 @@ package com.shuli.reader.feature.bookshelf.model
 import com.shuli.reader.core.database.entity.BookEntity
 import com.shuli.reader.core.database.entity.BookShelfRow
 
-enum class ViewMode { GRID, LIST }
-enum class SortOrder { LAST_READ, ADD_TIME, TITLE, FILE_SIZE, PROGRESS, CUSTOM }
-enum class FilterType { ALL, RECENT, FINISHED, FAVORITE }
+enum class ViewMode { GRID, LIST, COMPACT_LIST }
+enum class SortOrder { LAST_READ, ADD_TIME, TITLE, FILE_SIZE, PROGRESS }
+enum class FilterType { ALL, FINISHED, FAVORITE }
 enum class FileType { TXT, EPUB }
 
 sealed interface BookshelfNode {
     val id: Long
     val title: String
-    val orderIndex: Long
+    val pinnedSlot: Int?
 }
 
 data class FolderItem(
     override val id: Long,
     override val title: String,
-    override val orderIndex: Long,
+    override val pinnedSlot: Int?,
     val books: List<BookItem>
 ) : BookshelfNode
 
 data class BookItem(
     override val id: Long,
     override val title: String,
-    override val orderIndex: Long,
+    override val pinnedSlot: Int?,
     val folderId: Long?,
     val author: String?,
     val coverUrl: String?,
@@ -36,7 +36,6 @@ data class BookItem(
     val readingDurationMinutes: Long,
     val lastReadTime: Long?,
     val isFavorite: Boolean,
-    val isRecent: Boolean,
     val customCoverPaletteIndex: Int? = null,
 ) : BookshelfNode
 
@@ -91,7 +90,7 @@ fun BookEntity.toBookItem(readingDurationMinutes: Long = 0): BookItem {
         isFavorite = isFavorite,
         customCoverPaletteIndex = customCoverPaletteIndex,
         folderId = folderId,
-        orderIndex = orderIndex,
+        pinnedSlot = pinnedSlot,
     )
 }
 
@@ -109,7 +108,7 @@ fun BookShelfRow.toBookItem(readingDurationMinutes: Long = 0): BookItem {
         isFavorite = isFavorite,
         customCoverPaletteIndex = customCoverPaletteIndex,
         folderId = folderId,
-        orderIndex = orderIndex,
+        pinnedSlot = pinnedSlot,
     )
 }
 
@@ -126,7 +125,7 @@ private fun toBookItem(
     isFavorite: Boolean,
     customCoverPaletteIndex: Int?,
     folderId: Long?,
-    orderIndex: Long,
+    pinnedSlot: Int?,
 ): BookItem {
     val type = when {
         rawFileType.equals("EPUB", ignoreCase = true) -> FileType.EPUB
@@ -149,11 +148,8 @@ private fun toBookItem(
         readingDurationMinutes = readingDurationMinutes,
         lastReadTime = lastReadTime,
         isFavorite = isFavorite,
-        isRecent = lastReadTime != null && (System.currentTimeMillis() - lastReadTime) < RECENT_WINDOW_MS,
         customCoverPaletteIndex = customCoverPaletteIndex,
         folderId = folderId,
-        orderIndex = orderIndex,
+        pinnedSlot = pinnedSlot,
     )
 }
-
-private const val RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000L

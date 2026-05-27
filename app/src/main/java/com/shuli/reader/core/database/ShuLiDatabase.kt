@@ -28,7 +28,7 @@ import com.shuli.reader.core.database.entity.ReadingProgressEntity
         ReaderPresetEntity::class,
         com.shuli.reader.core.database.entity.FolderEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 abstract class ShuLiDatabase : RoomDatabase() {
@@ -166,5 +166,6 @@ abstract class ShuLiDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE books ADD COLUMN orderIndex INTEGER NOT NULL DEFAULT 0")
             }
         }
+
     }
 }

@@ -69,6 +69,7 @@ private fun MiniCover(book: BookItem?, modifier: Modifier = Modifier) {
                     fileType = book.fileType,
                     modifier = Modifier.fillMaxSize(),
                     isMini = true,
+                    isFavorite = book.isFavorite,
                     paletteIndexOverride = book.customCoverPaletteIndex
                 )
             }

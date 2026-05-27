@@ -17,6 +17,7 @@ import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.ViewHeadline
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,7 +47,7 @@ import com.shuli.reader.ui.testing.UiTestTags
 fun BookshelfTopBar(
     todayReadingTime: String,
     viewMode: ViewMode,
-    onViewModeToggle: () -> Unit,
+    onViewModeChange: (ViewMode) -> Unit,
     onSortClick: () -> Unit,
     isSearching: Boolean,
     searchQuery: String,
@@ -130,15 +131,58 @@ fun BookshelfTopBar(
                 ) {
                     Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = strings.sortIconDesc)
                 }
-                IconButton(
-                    onClick = onViewModeToggle,
-                    modifier = Modifier.testTag(UiTestTags.BOOKSHELF_VIEW_MODE_BUTTON),
-                ) {
-                    Icon(
-                        imageVector = if (viewMode == ViewMode.GRID)
-                            Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.GridView,
-                        contentDescription = strings.viewModeIconDesc,
-                    )
+                var viewModeExpanded by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(
+                        onClick = { viewModeExpanded = true },
+                        modifier = Modifier.testTag(UiTestTags.BOOKSHELF_VIEW_MODE_BUTTON),
+                    ) {
+                        Icon(
+                            imageVector = when (viewMode) {
+                                ViewMode.GRID -> Icons.Outlined.GridView
+                                ViewMode.LIST -> Icons.AutoMirrored.Outlined.ViewList
+                                ViewMode.COMPACT_LIST -> Icons.Outlined.ViewHeadline
+                            },
+                            contentDescription = strings.viewModeIconDesc,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = viewModeExpanded,
+                        onDismissRequest = { viewModeExpanded = false },
+                    ) {
+                        val modes = listOf(
+                            ViewMode.GRID to Icons.Outlined.GridView,
+                            ViewMode.LIST to Icons.AutoMirrored.Outlined.ViewList,
+                            ViewMode.COMPACT_LIST to Icons.Outlined.ViewHeadline,
+                        )
+                        val labels = mapOf(
+                            ViewMode.GRID to strings.viewModeGrid,
+                            ViewMode.LIST to strings.viewModeList,
+                            ViewMode.COMPACT_LIST to strings.viewModeCompact,
+                        )
+                        modes.forEach { (mode, icon) ->
+                            val isSelected = viewMode == mode
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = labels[mode] ?: "",
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = null,
+                                        tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
+                                onClick = {
+                                    viewModeExpanded = false
+                                    onViewModeChange(mode)
+                                },
+                            )
+                        }
+                    }
                 }
                 
                 var menuExpanded by remember { mutableStateOf(false) }

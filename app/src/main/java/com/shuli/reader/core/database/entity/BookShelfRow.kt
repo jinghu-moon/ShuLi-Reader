@@ -13,5 +13,5 @@ data class BookShelfRow(
     val isFavorite: Boolean,
     val customCoverPaletteIndex: Int?,
     val folderId: Long?,
-    val orderIndex: Long,
+    val pinnedSlot: Int?,
 )

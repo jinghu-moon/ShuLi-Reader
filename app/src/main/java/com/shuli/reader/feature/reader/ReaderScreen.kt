@@ -117,6 +117,7 @@ import com.shuli.reader.ui.testing.UiTestTags
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 import com.shuli.reader.ui.theme.toCanvasThemeColors
 import com.shuli.reader.ui.theme.toReaderColorScheme
+import com.shuli.reader.core.font.FontManager
 
 /**
  * 阅读器页面。
@@ -128,7 +129,10 @@ fun ReaderScreen(
     bookId: Long,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ReaderViewModel = remember { ReaderViewModel() },
+    viewModel: ReaderViewModel = run {
+        val context = LocalContext.current
+        remember { ReaderViewModel(fontManager = FontManager(context)) }
+    },
 ) {
     val strings = LocalAppStrings.current
     val readerColors = LocalReaderColorScheme.current
@@ -644,6 +648,9 @@ fun ReaderScreen(
                     onTtsStop = { viewModel.stopTts() },
                     onTtsSpeedChange = { viewModel.setTtsSpeed(it) },
                     onTtsPitchChange = { viewModel.setTtsPitch(it) },
+                    customFonts = uiState.customFonts,
+                    onImportFont = { viewModel.importFont(it) },
+                    onDeleteFont = { viewModel.deleteFont(it) },
                 )
             }
             QuickSettingsSheet(

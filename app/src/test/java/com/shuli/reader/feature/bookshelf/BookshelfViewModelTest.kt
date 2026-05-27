@@ -72,9 +72,9 @@ class BookshelfViewModelTest {
 
     @Test
     fun changingFilterType_updatesState() = runTest {
-        viewModel.onFilterChanged(FilterType.RECENT)
-        val state = viewModel.uiState.first { it.filterType == FilterType.RECENT }
-        assertEquals(FilterType.RECENT, state.filterType)
+        viewModel.onFilterChanged(FilterType.FAVORITE)
+        val state = viewModel.uiState.first { it.filterType == FilterType.FAVORITE }
+        assertEquals(FilterType.FAVORITE, state.filterType)
     }
 
     @Test

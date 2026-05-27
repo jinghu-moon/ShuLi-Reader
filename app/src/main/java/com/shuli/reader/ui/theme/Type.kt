@@ -16,14 +16,6 @@ val ReadingFont: FontFamily = try {
     FontFamily.Default
 }
 
-val LxgwFont: FontFamily = try {
-    FontFamily(
-        Font(R.font.lxgw_wenkai_regular, FontWeight.Normal),
-    )
-} catch (e: Exception) {
-    FontFamily.Default
-}
-
 val Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = ReadingFont,

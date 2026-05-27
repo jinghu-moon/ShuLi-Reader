@@ -55,6 +55,7 @@ import com.shuli.reader.core.tts.TtsEngine
 import com.shuli.reader.core.tts.TtsState
 import com.shuli.reader.ui.theme.toCanvasThemeColors
 import com.shuli.reader.ui.theme.toReaderColorScheme
+import com.shuli.reader.core.font.FontManager
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
@@ -152,6 +153,8 @@ data class ReaderUiState(
     val ttsState: TtsState = TtsState.IDLE,
     val ttsActiveRange: SelectionRange? = null,
     val presets: List<com.shuli.reader.core.database.entity.ReaderPresetEntity> = emptyList(),
+    /** 用户导入的自定义字体列表 */
+    val customFonts: List<com.shuli.reader.core.font.FontManager.FontEntry> = emptyList(),
     /** 缓存的主题颜色，避免每次访问 themeColors 都创建中间对象 */
     val themeColors: ThemeColors = readerPreferences.backgroundColor
         .toReaderColorScheme().toCanvasThemeColors(),
@@ -174,6 +177,7 @@ class ReaderViewModel(
     private val presetDao: com.shuli.reader.core.database.dao.ReaderPresetDao? = null,
     private val paginator: Paginator = Paginator(SimpleTextMeasurer()),
     ttsEngine: TtsEngine? = null,
+    private val fontManager: com.shuli.reader.core.font.FontManager? = null,
 ) : ViewModel() {
 
     companion object {
@@ -220,6 +224,30 @@ class ReaderViewModel(
             },
         )
         loadPresets()
+        loadCustomFonts()
+    }
+
+    // ── 字体管理 ──────────────────────────────────────────────
+
+    fun loadCustomFonts() {
+        val fm = fontManager ?: return
+        _uiState.value = _uiState.value.copy(customFonts = fm.listFonts())
+    }
+
+    fun importFont(uri: android.net.Uri, displayName: String? = null) {
+        val fm = fontManager ?: return
+        try {
+            fm.importFont(uri, displayName)
+            loadCustomFonts()
+        } catch (_: Exception) {
+            // 导入失败，静默处理
+        }
+    }
+
+    fun deleteFont(fontId: String) {
+        val fm = fontManager ?: return
+        fm.deleteFontById(fontId)
+        loadCustomFonts()
     }
 
     /**

@@ -105,6 +105,9 @@ class UserPreferences(
         // 高级设置
         val KEY_GPU_ACCELERATION = booleanPreferencesKey("gpu_acceleration")
         val KEY_LOGGING_ENABLED = booleanPreferencesKey("logging_enabled")
+
+        // 书架设置
+        val KEY_VIEW_MODE = stringPreferencesKey("view_mode")
     }
 
     // 状态读取流 (提供首启默认值)
@@ -172,6 +175,8 @@ class UserPreferences(
     val gpuAcceleration: Flow<Boolean> = dataStore.data.map { it[KEY_GPU_ACCELERATION] ?: true }
     val loggingEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_LOGGING_ENABLED] ?: false }
 
+    val viewMode: Flow<String> = dataStore.data.map { it[KEY_VIEW_MODE] ?: "GRID" }
+
     // 状态编辑写入方法
     suspend fun setLanguage(value: String) = dataStore.edit { it[KEY_LANGUAGE] = value }
     suspend fun setThemeMode(value: String) = dataStore.edit { it[KEY_THEME_MODE] = value }
@@ -236,6 +241,8 @@ class UserPreferences(
 
     suspend fun setGpuAcceleration(value: Boolean) = dataStore.edit { it[KEY_GPU_ACCELERATION] = value }
     suspend fun setLoggingEnabled(value: Boolean) = dataStore.edit { it[KEY_LOGGING_ENABLED] = value }
+
+    suspend fun setViewMode(value: String) = dataStore.edit { it[KEY_VIEW_MODE] = value }
 
     // 重置所有设置项
     suspend fun resetAllSettings() {

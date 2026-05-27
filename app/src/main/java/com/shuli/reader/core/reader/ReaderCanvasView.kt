@@ -17,6 +17,7 @@ import android.view.ViewConfiguration
 import android.view.animation.DecelerateInterpolator
 import androidx.core.content.res.ResourcesCompat
 import com.shuli.reader.R
+import com.shuli.reader.core.font.FontManager
 import com.shuli.reader.core.data.ReaderTheme
 import com.shuli.reader.core.data.ThemeColors
 import com.shuli.reader.core.reader.animation.PageDelegate
@@ -41,6 +42,7 @@ class ReaderCanvasView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
 ) : View(context, attrs, defStyleAttr) {
+    private val fontManager = FontManager(context)
     private val defaultColors = ReaderTheme.PAPER.toReaderColorScheme().toCanvasThemeColors()
 
     // 画笔
@@ -468,23 +470,23 @@ class ReaderCanvasView @JvmOverloads constructor(
     private var currentFontKey: String = ""
 
     /**
-     * 设置阅读字体（"system" = 系统默认，其他 = LXGW 文楷）
+     * 设置阅读字体
+     * - "system" = 系统默认
+     * - "harmony" = 鸿蒙黑体（内置）
+     * - "custom:{id}" = 用户导入的字体
      */
     fun setFontFamily(fontKey: String) {
         if (fontKey == currentFontKey) return
         currentFontKey = fontKey
-        val typeface = when (fontKey) {
-            "system" -> Typeface.DEFAULT
-            "lxgw" -> try {
-                ResourcesCompat.getFont(context, R.font.lxgw_wenkai_regular)
-            } catch (_: Exception) {
-                Typeface.DEFAULT
-            }
-            else -> try {
+        val typeface = when {
+            fontKey == FontManager.KEY_SYSTEM -> Typeface.DEFAULT
+            fontKey == FontManager.KEY_HARMONY -> try {
                 ResourcesCompat.getFont(context, R.font.harmonyos_sanssc_regular)
             } catch (_: Exception) {
                 Typeface.DEFAULT
             }
+            FontManager.isCustomFont(fontKey) -> fontManager.loadTypeface(fontKey) ?: Typeface.DEFAULT
+            else -> Typeface.DEFAULT
         }
         if (textPaint.typeface == typeface) return
         textPaint.typeface = typeface

@@ -24,9 +24,10 @@ data class BookEntity(
     val totalChapterNum: Int = 0,
     // 收藏状态
     val isFavorite: Boolean = false,
-    // 分组与排序支持
+    // 分组支持
     val folderId: Long? = null,
-    val orderIndex: Long = 0L,
+    // 固定槽位：null = 自动排序, 非 null = 固定在该位置
+    val pinnedSlot: Int? = null,
     // 用户自定义封面色盘索引（0..19，对应 MorandiPalettes；null 走自动散列）
     val customCoverPaletteIndex: Int? = null,
 )
