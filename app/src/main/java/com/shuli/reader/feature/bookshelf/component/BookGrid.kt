@@ -29,6 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -57,6 +58,8 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
 import androidx.compose.runtime.toMutableStateList
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -79,8 +82,19 @@ fun BookGrid(
 ) {
     val lazyGridState = rememberLazyGridState()
 
-    // 拖拽期间使用的本地列表副本（同步更新，保证跟手）
-    val localBooks = remember(books) { books.toMutableStateList() }
+    // 拖拽进行中标记，阻断 LaunchedEffect 同步（必须在 LaunchedEffect 之前声明）
+    var isDragging by remember { mutableStateOf(false) }
+    // 本地可变列表：引用始终不变，通过 clear+addAll 原地更新
+    // 避免 remember(books) 重建列表导致拖拽中 onMove 闭包捕获过期引用
+    val localBooks = remember { books.toMutableStateList() }
+    // 仅在非拖拽时从 ViewModel 同步最新数据（导入/删除/数据库异步发射等）
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(books) {
+        if (!isDragging) {
+            localBooks.clear()
+            localBooks.addAll(books)
+        }
+    }
 
     // 追踪当前被拖拽的节点 key（isItemDragging 是 internal，需自行维护）
     var draggingNodeKey by remember { mutableStateOf<Any?>(null) }
@@ -139,17 +153,27 @@ fun BookGrid(
                         }
                         .longPressDraggableHandle(
                             enabled = !isEditMode,
-                            onDragStarted = { hasDraggedSwap = false },
+                            onDragStarted = {
+                                isDragging = true
+                                hasDraggedSwap = false
+                            },
                             onDragStopped = {
+                                draggingNodeKey = null
+                                lastSwapTarget = null
                                 if (!hasDraggedSwap) {
                                     // 长按松手（未产生 swap）→ 进入编辑模式
+                                    isDragging = false
                                     onLongPressToEdit(node.id)
                                 } else {
                                     // 实际拖拽 → 提交最终排序到 ViewModel
                                     onReorder(localBooks.toList())
+                                    // 延迟解除拖拽标记，等 Room Flow 发射新的正确 order 后
+                                    // LaunchedEffect(books) 才会同步，避免数据库异步发射重置 localBooks
+                                    scope.launch {
+                                        delay(500)
+                                        isDragging = false
+                                    }
                                 }
-                                draggingNodeKey = null
-                                lastSwapTarget = null
                             }
                         )
                 ) {
