@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import com.shuli.reader.core.i18n.LocalAppStrings
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,9 +47,11 @@ import com.shuli.reader.feature.bookshelf.model.BookshelfNode
 import com.shuli.reader.feature.bookshelf.model.BookItem
 import com.shuli.reader.feature.bookshelf.model.FolderItem
 import androidx.compose.material.icons.filled.Folder
-import org.burnoutcrew.reorderable.ReorderableItem
-import org.burnoutcrew.reorderable.detectReorderAfterLongPress
-import org.burnoutcrew.reorderable.rememberReorderableLazyListState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
+import androidx.compose.runtime.toMutableStateList
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -69,33 +73,48 @@ fun BookList(
     onMerge: (Long, Long) -> Unit = { _, _ -> },
     onFolderClick: (Long) -> Unit = {},
 ) {
-    val reorderState = rememberReorderableLazyListState(
-        onMove = { from, to ->
-            val mutable = books.toMutableList()
-            val fromIndex = from.index
-            val toIndex = to.index
-            if (fromIndex in mutable.indices && toIndex in mutable.indices) {
-                val item = mutable.removeAt(fromIndex)
-                mutable.add(toIndex, item)
-                onReorder(mutable)
-            }
-        },
-        canDragOver = { from, to ->
-            from.index != to.index
-        },
-        onDragEnd = { startIndex, endIndex ->
-            onReorder(books)
-        },
-    )
+    // 拖拽期间使用的本地列表副本（同步更新，保证跟手）
+    val localBooks = remember(books) { books.toMutableStateList() }
+
+    // 追踪当前被拖拽的节点 key
+    var draggingNodeKey by remember { mutableStateOf<Any?>(null) }
+    // 标记拖拽过程中是否发生了实际的位置交换（swap），用于区分"长按松手"和"拖拽排序"
+    var hasDraggedSwap by remember { mutableStateOf(false) }
+    var lastSwapTime by remember { mutableStateOf(0L) }
+    var lastSwapTarget by remember { mutableStateOf<Any?>(null) }
+
+    val reorderableLazyListState = rememberReorderableLazyListState(listState) { from, to ->
+        val fromIndex = from.index
+        val toIndex = to.index
+        if (fromIndex in localBooks.indices && toIndex in localBooks.indices) {
+            // 直接操作本地可变列表，Compose 立即感知变化 → 拖拽跟手
+            val item = localBooks.removeAt(fromIndex)
+            localBooks.add(toIndex, item)
+            hasDraggedSwap = true
+            // 记录 swap 事件用于悬停检测
+            lastSwapTime = System.currentTimeMillis()
+            lastSwapTarget = to.key
+        }
+    }
+
+    // 拖拽悬停触发合并：拖拽过程中不触发，避免排序时误合并
+    LaunchedEffect(draggingNodeKey, lastSwapTarget, lastSwapTime) {
+        val draggedKey = draggingNodeKey
+        val targetKey = lastSwapTarget
+        if (draggedKey != null && targetKey != null && draggedKey != targetKey) {
+            // 拖拽排序过程中不触发合并，避免意外合并
+        }
+    }
 
     LazyColumn(
-        state = reorderState.listState,
+        state = listState,
         modifier = modifier.fillMaxSize(),
     ) {
-        items(books, key = { it.id }) { node ->
-            ReorderableItem(reorderState, key = node.id) { isDraggingNow ->
-                val scale = if (isDraggingNow) 1.02f else 1f
-                val elevation = if (isDraggingNow) 4.dp else 0.dp
+        items(localBooks, key = { it.id }) { node ->
+            ReorderableItem(reorderableLazyListState, key = node.id) { isDraggingNow ->
+                if (isDraggingNow) draggingNodeKey = node.id
+                val scale by animateFloatAsState(if (isDraggingNow) 1.02f else 1f)
+                val elevation by animateDpAsState(if (isDraggingNow) 4.dp else 0.dp)
 
                 Box(
                     modifier = Modifier
@@ -104,8 +123,21 @@ fun BookList(
                             scaleY = scale
                             shadowElevation = elevation.toPx()
                         }
-                        .zIndex(if (isDraggingNow) 1f else 0f)
-                        .detectReorderAfterLongPress(reorderState)
+                        .longPressDraggableHandle(
+                            enabled = !isEditMode,
+                            onDragStarted = { hasDraggedSwap = false },
+                            onDragStopped = {
+                                if (!hasDraggedSwap) {
+                                    // 长按松手（未产生 swap）→ 进入编辑模式
+                                    onLongPressToEdit(node.id)
+                                } else {
+                                    // 实际拖拽 → 提交最终排序到 ViewModel
+                                    onReorder(localBooks.toList())
+                                }
+                                draggingNodeKey = null
+                                lastSwapTarget = null
+                            }
+                        )
                 ) {
                     if (node is BookItem) {
                         BookListItem(
@@ -115,7 +147,7 @@ fun BookList(
                             onClick = {
                                 if (isEditMode) onToggleSelection(node.id) else onBookClick(node.id)
                             },
-                            onLongClick = { onLongPressToEdit(node.id) },
+                            onLongClick = { onToggleSelection(node.id) },
                             unifiedCoverPaletteIndex = unifiedCoverPaletteIndex,
                             isEditMode = isEditMode,
                             isSelected = selectedNodeIds.contains(node.id),
@@ -125,7 +157,7 @@ fun BookList(
                             folder = node,
                             isHighlighted = false,
                             onClick = { if (isEditMode) onToggleSelection(node.id) else onFolderClick(node.id) },
-                            onLongClick = { onLongPressToEdit(node.id) },
+                            onLongClick = { onToggleSelection(node.id) },
                             isEditMode = isEditMode,
                             isSelected = selectedNodeIds.contains(node.id),
                         )
@@ -161,9 +193,16 @@ private fun BookListItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(
-                    onClick = onClick, 
-                    onLongClick = { if (!isEditMode) onLongClick() }
+                .then(
+                    if (isEditMode) {
+                        Modifier.combinedClickable(
+                            onClick = onClick,
+                            onLongClick = onLongClick,
+                        )
+                    } else {
+                        // 正常模式：只用 clickable（不识别长按），避免与外层 longPressDraggableHandle 冲突
+                        Modifier.clickable(onClick = onClick)
+                    }
                 )
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -280,9 +319,16 @@ private fun FolderListItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = { if (!isEditMode) onLongClick() },
+                .then(
+                    if (isEditMode) {
+                        Modifier.combinedClickable(
+                            onClick = onClick,
+                            onLongClick = onLongClick,
+                        )
+                    } else {
+                        // 正常模式：只用 clickable，避免与外层 longPressDraggableHandle 冲突
+                        Modifier.clickable(onClick = onClick)
+                    }
                 )
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,

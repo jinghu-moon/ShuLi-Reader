@@ -101,7 +101,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
 
     // Reorderable
-    implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
+    implementation("sh.calvin.reorderable:reorderable:3.1.0")
 
     // Room
     implementation(libs.androidx.room.runtime)
