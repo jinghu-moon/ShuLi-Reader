@@ -11,9 +11,13 @@ class SimpleTextMeasurer : TextMeasurer {
 
     fun measureTextWidth(text: String, textSize: Float, letterSpacingPx: Float): Float {
         if (text.isEmpty()) return 0f
-        val baseWidth = text.sumOf { char -> measureCharWidth(char, textSize).toDouble() }.toFloat()
-        val spacing = letterSpacingPx * (text.length - 1).coerceAtLeast(0)
-        return baseWidth + spacing
+        // 消除 sumOf { .toDouble() } 的逐字符 Double 装箱开销
+        var width = 0f
+        for (char in text) {
+            width += measureCharWidth(char, textSize)
+        }
+        width += letterSpacingPx * (text.length - 1).coerceAtLeast(0)
+        return width
     }
 
     override fun measureTextHeight(textSize: Float, lineHeight: Float): Float {

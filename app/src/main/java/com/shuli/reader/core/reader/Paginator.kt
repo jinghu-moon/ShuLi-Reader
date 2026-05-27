@@ -315,14 +315,17 @@ class Paginator(
             // 回溯：行尾不能是 FORBIDDEN_LINE_END_CHARS（左引号、左括号等）
             while (charCount > 1 && remaining[charCount - 1] in FORBIDDEN_LINE_END_CHARS) {
                 charCount--
+                charWidths.removeAt(charWidths.lastIndex)
             }
             // 前推：行首不能是 FORBIDDEN_LINE_START_CHARS（右引号、右括号、句末标点等）
             if (charCount < lineEnd && remaining[charCount] in FORBIDDEN_LINE_START_CHARS) {
+                charWidths.add(textMeasurer.measureCharWidth(remaining[charCount], textSize))
                 charCount++
             }
         } else {
             // 默认行为：仅处理行首禁尾标点
             if (charCount < lineEnd && remaining[charCount] in FORBIDDEN_LINE_START_CHARS) {
+                charWidths.add(textMeasurer.measureCharWidth(remaining[charCount], textSize))
                 charCount++
             }
         }
@@ -332,15 +335,8 @@ class Paginator(
         val consumedChars = charCount + if (consumesLineBreak) 1 else 0
         val isParagraphEnd = consumesLineBreak
 
-        // 构建 CharColumn 列表
-        // 注意：中文分行回溯/前推可能使 charCount 与原始 charWidths.size 不一致，
-        // 需要按最终 text 长度重新收集宽度
-        val finalCharWidths = if (text.length == charWidths.size) {
-            charWidths
-        } else {
-            // charCount 被调整过，重新测量最终文本的每个字符
-            text.map { char -> textMeasurer.measureCharWidth(char, textSize) }
-        }
+        // 构建 CharColumn 列表（charWidths 已随 charCount 调整同步更新，无需重新测量）
+        val finalCharWidths = charWidths
         val charColumns = text.mapIndexed { index: Int, char: Char ->
             CharColumn(char.toString(), finalCharWidths[index])
         }

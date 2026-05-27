@@ -182,6 +182,14 @@ class ReaderViewModel(
 
     companion object {
         private const val TOOLBAR_AUTO_HIDE_DELAY_MS = 5000L
+        private const val TAG = "ReaderPerf"
+    }
+
+    /** 性能诊断：记录各阶段耗时 */
+    private fun logPerf(label: String, startMs: Long) {
+        if (com.shuli.reader.BuildConfig.DEBUG) {
+            android.util.Log.d(TAG, "$label: ${System.currentTimeMillis() - startMs}ms")
+        }
     }
 
     private val _uiState = MutableStateFlow(ReaderUiState())
@@ -200,8 +208,8 @@ class ReaderViewModel(
     // M1: 章节加载 Job（防止快速连续调用导致多个 openChapter 并发）
     private var chapterJob: Job? = null
 
-    // R7: 章节缓存管理器
-    private val cacheManager = CacheManager.forMemoryClass(256)
+    // R7: 章节缓存管理器（从 BookCacheStore 获取，跨 ViewModel 生命周期复用）
+    private var cacheManager: CacheManager = CacheManager.forMemoryClass(256)
 
     // R7: 章节提供器（预加载相邻章节）
     private val chapterProvider = ChapterProvider(paginator)
@@ -260,6 +268,8 @@ class ReaderViewModel(
     private var loadedBookContent: BookContent? = null
     /** 缓存当前书籍文件路径，避免 paginateChapter 重复查询 DB */
     private var currentBookFilePath: String? = null
+    /** 当前书籍是否为 EPUB（轻量解析时 content 为空，跳过全量字数统计） */
+    private var isCurrentBookEpub: Boolean = false
     private val ttsController = ttsEngine?.let { engine ->
         TtsController(
             engine = engine,
@@ -447,11 +457,16 @@ class ReaderViewModel(
      * 打开书籍
      */
     fun openBook(bookId: Long) {
-        // R7: 切换书籍时清理缓存
+        val perfStart = System.currentTimeMillis()
+
+        // R7: 切换书籍时释放旧书籍缓存到 BookCacheStore
         val oldBookId = _uiState.value.bookId
         if (oldBookId != 0L && oldBookId != bookId) {
-            cacheManager.clearBook(oldBookId.toString())
+            com.shuli.reader.core.reader.cache.BookCacheStore.releaseBook(oldBookId.toString())
         }
+
+        // 从 BookCacheStore 获取当前书籍的缓存（可能复用之前的分页结果）
+        cacheManager = com.shuli.reader.core.reader.cache.BookCacheStore.getBookCache(bookId.toString())
 
         // R7: 结束上一次阅读会话，开始新会话
         readingStateManager.endSession()
@@ -468,6 +483,8 @@ class ReaderViewModel(
                     return@launch
                 }
 
+                // 1. 获取书籍元数据
+                val dbStart = System.currentTimeMillis()
                 val book = withContext(Dispatchers.IO) {
                     repository.getBookById(bookId).first()
                 } ?: run {
@@ -477,12 +494,18 @@ class ReaderViewModel(
                     )
                     return@launch
                 }
+                logPerf("getBookById", dbStart)
 
+                // 2. 解析书籍内容（EPUB 轻量模式：只读目录，不读正文）
+                val parseStart = System.currentTimeMillis()
                 val content = withContext(Dispatchers.IO) {
                     repository.parseBookContent(File(book.filePath))
                 }
+                logPerf("parseBookContent [${book.fileType}]", parseStart)
+
                 loadedBookContent = content
                 currentBookFilePath = book.filePath
+                isCurrentBookEpub = book.fileType == "EPUB"
 
                 val chapterCount = content.normalizedChapters().size
                 val chapterIndex = book.durChapterIndex.coerceIn(0, (chapterCount - 1).coerceAtLeast(0))
@@ -494,9 +517,7 @@ class ReaderViewModel(
                     chapterIndex = chapterIndex,
                     totalChapters = chapterCount,
                     chapterTitles = chapters.map { it.title },
-                    chapterWordCounts = chapters.map { chapter ->
-                        countChapterWords(content.content, chapter.startIndex, chapter.endIndex)
-                    },
+                    chapterWordCounts = emptyList(), // 延迟计算，不阻塞首屏
                 )
 
                 withContext(Dispatchers.IO) {
@@ -506,12 +527,22 @@ class ReaderViewModel(
                 loadNotes()
                 readingStateManager.startSession()
 
-                // 流式分页：首页秒开，目标位置自动跳转
+                logPerf("openBook.preparation", perfStart)
+
+                // 3. 流式分页：首页秒开，目标位置自动跳转
+                val paginateStart = System.currentTimeMillis()
                 chapterJob = paginateChapterStreaming(
                     content = content,
                     index = chapterIndex,
                     targetCharOffset = book.durChapterPos,
-                    onDone = { preloadAdjacentChapters(content, chapterIndex) },
+                    onDone = {
+                        logPerf("firstPageReady", perfStart)
+                        preloadAdjacentChapters(content, chapterIndex)
+                        // EPUB 轻量解析时 content 为空，跳过全量字数统计
+                        if (!isCurrentBookEpub) {
+                            computeChapterWordCounts(content)
+                        }
+                    },
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -1343,6 +1374,7 @@ class ReaderViewModel(
         readingStateManager.endSession()
         readingStateManager.cancel()
         chapterProvider.cancel()
+        // 缓存保留在 BookCacheStore 中，短时间返回可复用
 
         toolbarAutoHideJob?.cancel()
         toolbarAutoHideJob = null
@@ -1727,6 +1759,19 @@ class ReaderViewModel(
         return count
     }
 
+    /**
+     * 异步计算所有章节字数，不阻塞首屏加载
+     */
+    private fun computeChapterWordCounts(content: BookContent) {
+        viewModelScope.launch(Dispatchers.Default) {
+            val chapters = content.normalizedChapters()
+            val counts = chapters.map { chapter ->
+                countChapterWords(content.content, chapter.startIndex, chapter.endIndex)
+            }
+            _uiState.value = _uiState.value.copy(chapterWordCounts = counts)
+        }
+    }
+
     private suspend fun paginateChapter(content: BookContent, index: Int): TextChapter? {
         val chapters = content.normalizedChapters()
         val chapter = chapters.getOrNull(index) ?: return null
@@ -1859,6 +1904,7 @@ class ReaderViewModel(
             _uiState.value = _uiState.value.copy(isLoading = true)
 
             try {
+                val textLoadStart = System.currentTimeMillis()
                 val chapterText = if (repository != null && filePath != null) {
                     withContext(Dispatchers.IO) {
                         repository.getChapterText(File(filePath), index, content)
@@ -1866,6 +1912,7 @@ class ReaderViewModel(
                 } else {
                     content.chapterText(chapterMeta)
                 }
+                logPerf("getChapterText[$index]", textLoadStart)
 
                 // 应用简繁转换
                 val convertedText = when (_uiState.value.readerPreferences.chineseConvert) {
@@ -1890,8 +1937,8 @@ class ReaderViewModel(
                         val currentState = _uiState.value
                         if (currentState.chapterIndex != index) return
 
-                        // P6: targetCharOffset > 0 时等待目标页，不显示第 0 页避免闪烁
-                        if (targetCharOffset <= 0 && pageIndex == 0 && currentState.currentPage == null) {
+                        if (pageIndex == 0 && currentState.currentPage == null) {
+                            // 首页就绪：立即显示，无论是否有目标偏移
                             _uiState.value = currentState.copy(
                                 currentPage = page,
                                 pageIndex = 0,
@@ -1900,6 +1947,7 @@ class ReaderViewModel(
                             page.startCharOffset <= targetCharOffset &&
                             targetCharOffset < page.endCharOffset
                         ) {
+                            // 目标页就绪：跳转到目标位置
                             _uiState.value = _uiState.value.copy(
                                 currentPage = page,
                                 pageIndex = pageIndex,
@@ -1916,6 +1964,9 @@ class ReaderViewModel(
                         )
                         // 存入缓存
                         cacheManager.putChapter(cacheKey, chapter)
+                        if (com.shuli.reader.BuildConfig.DEBUG) {
+                            android.util.Log.d(TAG, "layoutCompleted[$index]: ${chapter.pageSize} pages")
+                        }
                     }
                 }
 
@@ -1975,6 +2026,7 @@ class ReaderViewModel(
                 showHeader = prefs.header.visibility != HeaderVisibility.ALWAYS_HIDE,
                 showFooter = prefs.footer.visibility != HeaderVisibility.ALWAYS_HIDE,
                 chineseConvert = prefs.chineseConvert.ordinal,
+                usePanguSpacing = prefs.usePanguSpacing,
                 titleAlignOrdinal = prefs.titleStyle.align.ordinal,
                 titleSizeOffsetSp = prefs.titleStyle.sizeOffsetSp,
                 titleMarginTopDp = prefs.titleStyle.marginTopDp,
@@ -1993,10 +2045,19 @@ class ReaderViewModel(
                 } else {
                     content.chapterText(chapter)
                 }
+
+                // 应用简繁转换（与 paginateChapterStreaming 保持一致）
+                val convertedText = when (prefs.chineseConvert) {
+                    ChineseConvert.NONE -> chapterText
+                    ChineseConvert.SIMPLIFIED -> ChineseConverter.toSimplified(chapterText)
+                    ChineseConvert.TRADITIONAL -> ChineseConverter.toTraditional(chapterText)
+                }
+                val finalText = if (prefs.usePanguSpacing) PanguSpacing.insert(convertedText) else convertedText
+
                 val result = paginator.paginateChapter(
                     chapterIndex = index,
                     title = chapter.title,
-                    content = chapterText,
+                    content = finalText,
                     config = config,
                 )
                 cacheManager.putChapter(cacheKey, result)

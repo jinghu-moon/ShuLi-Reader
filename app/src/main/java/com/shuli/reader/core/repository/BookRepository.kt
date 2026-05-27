@@ -45,7 +45,7 @@ class BookRepository(
         val file = java.io.File(book.filePath)
         if (!file.exists()) return@withContext emptyList()
 
-        val bookContent = parseBookContent(file)
+        val bookContent = parseBookContent(file, fullParse = true)
         bookDao.replaceBookContentIndex(bookId, bookContent.toContentIndexRows(bookId))
         searchBookContent(bookContent, query)
     }
@@ -182,10 +182,16 @@ class BookRepository(
         return readingProgressDao.getTodayTotalReadingTime(todayStart)
     }
 
-    suspend fun parseBookContent(file: File): BookContent {
+    /**
+     * 解析书籍内容。
+     * @param fullParse true 时读取全部章节正文（搜索索引用），false 时 EPUB 只做轻量目录解析。
+     */
+    suspend fun parseBookContent(file: File, fullParse: Boolean = false): BookContent {
         return when {
             file.name.endsWith(".txt", ignoreCase = true) -> txtParser.parse(file)
-            file.name.endsWith(".epub", ignoreCase = true) -> epubParser.parse(file)
+            file.name.endsWith(".epub", ignoreCase = true) -> {
+                if (fullParse) epubParser.parseWithContent(file) else epubParser.parse(file)
+            }
             else -> throw IllegalArgumentException("Unsupported file format: ${file.name}")
         }
     }
@@ -391,7 +397,7 @@ class BookRepository(
     }
 
     private suspend fun replaceSearchIndex(bookId: Long, file: File) {
-        val content = parseBookContent(file)
+        val content = parseBookContent(file, fullParse = true)
         bookDao.replaceBookContentIndex(bookId, content.toContentIndexRows(bookId))
     }
 

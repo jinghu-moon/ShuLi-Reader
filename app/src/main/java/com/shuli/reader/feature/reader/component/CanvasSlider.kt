@@ -210,6 +210,7 @@ fun ReaderValueSlider(
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
     showSlider: Boolean = true,
+    sliderEnabled: Boolean = true,
     onValueChangeFinished: (() -> Unit)? = null,
     onValueClick: (() -> Unit)? = null,
     sliderFraction: Float = 0.55f,
@@ -243,6 +244,7 @@ fun ReaderValueSlider(
                     onValueChangeFinished?.invoke()
                 },
                 modifier = Modifier.size(36.dp),
+                enabled = sliderEnabled,
             ) {
                 Icon(Icons.Outlined.Remove, null, Modifier.size(18.dp), tint = readerColors.textPrimary)
             }
@@ -251,6 +253,7 @@ fun ReaderValueSlider(
                 onValueChange = onValueChange,
                 valueRange = valueRange,
                 steps = steps,
+                enabled = sliderEnabled,
                 onValueChangeFinished = onValueChangeFinished,
                 modifier = Modifier.fillMaxWidth(sliderFraction).height(36.dp),
             )
@@ -260,6 +263,7 @@ fun ReaderValueSlider(
                     onValueChangeFinished?.invoke()
                 },
                 modifier = Modifier.size(36.dp),
+                enabled = sliderEnabled,
             ) {
                 Icon(Icons.Outlined.Add, null, Modifier.size(18.dp), tint = readerColors.textPrimary)
             }

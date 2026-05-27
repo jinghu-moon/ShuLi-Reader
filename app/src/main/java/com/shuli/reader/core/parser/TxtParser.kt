@@ -92,9 +92,10 @@ class TxtParser {
                 0,
                 file.length(),
             )
-            val bytes = ByteArray(buffer.remaining())
-            buffer.get(bytes)
-            return String(bytes, charset)
+            // 直接从 MappedByteBuffer 解码，避免中间 ByteArray 拷贝
+            val decoder = charset.newDecoder()
+            val charBuffer = decoder.decode(buffer)
+            return charBuffer.toString()
         }
     }
 

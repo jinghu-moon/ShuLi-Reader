@@ -31,6 +31,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -45,6 +46,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -312,20 +314,21 @@ private fun BrightnessBar(
             steps = 0,
             format = { "${(it * 100).toInt()}%" },
             onValueChange = onBrightnessChange,
-            showSlider = !isAuto,
+            showSlider = true,
+            sliderEnabled = !isAuto,
             modifier = Modifier.weight(1f),
         )
-        FilterChip(
-            selected = isAuto,
+        IconButton(
             onClick = { onBrightnessChange(if (isAuto) 0.5f else -1f) },
-            label = { Text(strings.brightnessFollowSystem, style = MaterialTheme.typography.labelSmall) },
-            colors = FilterChipDefaults.filterChipColors(
-                containerColor = readerColors.surface,
-                labelColor = readerColors.textSecondary,
-                selectedContainerColor = readerColors.accent,
-                selectedLabelColor = readerColors.background,
-            ),
-        )
+            modifier = Modifier.size(36.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.BrightnessAuto,
+                contentDescription = strings.brightnessFollowSystem,
+                modifier = Modifier.size(20.dp),
+                tint = if (isAuto) readerColors.textPrimary else readerColors.textSecondary,
+            )
+        }
     }
 }
 
@@ -466,8 +469,8 @@ private fun LayoutPanel(
     ReaderValueSlider(
         label = strings.paragraphSpacing,
         value = prefs.paragraphSpacing,
-        valueRange = 1.0f..3.0f,
-        steps = 19,
+        valueRange = 0.5f..3.0f,
+        steps = 24,
         format = { "%.1f".format(it) },
         onValueChange = onParagraphSpacingChange,
     )

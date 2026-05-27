@@ -1,7 +1,7 @@
 package com.shuli.reader.core.reader.cache
 
 /**
- * LRU 缓存实现
+ * LRU 缓存实现（线程安全）
  */
 class LruCache<K, V>(
     private val maxSize: Int,
@@ -11,6 +11,7 @@ class LruCache<K, V>(
     /**
      * 获取缓存值
      */
+    @Synchronized
     fun get(key: K): V? {
         return cache[key]
     }
@@ -18,6 +19,7 @@ class LruCache<K, V>(
     /**
      * 存入缓存
      */
+    @Synchronized
     fun put(key: K, value: V) {
         cache[key] = value
         trimToSize()
@@ -26,6 +28,7 @@ class LruCache<K, V>(
     /**
      * 移除缓存
      */
+    @Synchronized
     fun remove(key: K): V? {
         return cache.remove(key)
     }
@@ -33,6 +36,7 @@ class LruCache<K, V>(
     /**
      * 清空缓存
      */
+    @Synchronized
     fun clear() {
         cache.clear()
     }
@@ -40,6 +44,7 @@ class LruCache<K, V>(
     /**
      * 获取缓存大小
      */
+    @Synchronized
     fun size(): Int {
         return cache.size
     }
@@ -47,6 +52,7 @@ class LruCache<K, V>(
     /**
      * 检查是否包含 key
      */
+    @Synchronized
     fun containsKey(key: K): Boolean {
         return cache.containsKey(key)
     }
@@ -64,6 +70,7 @@ class LruCache<K, V>(
     /**
      * 获取缓存统计信息
      */
+    @Synchronized
     fun stats(): CacheStats {
         return CacheStats(
             size = cache.size,
