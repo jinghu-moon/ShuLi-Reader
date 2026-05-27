@@ -17,6 +17,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,7 +32,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -51,6 +51,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
+import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -65,6 +68,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -171,11 +177,26 @@ fun QuickSettingsSheet(
         dragHandle = { BottomSheetDefaults.DragHandle(color = readerColors.textSecondary) },
     ) {
         Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.62f)) {
-            // 常驻：亮度栏
-            BrightnessBar(
-                brightness = uiState.readerPreferences.brightness,
-                onBrightnessChange = actions.onBrightnessChange,
+            // 常驻：跟随系统亮度开关
+            val isAuto = uiState.readerPreferences.brightness < 0f
+            BrightnessFollowSystemRow(
+                isAuto = isAuto,
+                onToggle = { checked ->
+                    actions.onBrightnessChange(if (checked) -1f else 0.5f)
+                },
             )
+
+            // 常驻：亮度滑杆（跟随系统时隐藏）
+            AnimatedVisibility(
+                visible = !isAuto,
+                enter = expandVertically(tween(200)) + fadeIn(tween(200)),
+                exit = shrinkVertically(tween(200)) + fadeOut(tween(200)),
+            ) {
+                BrightnessBar(
+                    brightness = uiState.readerPreferences.brightness,
+                    onBrightnessChange = actions.onBrightnessChange,
+                )
+            }
 
             // 常驻：主题色块
             ThemeColorRow(
@@ -296,40 +317,73 @@ fun QuickSettingsSheet(
 // ── 常驻组件 ──────────────────────────────────────────────
 
 @Composable
+private fun BrightnessFollowSystemRow(
+    isAuto: Boolean,
+    onToggle: (Boolean) -> Unit,
+) {
+    val readerColors = LocalReaderColorScheme.current
+    val strings = LocalAppStrings.current
+    val context = LocalContext.current
+
+    // 系统亮度百分比（跟随系统时显示）
+    val systemBrightnessPct = remember {
+        val raw = Settings.System.getInt(
+            context.contentResolver,
+            Settings.System.SCREEN_BRIGHTNESS,
+            128,
+        )
+        (raw * 100f / 255f).toInt()
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = strings.brightnessFollowSystemLabel,
+                style = MaterialTheme.typography.bodyLarge,
+                color = readerColors.textPrimary,
+            )
+            if (isAuto) {
+                Text(
+                    text = "${strings.brightness} $systemBrightnessPct%",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = readerColors.textSecondary,
+                )
+            }
+        }
+        Box(
+            modifier = Modifier.pointerInput(Unit) {
+                detectTapGestures(
+                    onLongPress = {
+                        Toast.makeText(context, strings.brightnessResetToSystem, Toast.LENGTH_SHORT).show()
+                    },
+                )
+            },
+        ) {
+            Switch(
+                checked = isAuto,
+                onCheckedChange = onToggle,
+            )
+        }
+    }
+}
+
+@Composable
 private fun BrightnessBar(
     brightness: Float,
     onBrightnessChange: (Float) -> Unit,
 ) {
-    val readerColors = LocalReaderColorScheme.current
-    val strings = LocalAppStrings.current
-    val isAuto = brightness < 0f
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        ReaderValueSlider(
-            label = strings.brightness,
-            value = if (isAuto) 0.5f else brightness,
-            valueRange = 0.01f..1f,
-            steps = 0,
-            format = { "${(it * 100).toInt()}%" },
-            onValueChange = onBrightnessChange,
-            showSlider = true,
-            sliderEnabled = !isAuto,
-            modifier = Modifier.weight(1f),
-        )
-        IconButton(
-            onClick = { onBrightnessChange(if (isAuto) 0.5f else -1f) },
-            modifier = Modifier.size(36.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.BrightnessAuto,
-                contentDescription = strings.brightnessFollowSystem,
-                modifier = Modifier.size(20.dp),
-                tint = if (isAuto) readerColors.textPrimary else readerColors.textSecondary,
-            )
-        }
-    }
+    ReaderValueSlider(
+        label = LocalAppStrings.current.brightness,
+        value = brightness.coerceIn(0.01f, 1f),
+        valueRange = 0.01f..1f,
+        steps = 0,
+        format = { "${(it * 100).toInt()}%" },
+        onValueChange = onBrightnessChange,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
 }
 
 /**

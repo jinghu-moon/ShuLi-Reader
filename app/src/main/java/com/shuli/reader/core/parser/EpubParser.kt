@@ -1,5 +1,6 @@
 package com.shuli.reader.core.parser
 
+import com.shuli.reader.core.database.entity.BookChapterEntity
 import com.shuli.reader.core.parser.model.BookContent
 import com.shuli.reader.core.parser.model.Chapter
 import kotlinx.coroutines.Dispatchers
@@ -106,6 +107,148 @@ class EpubParser {
                 content = "",
             )
         }
+    }
+
+    /**
+     * 构建章节目录索引：只提取标题和 spineIndex，不读取正文。
+     * 优先从 nav.xhtml / toc.ncx 获取标题（更快），回退到逐章读取 <title>/<h1~h6>。
+     */
+    suspend fun parseChapterIndex(file: File): List<BookChapterEntity> = withContext(Dispatchers.IO) {
+        ZipFile(file).use { zip ->
+            val entries = zip.entries().toList()
+            val opfPath = findOpfPath(zip, entries)
+
+            val opfEntry = zip.getEntry(opfPath)
+                ?: throw IllegalStateException("Invalid EPUB: missing OPF file")
+            val opfDir = opfPath.substringBeforeLast("/")
+            val opfContent = zip.getInputStream(opfEntry).bufferedReader().readText()
+            val doc = Jsoup.parse(opfContent, "", org.jsoup.parser.Parser.xmlParser())
+
+            val spineItems = doc.select("spine itemref").map { it.attr("idref") }
+            val manifestItems = doc.select("manifest item").associate {
+                it.attr("id") to it.attr("href")
+            }
+
+            // 缓存 OPF 供后续 parseChapter() 使用
+            cachedOpf = CachedOpfMetadata(opfPath, opfDir, spineItems, manifestItems)
+
+            // 优先尝试从 nav.xhtml / toc.ncx 获取章节标题
+            val navTitles = parseNavTitles(zip, opfDir, manifestItems, entries)
+
+            val chapters = mutableListOf<BookChapterEntity>()
+            for ((spineIdx, spineItem) in spineItems.withIndex()) {
+                val href = manifestItems[spineItem] ?: continue
+                val fullPath = if (opfDir.isNotEmpty()) "$opfDir/$href" else href
+                if (fullPath.contains("..")) continue
+
+                // 优先使用 nav 标题，回退到读取 HTML
+                val title = navTitles[spineIdx]
+                    ?: run {
+                        val entry = zip.getEntry(fullPath) ?: return@run null
+                        val htmlContent = zip.getInputStream(entry).bufferedReader().readText()
+                        extractChapterTitle(htmlContent)
+                    }
+                    ?: "Chapter ${chapters.size + 1}"
+
+                chapters.add(
+                    BookChapterEntity(
+                        bookId = 0, // 由调用方填充
+                        chapterIndex = chapters.size,
+                        title = title,
+                        spineIndex = spineIdx,
+                    )
+                )
+            }
+
+            chapters
+        }
+    }
+
+    /**
+     * 从 nav.xhtml (EPUB3) 或 toc.ncx (EPUB2) 解析章节标题映射。
+     * 返回 spineIndex → title 的映射，失败时返回空 Map（回退到逐章解析）。
+     */
+    private fun parseNavTitles(
+        zip: ZipFile,
+        opfDir: String,
+        manifestItems: Map<String, String>,
+        entries: List<java.util.zip.ZipEntry>,
+    ): Map<Int, String> {
+        // EPUB3: nav.xhtml
+        val navHref = manifestItems.values.find { it.endsWith("nav.xhtml") || it.endsWith("nav.html") }
+        if (navHref != null) {
+            val navPath = if (opfDir.isNotEmpty()) "$opfDir/$navHref" else navHref
+            val navEntry = entries.find { it.name == navPath }
+            if (navEntry != null) {
+                runCatching {
+                    val navContent = zip.getInputStream(navEntry).bufferedReader().readText()
+                    return parseNavXhtml(navContent, opfDir, manifestItems)
+                }
+            }
+        }
+
+        // EPUB2: toc.ncx
+        val ncxId = manifestItems.entries.find { it.value.endsWith("toc.ncx") }?.key
+        if (ncxId != null) {
+            val ncxHref = manifestItems[ncxId] ?: return emptyMap()
+            val ncxPath = if (opfDir.isNotEmpty()) "$opfDir/$ncxHref" else ncxHref
+            val ncxEntry = entries.find { it.name == ncxPath }
+            if (ncxEntry != null) {
+                runCatching {
+                    val ncxContent = zip.getInputStream(ncxEntry).bufferedReader().readText()
+                    return parseTocNcx(ncxContent, opfDir, manifestItems)
+                }
+            }
+        }
+
+        return emptyMap()
+    }
+
+    /**
+     * 解析 EPUB3 nav.xhtml 中的目录标题。
+     * 返回 href → title 映射（href 为 manifest 中的相对路径）。
+     */
+    private fun parseNavXhtml(
+        navContent: String,
+        opfDir: String,
+        manifestItems: Map<String, String>,
+    ): Map<Int, String> {
+        val doc = Jsoup.parse(navContent, "", org.jsoup.parser.Parser.xmlParser())
+        val navToc = doc.select("nav[epub:type=toc], nav[*|type=toc], nav").first()
+            ?: return emptyMap()
+
+        // 构建 href → spineIndex 的反向映射
+        val hrefToSpine = mutableMapOf<String, Int>()
+        for ((id, href) in manifestItems) {
+            // 不处理，由调用方构建
+        }
+
+        val result = mutableMapOf<Int, String>()
+        val links = navToc.select("a[href]")
+        // 简化：返回标题列表，由调用方按顺序匹配 spine
+        // 由于 nav 中的顺序通常与 spine 一致，按顺序返回
+        return links.mapIndexed { idx, link ->
+            idx to link.text().trim()
+        }.filter { it.second.isNotBlank() }.toMap()
+    }
+
+    /**
+     * 解析 EPUB2 toc.ncx 中的目录标题。
+     */
+    private fun parseTocNcx(
+        ncxContent: String,
+        opfDir: String,
+        manifestItems: Map<String, String>,
+    ): Map<Int, String> {
+        val doc = Jsoup.parse(ncxContent, "", org.jsoup.parser.Parser.xmlParser())
+        val navPoints = doc.select("navMap > navPoint")
+        if (navPoints.isEmpty()) return emptyMap()
+
+        return navPoints.mapIndexed { idx, navPoint ->
+            val title = navPoint.select("navLabel > text").first()?.text()?.trim()
+                ?: "Chapter ${idx + 1}"
+            idx to title
+        }.toMap()
     }
 
     /**

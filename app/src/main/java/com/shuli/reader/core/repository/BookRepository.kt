@@ -1,5 +1,6 @@
 package com.shuli.reader.core.repository
 
+import com.shuli.reader.core.database.dao.BookChapterDao
 import com.shuli.reader.core.database.dao.BookDao
 import com.shuli.reader.core.database.dao.ReadingProgressDao
 import com.shuli.reader.core.database.entity.BookContentIndexEntity
@@ -15,17 +16,22 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
 class BookRepository(
     private val bookDao: BookDao,
+    private val bookChapterDao: BookChapterDao,
     private val readingProgressDao: ReadingProgressDao,
     private val txtParser: TxtParser,
     private val epubParser: EpubParser,
     private val booksDir: java.io.File,
 ) {
     private val duplicateChecker = DuplicateChecker(bookDao)
+    /** 按 bookId 串行化 ensureChapterIndex，防止 importBook + openBook 并发重复构建 */
+    private val chapterIndexMutexes = java.util.concurrent.ConcurrentHashMap<Long, Mutex>()
 
     /**
      * 在书籍正文中搜索关键词
@@ -196,18 +202,69 @@ class BookRepository(
         }
     }
 
-    suspend fun getChapterText(file: File, chapterIndex: Int, bookContent: BookContent): String = withContext(Dispatchers.IO) {
-        val chapters = bookContent.chapters
+    suspend fun getChapterText(file: File, chapterIndex: Int, bookContent: BookContent): String {
+        return getChapterText(file, chapterIndex, bookContent.chapters, bookContent.bookId)
+    }
+
+    /**
+     * 获取章节正文。
+     * EPUB: 通过 spineIndex 解析 XHTML
+     * TXT: 从 DB 读取字节偏移，按需读取
+     */
+    suspend fun getChapterText(
+        file: File,
+        chapterIndex: Int,
+        chapters: List<com.shuli.reader.core.parser.model.Chapter>,
+        bookId: Long = 0L,
+    ): String = withContext(Dispatchers.IO) {
         val chapter = chapters.getOrNull(chapterIndex) ?: return@withContext ""
         return@withContext if (file.name.endsWith(".epub", ignoreCase = true)) {
-            // 使用 chapter.spineIndex（原始 spine 位置）而非 chapterIndex（过滤后索引）
-            // 因为 parseChaptersWithContent 会跳过空白 spine 条目（封面、目录等），
-            // 导致 chapters 列表索引与 spine 索引不一致
             epubParser.parseChapter(file, chapter.spineIndex)
         } else {
-            val start = chapter.startIndex.coerceIn(0, bookContent.content.length)
-            val end = chapter.endIndex.coerceIn(start, bookContent.content.length)
-            bookContent.content.substring(start, end)
+            // TXT: 从 DB 单条查询字节偏移，按需读取
+            if (bookId > 0L) {
+                val chapterEntity = bookChapterDao.getChapter(bookId, chapterIndex)
+                if (chapterEntity != null) {
+                    return@withContext readTxtChapterByEntity(file, chapterEntity)
+                }
+            }
+            // 兜底：DB 无记录时用旧逻辑（兼容未迁移场景）
+            android.util.Log.w("BookRepository", "Fallback: no chapter index for bookId=$bookId, chapterIndex=$chapterIndex")
+            val start = chapter.startIndex
+            val end = chapter.endIndex
+            val content = readTxtContent(file)
+            content.substring(start.coerceIn(0, content.length), end.coerceIn(start, content.length))
+        }
+    }
+
+    private fun readTxtContent(file: File): String {
+        return try {
+            val charset = txtParser.detectCharset(file)
+            file.readText(charset)
+        } catch (e: Exception) {
+            android.util.Log.e("BookRepository", "Failed to read txt content: ${file.absolutePath}", e)
+            ""
+        }
+    }
+
+    /**
+     * 按 BookChapterEntity 的字节偏移读取 TXT 章节。
+     */
+    private fun readTxtChapterByEntity(
+        file: File,
+        chapter: com.shuli.reader.core.database.entity.BookChapterEntity,
+    ): String {
+        return try {
+            java.io.RandomAccessFile(file, "r").use { raf ->
+                raf.seek(chapter.byteStart)
+                val byteLength = (chapter.byteEnd - chapter.byteStart).toInt()
+                val bytes = ByteArray(byteLength)
+                raf.readFully(bytes)
+                String(bytes, java.nio.charset.Charset.forName(chapter.charset))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("BookRepository", "Failed to read chapter by byte offset: ${file.absolutePath}, chapterIndex=${chapter.chapterIndex}", e)
+            ""
         }
     }
 
@@ -295,6 +352,7 @@ class BookRepository(
                 replaceSearchIndex(bookId, targetFile)
             }
         }
+        // 章节目录索引延迟到 openBook 时按需构建，避免阻塞导入
         bookId
     }
 
@@ -307,6 +365,76 @@ class BookRepository(
         }
         replaceSearchIndex(bookId, file)
         true
+    }
+
+    /**
+     * 确保章节目录索引存在且有效。
+     * 通过文件指纹（fileSize + lastModified）判断是否需要重建。
+     * 如果 DB 中已有匹配指纹的章节记录，则跳过解析。
+     * 使用 Mutex 按 bookId 串行化，防止 importBook + openBook 并发重复构建。
+     */
+    suspend fun ensureChapterIndex(bookId: Long) {
+        val mutex = chapterIndexMutexes.getOrPut(bookId) { Mutex() }
+        mutex.withLock {
+            withContext(Dispatchers.IO) {
+                val book = bookDao.getBookById(bookId).first() ?: return@withContext
+                val file = File(book.filePath)
+                if (!file.exists()) return@withContext
+
+                val currentSize = file.length()
+                val currentModified = file.lastModified()
+
+                // 指纹匹配且已有章节记录 → 跳过
+                val sizeMatch = book.chapterIndexFileSize == currentSize
+                val modifiedMatch = book.chapterIndexLastModified == currentModified
+                val builtBefore = book.chapterIndexBuiltAt > 0L
+                val hasChapters = bookChapterDao.countChapters(bookId) > 0
+
+                if (sizeMatch && modifiedMatch && builtBefore && hasChapters) {
+                    android.util.Log.d("BookRepository", "ensureChapterIndex: fingerprint HIT, skip rebuild")
+                    return@withContext
+                }
+
+                // 指纹未命中，记录原因
+                android.util.Log.w("BookRepository", buildString {
+                    append("ensureChapterIndex: fingerprint MISS, rebuilding. ")
+                    append("sizeMatch=$sizeMatch (db=${book.chapterIndexFileSize}, file=$currentSize), ")
+                    append("modifiedMatch=$modifiedMatch (db=${book.chapterIndexLastModified}, file=$currentModified), ")
+                    append("builtBefore=$builtBefore, hasChapters=$hasChapters")
+                })
+
+                // 解析章节目录
+                val chapters = when {
+                    file.name.endsWith(".txt", ignoreCase = true) -> txtParser.parseChapterIndex(file)
+                    file.name.endsWith(".epub", ignoreCase = true) -> epubParser.parseChapterIndex(file)
+                    else -> emptyList()
+                }
+
+                if (chapters.isNotEmpty()) {
+                    // 填充 bookId 并持久化
+                    val withBookId = chapters.map { it.copy(bookId = bookId) }
+                    bookChapterDao.replaceChapters(bookId, withBookId)
+
+                    // 更新指纹和总章数
+                    bookDao.updateBook(
+                        book.copy(
+                            chapterIndexFileSize = currentSize,
+                            chapterIndexLastModified = currentModified,
+                            chapterIndexBuiltAt = System.currentTimeMillis(),
+                            totalChapterNum = chapters.size,
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * 获取已持久化的章节目录列表。
+     * 如果索引不存在则返回空列表（调用方应先调用 ensureChapterIndex）。
+     */
+    suspend fun getChapterIndex(bookId: Long): List<com.shuli.reader.core.database.entity.BookChapterEntity> {
+        return bookChapterDao.getChapters(bookId)
     }
 
     private fun getTodayStartTimestamp(): Long {

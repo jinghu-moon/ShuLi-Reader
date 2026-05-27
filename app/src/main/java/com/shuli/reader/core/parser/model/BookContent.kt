@@ -7,6 +7,8 @@ data class BookContent(
     val totalLength: Long,
     val chapters: List<Chapter>,
     val content: String = "",
+    /** 关联的书籍 ID，用于从 DB 查询章节字节偏移 */
+    val bookId: Long = 0L,
 )
 
 data class Chapter(

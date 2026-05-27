@@ -4,11 +4,13 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.shuli.reader.core.database.dao.BookChapterDao
 import com.shuli.reader.core.database.dao.BookDao
 import com.shuli.reader.core.database.dao.BookmarkDao
 import com.shuli.reader.core.database.dao.NoteDao
 import com.shuli.reader.core.database.dao.ReadingProgressDao
 import com.shuli.reader.core.database.dao.ReaderPresetDao
+import com.shuli.reader.core.database.entity.BookChapterEntity
 import com.shuli.reader.core.database.entity.BookContentIndexEntity
 import com.shuli.reader.core.database.entity.BookEntity
 import com.shuli.reader.core.database.entity.BookFtsEntity
@@ -27,12 +29,14 @@ import com.shuli.reader.core.database.entity.ReadingProgressEntity
         ReadingProgressEntity::class,
         ReaderPresetEntity::class,
         com.shuli.reader.core.database.entity.FolderEntity::class,
+        BookChapterEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 abstract class ShuLiDatabase : RoomDatabase() {
     abstract fun bookDao(): BookDao
+    abstract fun bookChapterDao(): BookChapterDao
     abstract fun bookmarkDao(): BookmarkDao
     abstract fun noteDao(): NoteDao
     abstract fun readingProgressDao(): ReadingProgressDao
@@ -164,6 +168,34 @@ abstract class ShuLiDatabase : RoomDatabase() {
                 // books 表增加分组和排序字段
                 db.execSQL("ALTER TABLE books ADD COLUMN folderId INTEGER DEFAULT NULL")
                 db.execSQL("ALTER TABLE books ADD COLUMN orderIndex INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 创建章节目录表
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS book_chapters (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        bookId INTEGER NOT NULL,
+                        chapterIndex INTEGER NOT NULL,
+                        title TEXT NOT NULL,
+                        spineIndex INTEGER NOT NULL DEFAULT -1,
+                        charStart INTEGER NOT NULL DEFAULT 0,
+                        charEnd INTEGER NOT NULL DEFAULT 0,
+                        byteStart INTEGER NOT NULL DEFAULT 0,
+                        byteEnd INTEGER NOT NULL DEFAULT 0,
+                        charset TEXT NOT NULL DEFAULT 'UTF-8'
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS index_book_chapters_bookId_chapterIndex
+                    ON book_chapters(bookId, chapterIndex)
+                """.trimIndent())
+                // books 表增加章节索引指纹字段
+                db.execSQL("ALTER TABLE books ADD COLUMN chapterIndexFileSize INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE books ADD COLUMN chapterIndexLastModified INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE books ADD COLUMN chapterIndexBuiltAt INTEGER NOT NULL DEFAULT 0")
             }
         }
 

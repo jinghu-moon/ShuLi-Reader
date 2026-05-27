@@ -36,6 +36,7 @@ class ShuLiAppContainer(
                 ShuLiDatabase.MIGRATION_6_7,
                 ShuLiDatabase.MIGRATION_7_8,
                 ShuLiDatabase.MIGRATION_8_9,
+                ShuLiDatabase.MIGRATION_10_11,
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -48,6 +49,7 @@ class ShuLiAppContainer(
     val bookRepository: BookRepository by lazy {
         BookRepository(
             bookDao = database.bookDao(),
+            bookChapterDao = database.bookChapterDao(),
             readingProgressDao = database.readingProgressDao(),
             txtParser = TxtParser(),
             epubParser = EpubParser(),

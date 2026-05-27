@@ -196,6 +196,7 @@ fun CanvasSlider(
  * @param onValueChange 值变化回调
  * @param modifier Modifier
  * @param showSlider 是否显示滑动条部分，false 时仅显示标签 + 数值
+ * @param sliderEnabled 滑动条是否可交互
  * @param onValueChangeFinished 拖拽/点击确认后回调
  * @param onValueClick 点击数值文字的回调（用于自动模式切换等场景）
  * @param sliderFraction 滑动条占行宽的比例（0..1），默认 0.55

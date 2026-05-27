@@ -1,5 +1,6 @@
 package com.shuli.reader.core.repository
 
+import com.shuli.reader.core.database.dao.BookChapterDao
 import com.shuli.reader.core.database.dao.BookDao
 import com.shuli.reader.core.database.dao.ReadingProgressDao
 import com.shuli.reader.core.database.entity.BookContentIndexEntity
@@ -99,6 +100,7 @@ class BookRepositorySearchTest {
     private fun repository(bookDao: BookDao): BookRepository {
         return BookRepository(
             bookDao = bookDao,
+            bookChapterDao = mockk<BookChapterDao>(relaxed = true),
             readingProgressDao = mockk<ReadingProgressDao>(relaxed = true),
             txtParser = TxtParser(),
             epubParser = EpubParser(),

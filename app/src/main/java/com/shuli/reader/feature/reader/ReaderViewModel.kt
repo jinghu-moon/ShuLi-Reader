@@ -496,29 +496,38 @@ class ReaderViewModel(
                 }
                 logPerf("getBookById", dbStart)
 
-                // 2. 解析书籍内容（EPUB 轻量模式：只读目录，不读正文）
-                val parseStart = System.currentTimeMillis()
-                val content = withContext(Dispatchers.IO) {
-                    repository.parseBookContent(File(book.filePath))
+                // 2. 确保章节目录索引存在（从 DB 加载或重新解析）
+                val indexStart = System.currentTimeMillis()
+                withContext(Dispatchers.IO) {
+                    repository.ensureChapterIndex(bookId)
                 }
-                logPerf("parseBookContent [${book.fileType}]", parseStart)
+                val chapterIndexList = withContext(Dispatchers.IO) {
+                    repository.getChapterIndex(bookId)
+                }
+                logPerf("ensureChapterIndex [${book.fileType}]", indexStart)
 
-                loadedBookContent = content
                 currentBookFilePath = book.filePath
                 isCurrentBookEpub = book.fileType == "EPUB"
 
-                val chapterCount = content.normalizedChapters().size
+                val chapterCount = chapterIndexList.size
                 val chapterIndex = book.durChapterIndex.coerceIn(0, (chapterCount - 1).coerceAtLeast(0))
 
-                val chapters = content.normalizedChapters()
                 _uiState.value = _uiState.value.copy(
                     bookTitle = book.title,
                     chapterTitle = book.durChapterTitle.orEmpty(),
                     chapterIndex = chapterIndex,
                     totalChapters = chapterCount,
-                    chapterTitles = chapters.map { it.title },
+                    chapterTitles = chapterIndexList.map { it.title },
                     chapterWordCounts = emptyList(), // 延迟计算，不阻塞首屏
                 )
+
+                // 3. 加载当前章节内容（从 DB 索引按需读取）
+                val parseStart = System.currentTimeMillis()
+                val content = withContext(Dispatchers.IO) {
+                    loadChapterContent(repository, book, chapterIndexList, chapterIndex)
+                }
+                loadedBookContent = content
+                logPerf("loadChapterContent", parseStart)
 
                 withContext(Dispatchers.IO) {
                     repository.updateLastReadTime(bookId)
@@ -529,7 +538,7 @@ class ReaderViewModel(
 
                 logPerf("openBook.preparation", perfStart)
 
-                // 3. 流式分页：首页秒开，目标位置自动跳转
+                // 4. 流式分页：首页秒开，目标位置自动跳转
                 val paginateStart = System.currentTimeMillis()
                 chapterJob = paginateChapterStreaming(
                     content = content,
@@ -538,9 +547,9 @@ class ReaderViewModel(
                     onDone = {
                         logPerf("firstPageReady", perfStart)
                         preloadAdjacentChapters(content, chapterIndex)
-                        // EPUB 轻量解析时 content 为空，跳过全量字数统计
+                        // TXT: 从 DB 章节索引直接计算字数
                         if (!isCurrentBookEpub) {
-                            computeChapterWordCounts(content)
+                            computeChapterWordCounts(chapterIndexList)
                         }
                     },
                 )
@@ -550,6 +559,83 @@ class ReaderViewModel(
                     error = e.message,
                 )
             }
+        }
+    }
+
+    /**
+     * 根据 DB 章节索引加载当前章节内容。
+     * TXT: 使用 byteStart/byteEnd 按需读取
+     * EPUB: 使用 spineIndex 解析 XHTML
+     */
+    private suspend fun loadChapterContent(
+        repository: BookRepository,
+        book: com.shuli.reader.core.database.entity.BookEntity,
+        chapterIndexList: List<com.shuli.reader.core.database.entity.BookChapterEntity>,
+        chapterIndex: Int,
+    ): BookContent = withContext(Dispatchers.IO) {
+        val file = File(book.filePath)
+        val chapter = chapterIndexList.getOrNull(chapterIndex)
+
+        if (chapter == null) {
+            // 兜底：无章节时返回空内容
+            return@withContext BookContent(
+                title = book.title,
+                author = book.author,
+                encoding = "UTF-8",
+                totalLength = 0L,
+                chapters = emptyList(),
+                content = "",
+                bookId = book.id,
+            )
+        }
+
+        // 构建 Chapter 列表供分页使用
+        val chapters = chapterIndexList.map { ch ->
+            Chapter(
+                title = ch.title,
+                startIndex = ch.charStart,
+                endIndex = ch.charEnd,
+                spineIndex = ch.spineIndex,
+            )
+        }
+
+        val chapterText = if (isCurrentBookEpub) {
+            // EPUB: 通过 repository 解析（内部用 spineIndex）
+            repository.getChapterText(file, chapterIndex, chapters)
+        } else {
+            // TXT: 按需读取当前章节
+            readTxtChapter(file, chapter)
+        }
+
+        BookContent(
+            title = book.title,
+            author = book.author,
+            encoding = chapter.charset,
+            totalLength = chapterText.length.toLong(),
+            chapters = chapters,
+            content = chapterText,
+            bookId = book.id,
+        )
+    }
+
+    /**
+     * TXT 按需读取：使用 byteStart/byteEnd 定位，只读取当前章节。
+     */
+    private fun readTxtChapter(
+        file: File,
+        chapter: com.shuli.reader.core.database.entity.BookChapterEntity,
+    ): String {
+        return try {
+            java.io.RandomAccessFile(file, "r").use { raf ->
+                raf.seek(chapter.byteStart)
+                val byteLength = (chapter.byteEnd - chapter.byteStart).toInt()
+                val bytes = ByteArray(byteLength)
+                raf.readFully(bytes)
+                String(bytes, java.nio.charset.Charset.forName(chapter.charset))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ReaderViewModel", "Failed to read chapter by byte offset", e)
+            ""
         }
     }
 
@@ -1760,14 +1846,12 @@ class ReaderViewModel(
     }
 
     /**
-     * 异步计算所有章节字数，不阻塞首屏加载
+     * 异步计算所有章节字数，不阻塞首屏加载。
+     * 基于 DB 中的 charEnd - charStart 直接获取，无需读取正文。
      */
-    private fun computeChapterWordCounts(content: BookContent) {
+    private fun computeChapterWordCounts(chapterEntities: List<com.shuli.reader.core.database.entity.BookChapterEntity>) {
         viewModelScope.launch(Dispatchers.Default) {
-            val chapters = content.normalizedChapters()
-            val counts = chapters.map { chapter ->
-                countChapterWords(content.content, chapter.startIndex, chapter.endIndex)
-            }
+            val counts = chapterEntities.map { (it.charEnd - it.charStart).coerceAtLeast(0) }
             _uiState.value = _uiState.value.copy(chapterWordCounts = counts)
         }
     }

@@ -74,6 +74,8 @@ sealed interface AppStrings {
     val keepScreenOn: String
     val brightness: String
     val brightnessFollowSystem: String
+    val brightnessFollowSystemLabel: String
+    val brightnessResetToSystem: String
     val readingFont: String
     val readingFontSystem: String
     val readingFontHarmony: String
@@ -372,6 +374,8 @@ sealed interface AppStrings {
         override val keepScreenOn = "屏幕常亮"
         override val brightness = "亮度调节"
         override val brightnessFollowSystem = "跟随系统"
+        override val brightnessFollowSystemLabel = "跟随系统亮度"
+        override val brightnessResetToSystem = "长按重置为系统亮度"
         override val readingFont = "阅读字体"
         override val readingFontSystem = "系统默认"
         override val readingFontHarmony = "鸿蒙字体"
@@ -655,6 +659,8 @@ sealed interface AppStrings {
         override val keepScreenOn = "螢幕常亮"
         override val brightness = "亮度調節"
         override val brightnessFollowSystem = "跟隨系統"
+        override val brightnessFollowSystemLabel = "跟隨系統亮度"
+        override val brightnessResetToSystem = "長按重置為系統亮度"
         override val readingFont = "閱讀字體"
         override val readingFontSystem = "系統預設"
         override val readingFontHarmony = "鴻蒙字體"
@@ -938,6 +944,8 @@ sealed interface AppStrings {
         override val keepScreenOn = "Keep Screen On"
         override val brightness = "Brightness"
         override val brightnessFollowSystem = "Follow System"
+        override val brightnessFollowSystemLabel = "Follow System Brightness"
+        override val brightnessResetToSystem = "Long press to reset to system brightness"
         override val readingFont = "Reading Font"
         override val readingFontSystem = "System Default"
         override val readingFontHarmony = "HarmonyOS Sans"

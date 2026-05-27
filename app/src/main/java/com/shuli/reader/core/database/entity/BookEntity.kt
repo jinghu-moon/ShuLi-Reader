@@ -30,4 +30,8 @@ data class BookEntity(
     val pinnedSlot: Int? = null,
     // 用户自定义封面色盘索引（0..19，对应 MorandiPalettes；null 走自动散列）
     val customCoverPaletteIndex: Int? = null,
+    // 章节索引指纹：用于判断是否需要重建章节目录
+    val chapterIndexFileSize: Long = 0L,
+    val chapterIndexLastModified: Long = 0L,
+    val chapterIndexBuiltAt: Long = 0L,
 )

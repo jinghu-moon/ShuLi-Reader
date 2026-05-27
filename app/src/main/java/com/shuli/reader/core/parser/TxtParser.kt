@@ -1,5 +1,6 @@
 package com.shuli.reader.core.parser
 
+import com.shuli.reader.core.database.entity.BookChapterEntity
 import com.shuli.reader.core.parser.model.BookContent
 import com.shuli.reader.core.parser.model.Chapter
 import kotlinx.coroutines.Dispatchers
@@ -102,7 +103,7 @@ class TxtParser {
     /**
      * 编码探测：只读取文件头部样本，不加载全文件。
      */
-    private fun detectCharset(file: File): Charset {
+    internal fun detectCharset(file: File): Charset {
         return try {
             val sampleSize = minOf(file.length(), CHARSET_SAMPLE_SIZE.toLong()).toInt()
             val sample = ByteArray(sampleSize)
@@ -175,5 +176,62 @@ class TxtParser {
             }
             Chapter(title = title, startIndex = start, endIndex = end)
         }
+    }
+
+    /**
+     * 构建章节目录索引：扫描章节标题，同时记录字节偏移。
+     * 用于持久化到 DB，后续按需读取时直接用 byteStart/byteEnd 定位。
+     */
+    suspend fun parseChapterIndex(file: File): List<BookChapterEntity> = withContext(Dispatchers.IO) {
+        val charset = detectCharset(file)
+        val charsetName = charset.name()
+        val fileLength = file.length()
+
+        val content = readContent(file, charset)
+        val detectedChapters = detectChapters(content)
+
+        if (detectedChapters.isEmpty()) {
+            return@withContext emptyList<BookChapterEntity>()
+        }
+
+        // 预计算每个字符位置对应的字节偏移
+        val charToByte = buildCharToByteMap(content, charset)
+
+        detectedChapters.mapIndexed { idx, chapter ->
+            val byteStart = charToByte[chapter.startIndex]
+            val byteEnd = if (idx < detectedChapters.size - 1) {
+                charToByte[detectedChapters[idx + 1].startIndex]
+            } else {
+                fileLength
+            }
+
+            BookChapterEntity(
+                bookId = 0, // 由调用方填充
+                chapterIndex = idx,
+                title = chapter.title,
+                charStart = chapter.startIndex,
+                charEnd = chapter.endIndex,
+                byteStart = byteStart,
+                byteEnd = byteEnd,
+                charset = charsetName,
+            )
+        }
+    }
+
+    /**
+     * 构建字符索引 → 字节偏移映射表。
+     * 遍历字符时累加每个字符的编码长度，记录每个字符位置对应的字节偏移。
+     */
+    private fun buildCharToByteMap(content: String, charset: Charset): LongArray {
+        val map = LongArray(content.length + 1)
+        val encoder = charset.newEncoder()
+        var bytePos = 0L
+        for (i in content.indices) {
+            map[i] = bytePos
+            val charBuf = java.nio.CharBuffer.wrap(content, i, i + 1)
+            bytePos += encoder.encode(charBuf).remaining()
+        }
+        map[content.length] = bytePos
+        return map
     }
 }
