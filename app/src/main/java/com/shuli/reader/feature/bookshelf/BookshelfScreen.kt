@@ -94,6 +94,11 @@ fun BookshelfScreen(
         viewModel.onSearchActiveChanged(false)
     }
 
+    // 编辑模式下返回先退出编辑，不退出 App
+    BackHandler(enabled = uiState.isEditMode) {
+        viewModel.onToggleEditMode()
+    }
+
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris: List<Uri> ->
