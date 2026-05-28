@@ -6,20 +6,28 @@ import com.shuli.reader.core.database.dao.ReadingProgressDao
 import com.shuli.reader.core.database.entity.BookContentIndexEntity
 import com.shuli.reader.core.database.entity.BookEntity
 import com.shuli.reader.core.database.entity.BookShelfRow
+import com.shuli.reader.core.parser.ByteWindowReader
 import com.shuli.reader.core.parser.EpubParser
 import com.shuli.reader.core.parser.TxtParser
+import com.shuli.reader.core.parser.DecodedSegment
+import com.shuli.reader.core.parser.StreamDecoder
+import com.shuli.reader.core.parser.Utf16ToByteCodec
 import com.shuli.reader.core.parser.model.BookContent
 import com.shuli.reader.core.parser.model.Chapter
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.nio.charset.Charset
 
 class BookRepository(
     private val bookDao: BookDao,
@@ -27,9 +35,13 @@ class BookRepository(
     private val readingProgressDao: ReadingProgressDao,
     private val txtParser: TxtParser,
     private val epubParser: EpubParser,
+    private val byteWindowReader: ByteWindowReader,
     private val booksDir: java.io.File,
+    /** 应用级协程作用域：用于后台建索引（v4） */
+    private val applicationScope: CoroutineScope = GlobalScope,
 ) {
     private val duplicateChecker = DuplicateChecker(bookDao)
+    private val streamDecoder = StreamDecoder()
     /** 按 bookId 串行化 ensureChapterIndex，防止 importBook + openBook 并发重复构建 */
     private val chapterIndexMutexes = java.util.concurrent.ConcurrentHashMap<Long, Mutex>()
 
@@ -51,9 +63,26 @@ class BookRepository(
         val file = java.io.File(book.filePath)
         if (!file.exists()) return@withContext emptyList()
 
-        val bookContent = parseBookContent(file, fullParse = true)
-        bookDao.replaceBookContentIndex(bookId, bookContent.toContentIndexRows(bookId))
-        searchBookContent(bookContent, query)
+        // 无索引时：按章节加载文本并构建索引
+        val charset = Charset.forName(book.charset)
+        val chapters = bookChapterDao.getChapters(bookId)
+        if (chapters.isEmpty()) return@withContext emptyList()
+
+        val rows = chapters.map { ch ->
+            val window = byteWindowReader.loadRange(file, ch.byteStart, ch.byteEnd)
+            val segment = streamDecoder.decode(window, charset)
+            BookContentIndexEntity(
+                bookId = bookId,
+                chapterIndex = ch.chapterIndex,
+                chapterTitle = ch.title,
+                content = segment.text,
+                byteStart = ch.byteStart,
+                charset = book.charset,
+                utf16ToByteBlob = Utf16ToByteCodec.encode(segment.utf16IndexToByte),
+            )
+        }
+        bookDao.replaceBookContentIndex(bookId, rows)
+        searchIndexedContent(rows, query)
     }
     fun getAllBooks(): Flow<List<BookEntity>> = bookDao.getAllBooks()
 
@@ -140,19 +169,15 @@ class BookRepository(
 
     suspend fun updateReadingPosition(
         bookId: Long,
-        chapterIndex: Int,
-        chapterPos: Int,
+        byteOffset: Long,
         chapterTitle: String?,
-        chapterTime: Long,
-        totalChapters: Int,
+        progress: Float,
     ) {
         bookDao.updateReadingPosition(
             bookId = bookId,
-            chapterIndex = chapterIndex,
-            chapterPos = chapterPos,
+            byteOffset = byteOffset,
             chapterTitle = chapterTitle,
-            chapterTime = chapterTime,
-            totalChapters = totalChapters,
+            progress = progress,
         )
     }
 
@@ -189,16 +214,15 @@ class BookRepository(
     }
 
     /**
-     * 解析书籍内容。
-     * @param fullParse true 时读取全部章节正文（搜索索引用），false 时 EPUB 只做轻量目录解析。
+     * 解析书籍内容（EPUB 用）。
+     * TXT 不再走全量解析，请使用 loadByteWindow / loadChapterText。
      */
     suspend fun parseBookContent(file: File, fullParse: Boolean = false): BookContent {
         return when {
-            file.name.endsWith(".txt", ignoreCase = true) -> txtParser.parse(file)
             file.name.endsWith(".epub", ignoreCase = true) -> {
                 if (fullParse) epubParser.parseWithContent(file) else epubParser.parse(file)
             }
-            else -> throw IllegalArgumentException("Unsupported file format: ${file.name}")
+            else -> throw IllegalArgumentException("Unsupported file format for parseBookContent: ${file.name}")
         }
     }
 
@@ -228,22 +252,11 @@ class BookRepository(
                     return@withContext readTxtChapterByEntity(file, chapterEntity)
                 }
             }
-            // 兜底：DB 无记录时用旧逻辑（兼容未迁移场景）
+            // 兜底：用字节偏移直接读取
             android.util.Log.w("BookRepository", "Fallback: no chapter index for bookId=$bookId, chapterIndex=$chapterIndex")
-            val start = chapter.startIndex
-            val end = chapter.endIndex
-            val content = readTxtContent(file)
-            content.substring(start.coerceIn(0, content.length), end.coerceIn(start, content.length))
-        }
-    }
-
-    private fun readTxtContent(file: File): String {
-        return try {
             val charset = txtParser.detectCharset(file)
-            file.readText(charset)
-        } catch (e: Exception) {
-            android.util.Log.e("BookRepository", "Failed to read txt content: ${file.absolutePath}", e)
-            ""
+            val window = byteWindowReader.loadRange(file, chapter.byteStart, chapter.byteEnd)
+            streamDecoder.decode(window, charset).text
         }
     }
 
@@ -334,6 +347,13 @@ class BookRepository(
             file
         }
 
+        // TXT 文件探测 charset 并保存
+        val charset = if (file.name.endsWith(".txt", ignoreCase = true)) {
+            txtParser.detectCharset(file).name()
+        } else {
+            "UTF-8"
+        }
+
         val bookEntity = BookEntity(
             title = title,
             author = author,
@@ -344,6 +364,7 @@ class BookRepository(
             lastReadTime = null,
             addedTime = System.currentTimeMillis(),
             readingProgress = 0f,
+            charset = charset,
         )
 
         val bookId = bookDao.insertBook(bookEntity)
@@ -352,7 +373,12 @@ class BookRepository(
                 replaceSearchIndex(bookId, targetFile)
             }
         }
-        // 章节目录索引延迟到 openBook 时按需构建，避免阻塞导入
+        // v4：导入后立即在 applicationScope 后台异步构建章节目录索引，
+        // 不阻塞导入返回；首次打开时若仍未完成会通过 chapterIndexMutexes 复用同一 Job。
+        applicationScope.launch {
+            runCatching { ensureChapterIndex(bookId) }
+                .onFailure { android.util.Log.e("BookRepository", "Async ensureChapterIndex failed for bookId=$bookId", it) }
+        }
         bookId
     }
 
@@ -415,13 +441,23 @@ class BookRepository(
                     val withBookId = chapters.map { it.copy(bookId = bookId) }
                     bookChapterDao.replaceChapters(bookId, withBookId)
 
-                    // 更新指纹和总章数
+                    // v4：TXT 章节都使用同一个 charset；EPUB 的章节 charset 为占位 UTF-8
+                    val txtCharset = if (file.name.endsWith(".txt", ignoreCase = true)) {
+                        chapters.firstOrNull()?.charset ?: "UTF-8"
+                    } else {
+                        book.charset
+                    }
+                    val totalChars = chapters.sumOf { it.wordCount.toLong() }
+
+                    // 更新指纹、总章数、charset、字符总数估算
                     bookDao.updateBook(
                         book.copy(
                             chapterIndexFileSize = currentSize,
                             chapterIndexLastModified = currentModified,
                             chapterIndexBuiltAt = System.currentTimeMillis(),
                             totalChapterNum = chapters.size,
+                            charset = txtCharset,
+                            estimatedTotalChars = totalChars,
                         )
                     )
                 }
@@ -435,6 +471,43 @@ class BookRepository(
      */
     suspend fun getChapterIndex(bookId: Long): List<com.shuli.reader.core.database.entity.BookChapterEntity> {
         return bookChapterDao.getChapters(bookId)
+    }
+
+    /**
+     * 从指定字节位置加载文本窗口（含 utf16IndexToByte 映射）。
+     * 用途：续读首屏、进度条跳转后展示。
+     */
+    suspend fun loadByteWindow(bookId: Long, byteOffset: Long): DecodedSegment? {
+        val book = bookDao.getBookById(bookId).first() ?: return null
+        val file = File(book.filePath)
+        if (!file.exists()) return null
+        val charset = Charset.forName(book.charset)
+        val window = byteWindowReader.loadWindow(file, byteOffset)
+        return streamDecoder.decode(window, charset)
+    }
+
+    /**
+     * 加载指定章节的文本（含 utf16IndexToByte 映射）。
+     * 用途：章节切换。
+     */
+    suspend fun loadChapterText(bookId: Long, chapterIndex: Int): DecodedSegment? {
+        val chapter = bookChapterDao.getChapter(bookId, chapterIndex) ?: return null
+        val book = bookDao.getBookById(bookId).first() ?: return null
+        val file = File(book.filePath)
+        if (!file.exists()) return null
+        val charset = Charset.forName(chapter.charset)
+        val window = byteWindowReader.loadRange(file, chapter.byteStart, chapter.byteEnd)
+        return streamDecoder.decode(window, charset)
+    }
+
+    /**
+     * 根据字节偏移解析当前章节标题。
+     * 用途：续读时显示章节标题。
+     */
+    suspend fun resolveChapterTitle(bookId: Long, byteOffset: Long): String? {
+        val chapters = bookChapterDao.getChapters(bookId)
+        if (chapters.isEmpty()) return null
+        return chapters.lastOrNull { it.byteStart <= byteOffset }?.title
     }
 
     private fun getTodayStartTimestamp(): Long {
@@ -525,52 +598,98 @@ class BookRepository(
     }
 
     private suspend fun replaceSearchIndex(bookId: Long, file: File) {
-        val content = parseBookContent(file, fullParse = true)
-        bookDao.replaceBookContentIndex(bookId, content.toContentIndexRows(bookId))
-    }
-
-    private fun searchBookContent(bookContent: BookContent, query: String): List<SearchResult> {
-        val chapters = bookContent.searchChapters()
-        if (chapters.isEmpty()) return emptyList()
-
-        return chapters.flatMapIndexed { chapterIndex, chapter ->
-            val chapterStart = chapter.startIndex.coerceIn(0, bookContent.content.length)
-            val chapterEnd = chapter.endIndex.coerceIn(chapterStart, bookContent.content.length)
-            searchChapter(
-                chapterIndex = chapterIndex,
-                chapterTitle = chapter.title,
-                chapterStart = chapterStart,
-                chapterText = bookContent.content.substring(chapterStart, chapterEnd),
-                query = query,
+        val book = bookDao.getBookById(bookId).first() ?: return
+        val charset = Charset.forName(book.charset)
+        val chapters = bookChapterDao.getChapters(bookId)
+        if (chapters.isEmpty()) return
+        val rows = chapters.map { ch ->
+            val window = byteWindowReader.loadRange(file, ch.byteStart, ch.byteEnd)
+            val segment = streamDecoder.decode(window, charset)
+            BookContentIndexEntity(
+                bookId = bookId,
+                chapterIndex = ch.chapterIndex,
+                chapterTitle = ch.title,
+                content = segment.text,
+                byteStart = ch.byteStart,
+                charset = book.charset,
+                utf16ToByteBlob = Utf16ToByteCodec.encode(segment.utf16IndexToByte),
             )
         }
+        bookDao.replaceBookContentIndex(bookId, rows)
     }
 
     private fun searchIndexedContent(rows: List<BookContentIndexEntity>, query: String): List<SearchResult> {
         return rows.flatMap { row ->
-            searchChapter(
-                chapterIndex = row.chapterIndex,
-                chapterTitle = row.chapterTitle,
-                chapterStart = row.chapterStart,
-                chapterText = row.content,
-                query = query,
-            )
+            if (row.utf16ToByteBlob.isNotEmpty()) {
+                val utf16Map = Utf16ToByteCodec.decode(row.utf16ToByteBlob)
+                searchChapterWithBlob(
+                    chapterIndex = row.chapterIndex,
+                    chapterTitle = row.chapterTitle,
+                    chapterByteStart = row.byteStart,
+                    chapterText = row.content,
+                    utf16Map = utf16Map,
+                    query = query,
+                )
+            } else {
+                // 旧数据兜底（无 blob 时退化为 O(n) per match）
+                val charset = Charset.forName(row.charset)
+                searchChapterLegacy(
+                    chapterIndex = row.chapterIndex,
+                    chapterTitle = row.chapterTitle,
+                    chapterByteStart = row.byteStart,
+                    charset = charset,
+                    chapterText = row.content,
+                    query = query,
+                )
+            }
         }
     }
 
-    private fun BookContent.searchChapters(): List<Chapter> {
-        if (chapters.isNotEmpty()) return chapters
-        return if (content.isNotBlank()) {
-            listOf(Chapter(title = DEFAULT_CHAPTER_TITLE, startIndex = 0, endIndex = content.length))
-        } else {
-            emptyList()
-        }
-    }
-
-    private fun searchChapter(
+    /** O(1) per match：通过 utf16IndexToByte 映射表直接查字节偏移 */
+    private fun searchChapterWithBlob(
         chapterIndex: Int,
         chapterTitle: String,
-        chapterStart: Int,
+        chapterByteStart: Long,
+        chapterText: String,
+        utf16Map: IntArray,
+        query: String,
+    ): List<SearchResult> {
+        val lowerChapter = chapterText.lowercase()
+        val lowerQuery = query.lowercase()
+        val results = mutableListOf<SearchResult>()
+        var searchFrom = 0
+
+        while (searchFrom < lowerChapter.length) {
+            val matchIndex = lowerChapter.indexOf(lowerQuery, searchFrom)
+            if (matchIndex == -1) break
+
+            val byteOffset = if (matchIndex < utf16Map.size) {
+                chapterByteStart + utf16Map[matchIndex].toLong()
+            } else {
+                chapterByteStart // 防御性兜底
+            }
+            val contextStart = (matchIndex - SEARCH_CONTEXT_RADIUS).coerceAtLeast(0)
+            val contextEnd = (matchIndex + query.length + SEARCH_CONTEXT_RADIUS).coerceAtMost(chapterText.length)
+
+            results += SearchResult(
+                chapterIndex = chapterIndex,
+                chapterTitle = chapterTitle,
+                byteOffset = byteOffset,
+                context = chapterText.substring(contextStart, contextEnd),
+                matchedText = chapterText.substring(matchIndex, matchIndex + query.length),
+            )
+            searchFrom = matchIndex + query.length.coerceAtLeast(1)
+        }
+
+        return results
+    }
+
+    /** 旧数据兜底：O(n) per match，仅在无 utf16ToByteBlob 时使用 */
+    private fun searchChapterLegacy(
+        chapterIndex: Int,
+        chapterTitle: String,
+        chapterByteStart: Long,
+        charset: Charset,
         chapterText: String,
         query: String,
     ): List<SearchResult> {
@@ -583,16 +702,15 @@ class BookRepository(
             val matchIndex = lowerChapter.indexOf(lowerQuery, searchFrom)
             if (matchIndex == -1) break
 
-            val absoluteOffset = chapterStart + matchIndex
+            val byteOffset = chapterByteStart +
+                chapterText.substring(0, matchIndex).toByteArray(charset).size.toLong()
             val contextStart = (matchIndex - SEARCH_CONTEXT_RADIUS).coerceAtLeast(0)
             val contextEnd = (matchIndex + query.length + SEARCH_CONTEXT_RADIUS).coerceAtMost(chapterText.length)
 
             results += SearchResult(
                 chapterIndex = chapterIndex,
                 chapterTitle = chapterTitle,
-                charOffset = absoluteOffset,
-                matchStart = absoluteOffset,
-                matchEnd = absoluteOffset + query.length,
+                byteOffset = byteOffset,
                 context = chapterText.substring(contextStart, contextEnd),
                 matchedText = chapterText.substring(matchIndex, matchIndex + query.length),
             )
@@ -600,22 +718,6 @@ class BookRepository(
         }
 
         return results
-    }
-
-    private fun BookContent.toContentIndexRows(bookId: Long): List<BookContentIndexEntity> {
-        val chapters = searchChapters()
-        if (chapters.isEmpty()) return emptyList()
-        return chapters.mapIndexed { index, chapter ->
-            val chapterStart = chapter.startIndex.coerceIn(0, content.length)
-            val chapterEnd = chapter.endIndex.coerceIn(chapterStart, content.length)
-            BookContentIndexEntity(
-                bookId = bookId,
-                chapterIndex = index,
-                chapterTitle = chapter.title,
-                chapterStart = chapterStart,
-                content = content.substring(chapterStart, chapterEnd),
-            )
-        }
     }
 
     private fun String.toFtsPrefixQuery(): String {

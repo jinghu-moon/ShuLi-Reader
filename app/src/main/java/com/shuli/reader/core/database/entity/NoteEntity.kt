@@ -21,13 +21,13 @@ data class NoteEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val bookId: Long,
-    val startPosition: Int,
-    val endPosition: Int,
-    val content: String?,
-    val color: String?,
     val createdTime: Long,
-    // 章节级定位
-    val chapterIndex: Int = 0,
-    val chapterStartPos: Int = 0,
-    val chapterEndPos: Int = 0,
+    /** 字节区间起点（TXT 唯一权威位置） */
+    val byteStart: Long = 0L,
+    /** 字节区间终点（exclusive） */
+    val byteEnd: Long = 0L,
+    /** 笔记文本 */
+    val noteText: String = "",
+    /** 高亮颜色 */
+    val color: String? = null,
 )

@@ -16,14 +16,14 @@ data class BookChapterEntity(
     val bookId: Long,
     val chapterIndex: Int,
     val title: String,
-    // EPUB: spine 索引，用于定位 XHTML 文件
+    /** EPUB: spine 索引，用于定位 XHTML 文件 */
     val spineIndex: Int = -1,
-    // TXT: 字符偏移范围（用于旧逻辑兼容）
-    val charStart: Int = 0,
-    val charEnd: Int = 0,
-    // TXT: 字节偏移范围（用于 RandomAccessFile 按需读取）
+    /** TXT: 字节偏移起点 */
     val byteStart: Long = 0L,
+    /** TXT: 字节偏移终点（exclusive） */
     val byteEnd: Long = 0L,
-    // TXT: 文件编码，解码用
+    /** TXT: 文件编码，解码用 */
     val charset: String = "UTF-8",
+    /** 章节字数（解析时顺手计算，UI 显示用） */
+    val wordCount: Int = 0,
 )

@@ -31,7 +31,7 @@ import com.shuli.reader.core.database.entity.ReadingProgressEntity
         com.shuli.reader.core.database.entity.FolderEntity::class,
         BookChapterEntity::class,
     ],
-    version = 11,
+    version = 13,
     exportSchema = true,
 )
 abstract class ShuLiDatabase : RoomDatabase() {
@@ -181,11 +181,10 @@ abstract class ShuLiDatabase : RoomDatabase() {
                         chapterIndex INTEGER NOT NULL,
                         title TEXT NOT NULL,
                         spineIndex INTEGER NOT NULL DEFAULT -1,
-                        charStart INTEGER NOT NULL DEFAULT 0,
-                        charEnd INTEGER NOT NULL DEFAULT 0,
                         byteStart INTEGER NOT NULL DEFAULT 0,
                         byteEnd INTEGER NOT NULL DEFAULT 0,
-                        charset TEXT NOT NULL DEFAULT 'UTF-8'
+                        charset TEXT NOT NULL DEFAULT 'UTF-8',
+                        wordCount INTEGER NOT NULL DEFAULT 0
                     )
                 """.trimIndent())
                 db.execSQL("""

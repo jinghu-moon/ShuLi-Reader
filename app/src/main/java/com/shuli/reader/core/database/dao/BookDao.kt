@@ -129,20 +129,16 @@ interface BookDao {
 
     @Query("""
         UPDATE books SET
-            durChapterIndex = :chapterIndex,
-            durChapterPos = :chapterPos,
+            durByteOffset = :byteOffset,
             durChapterTitle = :chapterTitle,
-            durChapterTime = :chapterTime,
-            totalChapterNum = :totalChapters
+            readingProgress = :progress
         WHERE id = :bookId
     """)
     suspend fun updateReadingPosition(
         bookId: Long,
-        chapterIndex: Int,
-        chapterPos: Int,
+        byteOffset: Long,
         chapterTitle: String?,
-        chapterTime: Long,
-        totalChapters: Int,
+        progress: Float,
     )
 
     @Query("UPDATE books SET totalChapterNum = :totalChapters WHERE id = :bookId")

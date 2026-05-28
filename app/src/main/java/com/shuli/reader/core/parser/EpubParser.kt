@@ -362,8 +362,6 @@ class EpubParser {
             chapters.add(
                 Chapter(
                     title = title,
-                    startIndex = 0,
-                    endIndex = 0,
                     spineIndex = spineIdx,
                 )
             )
@@ -399,8 +397,6 @@ class EpubParser {
                 val title = extractChapterTitle(htmlContent) ?: "Chapter ${result.size + 1}"
                 val chapter = Chapter(
                     title = title,
-                    startIndex = currentPosition,
-                    endIndex = currentPosition + textContent.length,
                     spineIndex = spineIdx,
                 )
                 result.add(chapter to textContent)
@@ -468,8 +464,6 @@ class EpubParser {
                 chapters.add(
                     Chapter(
                         title = title,
-                        startIndex = currentPosition,
-                        endIndex = currentPosition + textContent.length,
                     )
                 )
                 currentPosition += textContent.length + 2

@@ -271,16 +271,15 @@ class Paginator(
         letterSpacingPx: Float = 0f,
         useZhLayout: Boolean = false,
     ): LineResult {
-        val remaining = content.substring(startOffset)
-        if (remaining.isEmpty()) {
+        if (startOffset >= content.length) {
             return LineResult("", false, 0)
         }
 
-        // 查找换行符
-        val newlineIndex = remaining.indexOf('\n')
-        val lineEnd = if (newlineIndex >= 0) newlineIndex else remaining.length
+        // 查找换行符（基于原始 content 索引，避免 substring 分配）
+        val newlineAbsIndex = content.indexOf('\n', startOffset)
+        val lineEnd = if (newlineAbsIndex >= 0) newlineAbsIndex - startOffset else content.length - startOffset
 
-        if (lineEnd == 0 && newlineIndex == 0) {
+        if (lineEnd == 0 && newlineAbsIndex == startOffset) {
             return LineResult("", true, 1)
         }
 
@@ -290,7 +289,7 @@ class Paginator(
         val charWidths = mutableListOf<Float>()
 
         for (i in 0 until lineEnd) {
-            val charWidth = textMeasurer.measureCharWidth(remaining[i], textSize)
+            val charWidth = textMeasurer.measureCharWidth(content[startOffset + i], textSize)
             val spacing = if (charCount > 0) letterSpacingPx else 0f
             if (currentWidth + charWidth + spacing > availableWidth) {
                 break
@@ -313,25 +312,25 @@ class Paginator(
         if (useZhLayout) {
             // 中文分行：回溯避免行尾出现禁头标点，前推避免行首出现禁尾标点
             // 回溯：行尾不能是 FORBIDDEN_LINE_END_CHARS（左引号、左括号等）
-            while (charCount > 1 && remaining[charCount - 1] in FORBIDDEN_LINE_END_CHARS) {
+            while (charCount > 1 && content[startOffset + charCount - 1] in FORBIDDEN_LINE_END_CHARS) {
                 charCount--
                 charWidths.removeAt(charWidths.lastIndex)
             }
             // 前推：行首不能是 FORBIDDEN_LINE_START_CHARS（右引号、右括号、句末标点等）
-            if (charCount < lineEnd && remaining[charCount] in FORBIDDEN_LINE_START_CHARS) {
-                charWidths.add(textMeasurer.measureCharWidth(remaining[charCount], textSize))
+            if (charCount < lineEnd && content[startOffset + charCount] in FORBIDDEN_LINE_START_CHARS) {
+                charWidths.add(textMeasurer.measureCharWidth(content[startOffset + charCount], textSize))
                 charCount++
             }
         } else {
             // 默认行为：仅处理行首禁尾标点
-            if (charCount < lineEnd && remaining[charCount] in FORBIDDEN_LINE_START_CHARS) {
-                charWidths.add(textMeasurer.measureCharWidth(remaining[charCount], textSize))
+            if (charCount < lineEnd && content[startOffset + charCount] in FORBIDDEN_LINE_START_CHARS) {
+                charWidths.add(textMeasurer.measureCharWidth(content[startOffset + charCount], textSize))
                 charCount++
             }
         }
 
-        val consumesLineBreak = newlineIndex >= 0 && charCount == lineEnd
-        val text = remaining.substring(0, charCount)
+        val consumesLineBreak = newlineAbsIndex >= 0 && charCount == lineEnd
+        val text = content.substring(startOffset, startOffset + charCount)
         val consumedChars = charCount + if (consumesLineBreak) 1 else 0
         val isParagraphEnd = consumesLineBreak
 

@@ -16,11 +16,8 @@ data class BookEntity(
     val lastReadTime: Long?,
     val addedTime: Long,
     val readingProgress: Float = 0f,
-    // 字符偏移进度字段（权威位置）
-    val durChapterIndex: Int = 0,
-    val durChapterPos: Int = 0,
+    /** UI 缓存：当前章节标题（目录就绪后异步刷新） */
     val durChapterTitle: String? = null,
-    val durChapterTime: Long = 0L,
     val totalChapterNum: Int = 0,
     // 收藏状态
     val isFavorite: Boolean = false,
@@ -34,4 +31,11 @@ data class BookEntity(
     val chapterIndexFileSize: Long = 0L,
     val chapterIndexLastModified: Long = 0L,
     val chapterIndexBuiltAt: Long = 0L,
+    // === 字节模型字段（v4 重构，TXT 权威；EPUB 保持使用 durChapterIndex/durChapterPos）===
+    /** 文件字符编码（一次探测永久保存，TXT 用） */
+    val charset: String = "UTF-8",
+    /** 当前阅读位置的字节偏移（TXT 唯一权威） */
+    val durByteOffset: Long = 0L,
+    /** 章节扫描完成后回填，UI 进度估算用 */
+    val estimatedTotalChars: Long = 0L,
 )

@@ -281,22 +281,12 @@ private fun BookmarkList(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = bookmark.chapterName ?: bookmark.title ?: "",
+                        text = bookmark.selectedText ?: "",
                         style = MaterialTheme.typography.bodyMedium,
                         color = readerColors.textPrimary,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    if (!bookmark.selectedText.isNullOrBlank()) {
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = bookmark.selectedText,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = readerColors.textSecondary,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
                     Spacer(Modifier.height(2.dp))
                     Text(
                         text = dateFormat.format(Date(bookmark.createdTime)),
@@ -389,7 +379,7 @@ private fun NoteList(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = note.content ?: "",
+                        text = note.noteText,
                         style = MaterialTheme.typography.bodyMedium,
                         color = readerColors.textPrimary,
                         maxLines = 3,
@@ -397,11 +387,7 @@ private fun NoteList(
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = strings.notePosition(
-                            note.startPosition,
-                            note.endPosition,
-                            dateFormat.format(Date(note.createdTime)),
-                        ),
+                        text = "${formatByteOffset(note.byteStart)}-${formatByteOffset(note.byteEnd)}  ${dateFormat.format(Date(note.createdTime))}",
                         style = MaterialTheme.typography.labelSmall,
                         color = readerColors.textTertiary,
                     )
@@ -447,5 +433,13 @@ private fun formatWordCount(count: Int): String {
     return when {
         count >= 10000 -> String.format("%.2f万字", count / 10000.0)
         else -> "${count}字"
+    }
+}
+
+private fun formatByteOffset(offset: Long): String {
+    return when {
+        offset >= 1024 * 1024 -> String.format("%.1fMB", offset / (1024.0 * 1024.0))
+        offset >= 1024 -> String.format("%.1fKB", offset / 1024.0)
+        else -> "${offset}B"
     }
 }

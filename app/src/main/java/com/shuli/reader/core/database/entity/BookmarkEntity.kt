@@ -21,13 +21,9 @@ data class BookmarkEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val bookId: Long,
-    val pageIndex: Int,
-    val position: Int,
-    val title: String?,
     val createdTime: Long,
-    // 章节级定位（权威位置）
-    val chapterIndex: Int = 0,
-    val chapterPos: Int = 0,
-    val chapterName: String? = null,
+    /** 字节偏移（TXT 唯一权威位置） */
+    val byteOffset: Long = 0L,
+    /** 选中文本片段（UI 显示用） */
     val selectedText: String? = null,
 )

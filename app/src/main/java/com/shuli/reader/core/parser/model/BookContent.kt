@@ -13,8 +13,10 @@ data class BookContent(
 
 data class Chapter(
     val title: String,
-    val startIndex: Int,
-    val endIndex: Int,
+    /** 章节字节起点 */
+    val byteStart: Long = 0L,
+    /** 章节字节终点（exclusive） */
+    val byteEnd: Long = 0L,
     /** EPUB spine 中的原始索引（用于按需加载章节内容），非 EPUB 格式时为 -1 */
     val spineIndex: Int = -1,
 )

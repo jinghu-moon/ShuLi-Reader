@@ -30,8 +30,10 @@ import com.shuli.reader.core.reader.TitleAlign
 import com.shuli.reader.core.reader.TitleStyleConfig
 import com.shuli.reader.core.database.dao.BookmarkDao
 import com.shuli.reader.core.database.dao.NoteDao
+import com.shuli.reader.core.database.entity.BookEntity
 import com.shuli.reader.core.database.entity.BookmarkEntity
 import com.shuli.reader.core.database.entity.NoteEntity
+import com.shuli.reader.core.parser.DecodedSegment
 import com.shuli.reader.core.parser.model.BookContent
 import com.shuli.reader.core.parser.model.Chapter
 import com.shuli.reader.core.reader.ChapterProvider
@@ -221,14 +223,8 @@ class ReaderViewModel(
         readingStateManager = ReadingStateManager(
             scope = viewModelScope,
             saveAction = { state ->
-                bookRepository?.updateReadingPosition(
-                    bookId = state.bookId,
-                    chapterIndex = state.chapterIndex,
-                    chapterPos = state.chapterPos,
-                    chapterTitle = state.chapterTitle,
-                    chapterTime = readingStateManager.getSessionElapsedMs(),
-                    totalChapters = _uiState.value.totalChapters,
-                )
+                // v4: ReadingStateManager 内部仍用 charPos，实际 byteOffset 由 saveReadingProgress 直接写入
+                // 此处仅做兜底，正常路径不会走到这里
             },
         )
         loadPresets()
@@ -270,6 +266,10 @@ class ReaderViewModel(
     private var currentBookFilePath: String? = null
     /** 当前书籍是否为 EPUB（轻量解析时 content 为空，跳过全量字数统计） */
     private var isCurrentBookEpub: Boolean = false
+    /** 当前章节的 utf16IndexToByte 映射表（v4：字节↔字符坐标桥接） */
+    private var currentChapterUtf16Map: IntArray = IntArray(0)
+    /** 缓存当前章节已解码文本，避免 loadChapterContent + paginateChapterStreaming 重复读文件 */
+    private var cachedChapterText: String? = null
     private val ttsController = ttsEngine?.let { engine ->
         TtsController(
             engine = engine,
@@ -301,6 +301,45 @@ class ReaderViewModel(
         screenWidthPx = widthPx
         screenHeightPx = heightPx
         reflowCurrentChapter(_uiState.value.readerPreferences)
+    }
+
+    // ── 进度估算（v4） ──────────────────────────────────────────
+
+    /**
+     * TXT 进度估算：扫描完成 → 估算字符%；扫描未完成 → 字节%。
+     * 内部存 byte%（精确），UI 显示用估算字符%（编码无关，用户感知一致）。
+     */
+    private fun computeDisplayProgress(byteOffset: Long, book: BookEntity?): Float {
+        val fileSize = book?.fileSize?.coerceAtLeast(1L) ?: return 0f
+        val estimatedTotalChars = book.estimatedTotalChars
+        if (estimatedTotalChars <= 0L) {
+            // 章节扫描未完成 → 退化为字节%
+            return (byteOffset.toFloat() / fileSize.toFloat()).coerceIn(0f, 1f)
+        }
+        // 用平均 bytesPerChar 估算字符位置
+        val avgBpc = fileSize.toFloat() / estimatedTotalChars.toFloat()
+        val estimatedCharPos = byteOffset.toFloat() / avgBpc
+        return (estimatedCharPos / estimatedTotalChars.toFloat()).coerceIn(0f, 1f)
+    }
+
+    // ── 字节↔字符坐标桥接（v4） ──────────────────────────────────
+
+    /** UTF-16 char index → 章节内相对字节偏移（O(n) 线性扫描，映射表已排序） */
+    private fun charToByteOffset(charIndex: Int): Int {
+        val map = currentChapterUtf16Map
+        if (map.isEmpty()) return charIndex // 兜底：无映射时 1:1
+        val idx = charIndex.coerceIn(0, map.size - 1)
+        return map[idx]
+    }
+
+    /** 章节内相对字节偏移 → UTF-16 char index（O(n) 线性扫描） */
+    private fun byteToCharOffset(byteOffset: Int): Int {
+        val map = currentChapterUtf16Map
+        if (map.isEmpty()) return byteOffset // 兜底：无映射时 1:1
+        for (i in map.indices) {
+            if (map[i] > byteOffset) return (i - 1).coerceAtLeast(0)
+        }
+        return map.size - 1
     }
 
     init {
@@ -510,7 +549,16 @@ class ReaderViewModel(
                 isCurrentBookEpub = book.fileType == "EPUB"
 
                 val chapterCount = chapterIndexList.size
-                val chapterIndex = book.durChapterIndex.coerceIn(0, (chapterCount - 1).coerceAtLeast(0))
+                if (chapterCount == 0) {
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                    return@launch
+                }
+
+                // v4: 通过 durByteOffset 查找当前章节（取代已删除的 durChapterIndex）
+                val durByteOffset = book.durByteOffset
+                val chapterIndex = chapterIndexList
+                    .indexOfLast { it.byteStart <= durByteOffset }
+                    .coerceIn(0, chapterCount - 1)
 
                 _uiState.value = _uiState.value.copy(
                     bookTitle = book.title,
@@ -521,12 +569,12 @@ class ReaderViewModel(
                     chapterWordCounts = emptyList(), // 延迟计算，不阻塞首屏
                 )
 
-                // 3. 加载当前章节内容（从 DB 索引按需读取）
+                // 3. 加载当前章节内容（从 DB 索引按需读取），同时获取 utf16IndexToByte 映射
                 val parseStart = System.currentTimeMillis()
-                val content = withContext(Dispatchers.IO) {
-                    loadChapterContent(repository, book, chapterIndexList, chapterIndex)
-                }
+                val (content, segment) = loadChapterContent(repository, book, chapterIndexList, chapterIndex)
                 loadedBookContent = content
+                currentChapterUtf16Map = segment?.utf16IndexToByte ?: IntArray(0)
+                cachedChapterText = content.content.ifEmpty { null }
                 logPerf("loadChapterContent", parseStart)
 
                 withContext(Dispatchers.IO) {
@@ -538,12 +586,17 @@ class ReaderViewModel(
 
                 logPerf("openBook.preparation", perfStart)
 
+                // v4: 将 durByteOffset 转为章节内字符偏移，用于分页跳转
+                val chapterByteStart = chapterIndexList[chapterIndex].byteStart
+                val relativeByteOffset = (durByteOffset - chapterByteStart).toInt().coerceAtLeast(0)
+                val targetCharOffset = byteToCharOffset(relativeByteOffset)
+
                 // 4. 流式分页：首页秒开，目标位置自动跳转
                 val paginateStart = System.currentTimeMillis()
                 chapterJob = paginateChapterStreaming(
                     content = content,
                     index = chapterIndex,
-                    targetCharOffset = book.durChapterPos,
+                    targetCharOffset = targetCharOffset,
                     onDone = {
                         logPerf("firstPageReady", perfStart)
                         preloadAdjacentChapters(content, chapterIndex)
@@ -564,15 +617,17 @@ class ReaderViewModel(
 
     /**
      * 根据 DB 章节索引加载当前章节内容。
-     * TXT: 使用 byteStart/byteEnd 按需读取
+     * TXT: 使用 byteStart/byteEnd 按需读取，返回 DecodedSegment（含 utf16IndexToByte）
      * EPUB: 使用 spineIndex 解析 XHTML
+     *
+     * @return Pair<BookContent, DecodedSegment?> — DecodedSegment 仅 TXT 有值
      */
     private suspend fun loadChapterContent(
         repository: BookRepository,
         book: com.shuli.reader.core.database.entity.BookEntity,
         chapterIndexList: List<com.shuli.reader.core.database.entity.BookChapterEntity>,
         chapterIndex: Int,
-    ): BookContent = withContext(Dispatchers.IO) {
+    ): Pair<BookContent, DecodedSegment?> = withContext(Dispatchers.IO) {
         val file = File(book.filePath)
         val chapter = chapterIndexList.getOrNull(chapterIndex)
 
@@ -586,56 +641,44 @@ class ReaderViewModel(
                 chapters = emptyList(),
                 content = "",
                 bookId = book.id,
-            )
+            ) to null
         }
 
-        // 构建 Chapter 列表供分页使用
+        // 构建 Chapter 列表供分页使用（v4: byteStart/byteEnd）
         val chapters = chapterIndexList.map { ch ->
             Chapter(
                 title = ch.title,
-                startIndex = ch.charStart,
-                endIndex = ch.charEnd,
+                byteStart = ch.byteStart,
+                byteEnd = ch.byteEnd,
                 spineIndex = ch.spineIndex,
             )
         }
 
-        val chapterText = if (isCurrentBookEpub) {
+        if (isCurrentBookEpub) {
             // EPUB: 通过 repository 解析（内部用 spineIndex）
-            repository.getChapterText(file, chapterIndex, chapters)
+            val chapterText = repository.getChapterText(file, chapterIndex, chapters)
+            BookContent(
+                title = book.title,
+                author = book.author,
+                encoding = chapter.charset,
+                totalLength = chapterText.length.toLong(),
+                chapters = chapters,
+                content = chapterText,
+                bookId = book.id,
+            ) to null
         } else {
-            // TXT: 按需读取当前章节
-            readTxtChapter(file, chapter)
-        }
-
-        BookContent(
-            title = book.title,
-            author = book.author,
-            encoding = chapter.charset,
-            totalLength = chapterText.length.toLong(),
-            chapters = chapters,
-            content = chapterText,
-            bookId = book.id,
-        )
-    }
-
-    /**
-     * TXT 按需读取：使用 byteStart/byteEnd 定位，只读取当前章节。
-     */
-    private fun readTxtChapter(
-        file: File,
-        chapter: com.shuli.reader.core.database.entity.BookChapterEntity,
-    ): String {
-        return try {
-            java.io.RandomAccessFile(file, "r").use { raf ->
-                raf.seek(chapter.byteStart)
-                val byteLength = (chapter.byteEnd - chapter.byteStart).toInt()
-                val bytes = ByteArray(byteLength)
-                raf.readFully(bytes)
-                String(bytes, java.nio.charset.Charset.forName(chapter.charset))
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("ReaderViewModel", "Failed to read chapter by byte offset", e)
-            ""
+            // TXT: 通过 loadChapterText 获取 DecodedSegment（含 utf16IndexToByte 映射）
+            val segment = repository.loadChapterText(book.id, chapterIndex)
+            val chapterText = segment?.text ?: ""
+            BookContent(
+                title = book.title,
+                author = book.author,
+                encoding = chapter.charset,
+                totalLength = chapterText.length.toLong(),
+                chapters = chapters,
+                content = chapterText,
+                bookId = book.id,
+            ) to segment
         }
     }
 
@@ -703,16 +746,24 @@ class ReaderViewModel(
     }
 
     /**
-     * 跳转到章节内指定字符偏移位置
+     * 跳转到指定章节的字节偏移位置（v4：统一入口）。
+     * 同章跳转：用 utf16IndexToByte 映射转为 charOffset 后定位页码。
+     * 跨章跳转：openChapter 加载新章节后自动跳转。
      */
-    fun jumpToChapterPosition(chapterIndex: Int, charOffset: Int) {
+    fun jumpToChapterPosition(chapterIndex: Int, byteOffset: Long) {
         val state = _uiState.value
         val chapter = state.currentChapter
         if (chapter?.chapterIndex == chapterIndex && chapter.pageSize > 0) {
+            // 同章：将绝对 byteOffset 转为章节内相对 byteOffset，再转为 charOffset
+            val chapters = loadedBookContent?.chapters
+            val chapterByteStart = chapters?.getOrNull(chapterIndex)?.byteStart ?: 0L
+            val relativeByte = (byteOffset - chapterByteStart).toInt().coerceAtLeast(0)
+            val charOffset = byteToCharOffset(relativeByte)
             val pi = chapter.getPageIndexByCharIndex(charOffset)
             jumpToPage(pi)
         } else {
-            openChapter(chapterIndex, targetCharOffset = charOffset)
+            // 跨章：openChapter 加载新章节后查找 byteOffset 对应的页
+            openChapter(chapterIndex, targetByteOffset = byteOffset)
         }
     }
 
@@ -770,26 +821,36 @@ class ReaderViewModel(
         val chapterPos = page.startCharOffset
         val chapterTitle = state.chapterTitle
 
+        // v4: ReadingStateManager 内部仍用 charPos 做防抖计时
         if (immediate) {
             readingStateManager.saveReadNow(bookId, state.chapterIndex, chapterPos, chapterTitle)
         } else {
             readingStateManager.saveReadDebounced(bookId, state.chapterIndex, chapterPos, chapterTitle)
         }
 
-        // 同步更新 BookEntity 的阅读进度字段
+        // v4: 通过 utf16IndexToByte 映射将 charOffset 转为 byteOffset，写入 BookEntity
         viewModelScope.launch(Dispatchers.IO) {
             bookRepository?.let { repo ->
-                val totalPages = state.totalPages.coerceAtLeast(1)
-                val progress = (state.pageIndex.toFloat() / totalPages).coerceIn(0f, 1f)
+                val chapters = loadedBookContent?.chapters ?: emptyList()
+                val chapterByteStart = chapters.getOrNull(state.chapterIndex)?.byteStart ?: 0L
+                val relativeByte = charToByteOffset(chapterPos)
+                val absoluteByteOffset = chapterByteStart + relativeByte
+
+                val progress = if (isCurrentBookEpub) {
+                    val totalPages = state.totalPages.coerceAtLeast(1)
+                    (state.pageIndex.toFloat() / totalPages).coerceIn(0f, 1f)
+                } else {
+                    // TXT: 优先用 estimatedTotalChars 估算字符%，未完成退化为字节%
+                    val book = repo.getBookById(bookId).first()
+                    computeDisplayProgress(absoluteByteOffset, book)
+                }
+
                 repo.updateReadingPosition(
                     bookId = bookId,
-                    chapterIndex = state.chapterIndex,
-                    chapterPos = chapterPos,
+                    byteOffset = absoluteByteOffset,
                     chapterTitle = chapterTitle,
-                    chapterTime = readingStateManager.getSessionElapsedMs(),
-                    totalChapters = state.totalChapters,
+                    progress = progress,
                 )
-                repo.updateReadingProgress(bookId, progress)
             }
         }
     }
@@ -797,12 +858,12 @@ class ReaderViewModel(
     /**
      * 打开章节
      * @param targetToLastPage 是否跳转到末页（跨章前翻时使用）
-     * @param targetCharOffset 目标字符偏移（书签/笔记跳转时使用）
+     * @param targetByteOffset 目标字节偏移（书签/笔记/搜索跳转时使用，v4）
      */
     fun openChapter(
         index: Int,
         targetToLastPage: Boolean = false,
-        targetCharOffset: Int = -1,
+        targetByteOffset: Long = -1L,
     ) {
         resetToolbarAutoHide()
         val content = loadedBookContent
@@ -816,14 +877,38 @@ class ReaderViewModel(
         // M1: 取消上一次章节加载，防止快速连续调用导致并发冲突
         chapterJob?.cancel()
 
-        // 流式分页：首页秒开
-        // targetToLastPage 时传 -1，由 LayoutListener 的 onLayoutCompleted 处理跳末页
-        val effectiveCharOffset = if (targetToLastPage) -1 else targetCharOffset
+        // v4: 将 byteOffset 转为 charOffset（跨章时需要重新加载章节获取新映射）
+        val targetCharOffset = if (targetToLastPage) {
+            -1
+        } else if (targetByteOffset >= 0) {
+            // 跨章：先加载新章节获取 utf16IndexToByte 映射，再转换
+            // 由 paginateChapterStreaming 内部处理（加载章节后更新 currentChapterUtf16Map）
+            // 这里先传 -1，由 onDone 中用 targetByteOffset 跳转
+            -1
+        } else {
+            -1
+        }
+
         chapterJob = paginateChapterStreaming(
             content = content,
             index = safeIndex,
-            targetCharOffset = effectiveCharOffset,
+            targetCharOffset = targetCharOffset,
             onDone = {
+                // v4: 如果有 targetByteOffset，加载完章节后用映射转为 charOffset 再跳转
+                if (targetByteOffset >= 0 && !targetToLastPage) {
+                    val chapters = content.normalizedChapters()
+                    val chapterByteStart = chapters.getOrNull(safeIndex)?.byteStart ?: 0L
+                    val relativeByte = (targetByteOffset - chapterByteStart).toInt().coerceAtLeast(0)
+                    val charOffset = byteToCharOffset(relativeByte)
+                    val chapter = _uiState.value.currentChapter
+                    if (chapter != null && chapter.pageSize > 0) {
+                        val pi = chapter.getPageIndexByCharIndex(charOffset)
+                        _uiState.value = _uiState.value.copy(
+                            pageIndex = pi,
+                            currentPage = chapter.getPage(pi),
+                        )
+                    }
+                }
                 // targetToLastPage：分页完成后跳转到末页
                 if (targetToLastPage) {
                     val chapter = _uiState.value.currentChapter ?: return@paginateChapterStreaming
@@ -1536,13 +1621,13 @@ class ReaderViewModel(
     }
 
     private fun navigateToSearchResult(result: SearchResult) {
-        jumpToChapterPosition(result.chapterIndex, result.charOffset)
+        jumpToChapterPosition(result.chapterIndex, result.byteOffset)
     }
 
     // ── 书签管理 ──────────────────────────────────────────────
 
     /**
-     * 在当前位置添加书签
+     * 在当前位置添加书签（v4：使用字节偏移）
      */
     fun addBookmark(selectedText: String? = null) {
         val dao = bookmarkDao ?: return
@@ -1550,15 +1635,16 @@ class ReaderViewModel(
         if (state.bookId == 0L) return
 
         viewModelScope.launch {
+            val page = state.currentPage
+            val chapters = loadedBookContent?.chapters
+            val chapterByteStart = chapters?.getOrNull(state.chapterIndex)?.byteStart ?: 0L
+            val charOffset = page?.startCharOffset ?: 0
+            val byteOffset = chapterByteStart + charToByteOffset(charOffset)
+
             val bookmark = BookmarkEntity(
                 bookId = state.bookId,
-                pageIndex = state.pageIndex,
-                position = state.currentPage?.startCharOffset ?: 0,
-                title = state.chapterTitle,
                 createdTime = System.currentTimeMillis(),
-                chapterIndex = state.chapterIndex,
-                chapterPos = state.currentPage?.startCharOffset ?: 0,
-                chapterName = state.chapterTitle,
+                byteOffset = byteOffset,
                 selectedText = selectedText,
             )
             dao.insertBookmark(bookmark)
@@ -1585,10 +1671,15 @@ class ReaderViewModel(
     }
 
     /**
-     * 跳转到书签位置
+     * 跳转到书签位置（v4：字节偏移）
      */
     fun goToBookmark(bookmark: BookmarkEntity) {
-        jumpToChapterPosition(bookmark.chapterIndex, bookmark.chapterPos)
+        val chapters = loadedBookContent?.chapters
+        if (chapters.isNullOrEmpty()) return
+        // 通过 byteOffset 查找所在章节
+        val chapterIndex = chapters.indexOfLast { it.byteStart <= bookmark.byteOffset }
+            .coerceIn(0, chapters.lastIndex)
+        jumpToChapterPosition(chapterIndex, bookmark.byteOffset)
     }
 
     /**
@@ -1610,7 +1701,7 @@ class ReaderViewModel(
     // ── 笔记管理 ──────────────────────────────────────────────
 
     /**
-     * 添加笔记
+     * 添加笔记（v4：使用字节偏移）
      */
     fun addNote(startPos: Int, endPos: Int, content: String, color: String? = null) {
         val dao = noteDao ?: return
@@ -1618,16 +1709,18 @@ class ReaderViewModel(
         if (state.bookId == 0L) return
 
         viewModelScope.launch {
+            val chapters = loadedBookContent?.chapters
+            val chapterByteStart = chapters?.getOrNull(state.chapterIndex)?.byteStart ?: 0L
+            val byteStart = chapterByteStart + charToByteOffset(startPos)
+            val byteEnd = chapterByteStart + charToByteOffset(endPos)
+
             val note = NoteEntity(
                 bookId = state.bookId,
-                startPosition = startPos,
-                endPosition = endPos,
-                content = content,
-                color = color,
                 createdTime = System.currentTimeMillis(),
-                chapterIndex = state.chapterIndex,
-                chapterStartPos = startPos,
-                chapterEndPos = endPos,
+                byteStart = byteStart.toLong(),
+                byteEnd = byteEnd.toLong(),
+                noteText = content,
+                color = color,
             )
             dao.insertNote(note)
             loadNotes()
@@ -1653,10 +1746,14 @@ class ReaderViewModel(
     }
 
     /**
-     * 跳转到笔记位置
+     * 跳转到笔记位置（v4：字节偏移）
      */
     fun goToNote(note: NoteEntity) {
-        jumpToChapterPosition(note.chapterIndex, note.chapterStartPos)
+        val chapters = loadedBookContent?.chapters
+        if (chapters.isNullOrEmpty()) return
+        val chapterIndex = chapters.indexOfLast { it.byteStart <= note.byteStart }
+            .coerceIn(0, chapters.lastIndex)
+        jumpToChapterPosition(chapterIndex, note.byteStart)
     }
 
     /**
@@ -1815,43 +1912,12 @@ class ReaderViewModel(
     }
 
     /**
-     * 统计章节字数：中文每个字算1，英文每个空格分隔的单词算1，过滤空格和换行。
-     */
-    private fun countChapterWords(content: String, start: Int, end: Int): Int {
-        var count = 0
-        var inEnglish = false
-        for (i in start until end.coerceAtMost(content.length)) {
-            val c = content[i]
-            if (c == ' ' || c == '\n' || c == '\r') {
-                inEnglish = false
-                continue
-            }
-            if (c.code in 0x4E00..0x9FFF || c.code in 0x3400..0x4DBF) {
-                // CJK 统一汉字：每个字算1
-                count++
-                inEnglish = false
-            } else if (c in 'a'..'z' || c in 'A'..'Z') {
-                if (!inEnglish) {
-                    // 英文单词开始
-                    count++
-                    inEnglish = true
-                }
-            } else {
-                // 数字、标点等：每个算1
-                count++
-                inEnglish = false
-            }
-        }
-        return count
-    }
-
-    /**
      * 异步计算所有章节字数，不阻塞首屏加载。
-     * 基于 DB 中的 charEnd - charStart 直接获取，无需读取正文。
+     * v4: 直接使用 BookChapterEntity.wordCount（解析时已计算）。
      */
     private fun computeChapterWordCounts(chapterEntities: List<com.shuli.reader.core.database.entity.BookChapterEntity>) {
         viewModelScope.launch(Dispatchers.Default) {
-            val counts = chapterEntities.map { (it.charEnd - it.charStart).coerceAtLeast(0) }
+            val counts = chapterEntities.map { it.wordCount.coerceAtLeast(0) }
             _uiState.value = _uiState.value.copy(chapterWordCounts = counts)
         }
     }
@@ -1989,7 +2055,12 @@ class ReaderViewModel(
 
             try {
                 val textLoadStart = System.currentTimeMillis()
-                val chapterText = if (repository != null && filePath != null) {
+                // 优先使用缓存文本（openBook 已预加载），避免重复读文件
+                val cached = cachedChapterText
+                val chapterText = if (cached != null) {
+                    cachedChapterText = null // 一次性缓存，用完即清
+                    cached
+                } else if (repository != null && filePath != null) {
                     withContext(Dispatchers.IO) {
                         repository.getChapterText(File(filePath), index, content)
                     }
@@ -2370,16 +2441,16 @@ class ReaderViewModel(
     private fun BookContent.normalizedChapters(): List<Chapter> {
         if (chapters.isNotEmpty()) return chapters
         return if (content.isNotBlank()) {
-            listOf(Chapter(title = "Full Text", startIndex = 0, endIndex = content.length))
+            listOf(Chapter(title = "Full Text", byteStart = 0L, byteEnd = content.length.toLong()))
         } else {
             emptyList()
         }
     }
 
     private fun BookContent.chapterText(chapter: Chapter): String {
-        val start = chapter.startIndex.coerceIn(0, content.length)
-        val end = chapter.endIndex.coerceIn(start, content.length)
-        return content.substring(start, end)
+        // v4: 对于 EPUB，content 已是完整文本，直接返回
+        // 对于 TXT，此方法不再使用（改用 loadChapterText）
+        return content
     }
 
     override fun onCleared() {

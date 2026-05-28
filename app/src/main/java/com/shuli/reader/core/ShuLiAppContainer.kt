@@ -7,10 +7,17 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.shuli.reader.core.data.UserPreferences
 import com.shuli.reader.core.database.ShuLiDatabase
+import com.shuli.reader.core.parser.ByteWindowReader
 import com.shuli.reader.core.parser.EpubParser
+import com.shuli.reader.core.parser.StreamDecoder
 import com.shuli.reader.core.parser.TxtParser
 import com.shuli.reader.core.repository.BookRepository
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.first
+import java.util.concurrent.Executors
 
 val Context.userPreferencesDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "user_preferences"
@@ -20,6 +27,26 @@ class ShuLiAppContainer(
     context: Context,
 ) {
     private val appContext = context.applicationContext
+
+    /** 阅读器专用调度器：2 线程池，避免和 Room/UI 抢资源（v4） */
+    val readerDispatcher: CoroutineDispatcher by lazy {
+        Executors.newFixedThreadPool(2) { r ->
+            Thread(r, "reader-io").apply { isDaemon = true }
+        }.asCoroutineDispatcher()
+    }
+
+    /** 应用级协程作用域：用于后台建索引等不应随 ViewModel 取消的任务（v4） */
+    val applicationScope: CoroutineScope by lazy {
+        CoroutineScope(SupervisorJob() + readerDispatcher)
+    }
+
+    val byteWindowReader: ByteWindowReader by lazy {
+        ByteWindowReader(readerDispatcher)
+    }
+
+    val streamDecoder: StreamDecoder by lazy {
+        StreamDecoder()
+    }
 
     val database: ShuLiDatabase by lazy {
         Room.databaseBuilder(
@@ -53,7 +80,9 @@ class ShuLiAppContainer(
             readingProgressDao = database.readingProgressDao(),
             txtParser = TxtParser(),
             epubParser = EpubParser(),
+            byteWindowReader = byteWindowReader,
             booksDir = java.io.File(appContext.filesDir, "books"),
+            applicationScope = applicationScope,
         )
     }
 
