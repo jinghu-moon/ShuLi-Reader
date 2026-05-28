@@ -553,9 +553,7 @@ class ReaderViewModelTest {
         return SearchResult(
             chapterIndex = chapterIndex,
             chapterTitle = "Chapter ${chapterIndex + 1}",
-            charOffset = charOffset,
-            matchStart = charOffset,
-            matchEnd = charOffset + 2,
+            byteOffset = charOffset.toLong(),
             context = "星海",
             matchedText = "星海",
         )
@@ -584,16 +582,16 @@ class ReaderViewModelTest {
             author = null,
             encoding = "UTF-8",
             totalLength = content.length.toLong(),
-            chapters = listOf(Chapter(title = "Chapter 1", startIndex = 0, endIndex = content.length)),
+            chapters = listOf(Chapter(title = "Chapter 1", byteStart = 0, byteEnd = content.length.toLong())),
             content = content,
         )
-        coEvery { repository.getChapterText(any(), any(), any()) } answers {
-            val indexArg = arg<Int>(1)
-            val contentArg = arg<BookContent>(2)
+        coEvery { repository.getChapterText(any<java.io.File>(), any<Int>(), any<BookContent>()) } coAnswers {
+            val indexArg = secondArg<Int>()
+            val contentArg = thirdArg<BookContent>()
             val chapter = contentArg.chapters.getOrNull(indexArg)
             if (chapter != null) {
-                val start = chapter.startIndex.coerceIn(0, contentArg.content.length)
-                val end = chapter.endIndex.coerceIn(start, contentArg.content.length)
+                val start = chapter.byteStart.toInt().coerceIn(0, contentArg.content.length)
+                val end = chapter.byteEnd.toInt().coerceIn(start, contentArg.content.length)
                 contentArg.content.substring(start, end)
             } else {
                 ""
@@ -631,6 +629,7 @@ class ReaderViewModelTest {
             override fun measureTextWidth(text: String, textSize: Float): Float = text.length * 10f
             override fun measureTextHeight(textSize: Float, lineHeight: Float): Float = 1000f
             override fun measureCharWidth(char: Char, textSize: Float): Float = 10f
+            override fun measureTextWidths(text: String, textSize: Float): FloatArray = FloatArray(text.length) { 10f }
         }
     }
 

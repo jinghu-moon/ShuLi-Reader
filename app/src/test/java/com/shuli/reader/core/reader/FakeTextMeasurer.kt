@@ -18,4 +18,9 @@ class FakeTextMeasurer : TextMeasurer {
     override fun measureCharWidth(char: Char, textSize: Float): Float {
         return textSize * 0.6f
     }
+
+    override fun measureTextWidths(text: String, textSize: Float): FloatArray {
+        val w = textSize * 0.6f
+        return FloatArray(text.length) { w }
+    }
 }

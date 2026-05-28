@@ -49,7 +49,7 @@ class BookRepositorySearchTest {
         assertEquals(1, results[1].chapterIndex)
         assertEquals("星海", results[0].matchedText)
         assertTrue("摘要不应携带大段正文", results.all { it.context.length <= 42 })
-        assertTrue("匹配范围应是正文绝对偏移", results.all { it.matchEnd > it.matchStart })
+        assertTrue("匹配位置应为正", results.all { it.byteOffset >= 0 })
     }
 
     @Test
@@ -72,7 +72,8 @@ class BookRepositorySearchTest {
                 bookId = 1L,
                 chapterIndex = 2,
                 chapterTitle = "Indexed Chapter",
-                chapterStart = 100,
+                byteStart = 100L,
+                charset = "UTF-8",
                 content = "远方的星海正在发亮。",
             ),
         )
@@ -82,7 +83,7 @@ class BookRepositorySearchTest {
 
         assertEquals(1, results.size)
         assertEquals(2, results.first().chapterIndex)
-        assertEquals(103, results.first().charOffset)
+        assertEquals(103L, results.first().byteOffset)
         verify(exactly = 0) { bookDao.getBookById(any()) }
     }
 
@@ -104,6 +105,7 @@ class BookRepositorySearchTest {
             readingProgressDao = mockk<ReadingProgressDao>(relaxed = true),
             txtParser = TxtParser(),
             epubParser = EpubParser(),
+            byteWindowReader = com.shuli.reader.core.parser.ByteWindowReader(),
             booksDir = File(requireNotNull(System.getProperty("java.io.tmpdir"))),
         )
     }

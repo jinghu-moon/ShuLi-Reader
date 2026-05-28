@@ -26,6 +26,10 @@ class PaginatorStreamingTest {
             override fun measureTextHeight(textSize: Float, lineHeight: Float): Float {
                 return textSize * lineHeight
             }
+            override fun measureTextWidths(text: String, textSize: Float): FloatArray {
+                val w = textSize * 0.5f
+                return FloatArray(text.length) { w }
+            }
         }
         paginator = Paginator(measurer)
 

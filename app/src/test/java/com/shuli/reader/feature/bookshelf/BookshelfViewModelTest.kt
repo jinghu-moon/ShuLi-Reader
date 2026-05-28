@@ -47,7 +47,7 @@ class BookshelfViewModelTest {
     fun initialState_isEmptyBookshelf() = runTest {
         val state = viewModel.uiState.first { !it.isLoading }
         assertTrue("书架应为空", state.isEmpty)
-        assertTrue("书籍列表应为空", state.books.isEmpty())
+        assertTrue("书籍列表应为空", state.nodes.isEmpty())
         assertEquals(ViewMode.GRID, state.viewMode)
         assertEquals(SortOrder.LAST_READ, state.sortOrder)
         assertEquals(FilterType.ALL, state.filterType)

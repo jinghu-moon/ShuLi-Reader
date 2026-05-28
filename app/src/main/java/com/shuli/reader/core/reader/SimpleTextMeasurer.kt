@@ -32,6 +32,15 @@ class SimpleTextMeasurer : TextMeasurer {
         }
     }
 
+    override fun measureTextWidths(text: String, textSize: Float): FloatArray {
+        val widths = FloatArray(text.length)
+        val asciiWidth = textSize * ASCII_WIDTH_RATIO
+        for (i in text.indices) {
+            widths[i] = if (text[i].code < ASCII_BOUNDARY) asciiWidth else textSize
+        }
+        return widths
+    }
+
     private companion object {
         private const val ASCII_BOUNDARY = 128
         private const val ASCII_WIDTH_RATIO = 0.56f
