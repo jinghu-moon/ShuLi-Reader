@@ -1,5 +1,6 @@
 package com.shuli.reader.core.parser
 
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -20,9 +21,9 @@ class TxtParserTest {
     // ── 章节检测 ──────────────────────────────────────────────
 
     @Test
-    fun chineseChapterTitles_areDetectedCorrectly() {
-        val content = File(booksDir, "simple_chapters.txt").readText()
-        val chapters = parser.detectChapters(content)
+    fun chineseChapterTitles_areDetectedCorrectly() = runTest {
+        val file = File(booksDir, "simple_chapters.txt")
+        val chapters = parser.parseChapterIndex(file)
         assertEquals(4, chapters.size)
         assertEquals("第一章 初入江湖", chapters[0].title)
         assertEquals("第二章 奇遇", chapters[1].title)
@@ -31,9 +32,9 @@ class TxtParserTest {
     }
 
     @Test
-    fun englishChapterTitles_areDetectedCorrectly() {
-        val content = File(booksDir, "english_chapters.txt").readText()
-        val chapters = parser.detectChapters(content)
+    fun englishChapterTitles_areDetectedCorrectly() = runTest {
+        val file = File(booksDir, "english_chapters.txt")
+        val chapters = parser.parseChapterIndex(file)
         assertEquals(4, chapters.size)
         assertEquals("Chapter 1 The Beginning", chapters[0].title)
         assertEquals("Chapter 2 The Discovery", chapters[1].title)
@@ -42,53 +43,53 @@ class TxtParserTest {
     }
 
     @Test
-    fun contentWithoutChapters_generatesSingleChapter() {
-        val content = File(booksDir, "no_chapters.txt").readText()
-        val chapters = parser.detectChapters(content)
+    fun contentWithoutChapters_generatesSingleChapter() = runTest {
+        val file = File(booksDir, "no_chapters.txt")
+        val chapters = parser.parseChapterIndex(file)
         assertEquals("无章节文件应自动生成单章节", 1, chapters.size)
         assertEquals("自动生成的章节标题应为默认值", "Full Text", chapters[0].title)
     }
 
     @Test
-    fun complexChapterTitles_areDetectedCorrectly() {
-        val content = File(booksDir, "complex_chapters.txt").readText()
-        val chapters = parser.detectChapters(content)
+    fun complexChapterTitles_areDetectedCorrectly() = runTest {
+        val file = File(booksDir, "complex_chapters.txt")
+        val chapters = parser.parseChapterIndex(file)
         // 卷一 少年行, 第一回 入世, 第二回 遇险, 卷二 风云起, 第三回 转折, 第四回 师徒, 第10章 决战, Chapter 20 Epilogue
         assertTrue("应检测到多个章节", chapters.size >= 6)
     }
 
     @Test
-    fun chapterOffsets_doNotOverlap() {
-        val content = File(booksDir, "simple_chapters.txt").readText()
-        val chapters = parser.detectChapters(content)
+    fun chapterOffsets_doNotOverlap() = runTest {
+        val file = File(booksDir, "simple_chapters.txt")
+        val chapters = parser.parseChapterIndex(file)
         for (i in 0 until chapters.size - 1) {
             assertTrue(
                 "章节 ${chapters[i].title} 的结束偏移应小于下一章开始偏移",
-                chapters[i].startIndex < chapters[i + 1].startIndex,
+                chapters[i].byteStart < chapters[i + 1].byteStart,
             )
         }
     }
 
     @Test
-    fun finalChapterEndIndex_matchesTextLength() {
-        val content = File(booksDir, "simple_chapters.txt").readText()
-        val chapters = parser.detectChapters(content)
+    fun finalChapterEndIndex_matchesTextLength() = runTest {
+        val file = File(booksDir, "simple_chapters.txt")
+        val chapters = parser.parseChapterIndex(file)
         assertTrue("应有章节", chapters.isNotEmpty())
         assertEquals(
-            "末章结束位置应等于文本长度",
-            content.length,
-            chapters.last().endIndex,
+            "末章结束位置应等于文件长度",
+            file.length(),
+            chapters.last().byteEnd,
         )
     }
 
     @Test
-    fun chapterContentOffsets_areValid() {
-        val content = File(booksDir, "simple_chapters.txt").readText()
-        val chapters = parser.detectChapters(content)
+    fun chapterContentOffsets_areValid() = runTest {
+        val file = File(booksDir, "simple_chapters.txt")
+        val chapters = parser.parseChapterIndex(file)
         for (chapter in chapters) {
-            assertTrue("startIndex 应 >= 0", chapter.startIndex >= 0)
-            assertTrue("endIndex 应 > startIndex", chapter.endIndex > chapter.startIndex)
-            assertTrue("endIndex 不应超过文本长度", chapter.endIndex <= content.length)
+            assertTrue("byteStart 应 >= 0", chapter.byteStart >= 0)
+            assertTrue("byteEnd 应 > byteStart", chapter.byteEnd > chapter.byteStart)
+            assertTrue("byteEnd 不应超过文件长度", chapter.byteEnd <= file.length())
         }
     }
 

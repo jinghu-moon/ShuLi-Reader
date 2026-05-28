@@ -12,20 +12,20 @@ class TxtParserLargeFileTest {
     private val parser = TxtParser()
 
     @Test
-    fun smallFile_isReadDirectly() = runTest {
+    fun smallFile_isParsedWithChapters() = runTest {
         val tempFile = File.createTempFile("small", ".txt")
         try {
             tempFile.writeText("第一章 测试\n这是内容", charset = Charsets.UTF_8)
-            val content = parser.parse(tempFile)
-            assertTrue("小文件应成功解析", content.chapters.isNotEmpty() || content.content.isNotBlank())
-            assertEquals(Charsets.UTF_8.name(), content.encoding)
+            val chapters = parser.parseChapterIndex(tempFile)
+            assertTrue("小文件应成功解析出章节", chapters.isNotEmpty())
+            assertEquals(Charsets.UTF_8.name(), chapters.first().charset)
         } finally {
             tempFile.delete()
         }
     }
 
     @Test
-    fun chapterOffsets_areBasedOnCharactersNotBytes() = runTest {
+    fun chapterOffsets_areBasedOnBytes() = runTest {
         val tempFile = File.createTempFile("unicode", ".txt")
         try {
             tempFile.writeText(
@@ -37,14 +37,21 @@ class TxtParserLargeFileTest {
                 """.trimMargin(),
                 charset = Charsets.UTF_8,
             )
-            val content = parser.parse(tempFile)
-            if (content.chapters.size >= 2) {
-                val ch1 = content.chapters[0]
-                val ch2 = content.chapters[1]
-                assertTrue("章节偏移应为正数", ch1.startIndex >= 0)
-                assertTrue("第二章应在第一章之后", ch2.startIndex > ch1.startIndex)
-                val textAtCh1 = content.content.substring(ch1.startIndex)
-                assertTrue("偏移处应包含章节标题", textAtCh1.startsWith("第一章"))
+            val chapters = parser.parseChapterIndex(tempFile)
+            if (chapters.size >= 2) {
+                val ch1 = chapters[0]
+                val ch2 = chapters[1]
+                assertTrue("章节偏移应为正数", ch1.byteStart >= 0)
+                assertTrue("第二章应在第一章之后", ch2.byteStart > ch1.byteStart)
+                // 验证字节偏移处的内容包含章节标题
+                val titleBytes = "第一章".toByteArray(Charsets.UTF_8)
+                val buf = ByteArray(titleBytes.size)
+                java.io.RandomAccessFile(tempFile, "r").use { raf ->
+                    raf.seek(ch1.byteStart)
+                    raf.read(buf)
+                }
+                val textAtCh1 = String(buf, Charsets.UTF_8)
+                assertTrue("偏移处应包含章节标题", textAtCh1.contains("第一章"))
             }
         } finally {
             tempFile.delete()
@@ -57,21 +64,27 @@ class TxtParserLargeFileTest {
         try {
             val gbkBytes = "第一章 测试\n这是GBK编码的内容\n第二章 继续\n更多内容".toByteArray(Charset.forName("GBK"))
             tempFile.writeBytes(gbkBytes)
-            val content = parser.parse(tempFile)
-            assertTrue("GBK 文件应解析出章节", content.chapters.isNotEmpty())
-            assertTrue("内容应包含中文", content.content.contains("测试"))
+            val chapters = parser.parseChapterIndex(tempFile)
+            assertTrue("GBK 文件应解析出章节", chapters.isNotEmpty())
+            // 验证编码检测为 GBK 系列（GB18030 是 GBK 的超集，universalchardet 可能返回任一）
+            val detectedCharset = parser.detectCharset(tempFile)
+            assertTrue(
+                "检测到的编码应为 GBK 系列，实际: ${detectedCharset.name()}",
+                detectedCharset.name() in listOf("GBK", "GB18030", "GB2312"),
+            )
         } finally {
             tempFile.delete()
         }
     }
 
     @Test
-    fun contentWithoutChapters_isPreservedCompletely() = runTest {
+    fun contentWithoutChapters_isPreservedAsSingleChapter() = runTest {
         val tempFile = File.createTempFile("nochap", ".txt")
         try {
             tempFile.writeText("这是一段没有章节标题的连续文本内容。" * 100)
-            val content = parser.parse(tempFile)
-            assertTrue("无章节时内容仍应存在", content.content.isNotBlank())
+            val chapters = parser.parseChapterIndex(tempFile)
+            assertEquals("无章节时应生成单个整本章", 1, chapters.size)
+            assertEquals("单章应覆盖整个文件", tempFile.length(), chapters[0].byteEnd)
         } finally {
             tempFile.delete()
         }
