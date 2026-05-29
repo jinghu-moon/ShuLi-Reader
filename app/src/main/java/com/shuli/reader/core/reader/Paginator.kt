@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.flow
  * 分页器，负责将文本内容分页
  */
 class Paginator(
-    private val textMeasurer: TextMeasurer,
+    var textMeasurer: TextMeasurer,
 ) {
     private companion object {
         /** 禁止出现在行首的标点（右引号、右括号、句末标点等） */
@@ -61,7 +61,7 @@ class Paginator(
         showHeader: Boolean = true,
         showFooter: Boolean = true,
     ): TextChapter {
-        val charWidths = textMeasurer.measureTextWidths(content, config.textSize)
+        val widthWindow = WidthWindow(content, config.textSize, textMeasurer)
         val pages = mutableListOf<TextPage>()
         var currentOffset = 0
         var pageIndex = 0
@@ -72,7 +72,7 @@ class Paginator(
                 pageIndex = pageIndex,
                 content = content,
                 startOffset = currentOffset,
-                charWidths = charWidths,
+                widthWindow = widthWindow,
                 config = config,
                 showHeader = showHeader,
                 showFooter = showFooter,
@@ -102,7 +102,7 @@ class Paginator(
         showHeader: Boolean = true,
         showFooter: Boolean = true,
     ): Flow<TextPage> = flow {
-        val charWidths = textMeasurer.measureTextWidths(content, config.textSize)
+        val widthWindow = WidthWindow(content, config.textSize, textMeasurer)
         var currentOffset = 0
         var pageIndex = 0
 
@@ -112,7 +112,7 @@ class Paginator(
                 pageIndex = pageIndex,
                 content = content,
                 startOffset = currentOffset,
-                charWidths = charWidths,
+                widthWindow = widthWindow,
                 config = config,
                 showHeader = showHeader,
                 showFooter = showFooter,
@@ -133,7 +133,7 @@ class Paginator(
         pageIndex: Int,
         content: String,
         startOffset: Int,
-        charWidths: FloatArray,
+        widthWindow: WidthWindow,
         config: ReaderLayoutConfig,
         showHeader: Boolean = true,
         showFooter: Boolean = true,
@@ -180,7 +180,7 @@ class Paginator(
             val lineResult = calculateLine(
                 content = content,
                 startOffset = tempOffset,
-                charWidths = charWidths,
+                widthWindow = widthWindow,
                 availableWidth = if (isParagraphStart) availableWidth - indentWidth else availableWidth,
                 letterSpacingPx = config.letterSpacingPx,
                 useZhLayout = config.useZhLayout,
@@ -226,7 +226,7 @@ class Paginator(
             val lineResult = calculateLine(
                 content = content,
                 startOffset = tempOffset,
-                charWidths = charWidths,
+                widthWindow = widthWindow,
                 availableWidth = if (isParagraphStart) availableWidth - indentWidth else availableWidth,
                 letterSpacingPx = config.letterSpacingPx,
                 useZhLayout = config.useZhLayout,
@@ -268,13 +268,13 @@ class Paginator(
     /**
      * 计算一行能容纳的文本。
      *
-     * charWidths 由调用方预计算（measureTextWidths 一次性批量测量），
-     * 此方法只做索引查找 + 分行决策，不调用任何测量 API。
+     * widthWindow 按需分块缓存字符宽度，此方法只做索引查找 + 分行决策。
+     * 首次访问新块时触发同步测量并缓存，后续访问命中缓存。
      */
     private fun calculateLine(
         content: String,
         startOffset: Int,
-        charWidths: FloatArray,
+        widthWindow: WidthWindow,
         availableWidth: Float,
         letterSpacingPx: Float = 0f,
         useZhLayout: Boolean = false,
@@ -296,7 +296,7 @@ class Paginator(
         var charCount = 0
 
         for (i in 0 until lineEnd) {
-            val width = charWidths[startOffset + i]
+            val width = widthWindow[startOffset + i]
             val spacing = if (charCount > 0) letterSpacingPx else 0f
             if (currentWidth + width + spacing > availableWidth) {
                 break
@@ -338,11 +338,11 @@ class Paginator(
         // 构建 CharColumn 列表（从预计算数组取宽度）
         val charColumns = ArrayList<CharColumn>(charCount)
         for (i in 0 until charCount) {
-            charColumns.add(CharColumn(content[startOffset + i].toString(), charWidths[startOffset + i]))
+            charColumns.add(CharColumn(content[startOffset + i].toString(), widthWindow[startOffset + i]))
         }
         val measuredWidth = if (charCount > 0) {
             var w = 0f
-            for (i in 0 until charCount) w += charWidths[startOffset + i]
+            for (i in 0 until charCount) w += widthWindow[startOffset + i]
             w + letterSpacingPx * (charCount - 1).coerceAtLeast(0)
         } else {
             0f

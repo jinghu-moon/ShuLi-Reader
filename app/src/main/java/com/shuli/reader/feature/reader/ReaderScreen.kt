@@ -321,6 +321,8 @@ fun ReaderScreen(
                         view.setLetterSpacing(prefs.letterSpacing)
                         view.setFakeBoldText(prefs.fontWeight == ReaderFontWeight.BOLD)
                         view.setTextAlign(prefs.textAlign)
+                        // 同步 textPaint 到分页测量器，确保分页与渲染使用相同字形宽度
+                        viewModel.syncTextMeasurerPaint(view.textPaint)
                         view.setPageDelegate(viewModel.pageDelegate)
                         // 页眉页脚：批量更新，内部 diff 后才触发重绘
                         view.updateHeaderFooter(
@@ -331,7 +333,7 @@ fun ReaderScreen(
                         )
                         view.setEdgeTurnPageEnabled(prefs.edgeTurnPage)
                         view.setTitleStyle(prefs.titleStyle)
-                        // 页数据：setPage 内部引用比较，无变化时仅触发 invalidate
+                        // 页数据：setPage 内部引用比较，无变化时跳过（避免无意义 invalidate）
                         // layoutVersion 在 update 块内检测，确保新页面到达时才触发 crossfade
                         val isLayoutChange = layoutVersionRef.intValue != uiState.layoutVersion
                         if (isLayoutChange) layoutVersionRef.intValue = uiState.layoutVersion

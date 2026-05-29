@@ -39,6 +39,7 @@ import com.shuli.reader.core.parser.model.Chapter
 import com.shuli.reader.core.reader.ChapterProvider
 import com.shuli.reader.core.reader.Paginator
 import com.shuli.reader.core.reader.ReadingStateManager
+import com.shuli.reader.core.reader.AndroidTextMeasurer
 import com.shuli.reader.core.reader.SimpleTextMeasurer
 import com.shuli.reader.core.reader.animation.PageDelegate
 import com.shuli.reader.core.reader.animation.PageDelegateFactory
@@ -196,6 +197,26 @@ class ReaderViewModel(
 
     private val _uiState = MutableStateFlow(ReaderUiState())
     val uiState: StateFlow<ReaderUiState> = _uiState.asStateFlow()
+
+    // AndroidTextMeasurer：首次 syncPaint 时惰性创建，此后复用
+    private var _androidTextMeasurer: AndroidTextMeasurer? = null
+
+    /**
+     * 由 View 层调用，将 Canvas 的 [Paint] 配置同步到分页测量器。
+     * 首次调用时替换 Paginator 的 measurer 为 [AndroidTextMeasurer]。
+     *
+     * @param paint View 层 textPaint 的属性快照（textSize / typeface / letterSpacing / fakeBold）
+     */
+    fun syncTextMeasurerPaint(paint: android.graphics.Paint) {
+        val existing = _androidTextMeasurer
+        if (existing == null) {
+            _androidTextMeasurer = AndroidTextMeasurer(paint).also {
+                paginator.textMeasurer = it
+            }
+        } else {
+            existing.updatePaint(paint)
+        }
+    }
 
     // 工具栏自动隐藏计时器
     private var toolbarAutoHideJob: Job? = null

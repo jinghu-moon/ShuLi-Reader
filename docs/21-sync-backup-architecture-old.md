@@ -1,6 +1,6 @@
-﻿# WebDAV 同步功能调研与实施方案 v3
+﻿# 同步与备份架构设计 v3
 
-本方案为 ShuLi Reader 增加轻量、高性能、低延迟、稳定且支持端到端加密的 WebDAV 同步能力，覆盖小说文件、阅读进度、书签、笔记和软件配置备份。
+本方案为 ShuLi Reader 设计完整的数据同步与备份体系，支持云端（WebDAV）和本地双通道同步、端到端加密、ZIP 导出/恢复，覆盖阅读进度、书签、笔记、阅读设置和书籍文件。
 
 ## 一、当前项目现状
 
@@ -781,26 +781,174 @@ notes/{bookKey}.enc = encrypt(json(notes))
 
 ### config/preferences.json / config/preferences.enc
 
-只备份可迁移配置，不备份账号密码、绝对路径、设备相关项。
+**全量备份用户可迁移配置**，不备份账号密码、绝对路径、设备相关项。
 
 ```json
 {
   "schemaVersion": 1,
+  "updatedAt": 1710000000000,
+
+  "appearance": {
+    "language": "zh-CN",
+    "themeMode": "system",
+    "appFont": "harmony"
+  },
+
   "reader": {
-    "fontSize": 18,
+    "fontSize": 16.0,
     "lineSpacing": 1.5,
     "paragraphSpacing": 1.0,
-    "pageAnim": "overlay",
+    "indent": 2.0,
+    "defaultPageAnim": "overlay",
     "pageTurnDir": "horizontal",
-    "readingFont": "system"
+    "fullScreen": false,
+    "keepScreenOn": false,
+    "brightness": -1.0,
+    "marginHorizontal": 24.0,
+    "marginVertical": 48.0,
+    "readingFont": "harmony",
+    "letterSpacing": 0.0,
+    "fontWeight": "normal",
+    "textAlign": "left",
+    "chineseConvert": "none",
+    "useZhLayout": false,
+    "usePanguSpacing": false
   },
-  "appearance": {
-    "themeMode": "system",
-    "language": "zh-CN"
+
+  "headerFooter": {
+    "headerVisibility": "hide_when_status_bar",
+    "headerLeft": "chapter_title",
+    "headerCenter": "none",
+    "headerRight": "none",
+    "footerVisibility": "always_show",
+    "footerLeft": "progress",
+    "footerCenter": "page_number",
+    "footerRight": "time",
+    "headerFooterAlpha": 0.4,
+    "showProgress": true
   },
-  "updatedAt": 1710000000000
+
+  "titleStyle": {
+    "titleAlign": "center",
+    "titleSizeOffset": 4,
+    "titleMarginTop": 9.0,
+    "titleMarginBottom": 60.0
+  },
+
+  "pageTurn": {
+    "volumeKeyTurnPage": false,
+    "edgeTurnPage": true
+  },
+
+  "library": {
+    "duplicateCheckEnabled": true,
+    "importCopyFile": true,
+    "unifiedCoverPalette": "auto",
+    "viewMode": "GRID"
+  },
+
+  "readingStats": {
+    "readingTimeEnabled": true,
+    "readingDailyTarget": 30
+  },
+
+  "tts": {
+    "ttsSpeed": 1.0,
+    "ttsPitch": 1.0,
+    "ttsAutoPage": false,
+    "ttsHighlightSentence": false
+  },
+
+  "advanced": {
+    "gpuAcceleration": true,
+    "loggingEnabled": false
+  }
 }
 ```
+
+**不同步的配置（明确排除）**：
+
+| 排除项 | 原因 |
+|-------|------|
+| `syncMethod` | 同步方式属于设备本地决策 |
+| `webdavUrl` | 凭据，不同步 |
+| `webdavUser` | 凭据，不同步 |
+| `webdavPassword` | 凭据，不同步 |
+
+### config/reader_presets.json / config/reader_presets.enc
+
+阅读器预设（多套排版方案）同步：
+
+```json
+{
+  "schemaVersion": 1,
+  "updatedAt": 1710000000000,
+  "presets": [
+    {
+      "id": 1,
+      "name": "日间舒适",
+      "createdAt": 1710000000000,
+      "config": {
+        "fontSize": 18.0,
+        "lineSpacing": 1.8,
+        "paragraphSpacing": 1.2,
+        "indent": 2.0,
+        "pageAnimType": "HORIZONTAL",
+        "backgroundColor": "PAPER",
+        "marginHorizontal": 24.0,
+        "marginVertical": 48.0,
+        "brightness": -1.0,
+        "readingFont": "harmony",
+        "optimizeRender": true,
+        "letterSpacing": 0.0,
+        "fontWeight": "NORMAL",
+        "textAlign": "LEFT",
+        "chineseConvert": "NONE",
+        "useZhLayout": false,
+        "usePanguSpacing": false,
+        "keepScreenOn": false,
+        "volumeKeyTurnPage": false,
+        "edgeTurnPage": true,
+        "ttsSpeed": 1.0,
+        "ttsPitch": 1.0,
+        "titleStyle": {
+          "align": "CENTER",
+          "sizeOffsetSp": 4,
+          "marginTopDp": 9.0,
+          "marginBottomDp": 60.0
+        },
+        "header": {
+          "visibility": "HIDE_WHEN_STATUS_BAR",
+          "left": "CHAPTER_TITLE",
+          "center": "NONE",
+          "right": "NONE"
+        },
+        "footer": {
+          "visibility": "ALWAYS_SHOW",
+          "left": "PROGRESS",
+          "center": "PAGE_NUMBER",
+          "right": "TIME"
+        },
+        "headerFooterAlpha": 0.4,
+        "showProgress": true
+      }
+    },
+    {
+      "id": 2,
+      "name": "夜间护眼",
+      "createdAt": 1710000000000,
+      "config": { "..." }
+    }
+  ]
+}
+```
+
+**设计要点**：
+
+- 预设是完整的 `ReaderPreferences` 快照，包含所有阅读器配置
+- 预设 ID 仅本地使用，同步时以 `name` 为标识
+- 同名预设：远端时间戳最新 wins
+- 删除预设：tombstone 标记，30 天后清理
 
 加密模式下：
 
@@ -1498,6 +1646,223 @@ class SyncStateMachine {
 }
 ```
 
+### 变更检测策略（增量同步核心）
+
+同步的关键不是"怎么传"，而是"传什么"。必须精确识别变更数据，避免全量扫描和重复传输。
+
+**三层脏标记机制**：
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                    变更检测三层架构                           │
+├─────────────────────────────────────────────────────────────┤
+│  第一层：内存脏标记（设置类）                                  │
+│    UserPreferences 修改 → dirtyKeys += key                  │
+│    持久化到 DataStore 后写入 pendingSyncKeys                 │
+├─────────────────────────────────────────────────────────────┤
+│  第二层：Room 脏标记（数据类）                                │
+│    书签/笔记/进度修改 → isDirty = true                       │
+│    同步成功 → isDirty = false, syncedVersion = version       │
+├─────────────────────────────────────────────────────────────┤
+│  第三层：Hash 免检（静态文件）                                │
+│    书籍/字体文件 → fastHash 相同 → 跳过                      │
+│    不读取文件内容，不做传输                                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**第一层：内存脏标记（设置类配置）**
+
+适用于 `config/preferences.json` 中的配置项：
+
+```kotlin
+class PreferencesDirtyTracker {
+    // 内存中记录被修改的 key
+    private val _dirtyKeys = MutableStateFlow<Set<String>>(emptySet())
+    val dirtyKeys: StateFlow<Set<String>> = _dirtyKeys.asStateFlow()
+
+    // 用户修改设置时调用
+    fun markDirty(key: String) {
+        _dirtyKeys.update { it + key }
+    }
+
+    // 同步成功后清除
+    fun clearDirty() {
+        _dirtyKeys.update { emptySet() }
+    }
+
+    // 是否有脏数据
+    fun hasDirty(): Boolean = _dirtyKeys.value.isNotEmpty()
+}
+```
+
+**行为**：
+- 用户修改字号 → `dirtyKeys += "default_font_size"`
+- 用户修改主题 → `dirtyKeys += "theme_mode"`
+- 同步时检测 `hasDirty()` → 只有脏了才上传 `preferences.json`
+- 同步成功 → `clearDirty()`
+
+**优化效果**：
+- 用户只改了字号 → 只上传 `preferences.json`（~1KB）
+- 用户未改设置 → 跳过配置同步（0 请求）
+
+**第二层：Room 脏标记（数据类实体）**
+
+适用于书签、笔记、阅读进度：
+
+```kotlin
+// 书签表新增字段
+@Entity
+data class BookmarkEntity(
+    @PrimaryKey val id: String,
+    val bookId: Long,
+    val byteOffset: Long,
+    // ... 其他字段 ...
+
+    // 同步相关字段
+    val isDirty: Boolean = false,        // 本地修改后置 true
+    val syncedVersion: Int = 0,          // 上次同步成功的版本号
+    val version: Int = 1,                // 当前版本号，每次修改递增
+    val updatedAt: Long = System.currentTimeMillis(),
+    val remoteBookKey: String? = null    // 远端 bookKey 映射
+)
+```
+
+**行为**：
+- 用户添加书签 → `isDirty = true, version = max(local, remote) + 1`
+- 用户修改书签 → `isDirty = true, version++`
+- 用户删除书签 → `isDirty = true, deleted = true`（tombstone）
+- 同步时查询 `WHERE isDirty = true` → 只处理脏数据
+- 同步成功 → `isDirty = false, syncedVersion = version`
+
+**同样的逻辑适用于**：
+- `NoteEntity`（笔记）
+- `ReadingProgressEntity`（阅读进度）
+- `ReaderPresetEntity`（阅读预设）
+
+**第三层：Hash 免检（静态文件）**
+
+适用于书籍文件、用户自定义字体：
+
+```kotlin
+// 书籍表
+@Entity
+data class BookEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long,
+    val title: String,
+    val filePath: String,
+    val fileType: String,  // TXT, EPUB
+    val fileSize: Long,
+    val fastHash: String,   // 文件头部 + 尾部 + 大小的快速 hash
+    val fullHash: String?,  // 完整 SHA-256（后台计算，可为空）
+    // ...
+)
+```
+
+**同步时判断逻辑**：
+
+```kotlin
+fun shouldSyncBookFile(local: BookEntity, remote: MetaJson): Boolean {
+    // 1. 远端不存在 → 需要上传
+    if (remote == null) return true
+
+    // 2. fastHash 相同 → 跳过（99% 的情况）
+    if (local.fastHash == remote.fileHash) return false
+
+    // 3. fastHash 不同 → 可能是不同版本，需要用户确认
+    //    提示："远端有一本同名但内容不同的书，如何处理？"
+    return false // 不自动覆盖，等用户决策
+}
+```
+
+**fastHash 计算**（轻量，不读全文件）：
+
+```kotlin
+fun computeFastHash(file: File): String {
+    val buffer = ByteArray(8192)
+    val digest = MessageDigest.getInstance("SHA-256")
+
+    // 读取头部
+    file.inputStream().use { fis ->
+        val headRead = fis.read(buffer)
+        digest.update(buffer, 0, headRead)
+    }
+
+    // 读取尾部
+    if (file.length() > 8192) {
+        RandomAccessFile(file, "r").use { raf ->
+            raf.seek(file.length() - 8192)
+            raf.read(buffer)
+            digest.update(buffer)
+        }
+    }
+
+    // 加入文件大小
+    digest.update(ByteBuffer.allocate(8).putLong(file.length()).array())
+
+    return digest.digest().toHexString()
+}
+```
+
+**优化效果**：
+- 100 本书，用户只新增 1 本 → 只上传 1 个文件
+- 未修改的 99 本 → fastHash 相同，0 请求
+
+**字体文件同理**：
+
+```kotlin
+// 字体同步时
+fun shouldSyncFont(localFont: FontFile, remoteMeta: FontMeta): Boolean {
+    if (remoteMeta == null) return true
+    if (localFont.fastHash == remoteMeta.fileHash) return false
+    return false // 不自动覆盖
+}
+```
+
+### 同步时的完整变更检测流程
+
+```text
+SyncEngine.sync(transport)
+│
+├─ 1. 拉取远端 manifest
+│
+├─ 2. 配置变更检测
+│     └─ hasDirty("preferences")? → YES → 上传 preferences.json
+│
+├─ 3. 预设变更检测
+│     └─ hasDirty("reader_presets")? → YES → 上传 reader_presets.json
+│
+├─ 4. 进度变更检测
+│     └─ SELECT * FROM ReadingProgress WHERE isDirty = true
+│     └─ 逐本上传 state/{bookKey}.json
+│
+├─ 5. 书签变更检测
+│     └─ SELECT * FROM Bookmark WHERE isDirty = true
+│     └─ 按 bookKey 分组，上传 bookmarks/{bookKey}.json
+│
+├─ 6. 笔记变更检测
+│     └─ SELECT * FROM Note WHERE isDirty = true
+│     └─ 按 bookKey 分组，上传 notes/{bookKey}.json
+│
+├─ 7. 书籍文件变更检测（若开启）
+│     └─ 比较 fastHash → 只上传新增/变更的书籍
+│
+├─ 8. 下载远端变更
+│     └─ 比较 version → 只下载 version 更高的远端数据
+│
+└─ 9. 清除脏标记
+      └─ isDirty = false, syncedVersion = version
+```
+
+**请求数估算（典型场景）**：
+
+| 场景 | 请求数 | 说明 |
+|------|--------|------|
+| 只改了字号 | 2 | GET manifest + PUT preferences |
+| 读了 3 本书 | 8 | GET manifest + PUT 3×state + PUT 3×manifest + PUT manifest |
+| 加了 5 个书签（同一本书） | 4 | GET manifest + PUT bookmarks/{bookKey} + PUT manifest |
+| 新增 1 本书 | 6 | GET manifest + PUT meta + PUT book file + PUT state + PUT manifest |
+| 什么都不改 | 1 | GET manifest（确认无变更） |
+
 ### 同步引擎（统一，不区分云端/本地）
 
 所有同步操作通过 `SyncEngine` 执行，传入不同的 `SyncTransport`：
@@ -2011,7 +2376,393 @@ enum class SyncResult {
 
 ---
 
-## 十四、库选型最终建议
+## 十四、UI 设计
+
+### 设置页面结构
+
+同步相关设置整合到现有设置页面，作为独立分组：
+
+```text
+设置
+├── 外观设置
+├── 阅读器显示偏好
+├── 书库与导入设置
+├── 阅读统计
+├── 朗读设置
+├── ───────────────────
+├── 📁 同步与备份          ← 新增分组
+│   ├── 云端同步 (WebDAV)
+│   ├── 本地同步
+│   ├── 导出与恢复
+│   └── 同步日志
+├── ───────────────────
+├── 高级设置
+└── 关于与版权
+```
+
+### 云端同步卡片
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ ☁️ 云端同步 (WebDAV)                              [开关 ▶] │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  服务商     坚果云                        [更改 ▸]          │
+│  账号       user@example.com              [更改 ▸]          │
+│  连接状态   ● 已连接                      [测试连接]        │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  同步内容                                                   │
+│    ☑ 阅读进度    ☑ 书签    ☑ 笔记    ☑ 设置    ☐ 书籍文件  │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  加密状态   🔒 已加密 (v2)                [管理 ▸]          │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  上次同步   2 分钟前 · 成功 · 请求 12/100                   │
+│                                                             │
+│  [立即同步]                    [查看同步日志 ▸]              │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**交互说明**：
+
+| 元素 | 交互 | 说明 |
+|------|------|------|
+| 开关 | 点击切换 | 关闭后停止所有云端同步，已同步数据保留 |
+| 服务商 | 点击展开选择器 | 坚果云/InfiniCLOUD/Nextcloud/自定义 |
+| 账号 | 点击弹窗编辑 | 用户名输入框 |
+| 测试连接 | 点击执行 | 发送 PROPFIND /，显示结果 |
+| 同步内容 | 复选框 | 书籍文件默认关闭，其余默认开启 |
+| 加密状态 | 点击进入管理 | 设置/验证/重置加密密码 |
+| 立即同步 | 点击触发 | 手动同步，按钮变为进度指示器 |
+| 查看日志 | 点击跳转 | 进入同步日志页面 |
+
+### 本地同步卡片
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ 📂 本地同步                                      [开关 ▶] │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  同步目录   /storage/emulated/0/Documents/ShuLiReader/      │
+│             [更改目录 ▸]                                    │
+│                                                             │
+│  连接状态   ● 目录可访问                  [测试访问]        │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  同步内容                                                   │
+│    ☑ 阅读进度    ☑ 书签    ☑ 笔记    ☑ 设置    ☐ 书籍文件  │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  加密状态   🔓 未加密                     [启用加密 ▸]      │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  上次同步   5 分钟前 · 成功                                  │
+│                                                             │
+│  [立即同步]                                                  │
+│                                                             │
+│  💡 配合 Syncthing/坚果云客户端可实现跨设备同步               │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**交互说明**：
+
+| 元素 | 交互 | 说明 |
+|------|------|------|
+| 同步目录 | 点击打开 SAF 选择器 | 或显示当前路径 |
+| 更改目录 | SAF `ACTION_OPEN_DOCUMENT_TREE` | 用户选择新目录 |
+| 测试访问 | 点击执行 | 尝试读写目录，显示结果 |
+| 启用加密 | 点击进入加密设置 | 与云端加密独立 |
+
+### 导出与恢复卡片
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ 💾 导出与恢复                                                │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  [导出备份文件]                      [从文件恢复]            │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  最近导出                                                     │
+│    2026-05-28 12:30 · shuli-backup-2026-05-28.zip · 12.3MB  │
+│    [分享 ▸]                                                  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 导出选项弹窗
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ 导出备份                                                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  导出内容                                                     │
+│    ☑ 阅读进度 (必选)                                         │
+│    ☑ 书签                                                    │
+│    ☑ 笔记                                                    │
+│    ☑ 阅读设置                                                │
+│    ☑ 阅读预设                                                │
+│    ☐ 书籍文件                                                │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  加密                                                       │
+│    ☐ 加密导出文件                                            │
+│    密码 ________________  (至少 6 位)                        │
+│    确认 ________________                                     │
+│                                                             │
+│  ⚠️ 导出密码独立于同步密码，忘记后无法恢复                    │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  预估大小   ~12.5 MB                                         │
+│                                                             │
+│           [取消]                    [导出]                   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 恢复选项弹窗
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ 从文件恢复                                                   │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  备份信息                                                     │
+│    文件名    shuli-backup-2026-05-28.zip                     │
+│    导出时间  2026-05-28 12:30                                │
+│    设备      Pixel 7                                         │
+│    书籍数量  156 本                                           │
+│    加密状态  🔒 已加密                                        │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  解密密码 ________________                                   │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  导入策略                                                     │
+│    ○ 完全覆盖 (清空本地，以导入数据为准)                      │
+│    ● 智能合并 (保留本地较新的数据)                            │
+│    ○ 仅导入本地不存在的数据                                  │
+│                                                             │
+│  ⚠️ 完全覆盖将删除本地所有书签、笔记、进度                    │
+│                                                             │
+│           [取消]                    [恢复]                   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 加密管理页面
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ ← 端到端加密                                                 │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  当前状态   🔒 已启用 (密钥版本 v2)                          │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  同步加密密码                                                 │
+│    状态       已设置                                          │
+│    [验证密码]  [修改密码]                                     │
+│                                                             │
+│  ⚠️ 忘记同步加密密码后，云端已加密数据将无法解密。             │
+│     如需继续使用，请重置并建立新的加密空间。                   │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  迁移                                                         │
+│    [迁移到加密空间]  (将明文数据加密后上传到新目录)            │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  危险操作                                                     │
+│    [重置加密空间]  (创建新空间，旧空间数据无法恢复)            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 同步日志页面
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ ← 同步日志                                     [导出日志]   │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  筛选  [全部 ▾]  [云端]  [本地]  [失败]                     │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  今天                                                        │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ 10:30  全量同步  ☁️ 坚果云  ✅ 成功  1.2s              ││
+│  │        设备: Pixel 7  请求: 12  传输: 2.3KB            ││
+│  ├─────────────────────────────────────────────────────────┤│
+│  │ 10:25  进度同步  📂 本地  ✅ 成功  0.3s                ││
+│  │        书籍: 斗破苍穹  传输: 128B                       ││
+│  ├─────────────────────────────────────────────────────────┤│
+│  │ 09:15  全量同步  ☁️ 坚果云  ❌ 失败  5.1s              ││
+│  │        错误: RATE_LIMITED  重试: 10:45                  ││
+│  └─────────────────────────────────────────────────────────┘│
+│                                                             │
+│  昨天                                                        │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ 22:00  全量同步  ☁️ 坚果云  ✅ 成功  2.1s              ││
+│  │        请求: 8  传输: 1.1KB                             ││
+│  └─────────────────────────────────────────────────────────┘
+│                                                             │
+│                    [加载更多]                                │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 冲突解决弹窗
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ ⚠️ 进度冲突                                                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  《斗破苍穹》在多设备上有不同进度：                           │
+│                                                             │
+│  ┌─────────────────────┐  ┌─────────────────────┐          │
+│  │ 📱 本机              │  │ ☁️ 云端              │          │
+│  │                     │  │                     │          │
+│  │ 第 12 章 · 45%      │  │ 第 15 章 · 62%      │          │
+│  │ 今天 10:30          │  │ 今天 09:15          │          │
+│  │ Pixel 7             │  │ 小米 14             │          │
+│  └─────────────────────┘  └─────────────────────┘          │
+│                                                             │
+│  差距: 3 章 (17%)                                            │
+│                                                             │
+│           [保留本地]  [跳转到云端进度]  [暂不处理]            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**交互说明**：
+
+| 选项 | 行为 |
+|------|------|
+| 保留本地 | 本地进度覆盖云端，下次同步生效 |
+| 跳转到云端进度 | 采用云端进度，阅读器跳转到对应位置 |
+| 暂不处理 | 跳过本次，下次同步再判断 |
+
+### 同步中状态指示
+
+**设置页面**：
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ ☁️ 云端同步 (WebDAV)                              [开关 ▶] │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  同步中...  ████████░░░░  60%                               │
+│  正在上传 3/5 本书签...                                     │
+│                                                             │
+│  [取消同步]                                                  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**通知栏**（后台同步时）：
+
+```text
+┌─────────────────────────────────────────┐
+│ 🔄 ShuLi Reader 同步中                  │
+│ 正在上传进度... 3/156                   │
+│                              [取消]     │
+└─────────────────────────────────────────┘
+```
+
+**同步完成通知**：
+
+```text
+┌─────────────────────────────────────────┐
+│ ✅ 同步完成                              │
+│ 已同步 5 本书签、2 本笔记 · 1.2s        │
+│                              [查看]     │
+└─────────────────────────────────────────┘
+```
+
+**同步失败通知**：
+
+```text
+┌─────────────────────────────────────────┐
+│ ❌ 同步失败                              │
+│ 网络不可用 · 将在网络恢复后重试          │
+│                              [重试]     │
+└─────────────────────────────────────────┘
+```
+
+### 错误状态 UI
+
+**连接失败**：
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ ☁️ 云端同步 (WebDAV)                              [开关 ▶] │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ⚠️ 连接失败                                                │
+│  用户名或密码错误，请检查设置。                               │
+│                                                             │
+│  [重新测试连接]  [修改设置 ▸]                                │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**限流中**：
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ ☁️ 云端同步 (WebDAV)                              [开关 ▶] │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ⏳ 请求过于频繁                                            │
+│  坚果云限制: 600 请求 / 30 分钟                              │
+│  预计 5 分钟后可继续同步                                     │
+│                                                             │
+│  上次同步: 2 分钟前 · 成功                                   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**密码未设置**：
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ ☁️ 云端同步 (WebDAV)                              [开关 ▶] │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  🔐 加密同步空间已启用，但密码未验证                          │
+│  请输入同步加密密码以继续。                                   │
+│                                                             │
+│  密码 ________________                                       │
+│                                                             │
+│  [验证]  [忘记密码？重置加密空间 ▸]                          │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 十五、库选型最终建议
 
 ### 第一阶段：继续强化纯 OkHttp
 
@@ -2056,7 +2807,7 @@ enum class SyncResult {
 
 ---
 
-## 十五、实施步骤
+## 十六、实施步骤
 
 ### Phase 1：最小可用同步闭环（协议层 + 进度/书签/笔记）
 
@@ -2073,18 +2824,24 @@ enum class SyncResult {
 10. 明确 `Content-Type`：JSON 为 `application/json; charset=utf-8`，二进制为 `application/octet-stream`。
 
 **远端目录与 manifest**：
-9. `ensureRemoteRoot()` 创建 `/ShuLiReader/` 子目录。
-10. `manifest.json` 数据模型（含 `schemaVersion`）。
-11. 本地书籍 → `bookKey` 映射。
-12. 上传/下载 manifest。
-13. 无 manifest 时使用 `PROPFIND Depth=1` 修复。
+11. `ensureRemoteRoot()` 创建 `/ShuLiReader/` 子目录。
+12. `manifest.json` 数据模型（含 `schemaVersion`）。
+13. 本地书籍 → `bookKey` 映射。
+14. 上传/下载 manifest。
+15. 无 manifest 时使用 `PROPFIND Depth=1` 修复。
 
 **进度/书签/笔记同步**：
-14. `BookProgress` 改为 v2：加入 `bookKey`、`byteOffset`、兼容 EPUB 字段。
-15. 书签/笔记 JSON 模型加入 UUID、tombstone、`mergeSource`。
-16. ReaderViewModel 保存进度后 enqueue 小 JSON 上传。
-17. 冲突解决：进度 latest-wins + 大差距三选项提示 + 时间戳相同时二级比较（参考 legado）；书签/笔记 item-level merge。
-18. 同步状态 UI：最近同步时间、结果、请求计数。
+16. `BookProgress` 改为 v2：加入 `bookKey`、`byteOffset`、兼容 EPUB 字段。
+17. 书签/笔记 JSON 模型加入 UUID、tombstone、`mergeSource`。
+18. ReaderViewModel 保存进度后 enqueue 小 JSON 上传。
+19. 冲突解决：进度 latest-wins + 大差距三选项提示 + 时间戳相同时二级比较（参考 legado）；书签/笔记 item-level merge。
+20. 同步状态 UI：最近同步时间、结果、请求计数。
+
+**变更检测（增量同步）**：
+21. Room 实体（Bookmark/Note/ReadingProgress/ReaderPreset）新增字段：`isDirty`、`version`、`syncedVersion`。
+22. `PreferencesDirtyTracker`：内存记录脏 key，同步后清除。
+23. `fastHash` 计算：书籍/字体文件头部+尾部+大小的轻量 hash，用于免检跳过。
+24. 同步时 `WHERE isDirty = true` 只处理脏数据，避免全量扫描。
 
 ### Phase 1.5：扩展同步能力 + 本地备份
 
@@ -2156,7 +2913,7 @@ enum class SyncResult {
 
 ---
 
-## 十六、具体代码影响范围
+## 十七、具体代码影响范围
 
 ### 已有文件
 
@@ -2189,6 +2946,8 @@ enum class SyncResult {
 - `core/sync/SyncCryptoManager.kt`
 - `core/sync/EncryptedFileStream.kt`
 - `core/sync/CryptoKeyRepository.kt`
+- `core/sync/PreferencesDirtyTracker.kt`：设置脏标记追踪
+- `core/sync/FastHashCalculator.kt`：书籍/字体快速 hash 计算
 - `core/database/entity/SyncTaskEntity.kt`
 - `core/database/dao/SyncTaskDao.kt`
 
@@ -2211,10 +2970,16 @@ enum class SyncResult {
 - `feature/settings/SyncSettingsViewModel.kt`：同步设置 ViewModel
 - `feature/settings/SyncStatusCard.kt`：云端/本地同步状态卡片
 - `feature/settings/ExportImportScreen.kt`：ZIP 导出/导入页面
+- `feature/settings/SyncLogScreen.kt`：同步日志页面
+- `feature/settings/CryptoManageScreen.kt`：加密管理页面
+- `feature/settings/component/ConflictResolveDialog.kt`：冲突解决弹窗
+- `feature/settings/component/ExportOptionsDialog.kt`：导出选项弹窗
+- `feature/settings/component/RestoreOptionsDialog.kt`：恢复选项弹窗
+- `feature/settings/component/SyncProgressIndicator.kt`：同步进度指示器
 
 ---
 
-## 十七、验收标准
+## 十八、验收标准
 
 ### 连接与兼容性
 
@@ -2264,7 +3029,7 @@ enum class SyncResult {
 
 ---
 
-## 十八、关键决策
+## 十九、关键决策
 
 - **第一阶段库选型**：纯 OkHttp 手写，不引入 dav4jvm。
 - **Phase 1 范围收窄**：最小可用闭环 = 连接测试 + 目录初始化 + manifest + 进度/书签/笔记同步；书籍文件和配置备份推迟到 Phase 1.5。
@@ -2293,3 +3058,5 @@ enum class SyncResult {
 - **localDeviceId**：每设备独立生成的随机 UUID，用于 mergeSource 追踪、冲突排障、设备管理；不同步到其他设备，App 卸载重装后会变。
 - **logicalVersion**：单调递增的逻辑版本号，优先级高于时间戳；解决设备时钟不准、时区差异导致的误判问题。
 - **原子写入**：本地同步使用 write-to-tmp → fsync → rename 策略，防止 Syncthing 等工具同步损坏文件。
+- **增量变更检测**：三层脏标记机制——内存脏标记（设置类）、Room isDirty 字段（数据类）、fastHash 免检（静态文件）；同步只处理脏数据，避免全量扫描和重复传输。
+- **UI 设计**：同步设置整合到设置页面独立分组；云端/本地各一个状态卡片；导出/恢复通过弹窗交互；冲突解决弹窗提供三选项；同步中状态同时展示在设置页面和通知栏。

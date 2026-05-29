@@ -51,7 +51,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
 
-    private val textPaint = Paint().apply {
+    val textPaint = Paint().apply {
         color = defaultColors.textColor
         textSize = 48f
         isAntiAlias = true
@@ -278,10 +278,9 @@ class ReaderCanvasView @JvmOverloads constructor(
 
         if (changed) {
             renderContext.selectedRange = null
+            submitRenderTask()
+            invalidate()
         }
-
-        submitRenderTask()
-        invalidate()
     }
 
     /** 缓存动画禁用检测结果，避免每次 setPageDelegate 查询 ContentProvider */

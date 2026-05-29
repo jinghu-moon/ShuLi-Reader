@@ -3,6 +3,7 @@ package com.shuli.reader.core.repository
 import com.shuli.reader.core.database.dao.BookChapterDao
 import com.shuli.reader.core.database.dao.BookDao
 import com.shuli.reader.core.database.dao.ReadingProgressDao
+import com.shuli.reader.core.database.entity.BookChapterEntity
 import com.shuli.reader.core.database.entity.BookContentIndexEntity
 import com.shuli.reader.core.database.entity.BookEntity
 import com.shuli.reader.core.parser.EpubParser
@@ -40,7 +41,21 @@ class BookRepositorySearchTest {
         every { bookDao.getBookById(1L) } returns flowOf(book(file))
         coEvery { bookDao.countBookContentIndex(1L) } returns 0
         coEvery { bookDao.replaceBookContentIndex(eq(1L), any()) } just runs
-        val repository = repository(bookDao)
+        val bookChapterDao = mockk<BookChapterDao>()
+        // trimIndent 后的内容："第一章 开始\n星海…\n第二章 归途\n…星海…"
+        // 第一章结束于 "远方。\n" 末尾（46 字节处）
+        val chapterEnd = 46L
+        coEvery { bookChapterDao.getChapters(1L) } returns listOf(
+            BookChapterEntity(
+                bookId = 1L, chapterIndex = 0, title = "第一章 开始",
+                byteStart = 0L, byteEnd = chapterEnd,
+            ),
+            BookChapterEntity(
+                bookId = 1L, chapterIndex = 1, title = "第二章 归途",
+                byteStart = chapterEnd, byteEnd = file.length(),
+            ),
+        )
+        val repository = repository(bookDao, bookChapterDao)
 
         val results = repository.searchInBook(1L, "星海")
 
@@ -83,7 +98,8 @@ class BookRepositorySearchTest {
 
         assertEquals(1, results.size)
         assertEquals(2, results.first().chapterIndex)
-        assertEquals(103L, results.first().byteOffset)
+        // "远方的" UTF-8 = 9 字节，byteStart(100) + 9 = 109
+        assertEquals(109L, results.first().byteOffset)
         verify(exactly = 0) { bookDao.getBookById(any()) }
     }
 
@@ -98,10 +114,13 @@ class BookRepositorySearchTest {
         coVerify { bookDao.deleteBookById(1L) }
     }
 
-    private fun repository(bookDao: BookDao): BookRepository {
+    private fun repository(
+        bookDao: BookDao,
+        bookChapterDao: BookChapterDao = mockk(relaxed = true),
+    ): BookRepository {
         return BookRepository(
             bookDao = bookDao,
-            bookChapterDao = mockk<BookChapterDao>(relaxed = true),
+            bookChapterDao = bookChapterDao,
             readingProgressDao = mockk<ReadingProgressDao>(relaxed = true),
             txtParser = TxtParser(),
             epubParser = EpubParser(),
