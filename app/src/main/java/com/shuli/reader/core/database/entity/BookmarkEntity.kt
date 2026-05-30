@@ -26,4 +26,11 @@ data class BookmarkEntity(
     val byteOffset: Long = 0L,
     /** 选中文本片段（UI 显示用） */
     val selectedText: String? = null,
+    // === 同步字段（T-06）===
+    val isDirty: Boolean = true,
+    val version: Int = 1,
+    val syncedVersion: Int = 0,
+    val deleted: Boolean = false,
+    val updatedAt: Long = 0L,
+    val mergeSource: String? = null,
 )

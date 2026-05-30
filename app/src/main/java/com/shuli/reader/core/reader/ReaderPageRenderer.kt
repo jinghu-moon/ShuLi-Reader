@@ -135,11 +135,11 @@ class ReaderPageRenderer(
         drawChapterTitle(canvas, page, density)
 
         // 4. 绘制页眉（多槽位）
-        val headerBaseline = 48f * density + 24f * density * 0.6f
+        val headerBaseline = page.headerMarginTop + 24f * density * 0.6f
         drawHeaderFooter(canvas, headerSlots, headerPaint, headerAlpha, headerBaseline, page)
 
         // 5. 绘制页脚（多槽位）
-        val footerBaseline = canvas.height - 48f * density - 24f * density * 0.4f
+        val footerBaseline = canvas.height - page.footerMarginBottom - 24f * density * 0.4f
         drawHeaderFooter(canvas, footerSlots, footerPaint, footerAlpha, footerBaseline, page)
 
         // 6. 绘制进度条

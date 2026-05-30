@@ -30,4 +30,11 @@ data class NoteEntity(
     val noteText: String = "",
     /** 高亮颜色 */
     val color: String? = null,
+    // === 同步字段（T-06）===
+    val isDirty: Boolean = true,
+    val version: Int = 1,
+    val syncedVersion: Int = 0,
+    val deleted: Boolean = false,
+    val updatedAt: Long = 0L,
+    val mergeSource: String? = null,
 )

@@ -28,6 +28,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.charset.Charset
+import java.util.UUID
 
 class BookRepository(
     private val bookDao: BookDao,
@@ -365,6 +366,8 @@ class BookRepository(
             addedTime = System.currentTimeMillis(),
             readingProgress = 0f,
             charset = charset,
+            bookKey = UUID.randomUUID().toString(),
+            updatedAt = System.currentTimeMillis(),
         )
 
         val bookId = bookDao.insertBook(bookEntity)

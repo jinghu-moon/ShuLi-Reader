@@ -25,4 +25,11 @@ data class ReadingProgressEntity(
     val position: Int,
     val readTime: Long,  // 阅读时长（秒）
     val updatedTime: Long,
+    // === 同步字段（T-06）===
+    val isDirty: Boolean = true,
+    val version: Int = 1,
+    val syncedVersion: Int = 0,
+    val deleted: Boolean = false,
+    val updatedAt: Long = 0L,
+    val mergeSource: String? = null,
 )

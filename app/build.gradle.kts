@@ -154,6 +154,8 @@ dependencies {
     testImplementation(libs.junit4)
     testImplementation(libs.io.mockk)
     testImplementation(libs.org.jetbrains.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.com.squareup.okhttp3.mockwebserver)
 
     // Android Instrumented Testing
     androidTestImplementation(libs.androidx.test.ext.junit)

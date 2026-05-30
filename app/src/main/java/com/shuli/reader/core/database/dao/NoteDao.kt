@@ -21,4 +21,12 @@ interface NoteDao {
 
     @Query("DELETE FROM notes WHERE id = :id")
     suspend fun deleteNoteById(id: Long)
+
+    /** T-06: 查询脏笔记（同步用） */
+    @Query("SELECT * FROM notes WHERE isDirty = 1 AND deleted = 0")
+    suspend fun queryDirty(): List<NoteEntity>
+
+    /** T-06: 查询所有未删除笔记（同步用） */
+    @Query("SELECT * FROM notes WHERE deleted = 0")
+    suspend fun queryAllActive(): List<NoteEntity>
 }

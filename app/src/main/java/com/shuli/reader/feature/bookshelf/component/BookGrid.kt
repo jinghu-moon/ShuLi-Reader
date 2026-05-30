@@ -273,6 +273,7 @@ private fun BookGridItem(
                         .align(Alignment.BottomCenter)
                         .clip(RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp)),
                     trackColor = Color.Transparent,
+                    drawStopIndicator = {},
                 )
             }
         }

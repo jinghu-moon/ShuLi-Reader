@@ -132,6 +132,8 @@ data class QuickSettingsActions(
     val onFooterCenterChange: (SlotContent) -> Unit = {},
     val onFooterRightChange: (SlotContent) -> Unit = {},
     val onHeaderFooterAlphaChange: (Float) -> Unit = {},
+    val onHeaderMarginTopChange: (Float) -> Unit = {},
+    val onFooterMarginBottomChange: (Float) -> Unit = {},
     val onShowProgressChange: (Boolean) -> Unit = {},
     val onTitleAlignChange: (TitleAlign) -> Unit = {},
     val onTitleSizeOffsetChange: (Int) -> Unit = {},
@@ -177,27 +179,6 @@ fun QuickSettingsSheet(
         dragHandle = { BottomSheetDefaults.DragHandle(color = readerColors.textSecondary) },
     ) {
         Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.62f)) {
-            // 常驻：跟随系统亮度开关
-            val isAuto = uiState.readerPreferences.brightness < 0f
-            BrightnessFollowSystemRow(
-                isAuto = isAuto,
-                onToggle = { checked ->
-                    actions.onBrightnessChange(if (checked) -1f else 0.5f)
-                },
-            )
-
-            // 常驻：亮度滑杆（跟随系统时隐藏）
-            AnimatedVisibility(
-                visible = !isAuto,
-                enter = expandVertically(tween(200)) + fadeIn(tween(200)),
-                exit = shrinkVertically(tween(200)) + fadeOut(tween(200)),
-            ) {
-                BrightnessBar(
-                    brightness = uiState.readerPreferences.brightness,
-                    onBrightnessChange = actions.onBrightnessChange,
-                )
-            }
-
             // 常驻：主题色块
             ThemeColorRow(
                 currentTheme = uiState.readerPreferences.backgroundColor,
@@ -281,6 +262,8 @@ fun QuickSettingsSheet(
                             onFooterVisibilityChange = actions.onFooterVisibilityChange,
                             onShowProgressChange = actions.onShowProgressChange,
                             onHeaderFooterAlphaChange = actions.onHeaderFooterAlphaChange,
+                            onHeaderMarginTopChange = actions.onHeaderMarginTopChange,
+                            onFooterMarginBottomChange = actions.onFooterMarginBottomChange,
                             onHeaderLeftChange = actions.onHeaderLeftChange,
                             onHeaderCenterChange = actions.onHeaderCenterChange,
                             onHeaderRightChange = actions.onHeaderRightChange,
@@ -316,76 +299,6 @@ fun QuickSettingsSheet(
 
 // ── 常驻组件 ──────────────────────────────────────────────
 
-@Composable
-private fun BrightnessFollowSystemRow(
-    isAuto: Boolean,
-    onToggle: (Boolean) -> Unit,
-) {
-    val readerColors = LocalReaderColorScheme.current
-    val strings = LocalAppStrings.current
-    val context = LocalContext.current
-
-    // 系统亮度百分比（跟随系统时显示）
-    val systemBrightnessPct = remember {
-        val raw = Settings.System.getInt(
-            context.contentResolver,
-            Settings.System.SCREEN_BRIGHTNESS,
-            128,
-        )
-        (raw * 100f / 255f).toInt()
-    }
-
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = strings.brightnessFollowSystemLabel,
-                style = MaterialTheme.typography.bodyLarge,
-                color = readerColors.textPrimary,
-            )
-            if (isAuto) {
-                Text(
-                    text = "${strings.brightness} $systemBrightnessPct%",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = readerColors.textSecondary,
-                )
-            }
-        }
-        Box(
-            modifier = Modifier.pointerInput(Unit) {
-                detectTapGestures(
-                    onLongPress = {
-                        Toast.makeText(context, strings.brightnessResetToSystem, Toast.LENGTH_SHORT).show()
-                    },
-                )
-            },
-        ) {
-            Switch(
-                checked = isAuto,
-                onCheckedChange = onToggle,
-            )
-        }
-    }
-}
-
-@Composable
-private fun BrightnessBar(
-    brightness: Float,
-    onBrightnessChange: (Float) -> Unit,
-) {
-    ReaderValueSlider(
-        label = LocalAppStrings.current.brightness,
-        value = brightness.coerceIn(0.01f, 1f),
-        valueRange = 0.01f..1f,
-        steps = 0,
-        format = { "${(it * 100).toInt()}%" },
-        onValueChange = onBrightnessChange,
-        modifier = Modifier.padding(horizontal = 16.dp),
-    )
-}
-
 /**
  * 常驻主题色块行（亮度栏下方）
  */
@@ -400,31 +313,67 @@ private fun ThemeColorRow(
             it.toReaderColorScheme().toCanvasThemeColors()
         }
     }
+    val strings = LocalAppStrings.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
     ) {
+        // 左侧说明文本
+        Text(
+            text = strings.readerThemeLabel,
+            style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+            color = readerColors.textPrimary,
+            modifier = Modifier.weight(1f),
+        )
+
+        // 右侧色块列表
+        Row(
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
         ReaderTheme.entries.forEach { theme ->
             val isSelected = currentTheme == theme
             val themeColors = themeColorMap[theme]!!
             Canvas(
                 modifier = Modifier
-                    .padding(end = 8.dp)
+                    .padding(end = 12.dp)
                     .size(36.dp)
                     .clickable { onThemeChange(theme) },
             ) {
-                drawCircle(color = Color(themeColors.backgroundColor))
+                val strokeWidth = 2.dp.toPx()
+                val gap = 3.dp.toPx()
+                val centerRadius = size.minDimension / 2
+                
+                // 选中时的内圈半径稍小，以留出间隔
+                val innerRadius = if (isSelected) centerRadius - strokeWidth - gap else centerRadius - 2.dp.toPx()
+                
+                // 未选中时，添加一个极淡的边框，防止白色主题与背景混在一起
+                if (!isSelected) {
+                    drawCircle(
+                        color = readerColors.textSecondary.copy(alpha = 0.1f),
+                        radius = innerRadius,
+                        style = Stroke(width = 1.dp.toPx())
+                    )
+                }
+                
+                // 绘制内侧主题色块
+                drawCircle(
+                    color = Color(themeColors.backgroundColor),
+                    radius = innerRadius
+                )
+                
+                // 选中时，绘制带有间隙的强调色外轮廓
                 if (isSelected) {
                     drawCircle(
                         color = readerColors.accent,
-                        radius = size.minDimension / 2,
-                        style = Stroke(width = 3f),
+                        radius = centerRadius - strokeWidth / 2,
+                        style = Stroke(width = strokeWidth),
                     )
                 }
             }
+        }
         }
     }
 }
@@ -706,6 +655,8 @@ private fun SettingsPanel(
     onFooterVisibilityChange: (HeaderVisibility) -> Unit,
     onShowProgressChange: (Boolean) -> Unit,
     onHeaderFooterAlphaChange: (Float) -> Unit,
+    onHeaderMarginTopChange: (Float) -> Unit,
+    onFooterMarginBottomChange: (Float) -> Unit,
     onHeaderLeftChange: (SlotContent) -> Unit,
     onHeaderCenterChange: (SlotContent) -> Unit,
     onHeaderRightChange: (SlotContent) -> Unit,
@@ -815,6 +766,14 @@ private fun SettingsPanel(
                 onSelect = onHeaderRightChange,
                 sheetTitle = strings.headerRight,
             )
+            ReaderValueSlider(
+                label = strings.headerMarginTop,
+                value = prefs.header.marginTop,
+                valueRange = 0f..100f,
+                steps = 100,
+                format = { "${it.toInt()}dp" },
+                onValueChange = onHeaderMarginTopChange,
+            )
         } else {
             Text(
                 text = strings.headerHidden,
@@ -862,6 +821,14 @@ private fun SettingsPanel(
                 selected = prefs.footer.right,
                 onSelect = onFooterRightChange,
                 sheetTitle = strings.footerRight,
+            )
+            ReaderValueSlider(
+                label = strings.footerMarginBottom,
+                value = prefs.footer.marginBottom,
+                valueRange = 0f..100f,
+                steps = 100,
+                format = { "${it.toInt()}dp" },
+                onValueChange = onFooterMarginBottomChange,
             )
         } else {
             Text(

@@ -262,6 +262,8 @@ class Paginator(
             chapterContentLength = content.length,
             chapterTitle = if (pageIndex == 0) chapterTitle else "",
             topContentY = config.marginVertical + headerHeight + titleAreaHeight,
+            headerMarginTop = config.headerMarginTop,
+            footerMarginBottom = config.footerMarginBottom,
         )
     }
 

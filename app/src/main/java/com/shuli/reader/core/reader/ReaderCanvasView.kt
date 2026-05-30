@@ -494,6 +494,43 @@ class ReaderCanvasView @JvmOverloads constructor(
         invalidate()
     }
 
+    /**
+     * 仅更新 Paint 属性，不触发 invalidateAllRecorders / submitRenderTask。
+     * 用于排版参数变化时：旧页面保持原快照渲染，等 reflow 产出新页面后自然替换。
+     */
+    fun updatePaintSnapshot(
+        textSize: Float? = null,
+        letterSpacing: Float? = null,
+        fakeBold: Boolean? = null,
+        fontKey: String? = null,
+        textAlign: com.shuli.reader.core.data.ReaderTextAlign? = null,
+    ) {
+        textSize?.let {
+            if (textPaint.textSize != it) {
+                textPaint.textSize = it
+                headerPaint.textSize = it * HEADER_TEXT_RATIO
+                footerPaint.textSize = it * FOOTER_TEXT_RATIO
+            }
+        }
+        letterSpacing?.let { textPaint.letterSpacing = it }
+        fakeBold?.let { textPaint.isFakeBoldText = it }
+        fontKey?.let { key ->
+            if (key != currentFontKey) {
+                currentFontKey = key
+                val typeface = when {
+                    key == FontManager.KEY_SYSTEM -> Typeface.DEFAULT
+                    key == FontManager.KEY_HARMONY -> try {
+                        ResourcesCompat.getFont(context, R.font.harmonyos_sanssc_regular)
+                    } catch (_: Exception) { Typeface.DEFAULT }
+                    FontManager.isCustomFont(key) -> fontManager.loadTypeface(key) ?: Typeface.DEFAULT
+                    else -> Typeface.DEFAULT
+                }
+                textPaint.typeface = typeface
+            }
+        }
+        textAlign?.let { pageRenderer.setTextAlign(it) }
+    }
+
     fun clearSelection() {
         if (renderContext.selectedRange == null) return
         renderContext.selectedRange = null

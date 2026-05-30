@@ -314,13 +314,16 @@ fun ReaderScreen(
                         val prevPage = uiState.currentChapter?.getPage(uiState.pageIndex - 1)
                         val prefs = uiState.readerPreferences
 
-                        // 主题/字号/字体/字重/对齐 → 各 setter 内部短路检查，无变化时直接跳过
+                        // 主题颜色 → 内部短路检查，无变化时跳过
                         view.setThemeColors(uiState.themeColors)
-                        view.setTextSizePx(prefs.fontSize * density)
-                        view.setFontFamily(prefs.readingFont)
-                        view.setLetterSpacing(prefs.letterSpacing)
-                        view.setFakeBoldText(prefs.fontWeight == ReaderFontWeight.BOLD)
-                        view.setTextAlign(prefs.textAlign)
+                        // 排版属性 → 仅更新 Paint，不触发录制（避免旧布局+新Paint导致抖动）
+                        view.updatePaintSnapshot(
+                            textSize = prefs.fontSize * density,
+                            letterSpacing = prefs.letterSpacing,
+                            fakeBold = prefs.fontWeight == ReaderFontWeight.BOLD,
+                            fontKey = prefs.readingFont,
+                            textAlign = prefs.textAlign,
+                        )
                         // 同步 textPaint 到分页测量器，确保分页与渲染使用相同字形宽度
                         viewModel.syncTextMeasurerPaint(view.textPaint)
                         view.setPageDelegate(viewModel.pageDelegate)
@@ -410,6 +413,20 @@ fun ReaderScreen(
                         onSearch = { query -> viewModel.searchInCurrentBook(query) },
                         onClose = viewModel::toggleSearch,
                         modifier = Modifier.align(Alignment.TopCenter),
+                    )
+                }
+
+                // 侧边悬浮亮度条
+                AnimatedVisibility(
+                    visible = uiState.showToolbar && !uiState.showSearch,
+                    enter = slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())) + fadeIn(animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())),
+                    exit = slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())) + fadeOut(animationSpec = tween(ReaderMotionTokens.SHORT_MS.toInt())),
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                ) {
+                    com.shuli.reader.feature.reader.component.VerticalBrightnessSlider(
+                        brightness = uiState.readerPreferences.brightness,
+                        onBrightnessChange = viewModel::setBrightness,
+                        modifier = Modifier.padding(end = 12.dp, top = 24.dp).height(240.dp)
                     )
                 }
 
@@ -636,6 +653,8 @@ fun ReaderScreen(
                     onFooterCenterChange = viewModel::setFooterCenter,
                     onFooterRightChange = viewModel::setFooterRight,
                     onHeaderFooterAlphaChange = viewModel::setHeaderFooterAlpha,
+                    onHeaderMarginTopChange = viewModel::setHeaderMarginTop,
+                    onFooterMarginBottomChange = viewModel::setFooterMarginBottom,
                     onShowProgressChange = viewModel::setShowProgress,
                     onTitleAlignChange = viewModel::setTitleAlign,
                     onTitleSizeOffsetChange = viewModel::setTitleSizeOffset,

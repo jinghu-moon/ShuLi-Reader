@@ -32,6 +32,14 @@ interface ReadingProgressDao {
 
     @Query("SELECT SUM(readTime) FROM reading_progress WHERE updatedTime >= :todayStart")
     fun getTodayTotalReadingTime(todayStart: Long): Flow<Long?>
+
+    /** T-06: 查询脏进度（同步用） */
+    @Query("SELECT * FROM reading_progress WHERE isDirty = 1 AND deleted = 0")
+    suspend fun queryDirty(): List<ReadingProgressEntity>
+
+    /** T-06: 查询所有未删除进度（同步用） */
+    @Query("SELECT * FROM reading_progress WHERE deleted = 0")
+    suspend fun queryAllActive(): List<ReadingProgressEntity>
 }
 
 data class BookDurationTuple(

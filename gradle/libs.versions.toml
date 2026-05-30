@@ -18,6 +18,7 @@ juniversalchardet = "2.4.0"
 opencc4j = "1.8.1"
 junit4 = "4.13.2"
 mockk = "1.13.13"
+robolectric = "4.16.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
@@ -54,6 +55,7 @@ androidx-navigation-compose = { group = "androidx.navigation", name = "navigatio
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 
 com-squareup-okhttp3 = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+com-squareup-okhttp3-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
 
 org-jsoup-jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 
@@ -63,6 +65,7 @@ com-houbb-opencc4j = { group = "com.github.houbb", name = "opencc4j", version.re
 
 junit4 = { group = "junit", name = "junit", version.ref = "junit4" }
 io-mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version = "1.2.1" }
 androidx-test-runner = { group = "androidx.test", name = "runner", version = "1.6.2" }
 androidx-compose-ui-test = { group = "androidx.compose.ui", name = "ui-test" }

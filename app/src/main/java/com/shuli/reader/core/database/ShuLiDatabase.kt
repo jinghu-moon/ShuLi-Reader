@@ -31,7 +31,7 @@ import com.shuli.reader.core.database.entity.ReadingProgressEntity
         com.shuli.reader.core.database.entity.FolderEntity::class,
         BookChapterEntity::class,
     ],
-    version = 13,
+    version = 15,
     exportSchema = true,
 )
 abstract class ShuLiDatabase : RoomDatabase() {
@@ -195,6 +195,47 @@ abstract class ShuLiDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE books ADD COLUMN chapterIndexFileSize INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE books ADD COLUMN chapterIndexLastModified INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE books ADD COLUMN chapterIndexBuiltAt INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        // T-01: 添加同步字段
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE books ADD COLUMN bookKey TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE books ADD COLUMN fastHash TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE books ADD COLUMN fullHash TEXT")
+                db.execSQL("ALTER TABLE books ADD COLUMN isDirty INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE books ADD COLUMN version INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE books ADD COLUMN syncedVersion INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE books ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE books ADD COLUMN remoteBookKey TEXT")
+            }
+        }
+
+        // T-06: 书签、笔记、阅读进度同步字段
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // bookmarks
+                db.execSQL("ALTER TABLE bookmarks ADD COLUMN isDirty INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE bookmarks ADD COLUMN version INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE bookmarks ADD COLUMN syncedVersion INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE bookmarks ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE bookmarks ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE bookmarks ADD COLUMN mergeSource TEXT")
+                // notes
+                db.execSQL("ALTER TABLE notes ADD COLUMN isDirty INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE notes ADD COLUMN version INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE notes ADD COLUMN syncedVersion INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE notes ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE notes ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE notes ADD COLUMN mergeSource TEXT")
+                // reading_progress
+                db.execSQL("ALTER TABLE reading_progress ADD COLUMN isDirty INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE reading_progress ADD COLUMN version INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE reading_progress ADD COLUMN syncedVersion INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE reading_progress ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE reading_progress ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE reading_progress ADD COLUMN mergeSource TEXT")
             }
         }
 

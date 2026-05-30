@@ -64,6 +64,8 @@ class ShuLiAppContainer(
                 ShuLiDatabase.MIGRATION_7_8,
                 ShuLiDatabase.MIGRATION_8_9,
                 ShuLiDatabase.MIGRATION_10_11,
+                ShuLiDatabase.MIGRATION_13_14,
+                ShuLiDatabase.MIGRATION_14_15,
             )
             .fallbackToDestructiveMigration()
             .build()

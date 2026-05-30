@@ -27,6 +27,8 @@ data class ReaderLayoutConfig(
     val letterSpacingPx: Float = 0f,  // 字距，已转为绝对像素
     val titleStyle: TitleStyleConfig = TitleStyleConfig(),
     val useZhLayout: Boolean = false,  // 自定义中文分行（标点避头尾）
+    val headerMarginTop: Float = 48f,
+    val footerMarginBottom: Float = 48f,
 )
 
 /**
@@ -117,6 +119,8 @@ class TextPage(
     val chapterTitle: String = "",
     /** 正文起始 Y 坐标（已含 marginVertical + headerHeight + titleAreaHeight），渲染器据此定位标题基线 */
     val topContentY: Float = 0f,
+    val headerMarginTop: Float = 48f,
+    val footerMarginBottom: Float = 48f,
 ) {
     /** 渲染缓存，每页一份，跨章节共享池资源。 */
     @Transient

@@ -38,4 +38,21 @@ data class BookEntity(
     val durByteOffset: Long = 0L,
     /** 章节扫描完成后回填，UI 进度估算用 */
     val estimatedTotalChars: Long = 0L,
+    // === 同步字段（T-01）===
+    /** 远端唯一标识，UUID v4 格式 */
+    val bookKey: String = "",
+    /** 文件三点采样 hash */
+    val fastHash: String = "",
+    /** 后台计算的完整文件 hash，可为空 */
+    val fullHash: String? = null,
+    /** 本地修改标记 */
+    val isDirty: Boolean = false,
+    /** 逻辑版本号，每次本地修改递增 */
+    val version: Int = 1,
+    /** 上次同步成功时的版本号 */
+    val syncedVersion: Int = 0,
+    /** 本地修改时间戳 */
+    val updatedAt: Long = 0L,
+    /** 旧格式兼容映射 */
+    val remoteBookKey: String? = null,
 )

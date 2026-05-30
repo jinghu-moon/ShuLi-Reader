@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 object PageAnimConst {
@@ -68,6 +69,8 @@ class UserPreferences(
         val KEY_FOOTER_CENTER = stringPreferencesKey("footer_center")
         val KEY_FOOTER_RIGHT = stringPreferencesKey("footer_right")
         val KEY_HEADER_FOOTER_ALPHA = floatPreferencesKey("header_footer_alpha")
+        val KEY_HEADER_MARGIN_TOP = floatPreferencesKey("header_margin_top")
+        val KEY_FOOTER_MARGIN_BOTTOM = floatPreferencesKey("footer_margin_bottom")
         val KEY_SHOW_PROGRESS = booleanPreferencesKey("show_progress")
         // 阶段五新增：正文标题样式
         val KEY_TITLE_ALIGN = stringPreferencesKey("title_align")
@@ -111,69 +114,71 @@ class UserPreferences(
     }
 
     // 状态读取流 (提供首启默认值)
-    val language: Flow<String> = dataStore.data.map { it[KEY_LANGUAGE] ?: "zh-CN" }
-    val themeMode: Flow<String> = dataStore.data.map { it[KEY_THEME_MODE] ?: "system" }
-    val appFont: Flow<String> = dataStore.data.map { it[KEY_APP_FONT] ?: "harmony" }
+    val language: Flow<String> = dataStore.data.map { it[KEY_LANGUAGE] ?: "zh-CN" }.distinctUntilChanged()
+    val themeMode: Flow<String> = dataStore.data.map { it[KEY_THEME_MODE] ?: "system" }.distinctUntilChanged()
+    val appFont: Flow<String> = dataStore.data.map { it[KEY_APP_FONT] ?: "harmony" }.distinctUntilChanged()
 
-    val defaultFontSize: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_FONT_SIZE] ?: 16f }
-    val defaultLineSpacing: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_LINE_SPACING] ?: 1.5f }
-    val defaultParagraphSpacing: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_PARAGRAPH_SPACING] ?: 1.0f }
-    val defaultIndent: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_INDENT] ?: 2.0f }
-    val defaultPageAnim: Flow<String> = dataStore.data.map { it[KEY_DEFAULT_PAGE_ANIM] ?: PageAnimConst.OVERLAY }
-    val pageTurnDir: Flow<String> = dataStore.data.map { it[KEY_PAGE_TURN_DIR] ?: PageTurnDirConst.HORIZONTAL }
-    val fullScreen: Flow<Boolean> = dataStore.data.map { it[KEY_FULL_SCREEN] ?: false }
-    val keepScreenOn: Flow<Boolean> = dataStore.data.map { it[KEY_KEEP_SCREEN_ON] ?: false }
-    val brightness: Flow<Float> = dataStore.data.map { it[KEY_BRIGHTNESS] ?: -1f } // -1 表示跟随系统
-    val marginHorizontal: Flow<Float> = dataStore.data.map { it[KEY_MARGIN_HORIZONTAL] ?: 24f }
-    val marginVertical: Flow<Float> = dataStore.data.map { it[KEY_MARGIN_VERTICAL] ?: 48f }
-    val readingFont: Flow<String> = dataStore.data.map { it[KEY_READING_FONT] ?: "harmony" }
+    val defaultFontSize: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_FONT_SIZE] ?: 16f }.distinctUntilChanged()
+    val defaultLineSpacing: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_LINE_SPACING] ?: 1.5f }.distinctUntilChanged()
+    val defaultParagraphSpacing: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_PARAGRAPH_SPACING] ?: 1.0f }.distinctUntilChanged()
+    val defaultIndent: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_INDENT] ?: 2.0f }.distinctUntilChanged()
+    val defaultPageAnim: Flow<String> = dataStore.data.map { it[KEY_DEFAULT_PAGE_ANIM] ?: PageAnimConst.OVERLAY }.distinctUntilChanged()
+    val pageTurnDir: Flow<String> = dataStore.data.map { it[KEY_PAGE_TURN_DIR] ?: PageTurnDirConst.HORIZONTAL }.distinctUntilChanged()
+    val fullScreen: Flow<Boolean> = dataStore.data.map { it[KEY_FULL_SCREEN] ?: false }.distinctUntilChanged()
+    val keepScreenOn: Flow<Boolean> = dataStore.data.map { it[KEY_KEEP_SCREEN_ON] ?: false }.distinctUntilChanged()
+    val brightness: Flow<Float> = dataStore.data.map { it[KEY_BRIGHTNESS] ?: -1f }.distinctUntilChanged() // -1 表示跟随系统
+    val marginHorizontal: Flow<Float> = dataStore.data.map { it[KEY_MARGIN_HORIZONTAL] ?: 24f }.distinctUntilChanged()
+    val marginVertical: Flow<Float> = dataStore.data.map { it[KEY_MARGIN_VERTICAL] ?: 48f }.distinctUntilChanged()
+    val readingFont: Flow<String> = dataStore.data.map { it[KEY_READING_FONT] ?: "harmony" }.distinctUntilChanged()
     // 阶段三新增
-    val letterSpacing: Flow<Float> = dataStore.data.map { it[KEY_LETTER_SPACING] ?: 0f }
-    val fontWeight: Flow<String> = dataStore.data.map { it[KEY_FONT_WEIGHT] ?: "normal" }
-    val textAlign: Flow<String> = dataStore.data.map { it[KEY_TEXT_ALIGN] ?: "left" }
-    val chineseConvert: Flow<String> = dataStore.data.map { it[KEY_CHINESE_CONVERT] ?: "none" }
+    val letterSpacing: Flow<Float> = dataStore.data.map { it[KEY_LETTER_SPACING] ?: 0f }.distinctUntilChanged()
+    val fontWeight: Flow<String> = dataStore.data.map { it[KEY_FONT_WEIGHT] ?: "normal" }.distinctUntilChanged()
+    val textAlign: Flow<String> = dataStore.data.map { it[KEY_TEXT_ALIGN] ?: "left" }.distinctUntilChanged()
+    val chineseConvert: Flow<String> = dataStore.data.map { it[KEY_CHINESE_CONVERT] ?: "none" }.distinctUntilChanged()
     // 阶段五新增：页眉脚
-    val headerVisibility: Flow<String> = dataStore.data.map { it[KEY_HEADER_VISIBILITY] ?: "hide_when_status_bar" }
-    val headerLeft: Flow<String> = dataStore.data.map { it[KEY_HEADER_LEFT] ?: "chapter_title" }
-    val headerCenter: Flow<String> = dataStore.data.map { it[KEY_HEADER_CENTER] ?: "none" }
-    val headerRight: Flow<String> = dataStore.data.map { it[KEY_HEADER_RIGHT] ?: "none" }
-    val footerVisibility: Flow<String> = dataStore.data.map { it[KEY_FOOTER_VISIBILITY] ?: "always_show" }
-    val footerLeft: Flow<String> = dataStore.data.map { it[KEY_FOOTER_LEFT] ?: "progress" }
-    val footerCenter: Flow<String> = dataStore.data.map { it[KEY_FOOTER_CENTER] ?: "page_number" }
-    val footerRight: Flow<String> = dataStore.data.map { it[KEY_FOOTER_RIGHT] ?: "time" }
-    val headerFooterAlpha: Flow<Float> = dataStore.data.map { it[KEY_HEADER_FOOTER_ALPHA] ?: 0.4f }
-    val showProgress: Flow<Boolean> = dataStore.data.map { it[KEY_SHOW_PROGRESS] ?: true }
+    val headerVisibility: Flow<String> = dataStore.data.map { it[KEY_HEADER_VISIBILITY] ?: "hide_when_status_bar" }.distinctUntilChanged()
+    val headerLeft: Flow<String> = dataStore.data.map { it[KEY_HEADER_LEFT] ?: "chapter_title" }.distinctUntilChanged()
+    val headerCenter: Flow<String> = dataStore.data.map { it[KEY_HEADER_CENTER] ?: "none" }.distinctUntilChanged()
+    val headerRight: Flow<String> = dataStore.data.map { it[KEY_HEADER_RIGHT] ?: "none" }.distinctUntilChanged()
+    val footerVisibility: Flow<String> = dataStore.data.map { it[KEY_FOOTER_VISIBILITY] ?: "always_show" }.distinctUntilChanged()
+    val footerLeft: Flow<String> = dataStore.data.map { it[KEY_FOOTER_LEFT] ?: "progress" }.distinctUntilChanged()
+    val footerCenter: Flow<String> = dataStore.data.map { it[KEY_FOOTER_CENTER] ?: "page_number" }.distinctUntilChanged()
+    val footerRight: Flow<String> = dataStore.data.map { it[KEY_FOOTER_RIGHT] ?: "time" }.distinctUntilChanged()
+    val headerFooterAlpha: Flow<Float> = dataStore.data.map { it[KEY_HEADER_FOOTER_ALPHA] ?: 0.4f }.distinctUntilChanged()
+    val headerMarginTop: Flow<Float> = dataStore.data.map { it[KEY_HEADER_MARGIN_TOP] ?: 48f }.distinctUntilChanged()
+    val footerMarginBottom: Flow<Float> = dataStore.data.map { it[KEY_FOOTER_MARGIN_BOTTOM] ?: 48f }.distinctUntilChanged()
+    val showProgress: Flow<Boolean> = dataStore.data.map { it[KEY_SHOW_PROGRESS] ?: true }.distinctUntilChanged()
     // 阶段五新增：正文标题样式
-    val titleAlign: Flow<String> = dataStore.data.map { it[KEY_TITLE_ALIGN] ?: "center" }
-    val titleSizeOffset: Flow<Int> = dataStore.data.map { it[KEY_TITLE_SIZE_OFFSET] ?: 4 }
-    val titleMarginTop: Flow<Float> = dataStore.data.map { it[KEY_TITLE_MARGIN_TOP] ?: 9f }
-    val titleMarginBottom: Flow<Float> = dataStore.data.map { it[KEY_TITLE_MARGIN_BOTTOM] ?: 60f }
+    val titleAlign: Flow<String> = dataStore.data.map { it[KEY_TITLE_ALIGN] ?: "center" }.distinctUntilChanged()
+    val titleSizeOffset: Flow<Int> = dataStore.data.map { it[KEY_TITLE_SIZE_OFFSET] ?: 4 }.distinctUntilChanged()
+    val titleMarginTop: Flow<Float> = dataStore.data.map { it[KEY_TITLE_MARGIN_TOP] ?: 9f }.distinctUntilChanged()
+    val titleMarginBottom: Flow<Float> = dataStore.data.map { it[KEY_TITLE_MARGIN_BOTTOM] ?: 60f }.distinctUntilChanged()
     // 排版增强
-    val useZhLayout: Flow<Boolean> = dataStore.data.map { it[KEY_USE_ZH_LAYOUT] ?: false }
-    val usePanguSpacing: Flow<Boolean> = dataStore.data.map { it[KEY_USE_PANGU_SPACING] ?: false }
+    val useZhLayout: Flow<Boolean> = dataStore.data.map { it[KEY_USE_ZH_LAYOUT] ?: false }.distinctUntilChanged()
+    val usePanguSpacing: Flow<Boolean> = dataStore.data.map { it[KEY_USE_PANGU_SPACING] ?: false }.distinctUntilChanged()
     // 阶段六新增
-    val volumeKeyTurnPage: Flow<Boolean> = dataStore.data.map { it[KEY_VOLUME_KEY_TURN_PAGE] ?: false }
-    val edgeTurnPage: Flow<Boolean> = dataStore.data.map { it[KEY_EDGE_TURN_PAGE] ?: true }
+    val volumeKeyTurnPage: Flow<Boolean> = dataStore.data.map { it[KEY_VOLUME_KEY_TURN_PAGE] ?: false }.distinctUntilChanged()
+    val edgeTurnPage: Flow<Boolean> = dataStore.data.map { it[KEY_EDGE_TURN_PAGE] ?: true }.distinctUntilChanged()
 
-    val duplicateCheckEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_DUPLICATE_CHECK] ?: true }
-    val importCopyFile: Flow<Boolean> = dataStore.data.map { it[KEY_IMPORT_COPY] ?: true }
-    val unifiedCoverPalette: Flow<String> = dataStore.data.map { it[KEY_UNIFIED_COVER_PALETTE] ?: COVER_PALETTE_AUTO }
+    val duplicateCheckEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_DUPLICATE_CHECK] ?: true }.distinctUntilChanged()
+    val importCopyFile: Flow<Boolean> = dataStore.data.map { it[KEY_IMPORT_COPY] ?: true }.distinctUntilChanged()
+    val unifiedCoverPalette: Flow<String> = dataStore.data.map { it[KEY_UNIFIED_COVER_PALETTE] ?: COVER_PALETTE_AUTO }.distinctUntilChanged()
 
-    val readingTimeEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_READING_TIME_ENABLED] ?: true }
-    val readingDailyTarget: Flow<Int> = dataStore.data.map { it[KEY_READING_DAILY_TARGET] ?: 30 }
+    val readingTimeEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_READING_TIME_ENABLED] ?: true }.distinctUntilChanged()
+    val readingDailyTarget: Flow<Int> = dataStore.data.map { it[KEY_READING_DAILY_TARGET] ?: 30 }.distinctUntilChanged()
 
-    val syncMethod: Flow<String> = dataStore.data.map { it[KEY_SYNC_METHOD] ?: SyncMethodConst.LOCAL }
-    val webdavUrl: Flow<String> = dataStore.data.map { it[KEY_WEBDAV_URL] ?: "" }
-    val webdavUser: Flow<String> = dataStore.data.map { it[KEY_WEBDAV_USER] ?: "" }
-    val webdavPassword: Flow<String> = dataStore.data.map { it[KEY_WEBDAV_PASSWORD] ?: "" }
+    val syncMethod: Flow<String> = dataStore.data.map { it[KEY_SYNC_METHOD] ?: SyncMethodConst.LOCAL }.distinctUntilChanged()
+    val webdavUrl: Flow<String> = dataStore.data.map { it[KEY_WEBDAV_URL] ?: "" }.distinctUntilChanged()
+    val webdavUser: Flow<String> = dataStore.data.map { it[KEY_WEBDAV_USER] ?: "" }.distinctUntilChanged()
+    val webdavPassword: Flow<String> = dataStore.data.map { it[KEY_WEBDAV_PASSWORD] ?: "" }.distinctUntilChanged()
 
-    val ttsSpeed: Flow<Float> = dataStore.data.map { it[KEY_TTS_SPEED] ?: 1.0f }
-    val ttsPitch: Flow<Float> = dataStore.data.map { it[KEY_TTS_PITCH] ?: 1.0f }
-    val ttsAutoPage: Flow<Boolean> = dataStore.data.map { it[KEY_TTS_AUTO_PAGE] ?: false }
-    val ttsHighlightSentence: Flow<Boolean> = dataStore.data.map { it[KEY_TTS_HIGHLIGHT_SENTENCE] ?: false }
+    val ttsSpeed: Flow<Float> = dataStore.data.map { it[KEY_TTS_SPEED] ?: 1.0f }.distinctUntilChanged()
+    val ttsPitch: Flow<Float> = dataStore.data.map { it[KEY_TTS_PITCH] ?: 1.0f }.distinctUntilChanged()
+    val ttsAutoPage: Flow<Boolean> = dataStore.data.map { it[KEY_TTS_AUTO_PAGE] ?: false }.distinctUntilChanged()
+    val ttsHighlightSentence: Flow<Boolean> = dataStore.data.map { it[KEY_TTS_HIGHLIGHT_SENTENCE] ?: false }.distinctUntilChanged()
 
-    val gpuAcceleration: Flow<Boolean> = dataStore.data.map { it[KEY_GPU_ACCELERATION] ?: true }
-    val loggingEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_LOGGING_ENABLED] ?: false }
+    val gpuAcceleration: Flow<Boolean> = dataStore.data.map { it[KEY_GPU_ACCELERATION] ?: true }.distinctUntilChanged()
+    val loggingEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_LOGGING_ENABLED] ?: false }.distinctUntilChanged()
 
     val viewMode: Flow<String> = dataStore.data.map { it[KEY_VIEW_MODE] ?: "GRID" }
 
@@ -209,6 +214,8 @@ class UserPreferences(
     suspend fun setFooterCenter(value: String) = dataStore.edit { it[KEY_FOOTER_CENTER] = value }
     suspend fun setFooterRight(value: String) = dataStore.edit { it[KEY_FOOTER_RIGHT] = value }
     suspend fun setHeaderFooterAlpha(value: Float) = dataStore.edit { it[KEY_HEADER_FOOTER_ALPHA] = value }
+    suspend fun setHeaderMarginTop(value: Float) = dataStore.edit { it[KEY_HEADER_MARGIN_TOP] = value }
+    suspend fun setFooterMarginBottom(value: Float) = dataStore.edit { it[KEY_FOOTER_MARGIN_BOTTOM] = value }
     suspend fun setShowProgress(value: Boolean) = dataStore.edit { it[KEY_SHOW_PROGRESS] = value }
     // 阶段五新增：正文标题样式
     suspend fun setTitleAlign(value: String) = dataStore.edit { it[KEY_TITLE_ALIGN] = value }

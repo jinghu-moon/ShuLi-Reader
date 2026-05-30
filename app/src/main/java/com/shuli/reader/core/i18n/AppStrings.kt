@@ -38,6 +38,7 @@ sealed interface AppStrings {
     val themeLight: String
     val themeDark: String
     val themePaper: String
+    val readerThemeLabel: String
     val appFontLabel: String
     val appFontSystem: String
     val appFontHarmony: String
@@ -185,6 +186,8 @@ sealed interface AppStrings {
     val titleSizeOffset: String
     val titleMarginTop: String
     val titleMarginBottom: String
+    val headerMarginTop: String
+    val footerMarginBottom: String
     val keepScreenOnLabel: String
     val keepScreenOnDesc: String
     val volumeKeyLabel: String
@@ -217,6 +220,7 @@ sealed interface AppStrings {
     val settingsResetSuccess: String
 
     // 七、关于与版权
+    val chapterFullText: String
     val aboutLabel: String
     val versionLabel: String
     val developerLabel: String
@@ -339,6 +343,7 @@ sealed interface AppStrings {
         override val themeLight = "浅色模式"
         override val themeDark = "深色模式"
         override val themePaper = "纸质护眼"
+        override val readerThemeLabel = "阅读主题"
         override val appFontLabel = "界面字体"
         override val appFontSystem = "系统默认"
         override val appFontHarmony = "鸿蒙字体"
@@ -480,6 +485,8 @@ sealed interface AppStrings {
         override val titleSizeOffset = "字号偏移"
         override val titleMarginTop = "上距"
         override val titleMarginBottom = "下距"
+        override val headerMarginTop = "上边距"
+        override val footerMarginBottom = "下边距"
         override val keepScreenOnLabel = "屏幕常亮"
         override val keepScreenOnDesc = "阅读时保持屏幕常亮"
         override val volumeKeyLabel = "音量键"
@@ -510,6 +517,7 @@ sealed interface AppStrings {
         override val resetAllSettingsDesc = "将应用设置项全部恢复为默认值"
         override val settingsResetSuccess = "设置重置成功"
 
+        override val chapterFullText = "全文"
         override val aboutLabel = "关于与版权"
         override val versionLabel = "软件版本"
         override val developerLabel = "开发者"
@@ -624,6 +632,7 @@ sealed interface AppStrings {
         override val themeLight = "淺色模式"
         override val themeDark = "深色模式"
         override val themePaper = "紙質護眼"
+        override val readerThemeLabel = "閱讀主題"
         override val appFontLabel = "介面字體"
         override val appFontSystem = "系統預設"
         override val appFontHarmony = "鴻蒙字體"
@@ -765,6 +774,8 @@ sealed interface AppStrings {
         override val titleSizeOffset = "字號偏移"
         override val titleMarginTop = "上距"
         override val titleMarginBottom = "下距"
+        override val headerMarginTop = "上邊距"
+        override val footerMarginBottom = "下邊距"
         override val keepScreenOnLabel = "螢幕常亮"
         override val keepScreenOnDesc = "閱讀時保持螢幕常亮"
         override val volumeKeyLabel = "音量鍵"
@@ -795,6 +806,7 @@ sealed interface AppStrings {
         override val resetAllSettingsDesc = "將應用程式設定全部恢復為預設值"
         override val settingsResetSuccess = "設定重置成功"
 
+        override val chapterFullText = "全文"
         override val aboutLabel = "關於與版權"
         override val versionLabel = "軟體版本"
         override val developerLabel = "開發者"
@@ -906,10 +918,11 @@ sealed interface AppStrings {
         override val appearance = "Appearance"
         override val themeModeLabel = "Theme Mode"
         override val themeSystem = "Follow System"
-        override val themeLight = "Light Mode"
-        override val themeDark = "Dark Mode"
-        override val themePaper = "Paper Mode"
-        override val appFontLabel = "App UI Font"
+        override val themeLight = "Light Theme"
+        override val themeDark = "Dark Theme"
+        override val themePaper = "Paper Eye-care"
+        override val readerThemeLabel = "Reading Theme"
+        override val appFontLabel = "App Font"
         override val appFontSystem = "System Default"
         override val appFontHarmony = "HarmonyOS Sans"
         override val appFontLxgw = "LXGW Wenkai"
@@ -1050,6 +1063,8 @@ sealed interface AppStrings {
         override val titleSizeOffset = "Size Offset"
         override val titleMarginTop = "Margin Top"
         override val titleMarginBottom = "Margin Bottom"
+        override val headerMarginTop = "Margin Top"
+        override val footerMarginBottom = "Margin Bottom"
         override val keepScreenOnLabel = "Keep Screen On"
         override val keepScreenOnDesc = "Keep screen on while reading"
         override val volumeKeyLabel = "Volume Keys"
@@ -1080,6 +1095,7 @@ sealed interface AppStrings {
         override val resetAllSettingsDesc = "Restore all settings to system default values"
         override val settingsResetSuccess = "Settings reset successfully"
 
+        override val chapterFullText = "Full Text"
         override val aboutLabel = "About & Copyright"
         override val versionLabel = "Software Version"
         override val developerLabel = "Developer"

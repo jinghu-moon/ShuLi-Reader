@@ -45,6 +45,7 @@ data class HeaderConfig(
     val left: SlotContent = SlotContent.CHAPTER_TITLE,
     val center: SlotContent = SlotContent.NONE,
     val right: SlotContent = SlotContent.NONE,
+    val marginTop: Float = 48f,
 )
 
 /**
@@ -56,6 +57,7 @@ data class FooterConfig(
     val left: SlotContent = SlotContent.PROGRESS,
     val center: SlotContent = SlotContent.PAGE_NUMBER,
     val right: SlotContent = SlotContent.TIME,
+    val marginBottom: Float = 48f,
 )
 
 /**

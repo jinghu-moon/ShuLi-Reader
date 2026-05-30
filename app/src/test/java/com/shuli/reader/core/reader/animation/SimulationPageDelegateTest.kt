@@ -1,13 +1,18 @@
 package com.shuli.reader.core.reader.animation
 
 import android.graphics.Canvas
+import android.os.Looper
 import android.view.MotionEvent
 import com.shuli.reader.core.canvasrecorder.CanvasRecorder
 import io.mockk.*
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 
+@RunWith(RobolectricTestRunner::class)
 class SimulationPageDelegateTest {
 
     private lateinit var callback: PageDelegate.Callback
@@ -154,7 +159,7 @@ class SimulationPageDelegateTest {
 
         delegate.startNext()
 
-        Thread.sleep(ReaderMotionTokens.LONG_MS + 150L)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(ReaderMotionTokens.LONG_MS + 150L))
         verify(atLeast = 1) { callback.onPageChanged(any()) }
     }
 }

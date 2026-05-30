@@ -191,6 +191,7 @@ fun GroupPickerDialog(
                             leadingContent = {
                                 Icon(Icons.Default.Folder, contentDescription = null)
                             },
+                            colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
                             modifier = Modifier.clickable { onMoveToFolder(folder.id) },
                         )
                     }
@@ -278,6 +279,7 @@ fun MoreActionsSheet(
                         contentDescription = null,
                     )
                 },
+                colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
                 modifier = Modifier.clickable { onToggleFavorite() },
             )
             // 书籍信息（仅单选时显示）
@@ -285,12 +287,14 @@ fun MoreActionsSheet(
                 ListItem(
                     headlineContent = { Text(strings.bookInfo) },
                     leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable { onShowInfo() },
                 )
                 // 自定义封面
                 ListItem(
                     headlineContent = { Text(strings.customizeCover) },
                     leadingContent = { Icon(Icons.Default.Palette, contentDescription = null) },
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable { onCustomizeCover() },
                 )
             }
@@ -298,6 +302,7 @@ fun MoreActionsSheet(
             ListItem(
                 headlineContent = { Text("从分组中移出") },
                 leadingContent = { Icon(Icons.Default.Folder, contentDescription = null) },
+                colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
                 modifier = Modifier.clickable { onMoveOut() },
             )
         }

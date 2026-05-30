@@ -442,6 +442,8 @@ class ReaderViewModel(
                     prefs.footerRight,
                     prefs.headerFooterAlpha,
                     prefs.showProgress,
+                    prefs.headerMarginTop,
+                    prefs.footerMarginBottom,
                 ) { flows: Array<Any> ->
                     ReaderVisualPrefs(
                         readingFont = flows[0] as String,
@@ -453,12 +455,14 @@ class ReaderViewModel(
                             left = (flows[5] as String).toSlotContent(),
                             center = (flows[6] as String).toSlotContent(),
                             right = (flows[7] as String).toSlotContent(),
+                            marginTop = flows[14] as Float,
                         ),
                         footer = FooterConfig(
                             visibility = (flows[8] as String).toHeaderVisibility(),
                             left = (flows[9] as String).toSlotContent(),
                             center = (flows[10] as String).toSlotContent(),
                             right = (flows[11] as String).toSlotContent(),
+                            marginBottom = flows[15] as Float,
                         ),
                         headerFooterAlpha = flows[12] as Float,
                         showProgress = flows[13] as Boolean,
@@ -858,8 +862,10 @@ class ReaderViewModel(
                 val absoluteByteOffset = chapterByteStart + relativeByte
 
                 val progress = if (isCurrentBookEpub) {
-                    val totalPages = state.totalPages.coerceAtLeast(1)
-                    (state.pageIndex.toFloat() / totalPages).coerceIn(0f, 1f)
+                    val totalChapters = state.totalChapters.coerceAtLeast(1)
+                    val chapterContentLength = state.currentChapter?.content?.length?.coerceAtLeast(1) ?: 1
+                    val charOffsetRatio = (chapterPos.toFloat() / chapterContentLength).coerceIn(0f, 1f)
+                    ((state.chapterIndex + charOffsetRatio) / totalChapters).coerceIn(0f, 1f)
                 } else {
                     // TXT: 优先用 estimatedTotalChars 估算字符%，未完成退化为字节%
                     val book = repo.getBookById(bookId).first()
@@ -1009,15 +1015,17 @@ class ReaderViewModel(
     /**
      * 更新亮度
      */
-    fun setBrightness(brightness: Float) {
+    fun setBrightness(brightness: Float, finished: Boolean = false) {
         resetToolbarAutoHide()
         val currentPrefs = _uiState.value.readerPreferences
         val updatedPrefs = currentPrefs.copy(brightness = brightness)
         _uiState.value = _uiState.value.copy(
             readerPreferences = updatedPrefs,
         )
-        viewModelScope.launch {
-            userPreferences?.setBrightness(brightness)
+        if (finished) {
+            viewModelScope.launch {
+                userPreferences?.setBrightness(brightness)
+            }
         }
     }
 
@@ -1082,6 +1090,38 @@ class ReaderViewModel(
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
             userPreferences?.setMarginVertical(margin)
+        }
+    }
+
+    /**
+     * 更新页眉顶距
+     */
+    fun setHeaderMarginTop(margin: Float) {
+        resetToolbarAutoHide()
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(header = currentPrefs.header.copy(marginTop = margin))
+        _uiState.value = _uiState.value.copy(
+            readerPreferences = updatedPrefs,
+        )
+        // 页眉基线仅影响渲染位置，不需要 reflow
+        viewModelScope.launch {
+            userPreferences?.setHeaderMarginTop(margin)
+        }
+    }
+
+    /**
+     * 更新页脚底距
+     */
+    fun setFooterMarginBottom(margin: Float) {
+        resetToolbarAutoHide()
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(footer = currentPrefs.footer.copy(marginBottom = margin))
+        _uiState.value = _uiState.value.copy(
+            readerPreferences = updatedPrefs,
+        )
+        // 页脚基线仅影响渲染位置，不需要 reflow
+        viewModelScope.launch {
+            userPreferences?.setFooterMarginBottom(margin)
         }
     }
 
@@ -2137,6 +2177,7 @@ class ReaderViewModel(
                         _uiState.value = currentState.copy(
                             totalPages = chapter.pageSize,
                             isLoading = false,
+                            layoutVersion = currentState.layoutVersion + 1,
                         )
                         // 存入缓存
                         cacheManager.putChapter(cacheKey, chapter)
@@ -2252,11 +2293,6 @@ class ReaderViewModel(
 
             // R7: 布局参数变化时清理旧缓存（key 中的 textSize/lineHeight/pageSize 已变）
             cacheManager.clearBook(state.bookId.toString())
-
-            // 递增排版版本号，触发 Canvas 层 crossfade
-            _uiState.value = _uiState.value.copy(
-                layoutVersion = _uiState.value.layoutVersion + 1,
-            )
 
             // 流式分页：首页秒开，自动跳转到之前的阅读位置
             paginateChapterStreaming(
@@ -2456,6 +2492,8 @@ class ReaderViewModel(
             letterSpacingPx = preferences.letterSpacing * textSizePx,
             titleStyle = preferences.titleStyle,
             useZhLayout = preferences.useZhLayout,
+            headerMarginTop = preferences.header.marginTop * density,
+            footerMarginBottom = preferences.footer.marginBottom * density,
         )
     }
 

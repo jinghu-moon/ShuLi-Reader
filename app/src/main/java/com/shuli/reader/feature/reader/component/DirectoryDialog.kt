@@ -193,7 +193,7 @@ private fun ChapterList(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = chapters[index],
+                    text = if (chapters[index] == "Full Text") strings.chapterFullText else chapters[index],
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = (MaterialTheme.typography.bodyLarge.fontSize.value - 2).sp,
                     ),
