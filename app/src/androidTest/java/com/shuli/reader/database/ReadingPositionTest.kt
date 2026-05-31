@@ -43,19 +43,15 @@ class ReadingPositionTest {
             lastReadTime = null,
             addedTime = System.currentTimeMillis(),
             readingProgress = 0.5f,
-            durChapterIndex = 3,
-            durChapterPos = 1500,
+            durByteOffset = 1500,
             durChapterTitle = "第四章 学艺",
-            durChapterTime = 120L,
             totalChapterNum = 10,
         )
         val id = bookDao.insertBook(book)
         val retrieved = bookDao.getBookById(id).first()!!
 
-        assertEquals(3, retrieved.durChapterIndex)
-        assertEquals(1500, retrieved.durChapterPos)
+        assertEquals(1500L, retrieved.durByteOffset)
         assertEquals("第四章 学艺", retrieved.durChapterTitle)
-        assertEquals(120L, retrieved.durChapterTime)
         assertEquals(10, retrieved.totalChapterNum)
     }
 
@@ -75,10 +71,8 @@ class ReadingPositionTest {
         val id = bookDao.insertBook(book)
         val retrieved = bookDao.getBookById(id).first()!!
 
-        assertEquals(0, retrieved.durChapterIndex)
-        assertEquals(0, retrieved.durChapterPos)
+        assertEquals(0L, retrieved.durByteOffset)
         assertEquals(null, retrieved.durChapterTitle)
-        assertEquals(0L, retrieved.durChapterTime)
         assertEquals(0, retrieved.totalChapterNum)
     }
 }

@@ -289,12 +289,80 @@ fun ReaderScreen(
                 // 确保 crossfade 在新页面实际到达时触发（而非版本号递增时）
                 val layoutVersionRef = remember { mutableIntStateOf(uiState.layoutVersion) }
 
+                // 持有 View 引用，用于 LaunchedEffect 直接操作（绕过 recomposition）
+                var canvasView by remember { mutableStateOf<ReaderCanvasView?>(null) }
+
+                // ── LaunchedEffect：像亮度一样绕过 recomposition 直接操作 View ──
+
+                // 主题颜色
+                val themeColors = uiState.themeColors
+                LaunchedEffect(themeColors) {
+                    canvasView?.setThemeColors(themeColors)
+                }
+
+                // 排版属性（字号/字距/字重/字体/对齐）→ 仅更新 Paint，不触发录制
+                val prefs = uiState.readerPreferences
+                val isReflowing = uiState.isReflowing
+                LaunchedEffect(prefs.fontSize, prefs.letterSpacing, prefs.fontWeight, prefs.readingFont, prefs.textAlign, isReflowing) {
+                    // reflow 进行中时跳过 Paint 更新，避免旧页面用新字号渲染溢出
+                    if (isReflowing) return@LaunchedEffect
+                    canvasView?.updatePaintSnapshot(
+                        textSize = prefs.fontSize * density,
+                        letterSpacing = prefs.letterSpacing,
+                        fakeBold = prefs.fontWeight == ReaderFontWeight.BOLD,
+                        fontKey = prefs.readingFont,
+                        textAlign = prefs.textAlign,
+                        invalidateContent = true,
+                    )
+                    canvasView?.textPaint?.let { viewModel.syncTextMeasurerPaint(it) }
+                }
+
+                // 页眉页脚
+                LaunchedEffect(prefs.headerFooterAlpha, prefs.showProgress) {
+                    canvasView?.updateHeaderFooter(
+                        viewModel.resolveHeaderSlots(),
+                        viewModel.resolveFooterSlots(),
+                        prefs.headerFooterAlpha,
+                        prefs.showProgress,
+                    )
+                }
+
+                // 标题样式
+                LaunchedEffect(prefs.titleStyle) {
+                    canvasView?.setTitleStyle(prefs.titleStyle)
+                }
+
+                // 边缘翻页
+                LaunchedEffect(prefs.edgeTurnPage) {
+                    canvasView?.setEdgeTurnPageEnabled(prefs.edgeTurnPage)
+                }
+
+                // 电池
+                LaunchedEffect(batteryLevel) {
+                    canvasView?.setBatteryLevel(batteryLevel)
+                }
+
+                // TTS 高亮
+                val ttsActiveRange = uiState.ttsActiveRange
+                LaunchedEffect(ttsActiveRange) {
+                    canvasView?.setTtsActiveRange(ttsActiveRange)
+                }
+
+                // 选区清除
+                val selectedRange = uiState.selectedRange
+                LaunchedEffect(selectedRange) {
+                    if (selectedRange == null) {
+                        canvasView?.clearSelection()
+                    }
+                }
+
                 AndroidView(
                     modifier = Modifier.fillMaxSize().testTag(UiTestTags.READER_CANVAS).onGloballyPositioned { coordinates ->
                         viewModel.setScreenSize(coordinates.size.width, coordinates.size.height)
                     },
                     factory = { context ->
                         ReaderCanvasView(context).apply {
+                            canvasView = this
                             setThemeColors(
                                 ReaderTheme.PAPER
                                     .toReaderColorScheme()
@@ -306,46 +374,18 @@ fun ReaderScreen(
                             }
                             onTextSelected = viewModel::selectText
                             onCenterClicked = viewModel::toggleToolbar
+                            setPageDelegate(viewModel.pageDelegate)
                         }
                     },
                     update = { view ->
+                        // 仅处理页面数据更新（页面引用变化才触发）
                         val page = uiState.currentPage ?: return@AndroidView
                         val nextPage = uiState.currentChapter?.getPage(uiState.pageIndex + 1)
                         val prevPage = uiState.currentChapter?.getPage(uiState.pageIndex - 1)
-                        val prefs = uiState.readerPreferences
 
-                        // 主题颜色 → 内部短路检查，无变化时跳过
-                        view.setThemeColors(uiState.themeColors)
-                        // 排版属性 → 仅更新 Paint，不触发录制（避免旧布局+新Paint导致抖动）
-                        view.updatePaintSnapshot(
-                            textSize = prefs.fontSize * density,
-                            letterSpacing = prefs.letterSpacing,
-                            fakeBold = prefs.fontWeight == ReaderFontWeight.BOLD,
-                            fontKey = prefs.readingFont,
-                            textAlign = prefs.textAlign,
-                        )
-                        // 同步 textPaint 到分页测量器，确保分页与渲染使用相同字形宽度
-                        viewModel.syncTextMeasurerPaint(view.textPaint)
-                        view.setPageDelegate(viewModel.pageDelegate)
-                        // 页眉页脚：批量更新，内部 diff 后才触发重绘
-                        view.updateHeaderFooter(
-                            viewModel.resolveHeaderSlots(),
-                            viewModel.resolveFooterSlots(),
-                            prefs.headerFooterAlpha,
-                            prefs.showProgress,
-                        )
-                        view.setEdgeTurnPageEnabled(prefs.edgeTurnPage)
-                        view.setTitleStyle(prefs.titleStyle)
-                        // 页数据：setPage 内部引用比较，无变化时跳过（避免无意义 invalidate）
-                        // layoutVersion 在 update 块内检测，确保新页面到达时才触发 crossfade
                         val isLayoutChange = layoutVersionRef.intValue != uiState.layoutVersion
                         if (isLayoutChange) layoutVersionRef.intValue = uiState.layoutVersion
                         view.setPage(page, nextPage, prevPage, uiState.pageRenderMode, isLayoutChange = isLayoutChange)
-                        view.setTtsActiveRange(uiState.ttsActiveRange)
-                        view.setBatteryLevel(batteryLevel)
-                        if (uiState.selectedRange == null) {
-                            view.clearSelection()
-                        }
                     },
                 )
 

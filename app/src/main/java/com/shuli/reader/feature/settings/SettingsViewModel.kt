@@ -42,7 +42,13 @@ data class SettingsUiState(
     val ttsAutoPage: Boolean = false,
     val ttsHighlightSentence: Boolean = false,
     val gpuAcceleration: Boolean = true,
-    val loggingEnabled: Boolean = false
+    val loggingEnabled: Boolean = false,
+    // 自动备份
+    val autoBackupEnabled: Boolean = false,
+    val backupOnAppStart: Boolean = false,
+    val backupOnAppExit: Boolean = false,
+    val backupIntervalHours: Int = 24,
+    val backupLocation: String = "",
 )
 
 sealed interface SettingsEvent {
@@ -84,7 +90,12 @@ class SettingsViewModel(
         userPreferences.ttsAutoPage,
         userPreferences.ttsHighlightSentence,
         userPreferences.gpuAcceleration,
-        userPreferences.loggingEnabled
+        userPreferences.loggingEnabled,
+        userPreferences.autoBackupEnabled,
+        userPreferences.backupOnAppStart,
+        userPreferences.backupOnAppExit,
+        userPreferences.backupIntervalHours,
+        userPreferences.backupLocation,
     ) { arr ->
         SettingsUiState(
             language = arr[0] as String,
@@ -112,7 +123,12 @@ class SettingsViewModel(
             ttsAutoPage = arr[22] as Boolean,
             ttsHighlightSentence = arr[23] as Boolean,
             gpuAcceleration = arr[24] as Boolean,
-            loggingEnabled = arr[25] as Boolean
+            loggingEnabled = arr[25] as Boolean,
+            autoBackupEnabled = arr[26] as Boolean,
+            backupOnAppStart = arr[27] as Boolean,
+            backupOnAppExit = arr[28] as Boolean,
+            backupIntervalHours = arr[29] as Int,
+            backupLocation = arr[30] as String,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -172,6 +188,13 @@ class SettingsViewModel(
 
     fun updateGpuAcceleration(value: Boolean) = updateSetting({ userPreferences.setGpuAcceleration(value) })
     fun updateLoggingEnabled(value: Boolean) = updateSetting({ userPreferences.setLoggingEnabled(value) })
+
+    // 自动备份
+    fun updateAutoBackupEnabled(value: Boolean) = updateSetting({ userPreferences.setAutoBackupEnabled(value) })
+    fun updateBackupOnAppStart(value: Boolean) = updateSetting({ userPreferences.setBackupOnAppStart(value) })
+    fun updateBackupOnAppExit(value: Boolean) = updateSetting({ userPreferences.setBackupOnAppExit(value) })
+    fun updateBackupIntervalHours(value: Int) = updateSetting({ userPreferences.setBackupIntervalHours(value) })
+    fun updateBackupLocation(value: String) = updateSetting({ userPreferences.setBackupLocation(value) })
 
     fun resetAllSettings() {
         updateSetting({

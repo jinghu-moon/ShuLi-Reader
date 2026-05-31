@@ -22,6 +22,10 @@ interface BookmarkDao {
     @Query("DELETE FROM bookmarks WHERE id = :id")
     suspend fun deleteBookmarkById(id: Long)
 
+    /** 清空所有书签（导入用） */
+    @Query("DELETE FROM bookmarks")
+    suspend fun deleteAllBookmarks()
+
     /** T-06: 查询脏书签（同步用） */
     @Query("SELECT * FROM bookmarks WHERE isDirty = 1 AND deleted = 0")
     suspend fun queryDirty(): List<BookmarkEntity>

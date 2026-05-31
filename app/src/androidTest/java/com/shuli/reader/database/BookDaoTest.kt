@@ -237,7 +237,7 @@ class BookDaoTest {
                     bookId = bookId,
                     chapterIndex = 0,
                     chapterTitle = "Chapter 1",
-                    chapterStart = 0,
+                    byteStart = 0,
                     content = "Alpha keyword",
                 ),
             ),

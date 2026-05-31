@@ -178,7 +178,8 @@ class MainActivity : ComponentActivity() {
                                 BackHandler { currentScreen = ActiveScreen.Bookshelf }
                                 SettingsScreen(
                                     viewModel = settingsViewModel,
-                                    onBackClick = { currentScreen = ActiveScreen.Bookshelf }
+                                    onBackClick = { currentScreen = ActiveScreen.Bookshelf },
+                                    appContainer = appContainer,
                                 )
                             }
                             is ActiveScreen.Reader -> {

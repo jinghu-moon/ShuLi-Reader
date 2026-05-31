@@ -13,8 +13,8 @@ import kotlinx.serialization.json.Json
 
 // Part of T-35 加密管理页
 class EncryptionManagementViewModel(
-    private val cryptoMetadataJson: String?,
-    private val keyDerivation: KeyDerivation,
+    private val cryptoMetadataJson: String? = null,
+    private val keyDerivation: KeyDerivation? = null,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main),
 ) {
 
@@ -53,7 +53,11 @@ class EncryptionManagementViewModel(
     fun verifyPassword(password: String, salt: ByteArray) {
         scope.launch {
             try {
-                val derivedKey = keyDerivation.derive(password, salt)
+                val derivation = keyDerivation ?: run {
+                    _verifyResult.value = PasswordVerifyResult.ERROR
+                    return@launch
+                }
+                val derivedKey = derivation.derive(password, salt)
                 // In a real implementation, we would compare the derived key
                 // with the stored key hash. For now, we just verify the derivation works.
                 if (derivedKey.isNotEmpty()) {

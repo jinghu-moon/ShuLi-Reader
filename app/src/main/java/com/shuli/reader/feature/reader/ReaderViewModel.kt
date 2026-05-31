@@ -163,6 +163,8 @@ data class ReaderUiState(
         .toReaderColorScheme().toCanvasThemeColors(),
     /** 排版版本号，每次 reflow 递增，用于 Canvas 层 crossfade 判断 */
     val layoutVersion: Int = 0,
+    /** 排版 reflow 进行中，为 true 时跳过 Paint 更新，避免旧页面用新字号渲染导致闪烁 */
+    val isReflowing: Boolean = false,
 ) {
     val showDirectory: Boolean get() = overlayPanel == OverlayPanel.DIRECTORY
     val showQuickSettings: Boolean get() = overlayPanel == OverlayPanel.QUICK_SETTINGS
@@ -988,6 +990,7 @@ class ReaderViewModel(
         val updatedPrefs = currentPrefs.copy(fontSize = size)
         _uiState.value = _uiState.value.copy(
             readerPreferences = updatedPrefs,
+            isReflowing = true,
         )
         reflowCurrentChapter(updatedPrefs)
         // 同步保存到 UserPreferences
@@ -1005,6 +1008,7 @@ class ReaderViewModel(
         val updatedPrefs = currentPrefs.copy(lineSpacing = spacing)
         _uiState.value = _uiState.value.copy(
             readerPreferences = updatedPrefs,
+            isReflowing = true,
         )
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
@@ -1038,6 +1042,7 @@ class ReaderViewModel(
         val updatedPrefs = currentPrefs.copy(paragraphSpacing = spacing)
         _uiState.value = _uiState.value.copy(
             readerPreferences = updatedPrefs,
+            isReflowing = true,
         )
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
@@ -1054,6 +1059,7 @@ class ReaderViewModel(
         val updatedPrefs = currentPrefs.copy(indent = indent)
         _uiState.value = _uiState.value.copy(
             readerPreferences = updatedPrefs,
+            isReflowing = true,
         )
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
@@ -1070,6 +1076,7 @@ class ReaderViewModel(
         val updatedPrefs = currentPrefs.copy(marginHorizontal = margin)
         _uiState.value = _uiState.value.copy(
             readerPreferences = updatedPrefs,
+            isReflowing = true,
         )
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
@@ -1086,6 +1093,7 @@ class ReaderViewModel(
         val updatedPrefs = currentPrefs.copy(marginVertical = margin)
         _uiState.value = _uiState.value.copy(
             readerPreferences = updatedPrefs,
+            isReflowing = true,
         )
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
@@ -1149,6 +1157,7 @@ class ReaderViewModel(
         val updatedPrefs = currentPrefs.copy(letterSpacing = spacing)
         _uiState.value = _uiState.value.copy(
             readerPreferences = updatedPrefs,
+            isReflowing = true,
         )
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
@@ -1215,6 +1224,7 @@ class ReaderViewModel(
         val updatedPrefs = currentPrefs.copy(chineseConvert = convert)
         _uiState.value = _uiState.value.copy(
             readerPreferences = updatedPrefs,
+            isReflowing = true,
         )
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
@@ -1231,6 +1241,7 @@ class ReaderViewModel(
         val updatedPrefs = currentPrefs.copy(useZhLayout = enabled)
         _uiState.value = _uiState.value.copy(
             readerPreferences = updatedPrefs,
+            isReflowing = true,
         )
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
@@ -1247,6 +1258,7 @@ class ReaderViewModel(
         val updatedPrefs = currentPrefs.copy(usePanguSpacing = enabled)
         _uiState.value = _uiState.value.copy(
             readerPreferences = updatedPrefs,
+            isReflowing = true,
         )
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
@@ -1259,7 +1271,7 @@ class ReaderViewModel(
     fun setHeaderVisibility(visibility: HeaderVisibility) {
         val currentPrefs = _uiState.value.readerPreferences
         val updatedPrefs = currentPrefs.copy(header = currentPrefs.header.copy(visibility = visibility))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs, isReflowing = true)
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
             userPreferences?.setHeaderVisibility(visibility.toStorageString())
@@ -1299,7 +1311,7 @@ class ReaderViewModel(
     fun setFooterVisibility(visibility: HeaderVisibility) {
         val currentPrefs = _uiState.value.readerPreferences
         val updatedPrefs = currentPrefs.copy(footer = currentPrefs.footer.copy(visibility = visibility))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs, isReflowing = true)
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
             userPreferences?.setFooterVisibility(visibility.toStorageString())
@@ -1362,7 +1374,7 @@ class ReaderViewModel(
     fun setTitleAlign(align: TitleAlign) {
         val currentPrefs = _uiState.value.readerPreferences
         val updatedPrefs = currentPrefs.copy(titleStyle = currentPrefs.titleStyle.copy(align = align))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs, isReflowing = true)
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
             userPreferences?.setTitleAlign(align.toStorageString())
@@ -1373,7 +1385,7 @@ class ReaderViewModel(
     fun setTitleSizeOffset(offsetSp: Int) {
         val currentPrefs = _uiState.value.readerPreferences
         val updatedPrefs = currentPrefs.copy(titleStyle = currentPrefs.titleStyle.copy(sizeOffsetSp = offsetSp))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs, isReflowing = true)
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
             userPreferences?.setTitleSizeOffset(offsetSp)
@@ -1384,7 +1396,7 @@ class ReaderViewModel(
     fun setTitleMarginTop(dp: Float) {
         val currentPrefs = _uiState.value.readerPreferences
         val updatedPrefs = currentPrefs.copy(titleStyle = currentPrefs.titleStyle.copy(marginTopDp = dp))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs, isReflowing = true)
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
             userPreferences?.setTitleMarginTop(dp)
@@ -1395,7 +1407,7 @@ class ReaderViewModel(
     fun setTitleMarginBottom(dp: Float) {
         val currentPrefs = _uiState.value.readerPreferences
         val updatedPrefs = currentPrefs.copy(titleStyle = currentPrefs.titleStyle.copy(marginBottomDp = dp))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs, isReflowing = true)
         reflowCurrentChapter(updatedPrefs)
         viewModelScope.launch {
             userPreferences?.setTitleMarginBottom(dp)
@@ -2096,6 +2108,7 @@ class ReaderViewModel(
                     chapterTitle = chapterMeta.title,
                     totalPages = cached.pageSize,
                     isLoading = false,
+                    isReflowing = false,
                 )
                 // P6: 按 targetCharOffset 跳转或显示首页
                 val startPage = if (targetCharOffset > 0) {
@@ -2112,7 +2125,11 @@ class ReaderViewModel(
         }
 
         return viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
+            // reflow 时不显示 loading，保留旧页面内容
+            val isReflow = _uiState.value.currentPage != null
+            if (!isReflow) {
+                _uiState.value = _uiState.value.copy(isLoading = true)
+            }
 
             try {
                 val textLoadStart = System.currentTimeMillis()
@@ -2153,8 +2170,8 @@ class ReaderViewModel(
                         val currentState = _uiState.value
                         if (currentState.chapterIndex != index) return
 
-                        if (pageIndex == 0 && currentState.currentPage == null) {
-                            // 首页就绪：立即显示，无论是否有目标偏移
+                        if (pageIndex == 0 && (currentState.currentPage == null || currentState.isReflowing)) {
+                            // 首页就绪：立即显示（首次加载或 reflow 完成第一页）
                             _uiState.value = currentState.copy(
                                 currentPage = page,
                                 pageIndex = 0,
@@ -2177,6 +2194,7 @@ class ReaderViewModel(
                         _uiState.value = currentState.copy(
                             totalPages = chapter.pageSize,
                             isLoading = false,
+                            isReflowing = false,
                             layoutVersion = currentState.layoutVersion + 1,
                         )
                         // 存入缓存
@@ -2187,13 +2205,16 @@ class ReaderViewModel(
                     }
                 }
 
+                // reflow 时保留旧页面，避免 currentPage=null 导致闪烁
+                // 首次加载时清空页面显示 loading
+                val isReflow = _uiState.value.currentPage != null
                 _uiState.value = _uiState.value.copy(
                     currentChapter = chapter,
                     chapterIndex = index,
                     chapterTitle = chapterMeta.title,
-                    currentPage = null,
-                    pageIndex = 0,
-                    totalPages = 0,
+                    currentPage = if (isReflow) _uiState.value.currentPage else null,
+                    pageIndex = if (isReflow) _uiState.value.pageIndex else 0,
+                    totalPages = if (isReflow) _uiState.value.totalPages else 0,
                 )
 
                 // 流式分页

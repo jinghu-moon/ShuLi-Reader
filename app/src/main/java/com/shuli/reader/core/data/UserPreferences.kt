@@ -109,6 +109,13 @@ class UserPreferences(
         val KEY_GPU_ACCELERATION = booleanPreferencesKey("gpu_acceleration")
         val KEY_LOGGING_ENABLED = booleanPreferencesKey("logging_enabled")
 
+        // 自动备份
+        val KEY_AUTO_BACKUP_ENABLED = booleanPreferencesKey("auto_backup_enabled")
+        val KEY_BACKUP_ON_APP_START = booleanPreferencesKey("backup_on_app_start")
+        val KEY_BACKUP_ON_APP_EXIT = booleanPreferencesKey("backup_on_app_exit")
+        val KEY_BACKUP_INTERVAL_HOURS = intPreferencesKey("backup_interval_hours")
+        val KEY_BACKUP_LOCATION = stringPreferencesKey("backup_location")
+
         // 书架设置
         val KEY_VIEW_MODE = stringPreferencesKey("view_mode")
     }
@@ -180,6 +187,13 @@ class UserPreferences(
     val gpuAcceleration: Flow<Boolean> = dataStore.data.map { it[KEY_GPU_ACCELERATION] ?: true }.distinctUntilChanged()
     val loggingEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_LOGGING_ENABLED] ?: false }.distinctUntilChanged()
 
+    // 自动备份
+    val autoBackupEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_AUTO_BACKUP_ENABLED] ?: false }.distinctUntilChanged()
+    val backupOnAppStart: Flow<Boolean> = dataStore.data.map { it[KEY_BACKUP_ON_APP_START] ?: false }.distinctUntilChanged()
+    val backupOnAppExit: Flow<Boolean> = dataStore.data.map { it[KEY_BACKUP_ON_APP_EXIT] ?: false }.distinctUntilChanged()
+    val backupIntervalHours: Flow<Int> = dataStore.data.map { it[KEY_BACKUP_INTERVAL_HOURS] ?: 24 }.distinctUntilChanged()
+    val backupLocation: Flow<String> = dataStore.data.map { it[KEY_BACKUP_LOCATION] ?: "" }.distinctUntilChanged()
+
     val viewMode: Flow<String> = dataStore.data.map { it[KEY_VIEW_MODE] ?: "GRID" }
 
     // 状态编辑写入方法
@@ -248,6 +262,13 @@ class UserPreferences(
 
     suspend fun setGpuAcceleration(value: Boolean) = dataStore.edit { it[KEY_GPU_ACCELERATION] = value }
     suspend fun setLoggingEnabled(value: Boolean) = dataStore.edit { it[KEY_LOGGING_ENABLED] = value }
+
+    // 自动备份
+    suspend fun setAutoBackupEnabled(value: Boolean) = dataStore.edit { it[KEY_AUTO_BACKUP_ENABLED] = value }
+    suspend fun setBackupOnAppStart(value: Boolean) = dataStore.edit { it[KEY_BACKUP_ON_APP_START] = value }
+    suspend fun setBackupOnAppExit(value: Boolean) = dataStore.edit { it[KEY_BACKUP_ON_APP_EXIT] = value }
+    suspend fun setBackupIntervalHours(value: Int) = dataStore.edit { it[KEY_BACKUP_INTERVAL_HOURS] = value }
+    suspend fun setBackupLocation(value: String) = dataStore.edit { it[KEY_BACKUP_LOCATION] = value }
 
     suspend fun setViewMode(value: String) = dataStore.edit { it[KEY_VIEW_MODE] = value }
 

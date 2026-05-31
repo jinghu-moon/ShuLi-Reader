@@ -12,7 +12,7 @@ import java.util.Locale
 
 // Part of T-38 同步日志页
 class SyncLogViewModel(
-    private val logs: List<SyncLogEntry>,
+    private val logs: List<SyncLogEntry> = emptyList(),
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main),
 ) {
 

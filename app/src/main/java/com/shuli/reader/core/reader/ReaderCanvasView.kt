@@ -121,7 +121,11 @@ class ReaderCanvasView @JvmOverloads constructor(
     fun setBatteryLevel(level: Int) {
         if (renderContext.batteryLevel == level) return
         renderContext.batteryLevel = level
-        currentPage?.invalidate()
+        // 电池仅影响壳层，不需要重录内容
+        currentPage?.invalidateShell()
+        nextPage?.invalidateShell()
+        prevPage?.invalidateShell()
+        submitRenderTask()
         invalidate()
     }
 
@@ -142,10 +146,10 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     private var isTextSelectionGesture = false
 
-    /** 录制页面的公共实现。返回 true 表示实际产生了录制。 */
+    /** 录制页面的公共实现。壳层和内容分别录制，返回 true 表示实际产生了录制。 */
     private fun doRecordPage(page: TextPage, w: Int, h: Int): Boolean {
-        return page.canvasRecorder.recordIfNeeded(w, h) {
-            pageRenderer.render(
+        val shellDirty = page.shellRecorder.recordIfNeeded(w, h) {
+            pageRenderer.renderShell(
                 canvas = this,
                 page = page,
                 headerSlots = renderContext.headerSlots,
@@ -154,13 +158,20 @@ class ReaderCanvasView @JvmOverloads constructor(
                 headerAlpha = renderContext.headerAlpha,
                 footerAlpha = renderContext.footerAlpha,
                 batteryLevel = renderContext.batteryLevel,
+                backgroundPaint = backgroundPaint,
+            )
+        }
+        val contentDirty = page.canvasRecorder.recordIfNeeded(w, h) {
+            pageRenderer.renderContent(
+                canvas = this,
+                page = page,
                 ttsActiveRange = renderContext.ttsActiveRange,
                 selectedRange = renderContext.selectedRange,
                 ttsHighlightPaint = ttsHighlightPaint,
                 selectionPaint = selectionPaint,
-                backgroundPaint = backgroundPaint,
             )
         }
+        return shellDirty || contentDirty
     }
 
     /** 主线程同步录制单页（兜底用）。 */
@@ -330,7 +341,10 @@ class ReaderCanvasView @JvmOverloads constructor(
                     if (renderContext.headerSlots != h || renderContext.footerSlots != f) {
                         renderContext.headerSlots = h
                         renderContext.footerSlots = f
-                        invalidateAllRecorders()
+                        // 页眉页脚属于壳层，只失效 shellRecorder
+                        currentPage?.invalidateShell()
+                        nextPage?.invalidateShell()
+                        prevPage?.invalidateShell()
                     }
                 }
             }
@@ -342,22 +356,22 @@ class ReaderCanvasView @JvmOverloads constructor(
     }
 
     /**
-     * 设置页眉文本
+     * 设置页眉文本（壳层）
      */
     fun setHeaderText(text: String) {
         if (renderContext.headerText == text) return
         renderContext.headerText = text
-        currentPage?.invalidate()
+        currentPage?.invalidateShell()
         invalidate()
     }
 
     /**
-     * 设置页脚文本
+     * 设置页脚文本（壳层）
      */
     fun setFooterText(text: String) {
         if (renderContext.footerText == text) return
         renderContext.footerText = text
-        currentPage?.invalidate()
+        currentPage?.invalidateShell()
         invalidate()
     }
 
@@ -381,6 +395,7 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     /**
      * 批量更新页眉页脚相关参数（仅触发一次重绘）
+     * 页眉页脚属于壳层，只失效 shellRecorder
      */
     fun updateHeaderFooter(
         headerSlots: SlotResolution,
@@ -400,7 +415,10 @@ class ReaderCanvasView @JvmOverloads constructor(
         renderContext.headerAlpha = alpha
         renderContext.footerAlpha = alpha
         renderContext.showProgress = showProgress
-        invalidateAllRecorders()
+        // 页眉页脚属于壳层，只失效 shellRecorder，不重录内容
+        currentPage?.invalidateShell()
+        nextPage?.invalidateShell()
+        prevPage?.invalidateShell()
         submitRenderTask()
         invalidate()
     }
@@ -449,11 +467,14 @@ class ReaderCanvasView @JvmOverloads constructor(
     }
 
     /**
-     * 设置文本对齐方式
+     * 设置文本对齐方式（仅影响内容层）
      */
     fun setTextAlign(align: com.shuli.reader.core.data.ReaderTextAlign) {
         pageRenderer.setTextAlign(align)
-        invalidateAllRecorders()
+        // 文本对齐只影响内容，不需要重录壳层
+        currentPage?.invalidate()
+        nextPage?.invalidate()
+        prevPage?.invalidate()
         submitRenderTask()
         invalidate()
     }
@@ -489,14 +510,19 @@ class ReaderCanvasView @JvmOverloads constructor(
         }
         if (textPaint.typeface == typeface) return
         textPaint.typeface = typeface
-        invalidateAllRecorders()
+        // 字体只影响内容，不需要重录壳层
+        currentPage?.invalidate()
+        nextPage?.invalidate()
+        prevPage?.invalidate()
         submitRenderTask()
         invalidate()
     }
 
     /**
-     * 仅更新 Paint 属性，不触发 invalidateAllRecorders / submitRenderTask。
-     * 用于排版参数变化时：旧页面保持原快照渲染，等 reflow 产出新页面后自然替换。
+     * 更新 Paint 属性，可选择是否失效内容 recorder。
+     *
+     * @param invalidateContent true 时失效内容 recorder 并触发重录（排版参数变化时使用），
+     *                          false 时仅更新 Paint 不触发重录（默认）
      */
     fun updatePaintSnapshot(
         textSize: Float? = null,
@@ -504,16 +530,29 @@ class ReaderCanvasView @JvmOverloads constructor(
         fakeBold: Boolean? = null,
         fontKey: String? = null,
         textAlign: com.shuli.reader.core.data.ReaderTextAlign? = null,
+        invalidateContent: Boolean = false,
     ) {
+        var paintChanged = false
         textSize?.let {
             if (textPaint.textSize != it) {
                 textPaint.textSize = it
                 headerPaint.textSize = it * HEADER_TEXT_RATIO
                 footerPaint.textSize = it * FOOTER_TEXT_RATIO
+                paintChanged = true
             }
         }
-        letterSpacing?.let { textPaint.letterSpacing = it }
-        fakeBold?.let { textPaint.isFakeBoldText = it }
+        letterSpacing?.let {
+            if (textPaint.letterSpacing != it) {
+                textPaint.letterSpacing = it
+                paintChanged = true
+            }
+        }
+        fakeBold?.let {
+            if (textPaint.isFakeBoldText != it) {
+                textPaint.isFakeBoldText = it
+                paintChanged = true
+            }
+        }
         fontKey?.let { key ->
             if (key != currentFontKey) {
                 currentFontKey = key
@@ -526,9 +565,21 @@ class ReaderCanvasView @JvmOverloads constructor(
                     else -> Typeface.DEFAULT
                 }
                 textPaint.typeface = typeface
+                paintChanged = true
             }
         }
-        textAlign?.let { pageRenderer.setTextAlign(it) }
+        textAlign?.let {
+            pageRenderer.setTextAlign(it)
+            paintChanged = true
+        }
+        // 排版参数变化时，失效内容 recorder 并触发重录
+        if (invalidateContent && paintChanged) {
+            currentPage?.invalidate()
+            nextPage?.invalidate()
+            prevPage?.invalidate()
+            submitRenderTask()
+            invalidate()
+        }
     }
 
     fun clearSelection() {
@@ -668,7 +719,7 @@ class ReaderCanvasView @JvmOverloads constructor(
      * 更新渲染属性的公共模板
      *
      * 消除 setTextSizePx / setLetterSpacing / setFakeBoldText 等 setter 中
-     * "if (same) return → update → invalidateAllRecorders → submitRenderTask → invalidate" 样板代码。
+     * "if (same) return → update → invalidate → submitRenderTask → invalidate" 样板代码。
      *
      * @param changed 值是否发生变化（调用方负责比较）
      * @param apply 实际更新属性的 lambda
@@ -676,7 +727,10 @@ class ReaderCanvasView @JvmOverloads constructor(
     private inline fun updateRenderProperty(changed: Boolean, apply: () -> Unit) {
         if (!changed) return
         apply()
-        invalidateAllRecorders()
+        // 排版属性只影响内容，不需要重录壳层
+        currentPage?.invalidate()
+        nextPage?.invalidate()
+        prevPage?.invalidate()
         submitRenderTask()
         invalidate()
     }
@@ -796,7 +850,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         val current = currentPage ?: return
 
         // 兜底：若后台尚未录制完成（首帧），主线程同步录制
-        if (current.canvasRecorder.needRecord()) {
+        if (current.canvasRecorder.needRecord() || current.shellRecorder.needRecord()) {
             recordPage(current)
         }
 
@@ -810,10 +864,15 @@ class ReaderCanvasView @JvmOverloads constructor(
             }
             val target = if (isPrevDirection) prevPage else nextPage
             target?.let {
-                if (it.canvasRecorder.needRecord()) recordPage(it)
+                if (it.canvasRecorder.needRecord() || it.shellRecorder.needRecord()) recordPage(it)
             }
+            // 壳层：翻页动画绘制
+            delegate.onDraw(canvas, current.shellRecorder, target?.shellRecorder ?: current.shellRecorder)
+            // 内容层：翻页动画绘制（叠加在壳层之上）
             delegate.onDraw(canvas, current.canvasRecorder, target?.canvasRecorder ?: current.canvasRecorder)
         } else {
+            // 静止状态：先画壳层，再画内容
+            current.shellRecorder.draw(canvas)
             current.canvasRecorder.draw(canvas)
         }
 

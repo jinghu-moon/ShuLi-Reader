@@ -86,7 +86,92 @@ class ReaderPageRenderer(
     }
 
     /**
-     * 渲染页面（支持多槽位页眉页脚）
+     * 渲染壳层：背景、页眉、页脚、电池、进度条。
+     * 排版参数变化时不需要重录。
+     */
+    fun renderShell(
+        canvas: Canvas,
+        page: TextPage,
+        headerSlots: SlotResolution,
+        footerSlots: SlotResolution,
+        showProgress: Boolean,
+        headerAlpha: Float = 0.4f,
+        footerAlpha: Float = 0.4f,
+        batteryLevel: Int = 100,
+        backgroundPaint: Paint? = null,
+    ) {
+        // 1. 绘制背景
+        if (backgroundPaint != null) {
+            canvas.drawRect(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat(), backgroundPaint)
+        }
+
+        val density = page.density
+
+        // 2. 绘制页眉
+        val headerBaseline = page.headerMarginTop + 24f * density * 0.6f
+        drawHeaderFooter(canvas, headerSlots, headerPaint, headerAlpha, headerBaseline, page)
+
+        // 3. 绘制页脚
+        val footerBaseline = canvas.height - page.footerMarginBottom - 24f * density * 0.4f
+        drawHeaderFooter(canvas, footerSlots, footerPaint, footerAlpha, footerBaseline, page)
+
+        // 4. 绘制电池
+        drawBattery(canvas, page.marginHorizontal, footerBaseline, batteryLevel, density)
+
+        // 5. 绘制进度条
+        if (showProgress) {
+            val progress = if (page.chapterContentLength > 0) {
+                (page.startCharOffset.toFloat() / page.chapterContentLength).coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+            val progressWidth = canvas.width * progress
+            val progressRect = RectF(0f, canvas.height - 3f * density, progressWidth, canvas.height.toFloat())
+            canvas.drawRect(progressRect, progressPaint)
+        }
+    }
+
+    /**
+     * 渲染内容：TTS/选区高亮、正文文本、章节标题。
+     * 排版参数变化时需要重录。
+     */
+    fun renderContent(
+        canvas: Canvas,
+        page: TextPage,
+        ttsActiveRange: SelectionRange? = null,
+        selectedRange: SelectionRange? = null,
+        ttsHighlightPaint: Paint? = null,
+        selectionPaint: Paint? = null,
+    ) {
+        val density = page.density
+
+        // 1. 绘制高亮背景（TTS高亮与用户选区）
+        page.lines.forEach { line ->
+            val startX = page.marginHorizontal + line.startXOffset
+            val textWidth = line.measuredWidth
+            val top = line.top
+            val bottom = line.bottom
+            val rect = RectF(startX - 6f, top, startX + textWidth + 6f, bottom)
+
+            if (intersects(ttsActiveRange, line.startCharOffset, line.endCharOffset) && ttsHighlightPaint != null) {
+                canvas.drawRoundRect(rect, 6f, 6f, ttsHighlightPaint)
+            }
+            if (intersects(selectedRange, line.startCharOffset, line.endCharOffset) && selectionPaint != null) {
+                canvas.drawRoundRect(rect, 6f, 6f, selectionPaint)
+            }
+        }
+
+        // 2. 绘制正文文本（per-line CanvasRecorder 优化）
+        for (line in page.lines) {
+            drawLineWithRecorder(canvas, line, page)
+        }
+
+        // 3. 绘制章节标题（仅首页）
+        drawChapterTitle(canvas, page, density)
+    }
+
+    /**
+     * 渲染页面（兼容旧接口，同时绘制壳层和内容）
      */
     fun render(
         canvas: Canvas,
@@ -103,56 +188,8 @@ class ReaderPageRenderer(
         selectionPaint: Paint? = null,
         backgroundPaint: Paint? = null,
     ) {
-        // 1. 绘制背景
-        if (backgroundPaint != null) {
-            canvas.drawRect(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat(), backgroundPaint)
-        }
-
-        val density = page.density
-
-        // 2. 绘制高亮背景（TTS高亮与用户选区）
-        page.lines.forEach { line ->
-            val startX = page.marginHorizontal + line.startXOffset
-            val textWidth = line.measuredWidth
-            val top = line.top
-            val bottom = line.bottom
-            val rect = RectF(startX - 6f, top, startX + textWidth + 6f, bottom)
-
-            if (intersects(ttsActiveRange, line.startCharOffset, line.endCharOffset) && ttsHighlightPaint != null) {
-                canvas.drawRoundRect(rect, 6f, 6f, ttsHighlightPaint)
-            }
-            if (intersects(selectedRange, line.startCharOffset, line.endCharOffset) && selectionPaint != null) {
-                canvas.drawRoundRect(rect, 6f, 6f, selectionPaint)
-            }
-        }
-
-        // 3. 绘制正文文本（per-line CanvasRecorder 优化）
-        for (line in page.lines) {
-            drawLineWithRecorder(canvas, line, page)
-        }
-
-        // 3.5 绘制章节标题（仅首页）
-        drawChapterTitle(canvas, page, density)
-
-        // 4. 绘制页眉（多槽位）
-        val headerBaseline = page.headerMarginTop + 24f * density * 0.6f
-        drawHeaderFooter(canvas, headerSlots, headerPaint, headerAlpha, headerBaseline, page)
-
-        // 5. 绘制页脚（多槽位）
-        val footerBaseline = canvas.height - page.footerMarginBottom - 24f * density * 0.4f
-        drawHeaderFooter(canvas, footerSlots, footerPaint, footerAlpha, footerBaseline, page)
-
-        // 6. 绘制进度条
-        if (showProgress) {
-            val progress = if (page.chapterContentLength > 0) {
-                (page.startCharOffset.toFloat() / page.chapterContentLength).coerceIn(0f, 1f)
-            } else {
-                0f
-            }
-            val progressWidth = canvas.width * progress
-            val progressRect = RectF(0f, canvas.height - 3f * density, progressWidth, canvas.height.toFloat())
-            canvas.drawRect(progressRect, progressPaint)
-        }
+        renderShell(canvas, page, headerSlots, footerSlots, showProgress, headerAlpha, footerAlpha, batteryLevel, backgroundPaint)
+        renderContent(canvas, page, ttsActiveRange, selectedRange, ttsHighlightPaint, selectionPaint)
     }
 
     /**

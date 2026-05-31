@@ -17,6 +17,9 @@ interface BookDao {
     @Query("SELECT * FROM books ORDER BY lastReadTime DESC")
     fun getAllBooks(): Flow<List<BookEntity>>
 
+    @Query("SELECT * FROM books ORDER BY lastReadTime DESC")
+    suspend fun getAllBooksSync(): List<BookEntity>
+
     @Query("""
         SELECT * FROM books
         ORDER BY COALESCE(lastReadTime, addedTime) DESC

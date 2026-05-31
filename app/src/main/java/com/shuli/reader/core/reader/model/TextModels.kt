@@ -122,23 +122,34 @@ class TextPage(
     val headerMarginTop: Float = 48f,
     val footerMarginBottom: Float = 48f,
 ) {
-    /** 渲染缓存，每页一份，跨章节共享池资源。 */
+    /** 内容渲染缓存（文本、标题、TTS/选区高亮），排版变化时重录。 */
     @Transient
     val canvasRecorder: CanvasRecorder = CanvasRecorderFactory.create(locked = true)
 
-    /** 标记页面级 recorder 失效，下次绘制时会重录。 */
-    fun invalidate() = canvasRecorder.invalidate()
+    /** 壳层渲染缓存（背景、页眉、页脚、电池、进度条），排版变化时保持不变。 */
+    @Transient
+    val shellRecorder: CanvasRecorder = CanvasRecorderFactory.create(locked = true)
 
-    /** 标记页面级 + 所有行级 recorder 失效（textPaint 属性变化时使用）。 */
-    fun invalidateAll() {
+    /** 标记内容 recorder 及所有行级 recorder 失效，下次绘制时会重录。 */
+    fun invalidate() {
         canvasRecorder.invalidate()
         lines.forEach { it.invalidateSelf() }
     }
 
-    /** 释放 recorder 对应的 RenderNode/Picture 回池。 */
+    /** 标记壳层 recorder 失效。 */
+    fun invalidateShell() = shellRecorder.invalidate()
+
+    /** 标记内容 + 壳层 + 所有行级 recorder 失效。 */
+    fun invalidateAll() {
+        canvasRecorder.invalidate()
+        shellRecorder.invalidate()
+        lines.forEach { it.invalidateSelf() }
+    }
+
+    /** 释放所有 recorder。 */
     fun recycleRecorders() {
         canvasRecorder.recycle()
-        // 释放每行的 recorder
+        shellRecorder.recycle()
         lines.forEach { it.recycleRecorder() }
     }
 

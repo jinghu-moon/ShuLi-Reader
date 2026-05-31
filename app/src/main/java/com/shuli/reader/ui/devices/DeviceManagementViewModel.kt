@@ -10,7 +10,7 @@ import kotlinx.coroutines.launch
 
 // Part of T-37 设备管理页
 class DeviceManagementViewModel(
-    private val deviceSyncManager: DeviceSyncManager,
+    private val deviceSyncManager: DeviceSyncManager? = null,
     private val localDeviceId: String = "",
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main),
 ) {
@@ -26,7 +26,8 @@ class DeviceManagementViewModel(
 
     suspend fun loadDevices() {
         try {
-            val deviceList = deviceSyncManager.listDevices()
+            val manager = deviceSyncManager ?: return
+            val deviceList = manager.listDevices()
             val uiItems = deviceList
                 .sortedByDescending { it.lastSyncAt }
                 .map { device ->
@@ -49,7 +50,7 @@ class DeviceManagementViewModel(
     fun removeDevice(deviceId: String) {
         scope.launch {
             try {
-                deviceSyncManager.removeDevice(deviceId)
+                deviceSyncManager?.removeDevice(deviceId)
                 loadDevices() // Refresh list after removal
             } catch (e: Exception) {
                 // Handle error silently for now

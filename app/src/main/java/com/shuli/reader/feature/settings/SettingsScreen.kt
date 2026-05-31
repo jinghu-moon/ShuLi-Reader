@@ -73,30 +73,75 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.shuli.reader.core.ShuLiAppContainer
 import com.shuli.reader.core.data.PageAnimConst
 import com.shuli.reader.core.data.PageTurnDirConst
 import com.shuli.reader.core.data.SyncMethodConst
 import com.shuli.reader.core.i18n.LocalAppStrings
+import com.shuli.reader.sync.export.ExportDatabase
+import com.shuli.reader.sync.export.ImportDatabase
+import com.shuli.reader.sync.export.ImportStrategy
+import com.shuli.reader.sync.export.ZipExporter
+import com.shuli.reader.sync.export.ZipImporter
+import com.shuli.reader.core.database.entity.BookEntity
+import com.shuli.reader.core.database.entity.BookmarkEntity
+import com.shuli.reader.core.database.entity.NoteEntity
+import com.shuli.reader.core.database.entity.ReadingProgressEntity
+import android.net.Uri
+import androidx.documentfile.provider.DocumentFile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.shuli.reader.ui.theme.AppBackground
 import com.shuli.reader.ui.theme.AppDarkBackground
 import com.shuli.reader.ui.theme.AppDarkPrimary
 import com.shuli.reader.ui.theme.AppDarkTextPrimary
 import com.shuli.reader.ui.theme.AppPrimary
+import com.shuli.reader.ui.settings.sync.SyncSettingsScreen
+import com.shuli.reader.ui.settings.sync.SyncSummaryViewModel
+import com.shuli.reader.ui.settings.sync.CloudSyncSettingsScreen
+import com.shuli.reader.ui.settings.sync.CloudSyncSettingsViewModel
+import com.shuli.reader.ui.settings.crypto.EncryptionManagementScreen
+import com.shuli.reader.ui.settings.crypto.EncryptionManagementViewModel
+import com.shuli.reader.ui.devices.DeviceManagementScreen
+import com.shuli.reader.ui.devices.DeviceManagementViewModel
+import com.shuli.reader.ui.log.SyncLogScreen
+import com.shuli.reader.ui.log.SyncLogViewModel
+import com.shuli.reader.ui.export.ExportBottomSheet
+import com.shuli.reader.ui.export.LocalBackupScreen
 import com.shuli.reader.ui.theme.AppTextPrimary
 import com.shuli.reader.ui.theme.ReaderPaperColorScheme
 import com.shuli.reader.ui.testing.UiTestTags
+
+private sealed class SettingsSubScreen {
+    data object Sync : SettingsSubScreen()
+    data object CloudSync : SettingsSubScreen()
+    data object Encryption : SettingsSubScreen()
+    data object Devices : SettingsSubScreen()
+    data object Logs : SettingsSubScreen()
+    data object Export : SettingsSubScreen()
+    data object LocalBackup : SettingsSubScreen()
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onBackClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    appContainer: ShuLiAppContainer? = null,
 ) {
     val context = LocalContext.current
     val strings = LocalAppStrings.current
     val uiState by viewModel.uiState.collectAsState()
     val uriHandler = LocalUriHandler.current
+
+    // 子页面导航状态
+    var currentSubScreen by remember { mutableStateOf<SettingsSubScreen?>(null) }
 
     // 各种弹窗控制状态
     var showLanguageDialog by remember { mutableStateOf(false) }
@@ -438,39 +483,23 @@ fun SettingsScreen(
                             SyncMethodConst.WEBDAV -> strings.syncMethodWebdav
                             else -> uiState.syncMethod
                         }
-                        ListItem(
-                            headlineContent = { Text(strings.syncMethod, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) },
-                            supportingContent = { Text(syncMethodText, style = MaterialTheme.typography.bodySmall) },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        SettingsClickItem(
+                            title = strings.syncMethod,
+                            subtitle = syncMethodText,
+                            onClick = { currentSubScreen = SettingsSubScreen.Sync }
                         )
-
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            OutlinedTextField(
-                                value = uiState.webdavUrl,
-                                onValueChange = { viewModel.updateWebdavUrl(it) },
-                                label = { Text(strings.webdavUrl, style = MaterialTheme.typography.bodySmall) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = uiState.webdavUser,
-                                onValueChange = { viewModel.updateWebdavUser(it) },
-                                label = { Text(strings.webdavUser, style = MaterialTheme.typography.bodySmall) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = uiState.webdavPassword,
-                                onValueChange = { viewModel.updateWebdavPassword(it) },
-                                label = { Text(strings.webdavPassword, style = MaterialTheme.typography.bodySmall) },
-                                singleLine = true,
-                                visualTransformation = PasswordVisualTransformation(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                modifier = Modifier.fillMaxWidth()
+                        if (uiState.syncMethod == SyncMethodConst.WEBDAV) {
+                            SettingsClickItem(
+                                title = "同步与备份",
+                                subtitle = "云端同步配置、加密、设备管理",
+                                onClick = { currentSubScreen = SettingsSubScreen.Sync }
                             )
                         }
+                        SettingsClickItem(
+                            title = "本地备份",
+                            subtitle = "导出与导入数据备份",
+                            onClick = { currentSubScreen = SettingsSubScreen.LocalBackup }
+                        )
                     }
                 }
             }
@@ -598,6 +627,207 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    // ================= 子页面导航 =================
+    when (currentSubScreen) {
+        is SettingsSubScreen.Sync -> {
+            val syncSummaryViewModel = remember {
+                SyncSummaryViewModel(stateMachine = com.shuli.reader.sync.state.SyncStateMachine())
+            }
+            SyncSettingsScreen(
+                viewModel = syncSummaryViewModel,
+                onBackClick = { currentSubScreen = null },
+                onNavigateToCloudSync = { currentSubScreen = SettingsSubScreen.CloudSync },
+                onNavigateToEncryption = { currentSubScreen = SettingsSubScreen.Encryption },
+                onNavigateToDevices = { currentSubScreen = SettingsSubScreen.Devices },
+                onNavigateToLogs = { currentSubScreen = SettingsSubScreen.Logs },
+                onNavigateToExport = { currentSubScreen = SettingsSubScreen.Export },
+            )
+        }
+        is SettingsSubScreen.CloudSync -> {
+            val cloudSyncViewModel = remember {
+                CloudSyncSettingsViewModel(userPreferences = appContainer?.userPreferences)
+            }
+            CloudSyncSettingsScreen(
+                viewModel = cloudSyncViewModel,
+                onBackClick = { currentSubScreen = SettingsSubScreen.Sync },
+                onNavigateToEncryption = { currentSubScreen = SettingsSubScreen.Encryption },
+                onNavigateToDevices = { currentSubScreen = SettingsSubScreen.Devices },
+                onNavigateToLogs = { currentSubScreen = SettingsSubScreen.Logs },
+            )
+        }
+        is SettingsSubScreen.Encryption -> {
+            val encryptionViewModel = remember { EncryptionManagementViewModel() }
+            EncryptionManagementScreen(
+                viewModel = encryptionViewModel,
+                onBackClick = { currentSubScreen = SettingsSubScreen.Sync },
+            )
+        }
+        is SettingsSubScreen.Devices -> {
+            val devicesViewModel = remember { DeviceManagementViewModel() }
+            DeviceManagementScreen(
+                viewModel = devicesViewModel,
+                onBackClick = { currentSubScreen = SettingsSubScreen.Sync },
+            )
+        }
+        is SettingsSubScreen.Logs -> {
+            val logsViewModel = remember { SyncLogViewModel() }
+            SyncLogScreen(
+                viewModel = logsViewModel,
+                onBackClick = { currentSubScreen = SettingsSubScreen.Sync },
+            )
+        }
+        is SettingsSubScreen.Export -> {
+            var showExportSheet by remember { mutableStateOf(true) }
+            if (showExportSheet) {
+                ExportBottomSheet(
+                    onDismiss = {
+                        showExportSheet = false
+                        currentSubScreen = SettingsSubScreen.Sync
+                    },
+                    onExport = { options ->
+                        // TODO: 触发导出操作
+                        showExportSheet = false
+                        currentSubScreen = SettingsSubScreen.Sync
+                    },
+                )
+            }
+        }
+        is SettingsSubScreen.LocalBackup -> {
+            val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+            var isExporting by remember { mutableStateOf(false) }
+            var isImporting by remember { mutableStateOf(false) }
+            var exportResult by remember { mutableStateOf<String?>(null) }
+            var importResult by remember { mutableStateOf<String?>(null) }
+
+            LocalBackupScreen(
+                onBackClick = { currentSubScreen = null },
+                onExport = { options ->
+                    if (!isExporting && appContainer != null) {
+                        coroutineScope.launch {
+                            isExporting = true
+                            exportResult = null
+                            try {
+                                val database = appContainer.database
+                                val exportDb = object : ExportDatabase {
+                                    override suspend fun getAllBooks(): List<BookEntity> = database.bookDao().getAllBooksSync()
+                                    override suspend fun getAllBookmarks(): List<BookmarkEntity> = database.bookmarkDao().queryAllActive()
+                                    override suspend fun getAllNotes(): List<NoteEntity> = database.noteDao().queryAllActive()
+                                    override suspend fun getAllProgress(): List<ReadingProgressEntity> = database.readingProgressDao().queryAllActive()
+                                }
+                                val exporter = ZipExporter(exportDb, context)
+                                val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+                                val fileName = "shuli_backup_${dateFormat.format(Date())}.zip"
+
+                                // 导出到临时文件
+                                val tempFile = withContext(Dispatchers.IO) {
+                                    File.createTempFile("shuli_export_", ".zip", context.cacheDir).also {
+                                        exporter.export(it, options)
+                                    }
+                                }
+
+                                val customDir = uiState.backupLocation
+                                if (customDir.isNotEmpty()) {
+                                    // 自定义目录：使用 DocumentFile 拷贝到 SAF 目录
+                                    val treeUri = Uri.parse(customDir)
+                                    val docDir = DocumentFile.fromTreeUri(context, treeUri)
+                                    if (docDir != null && docDir.canWrite()) {
+                                        val targetFile = docDir.createFile("application/zip", fileName)
+                                        if (targetFile != null) {
+                                            withContext(Dispatchers.IO) {
+                                                context.contentResolver.openOutputStream(targetFile.uri)?.use { out ->
+                                                    tempFile.inputStream().use { inp ->
+                                                        inp.copyTo(out)
+                                                    }
+                                                } ?: throw IllegalStateException("无法写入目标目录")
+                                            }
+                                            exportResult = "导出成功：自定义目录"
+                                        } else {
+                                            exportResult = "导出失败：无法创建文件"
+                                        }
+                                    } else {
+                                        exportResult = "导出失败：目录无写入权限，请重新选择"
+                                    }
+                                } else {
+                                    // 默认目录：应用私有目录
+                                    val backupDir = File(context.getExternalFilesDir(null), "backups").apply { mkdirs() }
+                                    val outputFile = File(backupDir, fileName)
+                                    withContext(Dispatchers.IO) {
+                                        tempFile.copyTo(outputFile, overwrite = true)
+                                    }
+                                    exportResult = "导出成功：${outputFile.parent}"
+                                }
+
+                                // 清理临时文件
+                                withContext(Dispatchers.IO) { tempFile.delete() }
+                            } catch (e: Exception) {
+                                exportResult = "导出失败：${e.message}"
+                            } finally {
+                                isExporting = false
+                            }
+                        }
+                    }
+                },
+                onImport = { uri ->
+                    if (!isImporting && appContainer != null) {
+                        coroutineScope.launch {
+                            isImporting = true
+                            importResult = null
+                            try {
+                                val database = appContainer.database
+                                val importDb = object : ImportDatabase {
+                                    override suspend fun getAllBooks(): List<BookEntity> = database.bookDao().getAllBooksSync()
+                                    override suspend fun getAllBookmarks(): List<BookmarkEntity> = database.bookmarkDao().queryAllActive()
+                                    override suspend fun getAllNotes(): List<NoteEntity> = database.noteDao().queryAllActive()
+                                    override suspend fun getAllProgress(): List<ReadingProgressEntity> = database.readingProgressDao().queryAllActive()
+                                    override suspend fun clearBookmarks() = database.bookmarkDao().deleteAllBookmarks()
+                                    override suspend fun addBookmark(bookmark: BookmarkEntity) {
+                                        database.bookmarkDao().insertBookmark(bookmark)
+                                    }
+                                }
+                                val importer = ZipImporter(db = importDb)
+
+                                // 从 SAF URI 复制到临时文件再导入
+                                val tempFile = withContext(Dispatchers.IO) {
+                                    File.createTempFile("shuli_import_", ".zip", context.cacheDir).also { file ->
+                                        context.contentResolver.openInputStream(uri)?.use { input ->
+                                            file.outputStream().use { output -> input.copyTo(output) }
+                                        } ?: throw IllegalStateException("无法读取备份文件")
+                                    }
+                                }
+
+                                try {
+                                    importer.import(tempFile, strategy = ImportStrategy.SMART_MERGE)
+                                    importResult = "导入成功"
+                                } finally {
+                                    withContext(Dispatchers.IO) { tempFile.delete() }
+                                }
+                            } catch (e: Exception) {
+                                importResult = "导入失败：${e.message}"
+                            } finally {
+                                isImporting = false
+                            }
+                        }
+                    }
+                },
+                isExporting = isExporting,
+                isImporting = isImporting,
+                exportResult = exportResult,
+                importResult = importResult,
+                autoBackupEnabled = uiState.autoBackupEnabled,
+                backupOnAppStart = uiState.backupOnAppStart,
+                backupOnAppExit = uiState.backupOnAppExit,
+                backupIntervalHours = uiState.backupIntervalHours,
+                backupLocation = uiState.backupLocation,
+                onAutoBackupEnabledChange = { viewModel.updateAutoBackupEnabled(it) },
+                onBackupOnAppStartChange = { viewModel.updateBackupOnAppStart(it) },
+                onBackupOnAppExitChange = { viewModel.updateBackupOnAppExit(it) },
+                onBackupIntervalChange = { viewModel.updateBackupIntervalHours(it) },
+                onBackupLocationChange = { viewModel.updateBackupLocation(it) },
+            )
+        }
+        null -> {}
     }
 
     // ================= 以下为弹窗 Dialog 组 =================

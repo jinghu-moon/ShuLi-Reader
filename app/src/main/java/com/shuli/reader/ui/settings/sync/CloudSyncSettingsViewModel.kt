@@ -16,7 +16,7 @@ import java.io.IOException
 
 // Part of T-34 云端同步设置子页
 class CloudSyncSettingsViewModel(
-    private val userPreferences: UserPreferences,
+    private val userPreferences: UserPreferences? = null,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main),
 ) {
 
@@ -55,9 +55,9 @@ class CloudSyncSettingsViewModel(
     }
 
     suspend fun saveSyncSettings(url: String, username: String, password: String) {
-        userPreferences.setWebdavUrl(url)
-        userPreferences.setWebdavUser(username)
-        userPreferences.setWebdavPassword(password)
-        userPreferences.setSyncMethod("webdav")
+        userPreferences?.setWebdavUrl(url)
+        userPreferences?.setWebdavUser(username)
+        userPreferences?.setWebdavPassword(password)
+        userPreferences?.setSyncMethod("webdav")
     }
 }

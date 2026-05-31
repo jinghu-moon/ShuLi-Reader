@@ -33,10 +33,18 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        ndkVersion = "25.2.9519653"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
         }
     }
 
@@ -128,6 +136,12 @@ dependencies {
     // DataStore
     implementation(libs.androidx.datastore.preferences)
 
+    // DocumentFile (SAF)
+    implementation(libs.androidx.documentfile)
+
+    // WorkManager
+    implementation(libs.androidx.work.runtime.ktx)
+
     // Coroutines
     implementation(libs.org.jetbrains.kotlinx.coroutines.android)
 
@@ -150,6 +164,9 @@ dependencies {
     // Chinese Conversion (OpenCC)
     implementation(libs.com.houbb.opencc4j)
 
+    // Compression (ZSTD for ZIP export)
+    implementation(libs.com.github.luben.zstd.jni)
+
     // Testing
     testImplementation(libs.junit4)
     testImplementation(libs.io.mockk)
@@ -161,6 +178,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.room.testing)
+    androidTestImplementation(libs.androidx.work.testing)
     androidTestImplementation(libs.org.jetbrains.kotlinx.coroutines.test)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
