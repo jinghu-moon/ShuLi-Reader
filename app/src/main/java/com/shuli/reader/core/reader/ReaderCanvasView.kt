@@ -114,6 +114,8 @@ class ReaderCanvasView @JvmOverloads constructor(
         var batteryLevel: Int = 100
         var ttsActiveRange: SelectionRange? = null
         var selectedRange: SelectionRange? = null
+        var showHeaderLine: Boolean = false
+        var showFooterLine: Boolean = false
     }
 
     private val pageRenderer = ReaderPageRenderer(textPaint, headerPaint, footerPaint, progressPaint)
@@ -159,6 +161,8 @@ class ReaderCanvasView @JvmOverloads constructor(
                 footerAlpha = renderContext.footerAlpha,
                 batteryLevel = renderContext.batteryLevel,
                 backgroundPaint = backgroundPaint,
+                showHeaderLine = renderContext.showHeaderLine,
+                showFooterLine = renderContext.showFooterLine,
             )
         }
         val contentDirty = page.canvasRecorder.recordIfNeeded(w, h) {
@@ -224,7 +228,7 @@ class ReaderCanvasView @JvmOverloads constructor(
                 val h = height.toFloat()
 
                 // 仅处理中心区域点击（边缘点击在 onTouchEvent 中手动处理）
-                val isCenter = x > w / 3f && x < w * 2f / 3f && y > h / 3f && y < h * 2f / 3f
+                val isCenter = x > w * edgeWidthPercent && x < w * (1f - edgeWidthPercent) && y > h / 3f && y < h * 2f / 3f
                 if (isCenter) {
                     onCenterClicked?.invoke()
                     return true
@@ -402,12 +406,16 @@ class ReaderCanvasView @JvmOverloads constructor(
         footerSlots: SlotResolution,
         alpha: Float,
         showProgress: Boolean,
+        showHeaderLine: Boolean = false,
+        showFooterLine: Boolean = false,
     ) {
         val changed = renderContext.headerSlots != headerSlots
                 || renderContext.footerSlots != footerSlots
                 || renderContext.headerAlpha != alpha
                 || renderContext.footerAlpha != alpha
                 || renderContext.showProgress != showProgress
+                || renderContext.showHeaderLine != showHeaderLine
+                || renderContext.showFooterLine != showFooterLine
         if (!changed) return
 
         renderContext.headerSlots = headerSlots
@@ -415,6 +423,8 @@ class ReaderCanvasView @JvmOverloads constructor(
         renderContext.headerAlpha = alpha
         renderContext.footerAlpha = alpha
         renderContext.showProgress = showProgress
+        renderContext.showHeaderLine = showHeaderLine
+        renderContext.showFooterLine = showFooterLine
         // 页眉页脚属于壳层，只失效 shellRecorder，不重录内容
         currentPage?.invalidateShell()
         nextPage?.invalidateShell()
@@ -443,8 +453,8 @@ class ReaderCanvasView @JvmOverloads constructor(
     fun setTextSizePx(textSize: Float) {
         updateRenderProperty(textPaint.textSize != textSize) {
             textPaint.textSize = textSize
-            headerPaint.textSize = textSize * HEADER_TEXT_RATIO
-            footerPaint.textSize = textSize * FOOTER_TEXT_RATIO
+            headerPaint.textSize = textSize * headerTextRatio
+            footerPaint.textSize = textSize * footerTextRatio
         }
     }
 
@@ -536,8 +546,8 @@ class ReaderCanvasView @JvmOverloads constructor(
         textSize?.let {
             if (textPaint.textSize != it) {
                 textPaint.textSize = it
-                headerPaint.textSize = it * HEADER_TEXT_RATIO
-                footerPaint.textSize = it * FOOTER_TEXT_RATIO
+                headerPaint.textSize = it * headerTextRatio
+                footerPaint.textSize = it * footerTextRatio
                 paintChanged = true
             }
         }
@@ -643,9 +653,35 @@ class ReaderCanvasView @JvmOverloads constructor(
     /** 边缘翻页开关 */
     private var edgeTurnPageEnabled = true
 
+    /** 边缘触摸宽度百分比（0.1~0.5） */
+    private var edgeWidthPercent = 0.33f
+
+    /** 页眉字号比例（相对正文） */
+    private var headerTextRatio = 0.75f
+
+    /** 页脚字号比例（相对正文） */
+    private var footerTextRatio = 0.75f
+
     /** 设置边缘翻页是否启用 */
     fun setEdgeTurnPageEnabled(enabled: Boolean) {
         edgeTurnPageEnabled = enabled
+    }
+
+    /** 设置边缘触摸宽度百分比 */
+    fun setEdgeWidthPercent(percent: Float) {
+        edgeWidthPercent = percent.coerceIn(0.1f, 0.5f)
+    }
+
+    /** 设置页眉字号比例 */
+    fun setHeaderTextRatio(ratio: Float) {
+        headerTextRatio = ratio.coerceIn(0.5f, 1.5f)
+        headerPaint.textSize = textPaint.textSize * headerTextRatio
+    }
+
+    /** 设置页脚字号比例 */
+    fun setFooterTextRatio(ratio: Float) {
+        footerTextRatio = ratio.coerceIn(0.5f, 1.5f)
+        footerPaint.textSize = textPaint.textSize * footerTextRatio
     }
 
     /**
@@ -761,7 +797,7 @@ class ReaderCanvasView @JvmOverloads constructor(
                 touchMoved = false
 
                 // 边缘区域：直接交给 delegate 开始拖拽
-                val isEdge = event.x <= w / 3f || event.x >= w * 2f / 3f
+                val isEdge = event.x <= w * edgeWidthPercent || event.x >= w * (1f - edgeWidthPercent)
                 if (isEdge && delegate != null) {
                     delegate.onTouch(event)
                     return true
@@ -783,7 +819,7 @@ class ReaderCanvasView @JvmOverloads constructor(
 
                 // 超过 slop 且从边缘开始：交给 delegate 处理拖拽
                 if (touchMoved) {
-                    val isEdgeStart = touchDownX <= w / 3f || touchDownX >= w * 2f / 3f
+                    val isEdgeStart = touchDownX <= w * edgeWidthPercent || touchDownX >= w * (1f - edgeWidthPercent)
                     if (isEdgeStart && delegate != null) {
                         delegate.onTouch(event)
                         return true
@@ -795,7 +831,7 @@ class ReaderCanvasView @JvmOverloads constructor(
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                val isEdgeStart = touchDownX <= w / 3f || touchDownX >= w * 2f / 3f
+                val isEdgeStart = touchDownX <= w * edgeWidthPercent || touchDownX >= w * (1f - edgeWidthPercent)
                 val wasMoved = touchMoved
                 touchMoved = false
 
@@ -810,10 +846,10 @@ class ReaderCanvasView @JvmOverloads constructor(
 
                 // 手动处理边缘点击翻页（gestureDetector 仅处理中心区域）
                 if (!wasMoved && isEdgeStart && edgeTurnPageEnabled) {
-                    val isCenter = touchDownX > w / 3f && touchDownX < w * 2f / 3f &&
+                    val isCenter = touchDownX > w * edgeWidthPercent && touchDownX < w * (1f - edgeWidthPercent) &&
                         touchDownY > h / 3f && touchDownY < h * 2f / 3f
                     if (!isCenter) {
-                        if (touchDownX <= w / 3f) {
+                        if (touchDownX <= w * edgeWidthPercent) {
                             delegate?.startPrev() ?: onPageChanged?.invoke(PageDelegate.Direction.PREV)
                         } else {
                             delegate?.startNext() ?: onPageChanged?.invoke(PageDelegate.Direction.NEXT)

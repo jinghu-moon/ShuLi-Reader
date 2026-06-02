@@ -3,6 +3,7 @@ package com.shuli.reader.core.font
 import android.content.Context
 import android.graphics.Typeface
 import android.net.Uri
+import android.provider.OpenableColumns
 import java.io.File
 
 /**
@@ -11,7 +12,7 @@ import java.io.File
  * 存储路径: context.filesDir/resources/fonts/
  * 字体 key 格式: "custom:{id}"，id = 文件名(不含扩展名)
  */
-class FontManager(private val context: Context) {
+class FontManager(val context: Context) {
 
     /** 内置字体 key */
     companion object {
@@ -45,8 +46,16 @@ class FontManager(private val context: Context) {
     /** 列出所有已导入的字体 */
     fun listFonts(): List<FontEntry> {
         val dir = fontDir
-        if (!dir.exists()) return emptyList()
-        return dir.listFiles()
+        if (!dir.exists()) {
+            android.util.Log.d(TAG, "listFonts: 目录不存在: ${dir.absolutePath}")
+            return emptyList()
+        }
+        val allFiles = dir.listFiles()
+        android.util.Log.d(TAG, "listFonts: 目录=${dir.absolutePath}, 文件总数=${allFiles?.size ?: 0}")
+        allFiles?.forEach { f ->
+            android.util.Log.d(TAG, "  文件: ${f.name}, isFile=${f.isFile}, ext='${f.extension}', 大小=${f.length()}")
+        }
+        return allFiles
             ?.filter { it.isFile && it.extension.lowercase() in SUPPORTED_EXTENSIONS }
             ?.sortedBy { it.name }
             ?.map { file ->
@@ -58,22 +67,53 @@ class FontManager(private val context: Context) {
 
     /** 导入字体文件，返回 FontEntry；失败抛异常 */
     fun importFont(uri: Uri, displayName: String? = null): FontEntry {
+        val queriedName = queryDisplayName(uri)
         val fileName = displayName
+            ?: queriedName
             ?: uri.lastPathSegment
             ?: "font_${System.currentTimeMillis()}"
         val cleanName = sanitizeFileName(fileName)
-        val dest = File(fontDir, cleanName)
+
+        // 确保目录存在
+        val dir = fontDir
+        if (!dir.exists()) {
+            val created = dir.mkdirs()
+            android.util.Log.d(TAG, "importFont: 创建目录 ${dir.absolutePath}, 结果=$created")
+        }
+
+        val dest = File(dir, cleanName)
+
+        android.util.Log.d(TAG, "importFont: uri=$uri")
+        android.util.Log.d(TAG, "importFont: displayName=$displayName, queriedName=$queriedName, lastPathSegment=${uri.lastPathSegment}")
+        android.util.Log.d(TAG, "importFont: cleanName=$cleanName, dest=${dest.absolutePath}")
 
         // 同名覆盖
         if (dest.exists()) dest.delete()
 
-        context.contentResolver.openInputStream(uri)?.use { input ->
+        val inputStream = try {
+            context.contentResolver.openInputStream(uri)
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "importFont: openInputStream 异常", e)
+            null
+        }
+        if (inputStream == null) {
+            android.util.Log.e(TAG, "importFont: openInputStream 返回 null，无法读取 URI")
+            throw IllegalArgumentException("无法读取字体文件: $uri")
+        }
+
+        inputStream.use { input ->
             dest.outputStream().use { output ->
-                input.copyTo(output)
+                val bytes = input.copyTo(output)
+                android.util.Log.d(TAG, "importFont: 写入完成, 字节数=$bytes, dest.exists=${dest.exists()}, dest.length=${dest.length()}")
             }
-        } ?: throw IllegalArgumentException("无法读取字体文件")
+        }
+
+        if (!dest.exists() || dest.length() == 0L) {
+            throw IllegalArgumentException("字体文件写入失败或文件为空: ${dest.absolutePath}")
+        }
 
         val id = dest.nameWithoutExtension
+        android.util.Log.d(TAG, "importFont: 成功, id=$id, 文件名=${dest.name}")
         return FontEntry(id = id, name = id, file = dest)
     }
 
@@ -99,6 +139,20 @@ class FontManager(private val context: Context) {
         return null
     }
 
+    /** 通过 ContentResolver 查询 content URI 的真实文件名（含扩展名） */
+    private fun queryDisplayName(uri: Uri): String? {
+        return try {
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (index >= 0) cursor.getString(index) else null
+                } else null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun sanitizeFileName(name: String): String {
         // 保留扩展名，清理非法字符
         val dotIndex = name.lastIndexOf('.')
@@ -112,3 +166,4 @@ class FontManager(private val context: Context) {
 private val SUPPORTED_EXTENSIONS = setOf("ttf", "otf")
 private const val FONT_EXTENSION_TTF = "ttf"
 private const val FONT_EXTENSION_OTF = "otf"
+private const val TAG = "FontManager"

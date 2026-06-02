@@ -249,6 +249,34 @@ class Paginator(
             currentOffset += skippedSpaces + lineResult.consumedChars
         }
 
+        // 底部对齐：将剩余垂直空间均匀分配到行间距中
+        val finalLines = if (config.bottomJustify && lines.size > 1) {
+            val lastBottom = lines.last().bottom
+            val remainingSpace = maxAvailableY - lastBottom
+            if (remainingSpace > 0f) {
+                val extraPerGap = remainingSpace / (lines.size - 1)
+                lines.mapIndexed { index, line ->
+                    val offset = extraPerGap * index
+                    TextLine(
+                        text = line.text,
+                        baseline = line.baseline + offset,
+                        top = line.top + offset,
+                        bottom = line.bottom + offset,
+                        isParagraphEnd = line.isParagraphEnd,
+                        startCharOffset = line.startCharOffset,
+                        endCharOffset = line.endCharOffset,
+                        startXOffset = line.startXOffset,
+                        charColumns = line.charColumns,
+                        measuredWidth = line.measuredWidth,
+                    )
+                }
+            } else {
+                lines
+            }
+        } else {
+            lines
+        }
+
         return TextPage(
             startCharOffset = startOffset,
             endCharOffset = currentOffset,
@@ -256,7 +284,7 @@ class Paginator(
             pageIndex = pageIndex,
             pageSize = config.pageSize,
             marginHorizontal = config.marginHorizontal,
-            lines = lines,
+            lines = finalLines,
             columns = columns,
             density = config.density,
             chapterContentLength = content.length,

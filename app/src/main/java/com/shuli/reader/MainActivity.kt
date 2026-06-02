@@ -24,8 +24,10 @@ import com.shuli.reader.core.i18n.AppStrings
 import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.bookshelf.BookshelfScreen
 import com.shuli.reader.feature.bookshelf.BookshelfViewModel
+import androidx.compose.ui.platform.LocalContext
 import com.shuli.reader.feature.reader.ReaderScreen
 import com.shuli.reader.feature.reader.ReaderViewModel
+import com.shuli.reader.core.font.FontManager
 import com.shuli.reader.feature.settings.SettingsEvent
 import com.shuli.reader.feature.settings.SettingsScreen
 import com.shuli.reader.feature.settings.SettingsViewModel
@@ -184,6 +186,7 @@ class MainActivity : ComponentActivity() {
                             }
                             is ActiveScreen.Reader -> {
                                 BackHandler { currentScreen = ActiveScreen.Bookshelf }
+                                val context = LocalContext.current
                                 val readerViewModel = remember(screen.bookId) {
                                     ReaderViewModel(
                                         userPreferences = appContainer.userPreferences,
@@ -191,6 +194,7 @@ class MainActivity : ComponentActivity() {
                                         bookmarkDao = appContainer.database.bookmarkDao(),
                                         noteDao = appContainer.database.noteDao(),
                                         presetDao = appContainer.database.readerPresetDao(),
+                                        fontManager = FontManager(context),
                                     )
                                 }
                                 // 音量键翻页：设置/清理 ViewModel 引用

@@ -194,6 +194,12 @@ sealed interface AppStrings {
     val volumeKeyDesc: String
     val edgeTurnPageLabel: String
     val edgeTurnPageDesc: String
+    val edgeWidthLabel: String
+    val headerLineLabel: String
+    val footerLineLabel: String
+    val headerFontSizeLabel: String
+    val footerFontSizeLabel: String
+    val bottomJustifyLabel: String
     val readingPresets: String
     val savePresetAction: String
     val resetToDefault: String
@@ -493,6 +499,12 @@ sealed interface AppStrings {
         override val volumeKeyDesc = "音量 +/- 键翻页"
         override val edgeTurnPageLabel = "边缘翻页"
         override val edgeTurnPageDesc = "点击屏幕左右边缘翻页"
+        override val edgeWidthLabel = "边缘宽度"
+        override val headerLineLabel = "页眉分割线"
+        override val footerLineLabel = "页脚分割线"
+        override val headerFontSizeLabel = "页眉字号"
+        override val footerFontSizeLabel = "页脚字号"
+        override val bottomJustifyLabel = "底部对齐"
         override val readingPresets = "阅读预设"
         override val savePresetAction = "＋ 保存当前"
         override val resetToDefault = "恢复默认设置"
@@ -782,6 +794,12 @@ sealed interface AppStrings {
         override val volumeKeyDesc = "音量 +/- 鍵翻頁"
         override val edgeTurnPageLabel = "邊緣翻頁"
         override val edgeTurnPageDesc = "點擊螢幕左右邊緣翻頁"
+        override val edgeWidthLabel = "邊緣寬度"
+        override val headerLineLabel = "頁眉分割線"
+        override val footerLineLabel = "頁腳分割線"
+        override val headerFontSizeLabel = "頁眉字號"
+        override val footerFontSizeLabel = "頁腳字號"
+        override val bottomJustifyLabel = "底部對齊"
         override val readingPresets = "閱讀預設"
         override val savePresetAction = "＋ 儲存當前"
         override val resetToDefault = "恢復預設設定"
@@ -1071,6 +1089,12 @@ sealed interface AppStrings {
         override val volumeKeyDesc = "Volume +/- to turn pages"
         override val edgeTurnPageLabel = "Edge Turn Page"
         override val edgeTurnPageDesc = "Tap screen edges to turn pages"
+        override val edgeWidthLabel = "Edge Width"
+        override val headerLineLabel = "Header Divider"
+        override val footerLineLabel = "Footer Divider"
+        override val headerFontSizeLabel = "Header Font Size"
+        override val footerFontSizeLabel = "Footer Font Size"
+        override val bottomJustifyLabel = "Bottom Justify"
         override val readingPresets = "Reading Presets"
         override val savePresetAction = "+ Save Current"
         override val resetToDefault = "Reset to Default"

@@ -36,10 +36,18 @@ data class ReaderPreferences(
     // 排版增强
     val useZhLayout: Boolean = false,    // 自定义中文分行（标点避头尾）
     val usePanguSpacing: Boolean = false, // 中英文之间自动加空格
+    // 页眉页脚增强
+    val showHeaderLine: Boolean = false,       // 页眉分割线
+    val showFooterLine: Boolean = false,       // 页脚分割线
+    val headerFontSizeRatio: Float = 0.75f,    // 页眉字号比例
+    val footerFontSizeRatio: Float = 0.75f,    // 页脚字号比例
+    // 排版增强2
+    val bottomJustify: Boolean = false,        // 底部对齐（均匀分布行间距）
     // 阶段六新增字段
     val keepScreenOn: Boolean = false,
     val volumeKeyTurnPage: Boolean = false,
     val edgeTurnPage: Boolean = true,
+    val edgeWidthPercent: Float = 0.33f,       // 边缘触摸宽度百分比
     // TTS 设置
     val ttsSpeed: Float = 1.0f,
     val ttsPitch: Float = 1.0f,

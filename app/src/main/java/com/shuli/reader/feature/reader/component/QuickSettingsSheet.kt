@@ -142,13 +142,18 @@ data class QuickSettingsActions(
     val onKeepScreenOnChange: (Boolean) -> Unit = {},
     val onVolumeKeyTurnPageChange: (Boolean) -> Unit = {},
     val onEdgeTurnPageChange: (Boolean) -> Unit = {},
+    val onEdgeWidthPercentChange: (Float) -> Unit = {},
+    val onShowHeaderLineChange: (Boolean) -> Unit = {},
+    val onShowFooterLineChange: (Boolean) -> Unit = {},
+    val onHeaderFontSizeRatioChange: (Float) -> Unit = {},
+    val onFooterFontSizeRatioChange: (Float) -> Unit = {},
+    val onBottomJustifyChange: (Boolean) -> Unit = {},
     val ttsState: com.shuli.reader.core.tts.TtsState = com.shuli.reader.core.tts.TtsState.IDLE,
     val onTtsStart: () -> Unit = {},
     val onTtsPause: () -> Unit = {},
     val onTtsStop: () -> Unit = {},
     val onTtsSpeedChange: (Float) -> Unit = {},
     val onTtsPitchChange: (Float) -> Unit = {},
-    val customFonts: List<com.shuli.reader.core.font.FontManager.FontEntry> = emptyList(),
     val onImportFont: (android.net.Uri) -> Unit = {},
     val onDeleteFont: (String) -> Unit = {},
 )
@@ -244,7 +249,7 @@ fun QuickSettingsSheet(
                         )
                         TAB_STYLE -> StylePanel(
                             prefs = uiState.readerPreferences,
-                            customFonts = actions.customFonts,
+                            customFonts = uiState.customFonts,
                             onImportFont = actions.onImportFont,
                             onDeleteFont = actions.onDeleteFont,
                             onPageAnimTypeChange = actions.onPageAnimTypeChange,
@@ -254,6 +259,7 @@ fun QuickSettingsSheet(
                             onChineseConvertChange = actions.onChineseConvertChange,
                             onUseZhLayoutChange = actions.onUseZhLayoutChange,
                             onPanguSpacingChange = actions.onPanguSpacingChange,
+                            onBottomJustifyChange = actions.onBottomJustifyChange,
                         )
                         TAB_SETTINGS -> SettingsPanel(
                             prefs = uiState.readerPreferences,
@@ -277,6 +283,12 @@ fun QuickSettingsSheet(
                             onKeepScreenOnChange = actions.onKeepScreenOnChange,
                             onVolumeKeyTurnPageChange = actions.onVolumeKeyTurnPageChange,
                             onEdgeTurnPageChange = actions.onEdgeTurnPageChange,
+                            onEdgeWidthPercentChange = actions.onEdgeWidthPercentChange,
+                            onShowHeaderLineChange = actions.onShowHeaderLineChange,
+                            onShowFooterLineChange = actions.onShowFooterLineChange,
+                            onHeaderFontSizeRatioChange = actions.onHeaderFontSizeRatioChange,
+                            onFooterFontSizeRatioChange = actions.onFooterFontSizeRatioChange,
+                            onBottomJustifyChange = actions.onBottomJustifyChange,
                             onApplyPreset = actions.onApplyPreset,
                             onSavePreset = actions.onSavePreset,
                             onRenamePreset = actions.onRenamePreset,
@@ -512,12 +524,17 @@ private fun StylePanel(
     onChineseConvertChange: (ChineseConvert) -> Unit,
     onUseZhLayoutChange: (Boolean) -> Unit,
     onPanguSpacingChange: (Boolean) -> Unit,
+    onBottomJustifyChange: (Boolean) -> Unit,
 ) {
     val strings = LocalAppStrings.current
     val readerColors = LocalReaderColorScheme.current
+    android.util.Log.d("FontManager", "StylePanel recomposed: customFonts.size=${customFonts.size}")
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
-    ) { uri -> uri?.let { onImportFont(it) } }
+    ) { uri ->
+        android.util.Log.d("FontManager", "OpenDocument 回调: uri=$uri")
+        uri?.let { onImportFont(it) }
+    }
 
     // 翻页动画（提到最顶部）
     ReaderFormPickerRow(
@@ -630,6 +647,12 @@ private fun StylePanel(
         checked = prefs.usePanguSpacing,
         onCheckedChange = onPanguSpacingChange,
     )
+    // 底部对齐
+    ReaderSwitchRow(
+        label = strings.bottomJustifyLabel,
+        checked = prefs.bottomJustify,
+        onCheckedChange = onBottomJustifyChange,
+    )
 }
 
 // ── Tab 3: 设置 ──────────────────────────────────────────────
@@ -670,6 +693,12 @@ private fun SettingsPanel(
     onKeepScreenOnChange: (Boolean) -> Unit,
     onVolumeKeyTurnPageChange: (Boolean) -> Unit,
     onEdgeTurnPageChange: (Boolean) -> Unit,
+    onEdgeWidthPercentChange: (Float) -> Unit,
+    onShowHeaderLineChange: (Boolean) -> Unit,
+    onShowFooterLineChange: (Boolean) -> Unit,
+    onHeaderFontSizeRatioChange: (Float) -> Unit,
+    onFooterFontSizeRatioChange: (Float) -> Unit,
+    onBottomJustifyChange: (Boolean) -> Unit,
     onApplyPreset: (Long) -> Unit,
     onSavePreset: (String) -> Unit,
     onRenamePreset: (Long, String) -> Unit,
@@ -774,6 +803,19 @@ private fun SettingsPanel(
                 format = { "${it.toInt()}dp" },
                 onValueChange = onHeaderMarginTopChange,
             )
+            ReaderSwitchRow(
+                label = strings.headerLineLabel,
+                checked = prefs.showHeaderLine,
+                onCheckedChange = onShowHeaderLineChange,
+            )
+            ReaderValueSlider(
+                label = strings.headerFontSizeLabel,
+                value = prefs.headerFontSizeRatio,
+                valueRange = 0.5f..1.2f,
+                steps = 6,
+                format = { "%.0f%%".format(it * 100) },
+                onValueChange = onHeaderFontSizeRatioChange,
+            )
         } else {
             Text(
                 text = strings.headerHidden,
@@ -829,6 +871,19 @@ private fun SettingsPanel(
                 steps = 100,
                 format = { "${it.toInt()}dp" },
                 onValueChange = onFooterMarginBottomChange,
+            )
+            ReaderSwitchRow(
+                label = strings.footerLineLabel,
+                checked = prefs.showFooterLine,
+                onCheckedChange = onShowFooterLineChange,
+            )
+            ReaderValueSlider(
+                label = strings.footerFontSizeLabel,
+                value = prefs.footerFontSizeRatio,
+                valueRange = 0.5f..1.2f,
+                steps = 6,
+                format = { "%.0f%%".format(it * 100) },
+                onValueChange = onFooterFontSizeRatioChange,
             )
         } else {
             Text(
@@ -913,6 +968,16 @@ private fun SettingsPanel(
         onCheckedChange = onEdgeTurnPageChange,
         description = strings.edgeTurnPageDesc,
     )
+    if (prefs.edgeTurnPage) {
+        ReaderValueSlider(
+            label = strings.edgeWidthLabel,
+            value = prefs.edgeWidthPercent,
+            valueRange = 0.1f..0.4f,
+            steps = 5,
+            format = { "%.0f%%".format(it * 100) },
+            onValueChange = onEdgeWidthPercentChange,
+        )
+    }
 
     HorizontalDivider(
         color = readerColors.divider,

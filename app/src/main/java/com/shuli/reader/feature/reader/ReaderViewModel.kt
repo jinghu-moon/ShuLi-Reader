@@ -93,6 +93,7 @@ private data class ReaderLayoutPrefs(
     val useZhLayout: Boolean,
     val chineseConvert: com.shuli.reader.core.data.ChineseConvert,
     val usePanguSpacing: Boolean,
+    val bottomJustify: Boolean,
 )
 
 /**
@@ -107,6 +108,10 @@ private data class ReaderVisualPrefs(
     val footer: FooterConfig,
     val headerFooterAlpha: Float,
     val showProgress: Boolean,
+    val showHeaderLine: Boolean,
+    val showFooterLine: Boolean,
+    val headerFontSizeRatio: Float,
+    val footerFontSizeRatio: Float,
 )
 
 /**
@@ -117,6 +122,7 @@ private data class ReaderBehaviorPrefs(
     val keepScreenOn: Boolean,
     val volumeKeyTurnPage: Boolean,
     val edgeTurnPage: Boolean,
+    val edgeWidthPercent: Float,
 )
 
 /**
@@ -257,17 +263,45 @@ class ReaderViewModel(
     // ── 字体管理 ──────────────────────────────────────────────
 
     fun loadCustomFonts() {
-        val fm = fontManager ?: return
-        _uiState.value = _uiState.value.copy(customFonts = fm.listFonts())
+        val fm = fontManager
+        if (fm == null) {
+            android.util.Log.w("FontManager", "loadCustomFonts: fontManager 为 null")
+            return
+        }
+        val fonts = fm.listFonts()
+        android.util.Log.d("FontManager", "loadCustomFonts: 加载了 ${fonts.size} 个自定义字体")
+        _uiState.value = _uiState.value.copy(customFonts = fonts)
     }
 
     fun importFont(uri: android.net.Uri, displayName: String? = null) {
-        val fm = fontManager ?: return
-        try {
-            fm.importFont(uri, displayName)
-            loadCustomFonts()
-        } catch (_: Exception) {
-            // 导入失败，静默处理
+        val fm = fontManager ?: run {
+            android.util.Log.e("FontManager", "importFont: fontManager 为 null，无法导入")
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val entry = fm.importFont(uri, displayName)
+                android.util.Log.d("FontManager", "字体导入成功: id=${entry.id}, file=${entry.file.name}, size=${entry.file.length()}")
+                withContext(Dispatchers.Main) {
+                    loadCustomFonts()
+                    val count = _uiState.value.customFonts.size
+                    android.util.Log.d("FontManager", "loadCustomFonts 完成, customFonts.size=$count")
+                    android.widget.Toast.makeText(
+                        fm.context,
+                        "字体导入成功: ${entry.name}（共 $count 个自定义字体）",
+                        android.widget.Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("FontManager", "字体导入失败: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        fm.context,
+                        "字体导入失败: ${e.message}",
+                        android.widget.Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
         }
     }
 
@@ -385,6 +419,7 @@ class ReaderViewModel(
                     prefs.titleMarginTop,
                     prefs.titleMarginBottom,
                     prefs.usePanguSpacing,
+                    prefs.bottomJustify,
                 ) { flows: Array<Any> ->
                     Triple(
                         ReaderLayoutPrefs(
@@ -398,6 +433,7 @@ class ReaderViewModel(
                             useZhLayout = flows[7] as Boolean,
                             chineseConvert = (flows[8] as String).toChineseConvert(),
                             usePanguSpacing = flows[13] as Boolean,
+                            bottomJustify = flows[14] as Boolean,
                         ),
                         TitleStyleConfig(
                             align = (flows[9] as String).toTitleAlign(),
@@ -420,6 +456,7 @@ class ReaderViewModel(
                         useZhLayout = layoutPrefs.useZhLayout,
                         chineseConvert = chineseConvertRaw.toChineseConvert(),
                         usePanguSpacing = layoutPrefs.usePanguSpacing,
+                        bottomJustify = layoutPrefs.bottomJustify,
                         titleStyle = titleStyle,
                     )
                     _uiState.value = _uiState.value.copy(readerPreferences = updated)
@@ -446,6 +483,10 @@ class ReaderViewModel(
                     prefs.showProgress,
                     prefs.headerMarginTop,
                     prefs.footerMarginBottom,
+                    prefs.showHeaderLine,
+                    prefs.showFooterLine,
+                    prefs.headerFontSizeRatio,
+                    prefs.footerFontSizeRatio,
                 ) { flows: Array<Any> ->
                     ReaderVisualPrefs(
                         readingFont = flows[0] as String,
@@ -468,6 +509,10 @@ class ReaderViewModel(
                         ),
                         headerFooterAlpha = flows[12] as Float,
                         showProgress = flows[13] as Boolean,
+                        showHeaderLine = flows[16] as Boolean,
+                        showFooterLine = flows[17] as Boolean,
+                        headerFontSizeRatio = flows[18] as Float,
+                        footerFontSizeRatio = flows[19] as Float,
                     )
                 }.collectLatest { visual ->
                     val current = _uiState.value.readerPreferences
@@ -480,6 +525,10 @@ class ReaderViewModel(
                         footer = visual.footer,
                         headerFooterAlpha = visual.headerFooterAlpha,
                         showProgress = visual.showProgress,
+                        showHeaderLine = visual.showHeaderLine,
+                        showFooterLine = visual.showFooterLine,
+                        headerFontSizeRatio = visual.headerFontSizeRatio,
+                        footerFontSizeRatio = visual.footerFontSizeRatio,
                     )
                     val factoryType = visual.pageAnimType.toFactoryType()
                     _uiState.value = _uiState.value.copy(
@@ -497,12 +546,14 @@ class ReaderViewModel(
                     prefs.keepScreenOn,
                     prefs.volumeKeyTurnPage,
                     prefs.edgeTurnPage,
+                    prefs.edgeWidthPercent,
                 ) { flows: Array<Any> ->
                     ReaderBehaviorPrefs(
                         brightness = flows[0] as Float,
                         keepScreenOn = flows[1] as Boolean,
                         volumeKeyTurnPage = flows[2] as Boolean,
                         edgeTurnPage = flows[3] as Boolean,
+                        edgeWidthPercent = flows[4] as Float,
                     )
                 }.collectLatest { behavior ->
                     val current = _uiState.value.readerPreferences
@@ -512,6 +563,7 @@ class ReaderViewModel(
                             keepScreenOn = behavior.keepScreenOn,
                             volumeKeyTurnPage = behavior.volumeKeyTurnPage,
                             edgeTurnPage = behavior.edgeTurnPage,
+                            edgeWidthPercent = behavior.edgeWidthPercent,
                         ),
                     )
                 }
@@ -1437,6 +1489,56 @@ class ReaderViewModel(
         val currentPrefs = _uiState.value.readerPreferences
         _uiState.value = _uiState.value.copy(readerPreferences = currentPrefs.copy(edgeTurnPage = enabled))
         viewModelScope.launch { userPreferences?.setEdgeTurnPage(enabled) }
+    }
+
+    fun setEdgeWidthPercent(percent: Float) {
+        val currentPrefs = _uiState.value.readerPreferences
+        _uiState.value = _uiState.value.copy(readerPreferences = currentPrefs.copy(edgeWidthPercent = percent))
+        viewModelScope.launch { userPreferences?.setEdgeWidthPercent(percent) }
+    }
+
+    // ── 页眉页脚增强 ──────────────────────────────────────────
+
+    fun setShowHeaderLine(show: Boolean) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(showHeaderLine = show)
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        currentPageInvalidate()
+        viewModelScope.launch { userPreferences?.setShowHeaderLine(show) }
+    }
+
+    fun setShowFooterLine(show: Boolean) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(showFooterLine = show)
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        currentPageInvalidate()
+        viewModelScope.launch { userPreferences?.setShowFooterLine(show) }
+    }
+
+    fun setHeaderFontSizeRatio(ratio: Float) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(headerFontSizeRatio = ratio)
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        currentPageInvalidate()
+        viewModelScope.launch { userPreferences?.setHeaderFontSizeRatio(ratio) }
+    }
+
+    fun setFooterFontSizeRatio(ratio: Float) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(footerFontSizeRatio = ratio)
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
+        currentPageInvalidate()
+        viewModelScope.launch { userPreferences?.setFooterFontSizeRatio(ratio) }
+    }
+
+    // ── 底部对齐 ──────────────────────────────────────────────
+
+    fun setBottomJustify(enabled: Boolean) {
+        val currentPrefs = _uiState.value.readerPreferences
+        val updatedPrefs = currentPrefs.copy(bottomJustify = enabled)
+        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs, isReflowing = true)
+        reflowCurrentChapter(updatedPrefs)
+        viewModelScope.launch { userPreferences?.setBottomJustify(enabled) }
     }
 
     /**
@@ -2402,6 +2504,12 @@ class ReaderViewModel(
                 setKeepScreenOn(prefs.keepScreenOn)
                 setVolumeKeyTurnPage(prefs.volumeKeyTurnPage)
                 setEdgeTurnPage(prefs.edgeTurnPage)
+                setEdgeWidthPercent(prefs.edgeWidthPercent)
+                setShowHeaderLine(prefs.showHeaderLine)
+                setShowFooterLine(prefs.showFooterLine)
+                setHeaderFontSizeRatio(prefs.headerFontSizeRatio)
+                setFooterFontSizeRatio(prefs.footerFontSizeRatio)
+                setBottomJustify(prefs.bottomJustify)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = "Failed to apply preset: ${e.message}")
             }
@@ -2465,6 +2573,12 @@ class ReaderViewModel(
         setKeepScreenOn(defaults.keepScreenOn)
         setVolumeKeyTurnPage(defaults.volumeKeyTurnPage)
         setEdgeTurnPage(defaults.edgeTurnPage)
+        setEdgeWidthPercent(defaults.edgeWidthPercent)
+        setShowHeaderLine(defaults.showHeaderLine)
+        setShowFooterLine(defaults.showFooterLine)
+        setHeaderFontSizeRatio(defaults.headerFontSizeRatio)
+        setFooterFontSizeRatio(defaults.footerFontSizeRatio)
+        setBottomJustify(defaults.bottomJustify)
     }
 
     /** 解析页眉槽位为 SlotResolution */
@@ -2513,6 +2627,7 @@ class ReaderViewModel(
             letterSpacingPx = preferences.letterSpacing * textSizePx,
             titleStyle = preferences.titleStyle,
             useZhLayout = preferences.useZhLayout,
+            bottomJustify = preferences.bottomJustify,
             headerMarginTop = preferences.header.marginTop * density,
             footerMarginBottom = preferences.footer.marginBottom * density,
         )

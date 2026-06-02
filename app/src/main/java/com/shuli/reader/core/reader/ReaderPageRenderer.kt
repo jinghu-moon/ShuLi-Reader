@@ -38,6 +38,13 @@ class ReaderPageRenderer(
         isAntiAlias = true
     }
 
+    /** 页眉页脚分割线画笔 */
+    private val dividerPaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 1f
+        isAntiAlias = true
+    }
+
     /**
      * 更新对齐方式
      */
@@ -99,6 +106,8 @@ class ReaderPageRenderer(
         footerAlpha: Float = 0.4f,
         batteryLevel: Int = 100,
         backgroundPaint: Paint? = null,
+        showHeaderLine: Boolean = false,
+        showFooterLine: Boolean = false,
     ) {
         // 1. 绘制背景
         if (backgroundPaint != null) {
@@ -111,9 +120,25 @@ class ReaderPageRenderer(
         val headerBaseline = page.headerMarginTop + 24f * density * 0.6f
         drawHeaderFooter(canvas, headerSlots, headerPaint, headerAlpha, headerBaseline, page)
 
+        // 2.5 绘制页眉分割线
+        if (showHeaderLine) {
+            val lineY = headerBaseline + 4f * density
+            dividerPaint.color = headerPaint.color
+            dividerPaint.alpha = (headerAlpha * 255 * 0.5f).toInt()
+            canvas.drawLine(page.marginHorizontal, lineY, canvas.width - page.marginHorizontal, lineY, dividerPaint)
+        }
+
         // 3. 绘制页脚
         val footerBaseline = canvas.height - page.footerMarginBottom - 24f * density * 0.4f
         drawHeaderFooter(canvas, footerSlots, footerPaint, footerAlpha, footerBaseline, page)
+
+        // 3.5 绘制页脚分割线
+        if (showFooterLine) {
+            val lineY = footerBaseline - footerPaint.textSize * 0.6f
+            dividerPaint.color = footerPaint.color
+            dividerPaint.alpha = (footerAlpha * 255 * 0.5f).toInt()
+            canvas.drawLine(page.marginHorizontal, lineY, canvas.width - page.marginHorizontal, lineY, dividerPaint)
+        }
 
         // 4. 绘制电池
         drawBattery(canvas, page.marginHorizontal, footerBaseline, batteryLevel, density)

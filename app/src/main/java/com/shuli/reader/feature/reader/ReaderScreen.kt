@@ -315,12 +315,14 @@ fun ReaderScreen(
                 }
 
                 // 页眉页脚
-                LaunchedEffect(prefs.headerFooterAlpha, prefs.showProgress) {
+                LaunchedEffect(prefs.headerFooterAlpha, prefs.showProgress, prefs.showHeaderLine, prefs.showFooterLine) {
                     canvasView?.updateHeaderFooter(
                         viewModel.resolveHeaderSlots(),
                         viewModel.resolveFooterSlots(),
                         prefs.headerFooterAlpha,
                         prefs.showProgress,
+                        prefs.showHeaderLine,
+                        prefs.showFooterLine,
                     )
                 }
 
@@ -332,6 +334,17 @@ fun ReaderScreen(
                 // 边缘翻页
                 LaunchedEffect(prefs.edgeTurnPage) {
                     canvasView?.setEdgeTurnPageEnabled(prefs.edgeTurnPage)
+                }
+
+                // 边缘触摸宽度
+                LaunchedEffect(prefs.edgeWidthPercent) {
+                    canvasView?.setEdgeWidthPercent(prefs.edgeWidthPercent)
+                }
+
+                // 页眉页脚字号比例
+                LaunchedEffect(prefs.headerFontSizeRatio, prefs.footerFontSizeRatio) {
+                    canvasView?.setHeaderTextRatio(prefs.headerFontSizeRatio)
+                    canvasView?.setFooterTextRatio(prefs.footerFontSizeRatio)
                 }
 
                 // 电池
@@ -700,13 +713,18 @@ fun ReaderScreen(
                     onKeepScreenOnChange = viewModel::setKeepScreenOn,
                     onVolumeKeyTurnPageChange = viewModel::setVolumeKeyTurnPage,
                     onEdgeTurnPageChange = viewModel::setEdgeTurnPage,
+                    onEdgeWidthPercentChange = viewModel::setEdgeWidthPercent,
+                    onShowHeaderLineChange = viewModel::setShowHeaderLine,
+                    onShowFooterLineChange = viewModel::setShowFooterLine,
+                    onHeaderFontSizeRatioChange = viewModel::setHeaderFontSizeRatio,
+                    onFooterFontSizeRatioChange = viewModel::setFooterFontSizeRatio,
+                    onBottomJustifyChange = viewModel::setBottomJustify,
                     ttsState = uiState.ttsState,
                     onTtsStart = { viewModel.startTts() },
                     onTtsPause = { viewModel.pauseTts() },
                     onTtsStop = { viewModel.stopTts() },
                     onTtsSpeedChange = { viewModel.setTtsSpeed(it) },
                     onTtsPitchChange = { viewModel.setTtsPitch(it) },
-                    customFonts = uiState.customFonts,
                     onImportFont = { viewModel.importFont(it) },
                     onDeleteFont = { viewModel.deleteFont(it) },
                 )

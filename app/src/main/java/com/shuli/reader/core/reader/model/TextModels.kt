@@ -28,6 +28,7 @@ data class ReaderLayoutConfig(
     val letterSpacingPx: Float = 0f,  // 字距，已转为绝对像素
     val titleStyle: TitleStyleConfig = TitleStyleConfig(),
     val useZhLayout: Boolean = false,  // 自定义中文分行（标点避头尾）
+    val bottomJustify: Boolean = false, // 底部对齐（均匀分布行间距）
     val headerMarginTop: Float = 48f,
     val footerMarginBottom: Float = 48f,
 )

@@ -80,9 +80,17 @@ class UserPreferences(
         // 排版增强
         val KEY_USE_ZH_LAYOUT = booleanPreferencesKey("use_zh_layout")
         val KEY_USE_PANGU_SPACING = booleanPreferencesKey("use_pangu_spacing")
+        // 页眉页脚增强
+        val KEY_SHOW_HEADER_LINE = booleanPreferencesKey("show_header_line")
+        val KEY_SHOW_FOOTER_LINE = booleanPreferencesKey("show_footer_line")
+        val KEY_HEADER_FONT_SIZE_RATIO = floatPreferencesKey("header_font_size_ratio")
+        val KEY_FOOTER_FONT_SIZE_RATIO = floatPreferencesKey("footer_font_size_ratio")
+        // 排版增强2
+        val KEY_BOTTOM_JUSTIFY = booleanPreferencesKey("bottom_justify")
         // 阶段六新增
         val KEY_VOLUME_KEY_TURN_PAGE = booleanPreferencesKey("volume_key_turn_page")
         val KEY_EDGE_TURN_PAGE = booleanPreferencesKey("edge_turn_page")
+        val KEY_EDGE_WIDTH_PERCENT = floatPreferencesKey("edge_width_percent")
 
         // 书库与导入
         val KEY_DUPLICATE_CHECK = booleanPreferencesKey("duplicate_check_enabled")
@@ -163,9 +171,17 @@ class UserPreferences(
     // 排版增强
     val useZhLayout: Flow<Boolean> = dataStore.data.map { it[KEY_USE_ZH_LAYOUT] ?: false }.distinctUntilChanged()
     val usePanguSpacing: Flow<Boolean> = dataStore.data.map { it[KEY_USE_PANGU_SPACING] ?: false }.distinctUntilChanged()
+    // 页眉页脚增强
+    val showHeaderLine: Flow<Boolean> = dataStore.data.map { it[KEY_SHOW_HEADER_LINE] ?: false }.distinctUntilChanged()
+    val showFooterLine: Flow<Boolean> = dataStore.data.map { it[KEY_SHOW_FOOTER_LINE] ?: false }.distinctUntilChanged()
+    val headerFontSizeRatio: Flow<Float> = dataStore.data.map { it[KEY_HEADER_FONT_SIZE_RATIO] ?: 0.75f }.distinctUntilChanged()
+    val footerFontSizeRatio: Flow<Float> = dataStore.data.map { it[KEY_FOOTER_FONT_SIZE_RATIO] ?: 0.75f }.distinctUntilChanged()
+    // 排版增强2
+    val bottomJustify: Flow<Boolean> = dataStore.data.map { it[KEY_BOTTOM_JUSTIFY] ?: false }.distinctUntilChanged()
     // 阶段六新增
     val volumeKeyTurnPage: Flow<Boolean> = dataStore.data.map { it[KEY_VOLUME_KEY_TURN_PAGE] ?: false }.distinctUntilChanged()
     val edgeTurnPage: Flow<Boolean> = dataStore.data.map { it[KEY_EDGE_TURN_PAGE] ?: true }.distinctUntilChanged()
+    val edgeWidthPercent: Flow<Float> = dataStore.data.map { it[KEY_EDGE_WIDTH_PERCENT] ?: 0.33f }.distinctUntilChanged()
 
     val duplicateCheckEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_DUPLICATE_CHECK] ?: true }.distinctUntilChanged()
     val importCopyFile: Flow<Boolean> = dataStore.data.map { it[KEY_IMPORT_COPY] ?: true }.distinctUntilChanged()
@@ -239,9 +255,17 @@ class UserPreferences(
     // 排版增强
     suspend fun setUseZhLayout(value: Boolean) = dataStore.edit { it[KEY_USE_ZH_LAYOUT] = value }
     suspend fun setUsePanguSpacing(value: Boolean) = dataStore.edit { it[KEY_USE_PANGU_SPACING] = value }
+    // 页眉页脚增强
+    suspend fun setShowHeaderLine(value: Boolean) = dataStore.edit { it[KEY_SHOW_HEADER_LINE] = value }
+    suspend fun setShowFooterLine(value: Boolean) = dataStore.edit { it[KEY_SHOW_FOOTER_LINE] = value }
+    suspend fun setHeaderFontSizeRatio(value: Float) = dataStore.edit { it[KEY_HEADER_FONT_SIZE_RATIO] = value }
+    suspend fun setFooterFontSizeRatio(value: Float) = dataStore.edit { it[KEY_FOOTER_FONT_SIZE_RATIO] = value }
+    // 排版增强2
+    suspend fun setBottomJustify(value: Boolean) = dataStore.edit { it[KEY_BOTTOM_JUSTIFY] = value }
     // 阶段六新增
     suspend fun setVolumeKeyTurnPage(value: Boolean) = dataStore.edit { it[KEY_VOLUME_KEY_TURN_PAGE] = value }
     suspend fun setEdgeTurnPage(value: Boolean) = dataStore.edit { it[KEY_EDGE_TURN_PAGE] = value }
+    suspend fun setEdgeWidthPercent(value: Float) = dataStore.edit { it[KEY_EDGE_WIDTH_PERCENT] = value }
 
     suspend fun setDuplicateCheckEnabled(value: Boolean) = dataStore.edit { it[KEY_DUPLICATE_CHECK] = value }
     suspend fun setImportCopyFile(value: Boolean) = dataStore.edit { it[KEY_IMPORT_COPY] = value }
