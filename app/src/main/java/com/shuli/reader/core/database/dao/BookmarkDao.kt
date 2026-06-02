@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import com.shuli.reader.core.database.entity.BookmarkEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -25,6 +26,10 @@ interface BookmarkDao {
     /** 清空所有书签（导入用） */
     @Query("DELETE FROM bookmarks")
     suspend fun deleteAllBookmarks()
+
+    /** Upsert 书签（导入合并用） */
+    @Upsert
+    suspend fun upsertBookmark(bookmark: BookmarkEntity)
 
     /** T-06: 查询脏书签（同步用） */
     @Query("SELECT * FROM bookmarks WHERE isDirty = 1 AND deleted = 0")

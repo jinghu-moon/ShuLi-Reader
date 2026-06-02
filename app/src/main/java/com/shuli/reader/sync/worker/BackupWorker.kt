@@ -11,9 +11,9 @@ import com.shuli.reader.core.database.entity.BookEntity
 import com.shuli.reader.core.database.entity.BookmarkEntity
 import com.shuli.reader.core.database.entity.NoteEntity
 import com.shuli.reader.core.database.entity.ReadingProgressEntity
+import com.shuli.reader.sync.export.BackupExporter
 import com.shuli.reader.sync.export.ExportDatabase
 import com.shuli.reader.sync.export.ExportOptions
-import com.shuli.reader.sync.export.ZipExporter
 import kotlinx.coroutines.flow.first
 import java.io.File
 import java.text.SimpleDateFormat
@@ -52,7 +52,7 @@ class BackupWorker(
                 }
             }
 
-            val exporter = ZipExporter(exportDb, applicationContext)
+            val exporter = BackupExporter(exportDb, applicationContext)
 
             val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
             val fileName = "shuli_backup_${dateFormat.format(Date())}.zip"

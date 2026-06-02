@@ -7,6 +7,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
+import androidx.room.Upsert
 import com.shuli.reader.core.database.entity.BookContentIndexEntity
 import com.shuli.reader.core.database.entity.BookEntity
 import com.shuli.reader.core.database.entity.BookShelfRow
@@ -105,6 +106,14 @@ interface BookDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBook(book: BookEntity): Long
+
+    /** Upsert 书籍（导入合并用） */
+    @Upsert
+    suspend fun upsertBook(book: BookEntity)
+
+    /** 清空所有书籍（导入用） */
+    @Query("DELETE FROM books")
+    suspend fun deleteAllBooks()
 
     @Update
     suspend fun updateBook(book: BookEntity)

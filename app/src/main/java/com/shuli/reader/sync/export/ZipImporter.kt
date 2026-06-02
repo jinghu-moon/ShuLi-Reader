@@ -93,7 +93,7 @@ class ZipImporter(
             // 写入合并结果
             db.clearBookmarks()
             for (bookmark in mergedBookmarks) {
-                db.addBookmark(bookmark)
+                db.upsertBookmark(bookmark)
             }
         }
 
@@ -227,7 +227,7 @@ class ZipImporter(
                 // 覆盖：ZIP 数据完全替换本地数据
                 zipBookmarks
             }
-            ImportStrategy.SMART_MERGE -> {
+            ImportStrategy.MERGE -> {
                 // 智能合并：按 updatedAt 时间戳，保留较新的条目
                 val merged = localBookmarks.toMutableList()
                 for (zipBm in zipBookmarks) {
@@ -239,17 +239,6 @@ class ZipImporter(
                         merged.add(zipBm)
                     }
                     // 否则保留本地条目
-                }
-                merged
-            }
-            ImportStrategy.IMPORT_ONLY_NEW -> {
-                // 仅导入新条目：跳过已存在的条目（按 ID 判断）
-                val merged = localBookmarks.toMutableList()
-                for (zipBm in zipBookmarks) {
-                    val exists = merged.any { it.id == zipBm.id }
-                    if (!exists) {
-                        merged.add(zipBm)
-                    }
                 }
                 merged
             }

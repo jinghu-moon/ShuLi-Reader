@@ -78,11 +78,12 @@ import com.shuli.reader.core.data.PageAnimConst
 import com.shuli.reader.core.data.PageTurnDirConst
 import com.shuli.reader.core.data.SyncMethodConst
 import com.shuli.reader.core.i18n.LocalAppStrings
+import com.shuli.reader.sync.export.BackupExporter
+import com.shuli.reader.sync.export.BackupImporter
 import com.shuli.reader.sync.export.ExportDatabase
 import com.shuli.reader.sync.export.ImportDatabase
 import com.shuli.reader.sync.export.ImportStrategy
-import com.shuli.reader.sync.export.ZipExporter
-import com.shuli.reader.sync.export.ZipImporter
+import androidx.room.withTransaction
 import com.shuli.reader.core.database.entity.BookEntity
 import com.shuli.reader.core.database.entity.BookmarkEntity
 import com.shuli.reader.core.database.entity.NoteEntity
@@ -716,7 +717,7 @@ fun SettingsScreen(
                                     override suspend fun getAllNotes(): List<NoteEntity> = database.noteDao().queryAllActive()
                                     override suspend fun getAllProgress(): List<ReadingProgressEntity> = database.readingProgressDao().queryAllActive()
                                 }
-                                val exporter = ZipExporter(exportDb, context)
+                                val exporter = BackupExporter(exportDb, context)
                                 val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
                                 val fileName = "shuli_backup_${dateFormat.format(Date())}.zip"
 
@@ -781,12 +782,19 @@ fun SettingsScreen(
                                     override suspend fun getAllBookmarks(): List<BookmarkEntity> = database.bookmarkDao().queryAllActive()
                                     override suspend fun getAllNotes(): List<NoteEntity> = database.noteDao().queryAllActive()
                                     override suspend fun getAllProgress(): List<ReadingProgressEntity> = database.readingProgressDao().queryAllActive()
+                                    override suspend fun upsertBook(book: BookEntity) = database.bookDao().upsertBook(book)
+                                    override suspend fun clearBooks() = database.bookDao().deleteAllBooks()
+                                    override suspend fun upsertBookmark(bookmark: BookmarkEntity) = database.bookmarkDao().upsertBookmark(bookmark)
                                     override suspend fun clearBookmarks() = database.bookmarkDao().deleteAllBookmarks()
-                                    override suspend fun addBookmark(bookmark: BookmarkEntity) {
-                                        database.bookmarkDao().insertBookmark(bookmark)
+                                    override suspend fun upsertNote(note: NoteEntity) = database.noteDao().upsertNote(note)
+                                    override suspend fun clearNotes() = database.noteDao().deleteAllNotes()
+                                    override suspend fun upsertProgress(progress: ReadingProgressEntity) = database.readingProgressDao().upsertProgress(progress)
+                                    override suspend fun clearProgress() = database.readingProgressDao().deleteAllProgress()
+                                    override suspend fun runInTransaction(block: suspend () -> Unit) {
+                                        database.withTransaction { block() }
                                     }
                                 }
-                                val importer = ZipImporter(db = importDb)
+                                val importer = BackupImporter(db = importDb)
 
                                 // 从 SAF URI 复制到临时文件再导入
                                 val tempFile = withContext(Dispatchers.IO) {
@@ -798,7 +806,7 @@ fun SettingsScreen(
                                 }
 
                                 try {
-                                    importer.import(tempFile, strategy = ImportStrategy.SMART_MERGE)
+                                    importer.import(tempFile, strategy = ImportStrategy.MERGE)
                                     importResult = "导入成功"
                                 } finally {
                                     withContext(Dispatchers.IO) { tempFile.delete() }

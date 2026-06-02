@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import com.shuli.reader.core.database.entity.ReadingProgressEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -40,6 +41,14 @@ interface ReadingProgressDao {
     /** T-06: 查询所有未删除进度（同步用） */
     @Query("SELECT * FROM reading_progress WHERE deleted = 0")
     suspend fun queryAllActive(): List<ReadingProgressEntity>
+
+    /** 清空所有阅读进度（导入用） */
+    @Query("DELETE FROM reading_progress")
+    suspend fun deleteAllProgress()
+
+    /** Upsert 阅读进度（导入合并用） */
+    @Upsert
+    suspend fun upsertProgress(progress: ReadingProgressEntity)
 }
 
 data class BookDurationTuple(
