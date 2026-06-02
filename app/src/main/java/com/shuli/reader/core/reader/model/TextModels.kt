@@ -2,6 +2,7 @@ package com.shuli.reader.core.reader.model
 
 import com.shuli.reader.core.canvasrecorder.CanvasRecorder
 import com.shuli.reader.core.canvasrecorder.CanvasRecorderFactory
+import com.shuli.reader.core.canvasrecorder.record
 import com.shuli.reader.core.reader.TitleStyleConfig
 
 /**
@@ -130,19 +131,40 @@ class TextPage(
     @Transient
     val shellRecorder: CanvasRecorder = CanvasRecorderFactory.create(locked = true)
 
+    /** 合并渲染缓存（壳层+内容层叠加），翻页动画时使用，避免双层绘制冲突。 */
+    @Transient
+    val compositeRecorder: CanvasRecorder = CanvasRecorderFactory.create(locked = true)
+
+    /**
+     * 录制合并 recorder：先壳层后内容层叠加。
+     * 仅在翻页动画触发时调用，静止状态不产生开销。
+     */
+    fun recordComposite(width: Int, height: Int) {
+        if (!compositeRecorder.needRecord()) return
+        compositeRecorder.record(width, height) {
+            shellRecorder.draw(this)
+            canvasRecorder.draw(this)
+        }
+    }
+
     /** 标记内容 recorder 及所有行级 recorder 失效，下次绘制时会重录。 */
     fun invalidate() {
         canvasRecorder.invalidate()
+        compositeRecorder.invalidate()
         lines.forEach { it.invalidateSelf() }
     }
 
     /** 标记壳层 recorder 失效。 */
-    fun invalidateShell() = shellRecorder.invalidate()
+    fun invalidateShell() {
+        shellRecorder.invalidate()
+        compositeRecorder.invalidate()
+    }
 
     /** 标记内容 + 壳层 + 所有行级 recorder 失效。 */
     fun invalidateAll() {
         canvasRecorder.invalidate()
         shellRecorder.invalidate()
+        compositeRecorder.invalidate()
         lines.forEach { it.invalidateSelf() }
     }
 
@@ -150,6 +172,7 @@ class TextPage(
     fun recycleRecorders() {
         canvasRecorder.recycle()
         shellRecorder.recycle()
+        compositeRecorder.recycle()
         lines.forEach { it.recycleRecorder() }
     }
 

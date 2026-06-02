@@ -855,7 +855,9 @@ class ReaderCanvasView @JvmOverloads constructor(
         }
 
         val delegate = pageDelegate
-        if (delegate != null) {
+        if (delegate != null && delegate.state != PageDelegate.State.IDLE) {
+            // 动画状态：使用合并 recorder，delegate 只调用一次
+            // 避免壳层/内容层分离绘制导致的文字溢出和阴影叠加
             val isPrevDirection = when (delegate.state) {
                 PageDelegate.State.DRAGGING -> delegate.isDraggingBackward()
                 PageDelegate.State.ANIMATING -> delegate.direction == PageDelegate.Direction.PREV
@@ -865,13 +867,16 @@ class ReaderCanvasView @JvmOverloads constructor(
             val target = if (isPrevDirection) prevPage else nextPage
             target?.let {
                 if (it.canvasRecorder.needRecord() || it.shellRecorder.needRecord()) recordPage(it)
+                it.recordComposite(width, height)
             }
-            // 壳层：翻页动画绘制（含目标页背景）
-            delegate.onDraw(canvas, current.shellRecorder, target?.shellRecorder ?: current.shellRecorder, drawTarget = true)
-            // 内容层：翻页动画绘制（仅当前页内容，不重绘目标页避免覆盖壳层）
-            delegate.onDraw(canvas, current.canvasRecorder, target?.canvasRecorder ?: current.canvasRecorder, drawTarget = false)
+            current.recordComposite(width, height)
+            delegate.onDraw(
+                canvas,
+                current.compositeRecorder,
+                target?.compositeRecorder ?: current.compositeRecorder,
+            )
         } else {
-            // 静止状态：先画壳层，再画内容
+            // 静止状态：先画壳层，再画内容（双层分离，细粒度失效）
             current.shellRecorder.draw(canvas)
             current.canvasRecorder.draw(canvas)
         }

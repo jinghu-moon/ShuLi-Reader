@@ -116,7 +116,7 @@ class ScrollPageDelegate : PageDelegate {
         }
     }
 
-    override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder, drawTarget: Boolean) {
+    override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder) {
         screenHeight = canvas.height.toFloat()
 
         canvas.save()
@@ -124,18 +124,16 @@ class ScrollPageDelegate : PageDelegate {
         current.draw(canvas)
         canvas.restore()
 
-        if (drawTarget) {
-            if (scrollOffset < -screenHeight * 0.8f) {
-                canvas.save()
-                canvas.translate(0f, scrollOffset + screenHeight)
-                target.draw(canvas)
-                canvas.restore()
-            } else if (scrollOffset > screenHeight * 0.8f) {
-                canvas.save()
-                canvas.translate(0f, scrollOffset - screenHeight)
-                target.draw(canvas)
-                canvas.restore()
-            }
+        if (scrollOffset < -screenHeight * 0.8f) {
+            canvas.save()
+            canvas.translate(0f, scrollOffset + screenHeight)
+            target.draw(canvas)
+            canvas.restore()
+        } else if (scrollOffset > screenHeight * 0.8f) {
+            canvas.save()
+            canvas.translate(0f, scrollOffset - screenHeight)
+            target.draw(canvas)
+            canvas.restore()
         }
     }
 

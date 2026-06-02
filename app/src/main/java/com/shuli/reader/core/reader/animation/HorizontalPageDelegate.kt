@@ -83,7 +83,7 @@ class HorizontalPageDelegate : PageDelegate {
         return false
     }
 
-    override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder, drawTarget: Boolean) {
+    override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder) {
         screenWidth = canvas.width.toFloat()
 
         when (state) {
@@ -91,7 +91,7 @@ class HorizontalPageDelegate : PageDelegate {
                 current.draw(canvas)
             }
             PageDelegate.State.SETTLING -> {
-                if (drawTarget) target.draw(canvas)
+                target.draw(canvas)
             }
             PageDelegate.State.DRAGGING, PageDelegate.State.ANIMATING -> {
                 // DRAGGING 和 ANIMATING 共用 pageOffset 驱动渲染
@@ -100,17 +100,15 @@ class HorizontalPageDelegate : PageDelegate {
                 current.draw(canvas)
                 canvas.restore()
 
-                if (drawTarget) {
-                    val targetOffset = if (pageOffset < 0) pageOffset + screenWidth else pageOffset - screenWidth
-                    canvas.save()
-                    canvas.translate(targetOffset, 0f)
-                    target.draw(canvas)
-                    canvas.restore()
+                val targetOffset = if (pageOffset < 0) pageOffset + screenWidth else pageOffset - screenWidth
+                canvas.save()
+                canvas.translate(targetOffset, 0f)
+                target.draw(canvas)
+                canvas.restore()
 
-                    val shadowX = if (pageOffset < 0) pageOffset + screenWidth else pageOffset
-                    val shadowRect = RectF(shadowX - 20, 0f, shadowX, canvas.height.toFloat())
-                    canvas.drawRect(shadowRect, shadowPaint)
-                }
+                val shadowX = if (pageOffset < 0) pageOffset + screenWidth else pageOffset
+                val shadowRect = RectF(shadowX - 20, 0f, shadowX, canvas.height.toFloat())
+                canvas.drawRect(shadowRect, shadowPaint)
             }
         }
     }

@@ -44,7 +44,7 @@ class NoAnimPageDelegate : PageDelegate {
         return false
     }
 
-    override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder, drawTarget: Boolean) {
+    override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder) {
         current.draw(canvas)
     }
 
