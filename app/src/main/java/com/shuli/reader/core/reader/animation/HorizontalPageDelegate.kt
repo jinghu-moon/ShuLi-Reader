@@ -2,8 +2,7 @@ package com.shuli.reader.core.reader.animation
 
 import android.animation.ValueAnimator
 import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.RectF
+import android.graphics.drawable.GradientDrawable
 import android.view.MotionEvent
 import android.view.animation.DecelerateInterpolator
 import com.shuli.reader.core.canvasrecorder.CanvasRecorder
@@ -31,10 +30,11 @@ class HorizontalPageDelegate : PageDelegate {
     /** 统一位移量，DRAGGING 和 ANIMATING 共用，负值向左（NEXT），正值向右（PREV） */
     private var pageOffset: Float = 0f
 
-    private val shadowPaint = Paint().apply {
-        color = 0x40000000
-        style = Paint.Style.FILL
-    }
+    /** 翻页边缘渐变阴影（30px 宽，从半透明黑到透明） */
+    private val shadowDrawableR = GradientDrawable(
+        GradientDrawable.Orientation.LEFT_RIGHT,
+        intArrayOf(0x66111111, 0x00000000),
+    ).apply { gradientType = GradientDrawable.LINEAR_GRADIENT }
 
     private var animator: ValueAnimator? = null
     private var isAborting = false
@@ -85,6 +85,8 @@ class HorizontalPageDelegate : PageDelegate {
 
     override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder) {
         screenWidth = canvas.width.toFloat()
+        // 更新渐变阴影尺寸（30px 宽 × 全高）
+        shadowDrawableR.setBounds(0, 0, 30, canvas.height)
 
         when (state) {
             PageDelegate.State.IDLE -> {
@@ -106,9 +108,12 @@ class HorizontalPageDelegate : PageDelegate {
                 target.draw(canvas)
                 canvas.restore()
 
+                // 渐变阴影条：紧贴两页交界处
                 val shadowX = if (pageOffset < 0) pageOffset + screenWidth else pageOffset
-                val shadowRect = RectF(shadowX - 20, 0f, shadowX, canvas.height.toFloat())
-                canvas.drawRect(shadowRect, shadowPaint)
+                canvas.save()
+                canvas.translate(shadowX, 0f)
+                shadowDrawableR.draw(canvas)
+                canvas.restore()
             }
         }
     }

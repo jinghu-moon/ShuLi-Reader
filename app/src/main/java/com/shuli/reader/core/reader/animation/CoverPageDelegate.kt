@@ -2,8 +2,7 @@ package com.shuli.reader.core.reader.animation
 
 import android.animation.ValueAnimator
 import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.RectF
+import android.graphics.drawable.GradientDrawable
 import android.view.MotionEvent
 import android.view.animation.DecelerateInterpolator
 import com.shuli.reader.core.canvasrecorder.CanvasRecorder
@@ -26,15 +25,17 @@ class CoverPageDelegate : PageDelegate {
     private var startX: Float = 0f
     private var currentX: Float = 0f
     private var screenWidth: Float = 1080f
+    private var screenHeight: Float = 1920f
     private var isCancel: Boolean = false
 
     /** 统一位移量，负值向左（NEXT），正值向右（PREV） */
     private var pageOffset: Float = 0f
 
-    private val shadowPaint = Paint().apply {
-        color = 0x40000000
-        style = Paint.Style.FILL
-    }
+    /** 翻页边缘渐变阴影（30px 宽，从半透明黑到透明） */
+    private val shadowDrawableR = GradientDrawable(
+        GradientDrawable.Orientation.LEFT_RIGHT,
+        intArrayOf(0x66111111, 0x00000000),
+    ).apply { gradientType = GradientDrawable.LINEAR_GRADIENT }
 
     private var animator: ValueAnimator? = null
     private var isAborting = false
@@ -82,6 +83,9 @@ class CoverPageDelegate : PageDelegate {
 
     override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder) {
         screenWidth = canvas.width.toFloat()
+        screenHeight = canvas.height.toFloat()
+        // 更新渐变阴影尺寸（30px 宽 × 全高）
+        shadowDrawableR.setBounds(0, 0, 30, canvas.height)
 
         when (state) {
             PageDelegate.State.IDLE -> {
@@ -92,23 +96,33 @@ class CoverPageDelegate : PageDelegate {
             }
             PageDelegate.State.DRAGGING, PageDelegate.State.ANIMATING -> {
                 if (pageOffset < 0) {
-                    // NEXT：当前页向左滑出，目标页在底层
+                    // NEXT：目标页在底层（仅暴露区域裁剪绘制），当前页在上层向左滑出
+                    canvas.save()
+                    canvas.clipRect(pageOffset + screenWidth, 0f, screenWidth, screenHeight)
                     target.draw(canvas)
+                    canvas.restore()
                     canvas.save()
                     canvas.translate(pageOffset, 0f)
                     current.draw(canvas)
                     canvas.restore()
-                    val shadowRect = RectF(pageOffset + screenWidth, 0f, screenWidth, canvas.height.toFloat())
-                    canvas.drawRect(shadowRect, shadowPaint)
+                    // 渐变阴影条：紧贴当前页右边缘
+                    val shadowX = pageOffset + screenWidth
+                    canvas.save()
+                    canvas.translate(shadowX, 0f)
+                    shadowDrawableR.draw(canvas)
+                    canvas.restore()
                 } else {
-                    // PREV：当前页向右滑出，目标页在底层
+                    // PREV：目标页在底层，当前页在上层向右滑出（上一页从左边进入覆盖）
                     target.draw(canvas)
                     canvas.save()
-                    canvas.translate(pageOffset, 0f)
+                    canvas.translate(pageOffset - screenWidth, 0f)
                     current.draw(canvas)
                     canvas.restore()
-                    val shadowRect = RectF(0f, 0f, pageOffset, canvas.height.toFloat())
-                    canvas.drawRect(shadowRect, shadowPaint)
+                    // 渐变阴影条：紧贴当前页（上一页）右边缘
+                    canvas.save()
+                    canvas.translate(pageOffset, 0f)
+                    shadowDrawableR.draw(canvas)
+                    canvas.restore()
                 }
             }
         }
