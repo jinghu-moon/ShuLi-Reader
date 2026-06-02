@@ -80,7 +80,7 @@ class CoverPageDelegate : PageDelegate {
         return false
     }
 
-    override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder) {
+    override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder, drawTarget: Boolean) {
         screenWidth = canvas.width.toFloat()
 
         when (state) {
@@ -88,26 +88,22 @@ class CoverPageDelegate : PageDelegate {
                 current.draw(canvas)
             }
             PageDelegate.State.SETTLING -> {
-                target.draw(canvas)
+                if (drawTarget) target.draw(canvas)
             }
             PageDelegate.State.DRAGGING, PageDelegate.State.ANIMATING -> {
-                if (pageOffset < 0) {
-                    // NEXT：当前页向左滑出，目标页在底层
+                if (drawTarget) {
                     target.draw(canvas)
-                    canvas.save()
-                    canvas.translate(pageOffset, 0f)
-                    current.draw(canvas)
-                    canvas.restore()
-                    val shadowRect = RectF(pageOffset + screenWidth, 0f, screenWidth, canvas.height.toFloat())
-                    canvas.drawRect(shadowRect, shadowPaint)
-                } else {
-                    // PREV：当前页向右滑出，目标页在底层
-                    target.draw(canvas)
-                    canvas.save()
-                    canvas.translate(pageOffset, 0f)
-                    current.draw(canvas)
-                    canvas.restore()
-                    val shadowRect = RectF(0f, 0f, pageOffset, canvas.height.toFloat())
+                }
+                canvas.save()
+                canvas.translate(pageOffset, 0f)
+                current.draw(canvas)
+                canvas.restore()
+                if (drawTarget) {
+                    val shadowRect = if (pageOffset < 0) {
+                        RectF(pageOffset + screenWidth, 0f, screenWidth, canvas.height.toFloat())
+                    } else {
+                        RectF(0f, 0f, pageOffset, canvas.height.toFloat())
+                    }
                     canvas.drawRect(shadowRect, shadowPaint)
                 }
             }

@@ -300,12 +300,9 @@ fun ReaderScreen(
                     canvasView?.setThemeColors(themeColors)
                 }
 
-                // 排版属性（字号/字距/字重/字体/对齐）→ 仅更新 Paint，不触发录制
+                // 排版属性（字号/字距/字重/字体/对齐）→ 立即更新 Paint，拖动滑块时实时反馈
                 val prefs = uiState.readerPreferences
-                val isReflowing = uiState.isReflowing
-                LaunchedEffect(prefs.fontSize, prefs.letterSpacing, prefs.fontWeight, prefs.readingFont, prefs.textAlign, isReflowing) {
-                    // reflow 进行中时跳过 Paint 更新，避免旧页面用新字号渲染溢出
-                    if (isReflowing) return@LaunchedEffect
+                LaunchedEffect(prefs.fontSize, prefs.letterSpacing, prefs.fontWeight, prefs.readingFont, prefs.textAlign) {
                     canvasView?.updatePaintSnapshot(
                         textSize = prefs.fontSize * density,
                         letterSpacing = prefs.letterSpacing,

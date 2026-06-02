@@ -2310,7 +2310,7 @@ class ReaderViewModel(
         val content = loadedBookContent ?: return
         reflowJob?.cancel()
         reflowJob = viewModelScope.launch {
-            delay(100L) // 100ms 防抖，避免滑块连续拖动时频繁分页
+            // 无防抖：滑块拖动时实时 reflow，旧协程通过 cancel 自动取消
 
             // R7: 布局参数变化时清理旧缓存（key 中的 textSize/lineHeight/pageSize 已变）
             cacheManager.clearBook(state.bookId.toString())

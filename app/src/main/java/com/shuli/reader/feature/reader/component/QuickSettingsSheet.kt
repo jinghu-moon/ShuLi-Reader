@@ -229,7 +229,7 @@ fun QuickSettingsSheet(
                         .fillMaxWidth()
                         .weight(1f)
                         .verticalScroll(tabScrollState)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
                 ) {
                     when (tab) {
                         TAB_LAYOUT -> LayoutPanel(

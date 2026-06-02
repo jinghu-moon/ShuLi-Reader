@@ -64,8 +64,9 @@ interface PageDelegate {
      * 绘制翻页动画。
      * @param current 当前页 recorder（必须已 record 过）
      * @param target 目标页 recorder（next 或 prev，按 direction 决定）
+     * @param drawTarget 是否绘制目标页。壳层传 true（完整绘制含背景），内容层传 false（仅绘制当前页内容）
      */
-    fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder)
+    fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder, drawTarget: Boolean = true)
 
     /**
      * 开始下一页动画

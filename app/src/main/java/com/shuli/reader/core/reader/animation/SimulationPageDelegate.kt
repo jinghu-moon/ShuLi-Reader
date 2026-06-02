@@ -140,7 +140,7 @@ class SimulationPageDelegate : PageDelegate {
         )
     }
 
-    override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder) {
+    override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder, drawTarget: Boolean) {
         screenWidth = canvas.width.toFloat()
         screenHeight = canvas.height.toFloat()
 
@@ -149,13 +149,13 @@ class SimulationPageDelegate : PageDelegate {
                 current.draw(canvas)
             }
             PageDelegate.State.SETTLING -> {
-                target.draw(canvas)
+                if (drawTarget) target.draw(canvas)
             }
             PageDelegate.State.DRAGGING -> {
-                drawSimulationPage(canvas, current, target, 1f)
+                drawSimulationPage(canvas, current, target, 1f, drawTarget)
             }
             PageDelegate.State.ANIMATING -> {
-                drawSimulationPage(canvas, current, target, animationProgress)
+                drawSimulationPage(canvas, current, target, animationProgress, drawTarget)
             }
         }
     }
@@ -164,13 +164,14 @@ class SimulationPageDelegate : PageDelegate {
         canvas: Canvas,
         current: CanvasRecorder,
         target: CanvasRecorder,
-        progress: Float
+        progress: Float,
+        drawTarget: Boolean
     ) {
         val offsetX = currentX - startX
 
         canvas.save()
 
-        target.draw(canvas)
+        if (drawTarget) target.draw(canvas)
 
         path.reset()
 
@@ -188,8 +189,10 @@ class SimulationPageDelegate : PageDelegate {
             current.draw(canvas)
             canvas.restore()
 
-            drawFoldShadow(canvas, foldX, progress)
-            drawBackSide(canvas, foldX, progress)
+            if (drawTarget) {
+                drawFoldShadow(canvas, foldX, progress)
+                drawBackSide(canvas, foldX, progress)
+            }
         } else {
             val foldX = offsetX * progress
 
@@ -204,8 +207,10 @@ class SimulationPageDelegate : PageDelegate {
             current.draw(canvas)
             canvas.restore()
 
-            drawFoldShadow(canvas, foldX, progress)
-            drawBackSide(canvas, foldX, progress)
+            if (drawTarget) {
+                drawFoldShadow(canvas, foldX, progress)
+                drawBackSide(canvas, foldX, progress)
+            }
         }
 
         canvas.restore()

@@ -866,10 +866,10 @@ class ReaderCanvasView @JvmOverloads constructor(
             target?.let {
                 if (it.canvasRecorder.needRecord() || it.shellRecorder.needRecord()) recordPage(it)
             }
-            // 壳层：翻页动画绘制
-            delegate.onDraw(canvas, current.shellRecorder, target?.shellRecorder ?: current.shellRecorder)
-            // 内容层：翻页动画绘制（叠加在壳层之上）
-            delegate.onDraw(canvas, current.canvasRecorder, target?.canvasRecorder ?: current.canvasRecorder)
+            // 壳层：翻页动画绘制（含目标页背景）
+            delegate.onDraw(canvas, current.shellRecorder, target?.shellRecorder ?: current.shellRecorder, drawTarget = true)
+            // 内容层：翻页动画绘制（仅当前页内容，不重绘目标页避免覆盖壳层）
+            delegate.onDraw(canvas, current.canvasRecorder, target?.canvasRecorder ?: current.canvasRecorder, drawTarget = false)
         } else {
             // 静止状态：先画壳层，再画内容
             current.shellRecorder.draw(canvas)
