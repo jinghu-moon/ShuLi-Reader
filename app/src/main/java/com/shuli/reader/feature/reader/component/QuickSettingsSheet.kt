@@ -558,11 +558,16 @@ private fun StylePanel(
             add(entry.key to entry.name)
         }
     }
+    // 为每个自定义字体构建文件映射，用于字体选择面板中以对应字体样式显示名称
+    val fontFileMap = remember(customFonts) {
+        customFonts.associate { entry -> entry.key to entry.file }
+    }
     ReaderFormPickerRow(
         label = strings.readingFont,
         options = fontOptions,
         selected = prefs.readingFont,
         onSelect = onReadingFontChange,
+        fontFiles = fontFileMap,
     )
     // 导入字体按钮
     androidx.compose.material3.TextButton(

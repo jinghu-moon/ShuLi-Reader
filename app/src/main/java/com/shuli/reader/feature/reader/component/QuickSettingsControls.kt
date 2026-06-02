@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
+import java.io.File
 
 /**
  * 标签宽度（中文 4 字宽度，单行不换行）
@@ -262,6 +263,7 @@ fun <T> ReaderFormPickerRow(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
     sheetTitle: String = label,
+    fontFiles: Map<T, File>? = null,
 ) {
     val readerColors = LocalReaderColorScheme.current
     var expanded by remember { mutableStateOf(false) }
@@ -299,12 +301,23 @@ fun <T> ReaderFormPickerRow(
     }
 
     if (expanded) {
-        PickerSheet(
-            title = sheetTitle,
-            options = options,
-            selected = selected,
-            onSelect = onSelect,
-            onDismiss = { expanded = false },
-        )
+        if (fontFiles != null) {
+            FontPickerSheet(
+                title = sheetTitle,
+                options = options,
+                fontFiles = fontFiles,
+                selected = selected,
+                onSelect = onSelect,
+                onDismiss = { expanded = false },
+            )
+        } else {
+            PickerSheet(
+                title = sheetTitle,
+                options = options,
+                selected = selected,
+                onSelect = onSelect,
+                onDismiss = { expanded = false },
+            )
+        }
     }
 }

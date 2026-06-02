@@ -593,20 +593,6 @@ fun ReaderScreen(
                                         tint = readerColors.textPrimary,
                                     )
                                 }
-                                IconButton(onClick = {
-                                    when (uiState.ttsState) {
-                                        TtsState.PLAYING -> viewModel.pauseTts()
-                                        TtsState.PAUSED -> viewModel.resumeTts()
-                                        else -> viewModel.startTts()
-                                    }
-                                }) {
-                                    val isPlaying = uiState.ttsState == TtsState.PLAYING
-                                    Icon(
-                                        imageVector = if (isPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                                        contentDescription = if (isPlaying) strings.ttsPause else strings.ttsStart,
-                                        tint = readerColors.textPrimary,
-                                    )
-                                }
                                 IconButton(onClick = viewModel::toggleQuickSettings) {
                                     Icon(Icons.Outlined.Settings, contentDescription = strings.readerPreferences, tint = readerColors.textPrimary)
                                 }

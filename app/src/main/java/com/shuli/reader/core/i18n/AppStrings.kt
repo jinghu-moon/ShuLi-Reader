@@ -82,6 +82,7 @@ sealed interface AppStrings {
     val readingFontHarmony: String
     val readingFontLxgw: String
     val importFont: String
+    val fontTestText: String
     val marginTopBottom: String
     val marginLeftRight: String
     val editValue: String
@@ -392,6 +393,7 @@ sealed interface AppStrings {
         override val readingFontHarmony = "鸿蒙字体"
         override val readingFontLxgw = "霞鹜文楷"
         override val importFont = "导入字体"
+        override val fontTestText = "一只敏捷的棕色狐狸跳过一只懒惰的狗"
         override val marginTopBottom = "上下边距"
         override val marginLeftRight = "左右边距"
         override val editValue = "修改数值"
@@ -687,6 +689,7 @@ sealed interface AppStrings {
         override val readingFontHarmony = "鴻蒙字體"
         override val readingFontLxgw = "霞鶩文楷"
         override val importFont = "匯入字型"
+        override val fontTestText = "一隻敏捷的棕色狐狸跳過一隻懶惰的狗"
         override val marginTopBottom = "上下邊距"
         override val marginLeftRight = "左右邊距"
         override val editValue = "修改數值"
@@ -982,6 +985,7 @@ sealed interface AppStrings {
         override val readingFontHarmony = "HarmonyOS Sans"
         override val readingFontLxgw = "LXGW Wenkai"
         override val importFont = "Import Font"
+        override val fontTestText = "The quick brown fox jumps over the lazy dog"
         override val marginTopBottom = "Top/Bottom Margin"
         override val marginLeftRight = "Left/Right Margin"
         override val editValue = "Edit Value"
