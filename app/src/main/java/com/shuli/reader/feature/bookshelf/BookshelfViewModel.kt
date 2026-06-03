@@ -283,7 +283,7 @@ class BookshelfViewModel(
         viewModelScope.launch {
             val folderId = bookRepository.createFolder(folderName)
             bookRepository.moveBooksToFolder(listOf(sourceNodeId, targetNodeId), folderId)
-            _events.emit(BookshelfEvent.ShowMessage { "分组创建成功" })
+            _events.emit(BookshelfEvent.ShowMessage { it.folderCreated })
         }
     }
 
@@ -296,7 +296,7 @@ class BookshelfViewModel(
         viewModelScope.launch {
             if (bookIds.isNotEmpty()) bookRepository.moveBooksToFolder(bookIds, realFolderId)
             onToggleEditMode()
-            _events.emit(BookshelfEvent.ShowMessage { if (folderId == null) "已移出分组" else "已放入分组" })
+            _events.emit(BookshelfEvent.ShowMessage { if (folderId == null) it.removedFromFolder else it.addedToFolder })
         }
     }
 

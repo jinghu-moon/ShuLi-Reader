@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import com.shuli.reader.feature.settings.SettingsClickItem
 import com.shuli.reader.feature.settings.SettingsSwitchItem
+import com.shuli.reader.core.i18n.LocalAppStrings
 
 /**
  * 云端同步配置页（T-34）
@@ -65,6 +66,7 @@ fun CloudSyncSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val isTesting by viewModel.isTesting.collectAsState()
+    val strings = LocalAppStrings.current
     val coroutineScope = rememberCoroutineScope()
     var url by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -85,10 +87,10 @@ fun CloudSyncSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("云端同步配置", fontWeight = FontWeight.Bold) },
+                title = { Text(strings.cloudSyncConfig, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
                     }
                 },
             )

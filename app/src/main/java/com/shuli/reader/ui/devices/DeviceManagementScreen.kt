@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.shuli.reader.core.i18n.LocalAppStrings
 
 /**
  * 设备管理页（T-37）
@@ -55,6 +56,7 @@ fun DeviceManagementScreen(
     modifier: Modifier = Modifier,
 ) {
     val devices by viewModel.devices.collectAsState()
+    val strings = LocalAppStrings.current
     var showRemoveDialog by remember { mutableStateOf<DeviceUiItem?>(null) }
 
     Scaffold(
@@ -63,7 +65,7 @@ fun DeviceManagementScreen(
                 title = { Text("已同步设备", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
                     }
                 },
             )

@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.shuli.reader.core.i18n.LocalAppStrings
 
 /**
  * 本地备份界面
@@ -79,6 +80,7 @@ fun LocalBackupScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val strings = LocalAppStrings.current
     var showExportSheet by remember { mutableStateOf(false) }
 
     // SAF 文件选择器：导入
@@ -106,10 +108,10 @@ fun LocalBackupScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("本地备份", fontWeight = FontWeight.Bold) },
+                title = { Text(strings.syncMethodLocal, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
                     }
                 },
             )

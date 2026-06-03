@@ -474,48 +474,52 @@ class EpubParser {
     }
 
     /**
-     * 从 HTML 中提取纯文本，保留段落结构
+     * 从 HTML 中提取纯文本，保留段落结构。
+     * 单遍文档顺序遍历：遇到块级元素取其文本并跳过子元素，避免标题重复。
      */
     private fun extractTextFromHtml(html: String): String {
         val doc = Jsoup.parse(html)
-
-        // 移除脚本和样式
         doc.select("script, style, meta, link, head").remove()
-
         val body = doc.body() ?: return ""
 
-        // 提取段落和标题
         val paragraphs = mutableListOf<String>()
+        collectBlockText(body, paragraphs)
 
-        // 处理标题
-        for (heading in body.select("h1, h2, h3, h4, h5, h6")) {
-            val text = heading.text().trim()
-            if (text.isNotBlank()) {
-                paragraphs.add(text)
-            }
-        }
-
-        // 处理段落
-        for (p in body.select("p, div, li, blockquote")) {
-            val text = p.text().trim()
-            if (text.isNotBlank()) {
-                paragraphs.add(text)
-            }
-        }
-
-        // 如果没有找到段落，使用整个 body 的文本
         if (paragraphs.isEmpty()) {
             val bodyText = body.text().trim()
-            if (bodyText.isNotBlank()) {
-                paragraphs.add(bodyText)
-            }
+            if (bodyText.isNotBlank()) paragraphs.add(bodyText)
         }
 
         return paragraphs.joinToString("\n\n")
     }
 
+    private fun collectBlockText(element: org.jsoup.nodes.Element, out: MutableList<String>) {
+        for (child in element.children()) {
+            if (child.tagName() in BLOCK_TAGS) {
+                val text = child.text().trim()
+                if (text.isNotBlank()) out.add(text)
+                // 不递归：已取父级文本，子元素文本已包含在内
+            } else {
+                // 非块级元素（如 span、a、em），递归查找内部块级
+                collectBlockText(child, out)
+            }
+        }
+    }
+
     private fun extractChapterTitle(html: String): String? {
         val doc = Jsoup.parse(html)
         return doc.select("h1, h2, h3, title").first()?.text()
+    }
+
+    /** 测试辅助：暴露 extractTextFromHtml 供单元测试验证 */
+    companion object {
+        private val BLOCK_TAGS = setOf(
+            "h1", "h2", "h3", "h4", "h5", "h6",
+            "p", "div", "li", "blockquote", "pre", "td", "th", "dt", "dd",
+            "article", "section", "header", "footer", "figure", "figcaption",
+        )
+
+        @JvmStatic
+        fun extractTextFromHtmlForTest(html: String): String = EpubParser().extractTextFromHtml(html)
     }
 }

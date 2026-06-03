@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.shuli.reader.core.i18n.LocalAppStrings
 
 /**
  * 同步设置主页（T-33）
@@ -61,14 +62,15 @@ fun SyncSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.cloudSyncUiState.collectAsState()
+    val strings = LocalAppStrings.current
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("同步与备份", fontWeight = FontWeight.Bold) },
+                title = { Text(strings.syncAndBackup, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
                     }
                 },
             )

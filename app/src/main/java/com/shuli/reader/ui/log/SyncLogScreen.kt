@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.shuli.reader.core.i18n.LocalAppStrings
 
 /**
  * 同步日志页（T-38）
@@ -53,6 +54,7 @@ fun SyncLogScreen(
 ) {
     val groupedLogs by viewModel.groupedLogs.collectAsState()
     val currentFilter by viewModel.currentFilter.collectAsState()
+    val strings = LocalAppStrings.current
 
     Scaffold(
         topBar = {
@@ -60,7 +62,7 @@ fun SyncLogScreen(
                 title = { Text("同步日志", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
                     }
                 },
             )

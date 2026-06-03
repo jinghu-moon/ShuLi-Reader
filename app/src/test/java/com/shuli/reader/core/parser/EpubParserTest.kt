@@ -130,6 +130,43 @@ class EpubParserTest {
         }
     }
 
+    // ── HTML 文本提取测试 ──────────────────────────────────────────────
+
+    @Test
+    fun extractTextFromHtml_doesNotDuplicateHeadings() {
+        // 当 <h1> 在 <div> 内部时，两遍选择（先 h1~h6 再 div）会导致标题文本重复
+        val html = """
+            <html><body>
+                <div><h1>第一章 标题</h1><p>正文内容。</p></div>
+            </body></html>
+        """.trimIndent()
+
+        val result = EpubParser.extractTextFromHtmlForTest(html)
+        val occurrences = result.windowed("第一章 标题".length).count { it == "第一章 标题" }
+        assertEquals("标题不应重复出现", 1, occurrences)
+    }
+
+    @Test
+    fun extractTextFromHtml_preservesDocumentOrder() {
+        val html = """
+            <html><body>
+                <h1>标题A</h1>
+                <p>段落1</p>
+                <h2>标题B</h2>
+                <p>段落2</p>
+            </body></html>
+        """.trimIndent()
+
+        val result = EpubParser.extractTextFromHtmlForTest(html)
+        val idxA = result.indexOf("标题A")
+        val idx1 = result.indexOf("段落1")
+        val idxB = result.indexOf("标题B")
+        val idx2 = result.indexOf("段落2")
+        assertTrue("标题A应在段落1之前", idxA < idx1)
+        assertTrue("段落1应在标题B之前", idx1 < idxB)
+        assertTrue("标题B应在段落2之前", idxB < idx2)
+    }
+
     // ── 错误处理测试 ──────────────────────────────────────────────
 
     @Test(expected = IllegalStateException::class)

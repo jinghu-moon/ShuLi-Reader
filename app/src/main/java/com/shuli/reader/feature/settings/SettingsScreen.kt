@@ -491,14 +491,14 @@ fun SettingsScreen(
                         )
                         if (uiState.syncMethod == SyncMethodConst.WEBDAV) {
                             SettingsClickItem(
-                                title = "同步与备份",
-                                subtitle = "云端同步配置、加密、设备管理",
+                                title = strings.syncAndBackup,
+                                subtitle = strings.syncAndBackupDesc,
                                 onClick = { currentSubScreen = SettingsSubScreen.Sync }
                             )
                         }
                         SettingsClickItem(
-                            title = "本地备份",
-                            subtitle = "导出与导入数据备份",
+                            title = strings.syncMethodLocal,
+                            subtitle = strings.localBackupDesc,
                             onClick = { currentSubScreen = SettingsSubScreen.LocalBackup }
                         )
                     }

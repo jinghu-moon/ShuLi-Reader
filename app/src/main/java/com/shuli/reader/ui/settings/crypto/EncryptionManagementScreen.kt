@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.shuli.reader.core.i18n.LocalAppStrings
 
 /**
  * 加密管理页（T-35）
@@ -59,6 +60,7 @@ fun EncryptionManagementScreen(
 ) {
     val encryptionInfo by viewModel.encryptionInfo.collectAsState()
     val verifyResult by viewModel.verifyResult.collectAsState()
+    val strings = LocalAppStrings.current
     var showVerifyDialog by remember { mutableStateOf(false) }
     var showChangePasswordDialog by remember { mutableStateOf(false) }
 
@@ -68,7 +70,7 @@ fun EncryptionManagementScreen(
                 title = { Text("加密管理", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
                     }
                 },
             )

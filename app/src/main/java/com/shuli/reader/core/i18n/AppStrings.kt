@@ -122,6 +122,10 @@ sealed interface AppStrings {
     val webdavPassword: String
     val testConnection: String
     val syncNow: String
+    val syncAndBackup: String
+    val syncAndBackupDesc: String
+    val cloudSyncConfig: String
+    val localBackupDesc: String
 
     // 五、朗读设置 (TTS)
     val ttsSettings: String
@@ -248,6 +252,10 @@ sealed interface AppStrings {
     val bookDeleted: String
     val importSuccess: String
     val bookAlreadyInShelf: String
+    val folderCreated: String
+    val removedFromFolder: String
+    val addedToFolder: String
+    val newFolder: String
     val importSuccessCount: (Int) -> String
     val importSuccessWithSkipped: (Int, Int) -> String
     val importSuccessWithFailed: (Int, Int) -> String
@@ -430,6 +438,10 @@ sealed interface AppStrings {
         override val webdavPassword = "密码"
         override val testConnection = "测试连接"
         override val syncNow = "立即同步"
+        override val syncAndBackup = "同步与备份"
+        override val syncAndBackupDesc = "云端同步配置、加密、设备管理"
+        override val cloudSyncConfig = "云端同步配置"
+        override val localBackupDesc = "导出与导入数据备份"
 
         override val ttsSettings = "朗读设置 (TTS)"
         override val ttsSpeed = "语速调节"
@@ -551,6 +563,10 @@ sealed interface AppStrings {
         override val bookDeleted = "已删除"
         override val importSuccess = "导入成功"
         override val bookAlreadyInShelf = "书籍已在书架中"
+        override val folderCreated = "分组创建成功"
+        override val removedFromFolder = "已移出分组"
+        override val addedToFolder = "已放入分组"
+        override val newFolder = "新建文件夹"
         override val importSuccessCount = { count: Int -> "成功导入 $count 本书" }
         override val importSuccessWithSkipped = { success: Int, skipped: Int -> "成功导入 $success 本，有 $skipped 本已存在跳过" }
         override val importSuccessWithFailed = { success: Int, failed: Int -> "成功导入 $success 本，失败 $failed 本" }
@@ -726,6 +742,10 @@ sealed interface AppStrings {
         override val webdavPassword = "密碼"
         override val testConnection = "測試連線"
         override val syncNow = "立即同步"
+        override val syncAndBackup = "同步與備份"
+        override val syncAndBackupDesc = "雲端同步配置、加密、裝置管理"
+        override val cloudSyncConfig = "雲端同步配置"
+        override val localBackupDesc = "匯出與匯入資料備份"
 
         override val ttsSettings = "朗讀設定 (TTS)"
         override val ttsSpeed = "語速調節"
@@ -847,6 +867,10 @@ sealed interface AppStrings {
         override val bookDeleted = "已刪除"
         override val importSuccess = "匯入成功"
         override val bookAlreadyInShelf = "書籍已在書架中"
+        override val folderCreated = "分組建立成功"
+        override val removedFromFolder = "已移出分組"
+        override val addedToFolder = "已放入分組"
+        override val newFolder = "新建資料夾"
         override val importSuccessCount = { count: Int -> "成功匯入 $count 本書" }
         override val importSuccessWithSkipped = { success: Int, skipped: Int -> "成功匯入 $success 本，有 $skipped 本已存在跳過" }
         override val importSuccessWithFailed = { success: Int, failed: Int -> "成功匯入 $success 本，失敗 $failed 本" }
@@ -1022,6 +1046,10 @@ sealed interface AppStrings {
         override val webdavPassword = "Password"
         override val testConnection = "Test Connection"
         override val syncNow = "Sync Now"
+        override val syncAndBackup = "Sync & Backup"
+        override val syncAndBackupDesc = "Cloud sync settings, encryption, device management"
+        override val cloudSyncConfig = "Cloud Sync Settings"
+        override val localBackupDesc = "Export and import data backup"
 
         override val ttsSettings = "TTS Settings"
         override val ttsSpeed = "Speech Speed"
@@ -1143,6 +1171,10 @@ sealed interface AppStrings {
         override val bookDeleted = "Deleted"
         override val importSuccess = "Imported successfully"
         override val bookAlreadyInShelf = "Book already in library"
+        override val folderCreated = "Folder created"
+        override val removedFromFolder = "Removed from folder"
+        override val addedToFolder = "Added to folder"
+        override val newFolder = "New Folder"
         override val importSuccessCount = { count: Int -> "Successfully imported $count books" }
         override val importSuccessWithSkipped = { success: Int, skipped: Int -> "Successfully imported $success, skipped $skipped duplicates" }
         override val importSuccessWithFailed = { success: Int, failed: Int -> "Successfully imported $success, failed to import $failed" }
