@@ -27,15 +27,15 @@ class TxtParserChapterDetectionTest {
 
     @Test
     fun chapterTitleWithLeadingWhitespace_isNotDetected() = runTest {
-        // v4 流式扫描：正则 ^ 要求章节标题位于行首，前导空白会导致不匹配
+        // 正则允许最多 4 个前导空白字符 [ \t　]{0,4}，5 个空格将超出阈值不匹配
         val content = """
-            |   第一章 测试标题
+            |     第一章 测试标题
             |这是内容
-            |   第二章 另一个标题
+            |     第二章 另一个标题
             |更多内容
         """.trimMargin()
         val chapters = detectChaptersFromContent(content)
-        assertEquals("前导空白的章节标题不应被检测到，应回退为单章", 1, chapters.size)
+        assertEquals("前导空白超过4字符的章节标题不应被检测到，应回退为单章", 1, chapters.size)
         assertEquals("Full Text", chapters[0].title)
     }
 

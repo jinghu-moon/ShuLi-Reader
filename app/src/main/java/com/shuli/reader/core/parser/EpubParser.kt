@@ -96,7 +96,8 @@ class EpubParser {
             cachedOpf = CachedOpfMetadata(opfPath, opfDir, spineItems, manifestItems)
 
             // 轻量模式：只扫描章节标题，不读取正文内容
-            val chapters = parseChapterList(zip, opfDir, spineItems, manifestItems)
+            val navTitles = parseNavTitles(zip, opfDir, manifestItems, spineItems, entries)
+            val chapters = parseChapterList(zip, opfDir, spineItems, manifestItems, navTitles)
 
             BookContent(
                 title = title,
@@ -133,7 +134,7 @@ class EpubParser {
             cachedOpf = CachedOpfMetadata(opfPath, opfDir, spineItems, manifestItems)
 
             // 优先尝试从 nav.xhtml / toc.ncx 获取章节标题
-            val navTitles = parseNavTitles(zip, opfDir, manifestItems, entries)
+            val navTitles = parseNavTitles(zip, opfDir, manifestItems, spineItems, entries)
 
             val chapters = mutableListOf<BookChapterEntity>()
             for ((spineIdx, spineItem) in spineItems.withIndex()) {
@@ -172,6 +173,7 @@ class EpubParser {
         zip: ZipFile,
         opfDir: String,
         manifestItems: Map<String, String>,
+        spineItems: List<String>,
         entries: List<java.util.zip.ZipEntry>,
     ): Map<Int, String> {
         // EPUB3: nav.xhtml
@@ -182,7 +184,7 @@ class EpubParser {
             if (navEntry != null) {
                 runCatching {
                     val navContent = zip.getInputStream(navEntry).bufferedReader().readText()
-                    return parseNavXhtml(navContent, opfDir, manifestItems)
+                    return parseNavXhtml(navContent, opfDir, manifestItems, spineItems)
                 }
             }
         }
@@ -196,7 +198,7 @@ class EpubParser {
             if (ncxEntry != null) {
                 runCatching {
                     val ncxContent = zip.getInputStream(ncxEntry).bufferedReader().readText()
-                    return parseTocNcx(ncxContent, opfDir, manifestItems)
+                    return parseTocNcx(ncxContent, opfDir, manifestItems, spineItems)
                 }
             }
         }
@@ -206,49 +208,93 @@ class EpubParser {
 
     /**
      * 解析 EPUB3 nav.xhtml 中的目录标题。
-     * 返回 href → title 映射（href 为 manifest 中的相对路径）。
+     * 递归收集嵌套 <ol>/<li> 中的所有 <a href>，通过 manifest 映射到 spineIndex。
+     * 返回 spineIndex → title 映射。
      */
     private fun parseNavXhtml(
         navContent: String,
         opfDir: String,
         manifestItems: Map<String, String>,
+        spineItems: List<String>,
     ): Map<Int, String> {
         val doc = Jsoup.parse(navContent, "", org.jsoup.parser.Parser.xmlParser())
         val navToc = doc.select("nav[epub:type=toc], nav[*|type=toc], nav").first()
             ?: return emptyMap()
 
         // 构建 href → spineIndex 的反向映射
-        val hrefToSpine = mutableMapOf<String, Int>()
-        for ((id, href) in manifestItems) {
-            // 不处理，由调用方构建
-        }
+        val hrefToSpine = buildHrefToSpineIndex(manifestItems, spineItems)
 
+        // 递归收集所有 <a href> 链接（支持嵌套 <ol>/<li>）
         val result = mutableMapOf<Int, String>()
-        val links = navToc.select("a[href]")
-        // 简化：返回标题列表，由调用方按顺序匹配 spine
-        // 由于 nav 中的顺序通常与 spine 一致，按顺序返回
-        return links.mapIndexed { idx, link ->
-            idx to link.text().trim()
-        }.filter { it.second.isNotBlank() }.toMap()
+        collectNavLinks(navToc, hrefToSpine, result)
+        return result
+    }
+
+    /**
+     * 递归收集 nav 元素中所有 <a href> 链接，解析 href 到 spineIndex。
+     * 跳过没有 href 的纯文本分组标题（如"上篇"）。
+     */
+    private fun collectNavLinks(
+        element: org.jsoup.nodes.Element,
+        hrefToSpine: Map<String, Int>,
+        result: MutableMap<Int, String>,
+    ) {
+        for (child in element.children()) {
+            val link = child.selectFirst("a[href]")
+            if (link != null) {
+                val href = link.attr("href").substringBefore("#").substringBefore("?")
+                val title = link.text().trim()
+                if (href.isNotBlank() && title.isNotBlank()) {
+                    hrefToSpine[href]?.let { spineIdx -> result[spineIdx] = title }
+                }
+            }
+            // 递归处理子列表（嵌套 <ol>）
+            collectNavLinks(child, hrefToSpine, result)
+        }
     }
 
     /**
      * 解析 EPUB2 toc.ncx 中的目录标题。
+     * 通过 content src 属性映射到 spineIndex。
      */
     private fun parseTocNcx(
         ncxContent: String,
         opfDir: String,
         manifestItems: Map<String, String>,
+        spineItems: List<String>,
     ): Map<Int, String> {
         val doc = Jsoup.parse(ncxContent, "", org.jsoup.parser.Parser.xmlParser())
         val navPoints = doc.select("navMap > navPoint")
         if (navPoints.isEmpty()) return emptyMap()
 
-        return navPoints.mapIndexed { idx, navPoint ->
-            val title = navPoint.select("navLabel > text").first()?.text()?.trim()
-                ?: "Chapter ${idx + 1}"
-            idx to title
-        }.toMap()
+        val hrefToSpine = buildHrefToSpineIndex(manifestItems, spineItems)
+
+        val result = mutableMapOf<Int, String>()
+        for (navPoint in navPoints) {
+            val title = navPoint.select("navLabel > text").first()?.text()?.trim() ?: continue
+            val src = navPoint.select("content").first()?.attr("src")
+                ?.substringBefore("#")?.substringBefore("?") ?: continue
+            if (src.isNotBlank()) {
+                hrefToSpine[src]?.let { spineIdx -> result[spineIdx] = title }
+            }
+        }
+        return result
+    }
+
+    /**
+     * 构建 href → spineIndex 反向映射。
+     * href 为 manifest 中的相对路径，spineIndex 为 spine 中的位置。
+     */
+    private fun buildHrefToSpineIndex(
+        manifestItems: Map<String, String>,
+        spineItems: List<String>,
+    ): Map<String, Int> {
+        val result = mutableMapOf<String, Int>()
+        for ((spineIdx, idref) in spineItems.withIndex()) {
+            val href = manifestItems[idref] ?: continue
+            result[href] = spineIdx
+        }
+        return result
     }
 
     /**
@@ -341,13 +387,14 @@ class EpubParser {
 
     /**
      * 轻量扫描：只提取章节标题和 spine 索引，不读取正文。
-     * 通过读取 HTML 中的 <title> / <h1~h6> 获取标题，正文跳过。
+     * 优先使用 nav 标题，回退到 HTML 中的 <title> / <h1~h6>。
      */
     private fun parseChapterList(
         zip: ZipFile,
         opfDir: String,
         spineItems: List<String>,
         manifestItems: Map<String, String>,
+        navTitles: Map<Int, String> = emptyMap(),
     ): List<Chapter> {
         val chapters = mutableListOf<Chapter>()
         for ((spineIdx, spineItem) in spineItems.withIndex()) {
@@ -355,10 +402,15 @@ class EpubParser {
             val fullPath = if (opfDir.isNotEmpty()) "$opfDir/$href" else href
             if (fullPath.contains("..")) continue
 
-            val entry = zip.getEntry(fullPath) ?: continue
-            // 只读标题，不提取全文
-            val htmlContent = zip.getInputStream(entry).bufferedReader().readText()
-            val title = extractChapterTitle(htmlContent) ?: "Chapter ${chapters.size + 1}"
+            // 优先使用 nav 标题，回退到 HTML
+            val title = navTitles[spineIdx]
+                ?: run {
+                    val entry = zip.getEntry(fullPath) ?: return@run null
+                    val htmlContent = zip.getInputStream(entry).bufferedReader().readText()
+                    extractChapterTitle(htmlContent)
+                }
+                ?: "Chapter ${chapters.size + 1}"
+
             chapters.add(
                 Chapter(
                     title = title,
@@ -474,8 +526,10 @@ class EpubParser {
     }
 
     /**
-     * 从 HTML 中提取纯文本，保留段落结构。
-     * 单遍文档顺序遍历：遇到块级元素取其文本并跳过子元素，避免标题重复。
+     * 从 HTML 中提取文本，保留段落结构和基本内联格式。
+     * - 块级元素（h1~h6, p, div 等）作为段落分隔
+     * - 内联格式（b/strong → Unicode 粗体，i/em → Unicode 斜体）
+     * - img 标签替换为 [图片] 占位符
      */
     private fun extractTextFromHtml(html: String): String {
         val doc = Jsoup.parse(html)
@@ -496,14 +550,76 @@ class EpubParser {
     private fun collectBlockText(element: org.jsoup.nodes.Element, out: MutableList<String>) {
         for (child in element.children()) {
             if (child.tagName() in BLOCK_TAGS) {
-                val text = child.text().trim()
+                // 块级元素：处理内联内容（保留粗体/斜体格式）
+                val text = processInlineContent(child).trim()
                 if (text.isNotBlank()) out.add(text)
-                // 不递归：已取父级文本，子元素文本已包含在内
             } else {
-                // 非块级元素（如 span、a、em），递归查找内部块级
+                // 非块级元素（如 span、a），递归查找内部块级
                 collectBlockText(child, out)
             }
         }
+    }
+
+    /**
+     * 递归处理元素内的内联内容，保留格式标记：
+     * - <b>/<strong> → Unicode 粗体（拉丁字母/数字）
+     * - <i>/<em> → Unicode 斜体（拉丁字母/数字）
+     * - <img> → [图片] 占位符
+     */
+    private fun processInlineContent(element: org.jsoup.nodes.Element): String {
+        val sb = StringBuilder()
+        for (node in element.childNodes()) {
+            when {
+                node is org.jsoup.nodes.TextNode -> sb.append(node.text())
+                node is org.jsoup.nodes.Element && node.tagName() == "img" -> {
+                    val alt = node.attr("alt").ifBlank { "图片" }
+                    sb.append("[$alt]")
+                }
+                node is org.jsoup.nodes.Element && node.tagName() in BOLD_TAGS -> {
+                    sb.append(toBoldUnicode(processInlineContent(node)))
+                }
+                node is org.jsoup.nodes.Element && node.tagName() in ITALIC_TAGS -> {
+                    sb.append(toItalicUnicode(processInlineContent(node)))
+                }
+                node is org.jsoup.nodes.Element && node.tagName() !in BLOCK_TAGS -> {
+                    sb.append(processInlineContent(node))
+                }
+                // 块级子元素跳过（由 collectBlockText 处理）
+            }
+        }
+        return sb.toString()
+    }
+
+    /** 将拉丁字母/数字转换为 Unicode Mathematical Bold 字符 */
+    private fun toBoldUnicode(text: String): String {
+        val sb = StringBuilder(text.length)
+        for (c in text) {
+            sb.append(
+                when {
+                    c in 'A'..'Z' -> (0x1D400 + (c - 'A')).toChar()
+                    c in 'a'..'z' -> (0x1D41A + (c - 'a')).toChar()
+                    c in '0'..'9' -> (0x1D7CE + (c - '0')).toChar()
+                    else -> c
+                }
+            )
+        }
+        return sb.toString()
+    }
+
+    /** 将拉丁字母/数字转换为 Unicode Mathematical Italic 字符 */
+    private fun toItalicUnicode(text: String): String {
+        val sb = StringBuilder(text.length)
+        for (c in text) {
+            sb.append(
+                when {
+                    c in 'A'..'Z' -> (0x1D434 + (c - 'A')).toChar()
+                    c in 'a'..'z' -> (0x1D44E + (c - 'a')).toChar()
+                    c == 'h' -> 'ℎ' // Planck constant italic h
+                    else -> c
+                }
+            )
+        }
+        return sb.toString()
     }
 
     private fun extractChapterTitle(html: String): String? {
@@ -518,6 +634,9 @@ class EpubParser {
             "p", "div", "li", "blockquote", "pre", "td", "th", "dt", "dd",
             "article", "section", "header", "footer", "figure", "figcaption",
         )
+
+        private val BOLD_TAGS = setOf("b", "strong")
+        private val ITALIC_TAGS = setOf("i", "em")
 
         @JvmStatic
         fun extractTextFromHtmlForTest(html: String): String = EpubParser().extractTextFromHtml(html)

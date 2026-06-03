@@ -43,15 +43,15 @@ class TxtParserLargeFileTest {
                 val ch2 = chapters[1]
                 assertTrue("章节偏移应为正数", ch1.byteStart >= 0)
                 assertTrue("第二章应在第一章之后", ch2.byteStart > ch1.byteStart)
-                // 验证字节偏移处的内容包含章节标题
-                val titleBytes = "第一章".toByteArray(Charsets.UTF_8)
-                val buf = ByteArray(titleBytes.size)
+                // byteStart 指向标题行之后的正文内容
+                val contentBytes = "这是中文内容".toByteArray(Charsets.UTF_8)
+                val buf = ByteArray(contentBytes.size)
                 java.io.RandomAccessFile(tempFile, "r").use { raf ->
                     raf.seek(ch1.byteStart)
                     raf.read(buf)
                 }
                 val textAtCh1 = String(buf, Charsets.UTF_8)
-                assertTrue("偏移处应包含章节标题", textAtCh1.contains("第一章"))
+                assertTrue("偏移处应包含章节正文", textAtCh1.contains("这是中文"))
             }
         } finally {
             tempFile.delete()

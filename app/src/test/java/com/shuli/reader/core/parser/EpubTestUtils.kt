@@ -160,4 +160,85 @@ object EpubTestUtils {
             |</html>
         """.trimMargin()
     }
+
+    /**
+     * 创建含嵌套目录的 EPUB：分组标题 + 子章节链接
+     * nav 结构：
+     *   <ol>
+     *     <li>上篇
+     *       <ol>
+     *         <li><a href="chapter1.html">第一章 开篇</a></li>
+     *         <li><a href="chapter2.html">第二章 深入</a></li>
+     *       </ol>
+     *     </li>
+     *     <li><a href="chapter3.html">第三章 总结</a></li>
+     *   </ol>
+     */
+    fun createEpubWithNestedNav(): File {
+        val tempFile = File.createTempFile("test-nested-nav", ".epub")
+        tempFile.deleteOnExit()
+
+        // nav 标题与 HTML 标题不同，用于区分来源
+        val navTitles = listOf("NAV第一章", "NAV第二章", "NAV第三章")
+        val htmlTitles = listOf("HTML第一章", "HTML第二章", "HTML第三章")
+
+        ZipOutputStream(tempFile.outputStream()).use { zip ->
+            zip.putNextEntry(ZipEntry("mimetype"))
+            zip.write("application/epub+zip".toByteArray())
+            zip.closeEntry()
+
+            zip.putNextEntry(ZipEntry("META-INF/container.xml"))
+            zip.write("""
+                <?xml version="1.0" encoding="UTF-8"?>
+                <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+                    <rootfiles>
+                        <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+                    </rootfiles>
+                </container>
+            """.trimIndent().toByteArray())
+            zip.closeEntry()
+
+            zip.putNextEntry(ZipEntry("OEBPS/content.opf"))
+            zip.write(createOpfContent("Nested Nav Book", "Author", htmlTitles).toByteArray())
+            zip.closeEntry()
+
+            // HTML 章节使用 htmlTitles
+            htmlTitles.forEachIndexed { index, title ->
+                zip.putNextEntry(ZipEntry("OEBPS/chapter${index + 1}.html"))
+                zip.write(createChapterHtml(title, "Content of $title").toByteArray())
+                zip.closeEntry()
+            }
+
+            // 嵌套 nav 使用 navTitles
+            zip.putNextEntry(ZipEntry("OEBPS/nav.xhtml"))
+            zip.write("""
+                |<?xml version="1.0" encoding="UTF-8"?>
+                |<!DOCTYPE html>
+                |<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+                |<head><title>Navigation</title></head>
+                |<body>
+                |    <nav epub:type="toc" id="toc">
+                |        <h1>目录</h1>
+                |        <ol>
+                |            <li>上篇
+                |                <ol>
+                |                    <li><a href="chapter1.html">${navTitles[0]}</a></li>
+                |                    <li><a href="chapter2.html">${navTitles[1]}</a></li>
+                |                </ol>
+                |            </li>
+                |            <li><a href="chapter3.html">${navTitles[2]}</a></li>
+                |        </ol>
+                |    </nav>
+                |</body>
+                |</html>
+            """.trimMargin().toByteArray())
+            zip.closeEntry()
+
+            zip.putNextEntry(ZipEntry("OEBPS/toc.ncx"))
+            zip.write(createNcxContent("Nested Nav Book", htmlTitles).toByteArray())
+            zip.closeEntry()
+        }
+
+        return tempFile
+    }
 }

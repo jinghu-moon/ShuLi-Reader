@@ -2,6 +2,7 @@ package com.shuli.reader.core.parser
 
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -107,6 +108,26 @@ class EpubParserTest {
         }
     }
 
+    // ── 嵌套目录解析测试 ──────────────────────────────────────────────
+
+    @Test
+    fun epub_nestedNavResolvesCorrectChapterTitles() = runTest {
+        // 嵌套 nav 结构：分组标题 + 子章节链接，应正确映射到 spine 索引
+        // nav 标题与 HTML 标题不同，验证标题来源是 nav 而非 HTML fallback
+        val epubFile = EpubTestUtils.createEpubWithNestedNav()
+        try {
+            val content = parser.parse(epubFile)
+            val titles = content.chapters.map { it.title }
+            // 应解析出 3 个叶子章节（跳过分组标题），标题来自 nav.xhtml
+            assertEquals("应有 3 个章节", 3, titles.size)
+            assertEquals("NAV第一章", titles[0])
+            assertEquals("NAV第二章", titles[1])
+            assertEquals("NAV第三章", titles[2])
+        } finally {
+            epubFile.delete()
+        }
+    }
+
     // ── 正文提取测试 ──────────────────────────────────────────────
 
     @Test
@@ -165,6 +186,58 @@ class EpubParserTest {
         assertTrue("标题A应在段落1之前", idxA < idx1)
         assertTrue("段落1应在标题B之前", idx1 < idxB)
         assertTrue("标题B应在段落2之前", idxB < idx2)
+    }
+
+    // ── 内联格式保留测试 ──────────────────────────────────────────────
+
+    @Test
+    fun extractTextFromHtml_preservesBoldAsUnicode() {
+        val html = """<html><body><p>这是<b>粗体</b>文本</p></body></html>"""
+        val result = EpubParser.extractTextFromHtmlForTest(html)
+        // Unicode Mathematical Bold: U+1D41A~U+1D433 for a~z
+        // '粗' and '体' are CJK → stay as-is (no bold variant)
+        assertTrue("应包含'这是'", result.contains("这是"))
+        assertTrue("应包含'文本'", result.contains("文本"))
+        // 粗体部分应该不是原始的"粗体"（因为 CJK 没有 Unicode 粗体变体，实际不变）
+        // 但结构应该完整
+        assertTrue("不应丢失任何文本", result.contains("粗体"))
+    }
+
+    @Test
+    fun extractTextFromHtml_preservesItalicAsUnicode() {
+        val html = """<html><body><p>text with <i>italic</i> word</p></body></html>"""
+        val result = EpubParser.extractTextFromHtmlForTest(html)
+        // "italic" → Unicode italic: U+1D44E+i, U+1D44E+t, ...
+        assertTrue("应包含'text with'", result.contains("text with"))
+        assertTrue("应包含'word'", result.contains("word"))
+        // italic 部分被转换为 Unicode 斜体字符
+        assertFalse("原始 'italic' 不应直接出现", result.contains("italic"))
+    }
+
+    @Test
+    fun extractTextFromHtml_preservesBoldLatinAsUnicode() {
+        val html = """<html><body><p><b>Hello</b> World</p></body></html>"""
+        val result = EpubParser.extractTextFromHtmlForTest(html)
+        // "Hello" → Unicode Bold: 𝐇𝐞𝐥𝐥𝐨 (U+1D400+H, U+1D400+e, ...)
+        assertTrue("应包含 ' World'", result.contains(" World"))
+        // Bold "Hello" 转换为 Unicode 粗体
+        assertFalse("原始 'Hello' 不应直接出现", result.contains("Hello"))
+    }
+
+    @Test
+    fun extractTextFromHtml_replacesImgWithPlaceholder() {
+        val html = """<html><body><p>前文<img src="cover.jpg" alt="封面"/>后文</p></body></html>"""
+        val result = EpubParser.extractTextFromHtmlForTest(html)
+        assertTrue("应包含图片占位符 [封面]", result.contains("[封面]"))
+        assertTrue("应包含前文", result.contains("前文"))
+        assertTrue("应包含后文", result.contains("后文"))
+    }
+
+    @Test
+    fun extractTextFromHtml_imgWithoutAlt_usesDefaultPlaceholder() {
+        val html = """<html><body><p><img src="pic.png"/></p></body></html>"""
+        val result = EpubParser.extractTextFromHtmlForTest(html)
+        assertTrue("无 alt 时应使用默认占位符 [图片]", result.contains("[图片]"))
     }
 
     // ── 错误处理测试 ──────────────────────────────────────────────

@@ -1040,17 +1040,7 @@ class ReaderViewModel(
      */
     fun setFontSize(size: Float) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(fontSize = size)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
-            isReflowing = true,
-        )
-        reflowCurrentChapter(updatedPrefs)
-        // 同步保存到 UserPreferences
-        viewModelScope.launch {
-            userPreferences?.setDefaultFontSize(size)
-        }
+        updatePrefs({ it.copy(fontSize = size) }, { it.setDefaultFontSize(size) }, reflow = true)
     }
 
     /**
@@ -1058,16 +1048,7 @@ class ReaderViewModel(
      */
     fun setLineSpacing(spacing: Float) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(lineSpacing = spacing)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
-            isReflowing = true,
-        )
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setDefaultLineSpacing(spacing)
-        }
+        updatePrefs({ it.copy(lineSpacing = spacing) }, { it.setDefaultLineSpacing(spacing) }, reflow = true)
     }
 
     /**
@@ -1075,16 +1056,10 @@ class ReaderViewModel(
      */
     fun setBrightness(brightness: Float, finished: Boolean = false) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(brightness = brightness)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
+        updatePrefs(
+            { it.copy(brightness = brightness) },
+            { if (finished) it.setBrightness(brightness) },
         )
-        if (finished) {
-            viewModelScope.launch {
-                userPreferences?.setBrightness(brightness)
-            }
-        }
     }
 
     /**
@@ -1092,16 +1067,7 @@ class ReaderViewModel(
      */
     fun setParagraphSpacing(spacing: Float) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(paragraphSpacing = spacing)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
-            isReflowing = true,
-        )
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setDefaultParagraphSpacing(spacing)
-        }
+        updatePrefs({ it.copy(paragraphSpacing = spacing) }, { it.setDefaultParagraphSpacing(spacing) }, reflow = true)
     }
 
     /**
@@ -1109,16 +1075,7 @@ class ReaderViewModel(
      */
     fun setIndent(indent: Float) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(indent = indent)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
-            isReflowing = true,
-        )
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setDefaultIndent(indent)
-        }
+        updatePrefs({ it.copy(indent = indent) }, { it.setDefaultIndent(indent) }, reflow = true)
     }
 
     /**
@@ -1126,16 +1083,7 @@ class ReaderViewModel(
      */
     fun setMarginHorizontal(margin: Float) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(marginHorizontal = margin)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
-            isReflowing = true,
-        )
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setMarginHorizontal(margin)
-        }
+        updatePrefs({ it.copy(marginHorizontal = margin) }, { it.setMarginHorizontal(margin) }, reflow = true)
     }
 
     /**
@@ -1143,16 +1091,7 @@ class ReaderViewModel(
      */
     fun setMarginVertical(margin: Float) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(marginVertical = margin)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
-            isReflowing = true,
-        )
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setMarginVertical(margin)
-        }
+        updatePrefs({ it.copy(marginVertical = margin) }, { it.setMarginVertical(margin) }, reflow = true)
     }
 
     /**
@@ -1160,15 +1099,10 @@ class ReaderViewModel(
      */
     fun setHeaderMarginTop(margin: Float) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(header = currentPrefs.header.copy(marginTop = margin))
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
+        updatePrefs(
+            { it.copy(header = it.header.copy(marginTop = margin)) },
+            { it.setHeaderMarginTop(margin) },
         )
-        // 页眉基线仅影响渲染位置，不需要 reflow
-        viewModelScope.launch {
-            userPreferences?.setHeaderMarginTop(margin)
-        }
     }
 
     /**
@@ -1176,15 +1110,10 @@ class ReaderViewModel(
      */
     fun setFooterMarginBottom(margin: Float) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(footer = currentPrefs.footer.copy(marginBottom = margin))
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
+        updatePrefs(
+            { it.copy(footer = it.footer.copy(marginBottom = margin)) },
+            { it.setFooterMarginBottom(margin) },
         )
-        // 页脚基线仅影响渲染位置，不需要 reflow
-        viewModelScope.launch {
-            userPreferences?.setFooterMarginBottom(margin)
-        }
     }
 
     /**
@@ -1192,14 +1121,7 @@ class ReaderViewModel(
      */
     fun setReadingFont(font: String) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(readingFont = font)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
-        )
-        viewModelScope.launch {
-            userPreferences?.setReadingFont(font)
-        }
+        updatePrefs({ it.copy(readingFont = font) }, { it.setReadingFont(font) })
     }
 
     /**
@@ -1207,16 +1129,7 @@ class ReaderViewModel(
      */
     fun setLetterSpacing(spacing: Float) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(letterSpacing = spacing)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
-            isReflowing = true,
-        )
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setLetterSpacing(spacing)
-        }
+        updatePrefs({ it.copy(letterSpacing = spacing) }, { it.setLetterSpacing(spacing) }, reflow = true)
     }
 
     /**
@@ -1224,33 +1137,15 @@ class ReaderViewModel(
      */
     fun setFontWeight(weight: ReaderFontWeight) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(fontWeight = weight)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
-        )
-        currentPageInvalidate()
-        viewModelScope.launch {
-            userPreferences?.setFontWeight(weight.toStorageString())
-        }
+        updatePrefs({ it.copy(fontWeight = weight) }, { it.setFontWeight(weight.toStorageString()) }, invalidate = true)
     }
 
     fun setTtsSpeed(speed: Float) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(ttsSpeed = speed)
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setTtsSpeed(speed)
-        }
+        updatePrefs({ it.copy(ttsSpeed = speed) }, { it.setTtsSpeed(speed) })
     }
 
     fun setTtsPitch(pitch: Float) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(ttsPitch = pitch)
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setTtsPitch(pitch)
-        }
+        updatePrefs({ it.copy(ttsPitch = pitch) }, { it.setTtsPitch(pitch) })
     }
 
     /**
@@ -1258,15 +1153,7 @@ class ReaderViewModel(
      */
     fun setTextAlign(align: ReaderTextAlign) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(textAlign = align)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
-        )
-        currentPageInvalidate()
-        viewModelScope.launch {
-            userPreferences?.setTextAlign(align.toStorageString())
-        }
+        updatePrefs({ it.copy(textAlign = align) }, { it.setTextAlign(align.toStorageString()) }, invalidate = true)
     }
 
     /**
@@ -1274,16 +1161,7 @@ class ReaderViewModel(
      */
     fun setChineseConvert(convert: ChineseConvert) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(chineseConvert = convert)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
-            isReflowing = true,
-        )
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setChineseConvert(convert.toStorageString())
-        }
+        updatePrefs({ it.copy(chineseConvert = convert) }, { it.setChineseConvert(convert.toStorageString()) }, reflow = true)
     }
 
     /**
@@ -1291,16 +1169,7 @@ class ReaderViewModel(
      */
     fun setUseZhLayout(enabled: Boolean) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(useZhLayout = enabled)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
-            isReflowing = true,
-        )
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setUseZhLayout(enabled)
-        }
+        updatePrefs({ it.copy(useZhLayout = enabled) }, { it.setUseZhLayout(enabled) }, reflow = true)
     }
 
     /**
@@ -1308,164 +1177,119 @@ class ReaderViewModel(
      */
     fun setPanguSpacing(enabled: Boolean) {
         resetToolbarAutoHide()
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(usePanguSpacing = enabled)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updatedPrefs,
-            isReflowing = true,
-        )
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setUsePanguSpacing(enabled)
-        }
+        updatePrefs({ it.copy(usePanguSpacing = enabled) }, { it.setUsePanguSpacing(enabled) }, reflow = true)
     }
 
     // ── 页眉脚设置 ──────────────────────────────────────────────
 
     fun setHeaderVisibility(visibility: HeaderVisibility) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(header = currentPrefs.header.copy(visibility = visibility))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs, isReflowing = true)
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setHeaderVisibility(visibility.toStorageString())
-        }
+        updatePrefs(
+            { it.copy(header = it.header.copy(visibility = visibility)) },
+            { it.setHeaderVisibility(visibility.toStorageString()) },
+            reflow = true,
+        )
     }
 
     fun setHeaderLeft(slot: SlotContent) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(header = currentPrefs.header.copy(left = slot))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
-        currentPageInvalidate()
-        viewModelScope.launch {
-            userPreferences?.setHeaderLeft(slot.toStorageString())
-        }
+        updatePrefs(
+            { it.copy(header = it.header.copy(left = slot)) },
+            { it.setHeaderLeft(slot.toStorageString()) },
+            invalidate = true,
+        )
     }
 
     fun setHeaderCenter(slot: SlotContent) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(header = currentPrefs.header.copy(center = slot))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
-        currentPageInvalidate()
-        viewModelScope.launch {
-            userPreferences?.setHeaderCenter(slot.toStorageString())
-        }
+        updatePrefs(
+            { it.copy(header = it.header.copy(center = slot)) },
+            { it.setHeaderCenter(slot.toStorageString()) },
+            invalidate = true,
+        )
     }
 
     fun setHeaderRight(slot: SlotContent) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(header = currentPrefs.header.copy(right = slot))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
-        currentPageInvalidate()
-        viewModelScope.launch {
-            userPreferences?.setHeaderRight(slot.toStorageString())
-        }
+        updatePrefs(
+            { it.copy(header = it.header.copy(right = slot)) },
+            { it.setHeaderRight(slot.toStorageString()) },
+            invalidate = true,
+        )
     }
 
     fun setFooterVisibility(visibility: HeaderVisibility) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(footer = currentPrefs.footer.copy(visibility = visibility))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs, isReflowing = true)
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setFooterVisibility(visibility.toStorageString())
-        }
+        updatePrefs(
+            { it.copy(footer = it.footer.copy(visibility = visibility)) },
+            { it.setFooterVisibility(visibility.toStorageString()) },
+            reflow = true,
+        )
     }
 
     fun setFooterLeft(slot: SlotContent) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(footer = currentPrefs.footer.copy(left = slot))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
-        currentPageInvalidate()
-        viewModelScope.launch {
-            userPreferences?.setFooterLeft(slot.toStorageString())
-        }
+        updatePrefs(
+            { it.copy(footer = it.footer.copy(left = slot)) },
+            { it.setFooterLeft(slot.toStorageString()) },
+            invalidate = true,
+        )
     }
 
     fun setFooterCenter(slot: SlotContent) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(footer = currentPrefs.footer.copy(center = slot))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
-        currentPageInvalidate()
-        viewModelScope.launch {
-            userPreferences?.setFooterCenter(slot.toStorageString())
-        }
+        updatePrefs(
+            { it.copy(footer = it.footer.copy(center = slot)) },
+            { it.setFooterCenter(slot.toStorageString()) },
+            invalidate = true,
+        )
     }
 
     fun setFooterRight(slot: SlotContent) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(footer = currentPrefs.footer.copy(right = slot))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
-        currentPageInvalidate()
-        viewModelScope.launch {
-            userPreferences?.setFooterRight(slot.toStorageString())
-        }
+        updatePrefs(
+            { it.copy(footer = it.footer.copy(right = slot)) },
+            { it.setFooterRight(slot.toStorageString()) },
+            invalidate = true,
+        )
     }
 
     fun setHeaderFooterAlpha(alpha: Float) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(headerFooterAlpha = alpha)
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
-        currentPageInvalidate()
-        viewModelScope.launch {
-            userPreferences?.setHeaderFooterAlpha(alpha)
-        }
+        updatePrefs({ it.copy(headerFooterAlpha = alpha) }, { it.setHeaderFooterAlpha(alpha) }, invalidate = true)
     }
 
     fun setShowProgress(show: Boolean) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(showProgress = show)
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
-        currentPageInvalidate()
-        viewModelScope.launch {
-            userPreferences?.setShowProgress(show)
-        }
+        updatePrefs({ it.copy(showProgress = show) }, { it.setShowProgress(show) }, invalidate = true)
     }
 
     // ── 正文标题样式（章首页标题）──────────────────────────────
 
     /** 标题对齐：LEFT / CENTER / HIDDEN。改变后影响 titleAreaHeight，需重排 */
     fun setTitleAlign(align: TitleAlign) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(titleStyle = currentPrefs.titleStyle.copy(align = align))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs, isReflowing = true)
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setTitleAlign(align.toStorageString())
-        }
+        updatePrefs(
+            { it.copy(titleStyle = it.titleStyle.copy(align = align)) },
+            { it.setTitleAlign(align.toStorageString()) },
+            reflow = true,
+        )
     }
 
     /** 标题字号偏移（相对正文字号，sp）。改变后影响 titleAreaHeight，需重排 */
     fun setTitleSizeOffset(offsetSp: Int) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(titleStyle = currentPrefs.titleStyle.copy(sizeOffsetSp = offsetSp))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs, isReflowing = true)
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setTitleSizeOffset(offsetSp)
-        }
+        updatePrefs(
+            { it.copy(titleStyle = it.titleStyle.copy(sizeOffsetSp = offsetSp)) },
+            { it.setTitleSizeOffset(offsetSp) },
+            reflow = true,
+        )
     }
 
     /** 标题上距（dp）。影响 titleAreaHeight，需重排 */
     fun setTitleMarginTop(dp: Float) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(titleStyle = currentPrefs.titleStyle.copy(marginTopDp = dp))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs, isReflowing = true)
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setTitleMarginTop(dp)
-        }
+        updatePrefs(
+            { it.copy(titleStyle = it.titleStyle.copy(marginTopDp = dp)) },
+            { it.setTitleMarginTop(dp) },
+            reflow = true,
+        )
     }
 
     /** 标题下距（dp）。影响 titleAreaHeight，需重排 */
     fun setTitleMarginBottom(dp: Float) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(titleStyle = currentPrefs.titleStyle.copy(marginBottomDp = dp))
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs, isReflowing = true)
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch {
-            userPreferences?.setTitleMarginBottom(dp)
-        }
+        updatePrefs(
+            { it.copy(titleStyle = it.titleStyle.copy(marginBottomDp = dp)) },
+            { it.setTitleMarginBottom(dp) },
+            reflow = true,
+        )
     }
 
     /** 使当前页 recorder 失效并触发重绘（页眉脚/进度条变化时使用） */
@@ -1473,74 +1297,65 @@ class ReaderViewModel(
         _uiState.value.currentPage?.invalidate()
     }
 
+    // ── 偏好设置通用更新辅助 ──────────────────────────────────────
+
+    /** 更新 ReaderPreferences 并同步持久化，需要 reflow 时触发重排 */
+    private fun updatePrefs(
+        transform: (ReaderPreferences) -> ReaderPreferences,
+        save: suspend (UserPreferences) -> Unit,
+        reflow: Boolean = false,
+        invalidate: Boolean = false,
+    ) {
+        val updated = transform(_uiState.value.readerPreferences)
+        _uiState.value = _uiState.value.copy(
+            readerPreferences = updated,
+            isReflowing = reflow,
+        )
+        if (reflow) reflowCurrentChapter(updated)
+        if (invalidate) currentPageInvalidate()
+        viewModelScope.launch { userPreferences?.let { save(it) } }
+    }
+
     // ── 阶段六：杂项设置 ──────────────────────────────────────
 
     fun setKeepScreenOn(enabled: Boolean) {
-        val currentPrefs = _uiState.value.readerPreferences
-        _uiState.value = _uiState.value.copy(readerPreferences = currentPrefs.copy(keepScreenOn = enabled))
-        viewModelScope.launch { userPreferences?.setKeepScreenOn(enabled) }
+        updatePrefs({ it.copy(keepScreenOn = enabled) }, { it.setKeepScreenOn(enabled) })
     }
 
     fun setVolumeKeyTurnPage(enabled: Boolean) {
-        val currentPrefs = _uiState.value.readerPreferences
-        _uiState.value = _uiState.value.copy(readerPreferences = currentPrefs.copy(volumeKeyTurnPage = enabled))
-        viewModelScope.launch { userPreferences?.setVolumeKeyTurnPage(enabled) }
+        updatePrefs({ it.copy(volumeKeyTurnPage = enabled) }, { it.setVolumeKeyTurnPage(enabled) })
     }
 
     fun setEdgeTurnPage(enabled: Boolean) {
-        val currentPrefs = _uiState.value.readerPreferences
-        _uiState.value = _uiState.value.copy(readerPreferences = currentPrefs.copy(edgeTurnPage = enabled))
-        viewModelScope.launch { userPreferences?.setEdgeTurnPage(enabled) }
+        updatePrefs({ it.copy(edgeTurnPage = enabled) }, { it.setEdgeTurnPage(enabled) })
     }
 
     fun setEdgeWidthPercent(percent: Float) {
-        val currentPrefs = _uiState.value.readerPreferences
-        _uiState.value = _uiState.value.copy(readerPreferences = currentPrefs.copy(edgeWidthPercent = percent))
-        viewModelScope.launch { userPreferences?.setEdgeWidthPercent(percent) }
+        updatePrefs({ it.copy(edgeWidthPercent = percent) }, { it.setEdgeWidthPercent(percent) })
     }
 
     // ── 页眉页脚增强 ──────────────────────────────────────────
 
     fun setShowHeaderLine(show: Boolean) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(showHeaderLine = show)
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
-        currentPageInvalidate()
-        viewModelScope.launch { userPreferences?.setShowHeaderLine(show) }
+        updatePrefs({ it.copy(showHeaderLine = show) }, { it.setShowHeaderLine(show) }, invalidate = true)
     }
 
     fun setShowFooterLine(show: Boolean) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(showFooterLine = show)
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
-        currentPageInvalidate()
-        viewModelScope.launch { userPreferences?.setShowFooterLine(show) }
+        updatePrefs({ it.copy(showFooterLine = show) }, { it.setShowFooterLine(show) }, invalidate = true)
     }
 
     fun setHeaderFontSizeRatio(ratio: Float) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(headerFontSizeRatio = ratio)
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
-        currentPageInvalidate()
-        viewModelScope.launch { userPreferences?.setHeaderFontSizeRatio(ratio) }
+        updatePrefs({ it.copy(headerFontSizeRatio = ratio) }, { it.setHeaderFontSizeRatio(ratio) }, invalidate = true)
     }
 
     fun setFooterFontSizeRatio(ratio: Float) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(footerFontSizeRatio = ratio)
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs)
-        currentPageInvalidate()
-        viewModelScope.launch { userPreferences?.setFooterFontSizeRatio(ratio) }
+        updatePrefs({ it.copy(footerFontSizeRatio = ratio) }, { it.setFooterFontSizeRatio(ratio) }, invalidate = true)
     }
 
     // ── 底部对齐 ──────────────────────────────────────────────
 
     fun setBottomJustify(enabled: Boolean) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val updatedPrefs = currentPrefs.copy(bottomJustify = enabled)
-        _uiState.value = _uiState.value.copy(readerPreferences = updatedPrefs, isReflowing = true)
-        reflowCurrentChapter(updatedPrefs)
-        viewModelScope.launch { userPreferences?.setBottomJustify(enabled) }
+        updatePrefs({ it.copy(bottomJustify = enabled) }, { it.setBottomJustify(enabled) }, reflow = true)
     }
 
     /**
