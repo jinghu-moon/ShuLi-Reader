@@ -3,6 +3,9 @@ package com.shuli.reader.core.reader
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
 import com.shuli.reader.core.canvasrecorder.CanvasRecorderFactory
 import com.shuli.reader.core.canvasrecorder.recordIfNeeded
 import com.shuli.reader.core.data.ReaderTextAlign
@@ -64,7 +67,7 @@ class ReaderPageRenderer(
      */
     fun render(
         canvas: Canvas,
-        page: TextPage,
+        ctx: PageRenderContext,
         headerText: String,
         footerText: String,
         showProgress: Boolean,
@@ -77,7 +80,7 @@ class ReaderPageRenderer(
     ) {
         render(
             canvas = canvas,
-            page = page,
+            ctx = ctx,
             headerSlots = SlotResolution(left = headerText),
             footerSlots = SlotResolution(left = footerText),
             showProgress = showProgress,
@@ -159,15 +162,18 @@ class ReaderPageRenderer(
     /**
      * 渲染内容：TTS/选区高亮、正文文本、章节标题。
      * 排版参数变化时需要重录。
+     *
+     * @param ctx 页面渲染上下文，提供 content + page + paint + metrics
      */
     fun renderContent(
         canvas: Canvas,
-        page: TextPage,
+        ctx: PageRenderContext,
         ttsActiveRange: SelectionRange? = null,
         selectedRange: SelectionRange? = null,
         ttsHighlightPaint: Paint? = null,
         selectionPaint: Paint? = null,
     ) {
+        val page = ctx.page
         val density = page.density
 
         // 1. 绘制高亮背景（TTS高亮与用户选区）
@@ -188,7 +194,7 @@ class ReaderPageRenderer(
 
         // 2. 绘制正文文本（per-line CanvasRecorder 优化）
         for (line in page.lines) {
-            drawLineWithRecorder(canvas, line, page)
+            drawLineWithRecorder(canvas, line, ctx)
         }
 
         // 3. 绘制章节标题（仅首页）
@@ -200,7 +206,7 @@ class ReaderPageRenderer(
      */
     fun render(
         canvas: Canvas,
-        page: TextPage,
+        ctx: PageRenderContext,
         headerSlots: SlotResolution,
         footerSlots: SlotResolution,
         showProgress: Boolean,
@@ -213,8 +219,8 @@ class ReaderPageRenderer(
         selectionPaint: Paint? = null,
         backgroundPaint: Paint? = null,
     ) {
-        renderShell(canvas, page, headerSlots, footerSlots, showProgress, headerAlpha, footerAlpha, batteryLevel, backgroundPaint)
-        renderContent(canvas, page, ttsActiveRange, selectedRange, ttsHighlightPaint, selectionPaint)
+        renderShell(canvas, ctx.page, headerSlots, footerSlots, showProgress, headerAlpha, footerAlpha, batteryLevel, backgroundPaint)
+        renderContent(canvas, ctx, ttsActiveRange, selectedRange, ttsHighlightPaint, selectionPaint)
     }
 
     /**
@@ -276,40 +282,42 @@ class ReaderPageRenderer(
         titlePaint.isFakeBoldText = true
         titlePaint.typeface = textPaint.typeface
 
-        // 标题基线：由 Paginator 计算的 topContentY 反推，保证与正文起点严格对齐
-        // 标题底部 = topContentY - marginBottom；基线 = 底部 - descent ≈ 底部 - textSize * 0.15
-        val marginBottom = titleStyle.marginBottomDp * density
-        val baseline = page.topContentY - marginBottom - titleTextSize * 0.15f
-
         val canvasWidth = canvas.width.toFloat()
         val marginH = page.marginHorizontal
+        val availableWidth = (canvasWidth - marginH * 2).toInt().coerceAtLeast(1)
 
-        titlePaint.textAlign = when (titleStyle.align) {
-            TitleAlign.LEFT -> Paint.Align.LEFT
-            TitleAlign.CENTER -> Paint.Align.CENTER
+        val layoutAlign = when (titleStyle.align) {
+            TitleAlign.LEFT -> Layout.Alignment.ALIGN_NORMAL
+            TitleAlign.CENTER -> Layout.Alignment.ALIGN_CENTER
             TitleAlign.HIDDEN -> return
         }
 
-        val x = when (titleStyle.align) {
-            TitleAlign.LEFT -> marginH
-            TitleAlign.CENTER -> canvasWidth / 2f
-            TitleAlign.HIDDEN -> return
-        }
+        // 用 StaticLayout 支持多行自动换行
+        val textPaint = TextPaint(titlePaint)
+        val layout = StaticLayout.Builder.obtain(
+            page.chapterTitle, 0, page.chapterTitle.length, textPaint, availableWidth
+        ).setAlignment(layoutAlign).setIncludePad(false).build()
 
-        canvas.drawText(page.chapterTitle, x, baseline, titlePaint)
-        titlePaint.textAlign = Paint.Align.LEFT
+        // 垂直定位：标题底部 = topContentY - marginBottom，向上偏移整个 layout 高度
+        val marginBottom = titleStyle.marginBottomDp * density
+        val titleTop = page.topContentY - marginBottom - layout.height
+
+        canvas.save()
+        canvas.translate(marginH, titleTop)
+        layout.draw(canvas)
+        canvas.restore()
     }
 
     /**
      * 使用 per-line CanvasRecorder 绘制单行文本
      * 选区/TTS 高亮变化时仅重画受影响的行，而非整页
      */
-    private fun drawLineWithRecorder(canvas: Canvas, line: TextLine, page: TextPage) {
+    private fun drawLineWithRecorder(canvas: Canvas, line: TextLine, ctx: PageRenderContext) {
         val recorder = line.canvasRecorder
             ?: CanvasRecorderFactory.create().also { line.canvasRecorder = it }
 
         val lineHeight = (line.bottom - line.top).toInt()
-        val startX = page.marginHorizontal + line.startXOffset
+        val startX = ctx.page.marginHorizontal + line.startXOffset
 
         recorder.recordIfNeeded(canvas.width, lineHeight) {
             val relativeBaseline = line.baseline - line.top
@@ -317,10 +325,10 @@ class ReaderPageRenderer(
             // 判断是否需要两端对齐：JUSTIFY 模式且非段落末行
             val shouldJustify = textAlign == ReaderTextAlign.JUSTIFY && !line.isParagraphEnd
 
-            if (shouldJustify && line.charColumns.isNotEmpty()) {
-                drawTextJustified(line, startX, relativeBaseline, page)
+            if (shouldJustify && line.charWidths != null) {
+                drawTextJustified(line, startX, relativeBaseline, ctx)
             } else {
-                drawText(line.text, startX, relativeBaseline, textPaint)
+                drawText(ctx.content, line.startCharOffset, line.endCharOffset, startX, relativeBaseline, ctx.textPaint)
             }
         }
 
@@ -332,23 +340,25 @@ class ReaderPageRenderer(
     }
 
     /**
-     * 两端对齐绘制：使用预计算的 charColumns 避免逐字符 measureText
+     * 两端对齐绘制：使用预计算的 charWidths 逐字符定位，零 String 分配
      */
-    private fun Canvas.drawTextJustified(line: TextLine, x: Float, y: Float, page: TextPage) {
-        val availableWidth = page.pageSize.width - page.marginHorizontal * 2
-        val extraSpace = availableWidth - line.measuredWidth
+    private fun Canvas.drawTextJustified(line: TextLine, x: Float, y: Float, ctx: PageRenderContext) {
+        val extraSpace = ctx.availableWidth - line.measuredWidth
 
         if (extraSpace <= 0f) {
-            drawText(line.text, x, y, textPaint)
+            drawText(ctx.content, line.startCharOffset, line.endCharOffset, x, y, ctx.textPaint)
             return
         }
 
-        val spacingPerChar = if (line.charColumns.size > 1) extraSpace / (line.charColumns.size - 1) else 0f
+        val charCount = line.endCharOffset - line.startCharOffset
+        val justifySpacing = if (charCount > 1) extraSpace / (charCount - 1) else 0f
         var currentX = x
 
-        for (col in line.charColumns) {
-            drawText(col.charData, currentX, y, textPaint)
-            currentX += col.charWidth + spacingPerChar
+        for (i in 0 until charCount) {
+            drawText(ctx.content, line.startCharOffset + i, line.startCharOffset + i + 1, currentX, y, ctx.textPaint)
+            if (i < charCount - 1) {
+                currentX += line.charWidths!![i] + ctx.letterSpacingPx + justifySpacing
+            }
         }
     }
 

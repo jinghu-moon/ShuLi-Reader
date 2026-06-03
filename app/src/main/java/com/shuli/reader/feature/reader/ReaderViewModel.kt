@@ -949,9 +949,11 @@ class ReaderViewModel(
         resetToolbarAutoHide()
         val content = loadedBookContent
         if (content == null) {
+            android.util.Log.w(TAG, "openChapter[$index]: loadedBookContent 为 null，走 fallback")
             viewModelScope.launch { openFallbackChapter(index) }
             return
         }
+        android.util.Log.d(TAG, "openChapter[$index]: loadedBookContent 非 null，章节数=${content.normalizedChapters().size}")
 
         val safeIndex = index.coerceIn(0, (content.normalizedChapters().size - 1).coerceAtLeast(0))
 
@@ -2000,6 +2002,7 @@ class ReaderViewModel(
 
     private fun sentenceRangesForCurrentPage(): List<SelectionRange> {
         val page = _uiState.value.currentPage ?: return emptyList()
+        val content = _uiState.value.currentChapter?.content ?: return emptyList()
         if (page.lines.isEmpty()) return emptyList()
 
         // 合并所有行文本，用换行符连接，保持原始偏移
@@ -2007,7 +2010,7 @@ class ReaderViewModel(
         val lineOffsets = mutableListOf<Int>() // 每行在 fullText 中的起始位置
         for (line in page.lines) {
             lineOffsets.add(fullText.length)
-            fullText.append(line.text)
+            fullText.append(content, line.startCharOffset, line.endCharOffset)
             if (!line.isParagraphEnd) {
                 fullText.append('\n')
             }
@@ -2203,6 +2206,7 @@ class ReaderViewModel(
             titleMarginBottomDp = prefs.titleStyle.marginBottomDp,
         )
         cacheManager.getChapter(cacheKey)?.let { cached ->
+            android.util.Log.d(TAG, "openChapter[$index]: 缓存命中, pages=${cached.pageSize}")
             return viewModelScope.launch {
                 _uiState.value = _uiState.value.copy(
                     currentChapter = cached,
@@ -2225,6 +2229,8 @@ class ReaderViewModel(
                 onDone?.invoke()
             }
         }
+
+        android.util.Log.d(TAG, "openChapter[$index]: 缓存未命中, 开始加载章节文本")
 
         return viewModelScope.launch {
             // reflow 时不显示 loading，保留旧页面内容
@@ -2272,8 +2278,12 @@ class ReaderViewModel(
                         val currentState = _uiState.value
                         if (currentState.chapterIndex != index) return
 
-                        if (pageIndex == 0 && (currentState.currentPage == null || currentState.isReflowing)) {
-                            // 首页就绪：立即显示（首次加载或 reflow 完成第一页）
+                        // 首页就绪：以下任一条件满足时立即显示
+                        // 1. currentPage 为 null（首次加载）
+                        // 2. isReflowing（排版参数变化）
+                        // 3. currentPage 属于旧章节（章节切换，isReflow=true 保留旧页面场景）
+                        val isChapterSwitch = currentState.currentPage?.chapterIndex?.let { it != index } ?: false
+                        if (pageIndex == 0 && (currentState.currentPage == null || currentState.isReflowing || isChapterSwitch)) {
                             _uiState.value = currentState.copy(
                                 currentPage = page,
                                 pageIndex = 0,
@@ -2619,7 +2629,7 @@ class ReaderViewModel(
             pageSize = PageSize(screenWidthPx, screenHeightPx),
             textSize = textSizePx,
             lineHeight = preferences.lineSpacing,
-            paragraphSpacing = preferences.paragraphSpacing * textSizePx * preferences.lineSpacing,
+            paragraphSpacing = preferences.paragraphSpacing * textSizePx,
             marginHorizontal = preferences.marginHorizontal * density,
             marginVertical = preferences.marginVertical * density,
             indent = preferences.indent,

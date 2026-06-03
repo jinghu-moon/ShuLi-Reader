@@ -395,7 +395,7 @@ fun ReaderScreen(
 
                         val isLayoutChange = layoutVersionRef.intValue != uiState.layoutVersion
                         if (isLayoutChange) layoutVersionRef.intValue = uiState.layoutVersion
-                        view.setPage(page, nextPage, prevPage, uiState.pageRenderMode, isLayoutChange = isLayoutChange)
+                        view.setPage(page, nextPage, prevPage, uiState.currentChapter?.content ?: "", uiState.pageRenderMode, isLayoutChange = isLayoutChange)
                     },
                 )
 

@@ -93,12 +93,15 @@ class PaginatorTest {
 
     @Test
     fun chineseClosingPunctuation_doesNotStartLine() {
+        val content = "你好，世界"
         val narrowConfig = config.copy(pageSize = PageSize(width = 62, height = 400))
-        val chapter = paginator.paginateChapter(0, "Test", "你好，世界", narrowConfig)
+        val chapter = paginator.paginateChapter(0, "Test", content, narrowConfig)
 
         val lines = chapter.pages.flatMap { it.lines }
         assertTrue("应产生多行", lines.size >= 2)
-        assertEquals("你好，", lines[0].text)
-        assertTrue("第二行不应以闭合标点开头", !lines[1].text.startsWith("，"))
+        val line0Text = content.substring(lines[0].startCharOffset, lines[0].endCharOffset)
+        val line1Text = content.substring(lines[1].startCharOffset, lines[1].endCharOffset)
+        assertEquals("你好，", line0Text)
+        assertTrue("第二行不应以闭合标点开头", !line1Text.startsWith("，"))
     }
 }

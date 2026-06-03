@@ -95,6 +95,9 @@ class ReaderCanvasView @JvmOverloads constructor(
     private var nextPage: TextPage? = null
     private var prevPage: TextPage? = null
 
+    // 章节文本（所有 TextLine 的 startCharOffset/endCharOffset 均相对于此）
+    private var chapterContent: CharSequence = ""
+
     // 排版变化 crossfade 动画
     private var oldPageBitmap: Bitmap? = null
     private var crossfadeAnimator: ValueAnimator? = null
@@ -166,9 +169,16 @@ class ReaderCanvasView @JvmOverloads constructor(
             )
         }
         val contentDirty = page.canvasRecorder.recordIfNeeded(w, h) {
+            val ctx = PageRenderContext(
+                content = chapterContent,
+                page = page,
+                textPaint = textPaint,
+                letterSpacingPx = textPaint.letterSpacing * textPaint.textSize,
+                availableWidth = page.pageSize.width - page.marginHorizontal * 2,
+            )
             pageRenderer.renderContent(
                 canvas = this,
-                page = page,
+                ctx = ctx,
                 ttsActiveRange = renderContext.ttsActiveRange,
                 selectedRange = renderContext.selectedRange,
                 ttsHighlightPaint = ttsHighlightPaint,
@@ -241,6 +251,7 @@ class ReaderCanvasView @JvmOverloads constructor(
     /**
      * 设置页面内容。
      * CanvasRecorder 自带缓存，仅在 invalidate 后下次绘制时重录。
+     * @param content 章节原始文本，所有 TextLine 的偏移均相对于此
      * @param mode 渲染模式：SEQUENTIAL 预热邻页，JUMP/SCRUBBING 仅当前页
      * @param isLayoutChange 是否为排版参数变化导致的页面重建（触发 crossfade 过渡）
      */
@@ -248,6 +259,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         page: TextPage,
         next: TextPage? = null,
         prev: TextPage? = null,
+        content: CharSequence = "",
         mode: PageRenderMode = PageRenderMode.SEQUENTIAL,
         isLayoutChange: Boolean = false,
     ) {
@@ -276,6 +288,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         }
 
         currentPage = page
+        chapterContent = content
         when (mode) {
             PageRenderMode.SEQUENTIAL -> {
                 nextPage = next
@@ -929,15 +942,16 @@ class ReaderCanvasView @JvmOverloads constructor(
     private fun selectLineAt(x: Float, y: Float) {
         val page = currentPage ?: return
         val line = page.lines.firstOrNullIndexed { index, line ->
-            val bounds = lineBounds(index, line.text)
+            val bounds = lineBounds(index)
             x >= 0f && x <= width.toFloat() && y >= bounds.top && y <= bounds.bottom
         } ?: return
 
+        val selectedText = chapterContent.substring(line.startCharOffset, line.endCharOffset)
         val range = SelectionRange(
             chapterIndex = page.chapterIndex,
             startPos = line.startCharOffset,
             endPos = line.endCharOffset,
-            selectedText = line.text,
+            selectedText = selectedText,
         )
         renderContext.selectedRange = range
         isTextSelectionGesture = true
@@ -946,11 +960,11 @@ class ReaderCanvasView @JvmOverloads constructor(
         onTextSelected?.invoke(range)
     }
 
-    private fun lineBounds(index: Int, text: String): RectF {
+    private fun lineBounds(index: Int): RectF {
         val page = currentPage ?: return RectF()
         val line = page.lines.getOrNull(index) ?: return RectF()
         val startX = page.marginHorizontal + line.startXOffset
-        val right = (startX + textPaint.measureText(line.text)).coerceAtMost(width.toFloat() - TEXT_END_PADDING)
+        val right = (startX + line.measuredWidth).coerceAtMost(width.toFloat() - TEXT_END_PADDING)
         return RectF(startX - SELECTION_HORIZONTAL_PADDING, line.top, right + SELECTION_HORIZONTAL_PADDING, line.bottom)
     }
 

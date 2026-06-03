@@ -78,5 +78,5 @@ data class TitleStyleConfig(
     val align: TitleAlign = TitleAlign.CENTER,
     val sizeOffsetSp: Int = 4,
     val marginTopDp: Float = 9f,
-    val marginBottomDp: Float = 60f,
+    val marginBottomDp: Float = 10f,
 )

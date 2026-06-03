@@ -28,16 +28,14 @@ class TextModelsTest {
     @Test
     fun textLine_containsCorrectCoordinates() {
         val line = TextLine(
-            text = "Hello World",
+            startCharOffset = 0,
+            endCharOffset = 11,
             baseline = 100f,
             top = 80f,
             bottom = 120f,
             isParagraphEnd = false,
-            startCharOffset = 0,
-            endCharOffset = 11,
         )
 
-        assertEquals("Hello World", line.text)
         assertEquals(100f, line.baseline, 0.001f)
         assertEquals(80f, line.top, 0.001f)
         assertEquals(120f, line.bottom, 0.001f)

@@ -44,18 +44,10 @@ data class TextColumn(
 )
 
 /**
- * 字符级宽度信息，用于两端对齐预计算
+ * 文本行（区间模型）
  *
- * @param charData 字符内容（单个 grapheme cluster）
- * @param charWidth 字符原始宽度（不含两端对齐额外间距）
- */
-data class CharColumn(
-    val charData: String,
-    val charWidth: Float,
-)
-
-/**
- * 文本行
+ * 不持有文本内容，通过 [startCharOffset, endCharOffset) 引用 TextChapter.content。
+ * 渲染时由 PageRenderContext 提供 content。
  *
  * 支持 per-line CanvasRecorder：选区/TTS 高亮变化时仅重画受影响的行。
  *
@@ -63,22 +55,59 @@ data class CharColumn(
  *    请勿对 TextLine 使用 copy()，如需不可变副本请手动构造。
  */
 data class TextLine(
-    val text: String,
+    /** 行在 content 中的起始偏移（含） */
+    val startCharOffset: Int,
+    /** 行在 content 中的结束偏移（不含） */
+    val endCharOffset: Int,
     val baseline: Float,
     val top: Float,
     val bottom: Float,
     val isParagraphEnd: Boolean,
-    val startCharOffset: Int,
-    val endCharOffset: Int,
     val startXOffset: Float = 0f,
-    /** 字符级宽度信息，用于两端对齐绘制（Paginator 分页时填充） */
-    val charColumns: List<CharColumn> = emptyList(),
-    /** 文本总宽度（缓存），避免渲染时重复 measureText */
+    /**
+     * 文本实际占用宽度（分页时缓存）。
+     *
+     * 口径定义：measuredWidth = Σ(charWidth[i]) + letterSpacingPx × (charCount - 1)
+     * - 包含：字符原始宽度 + 基础字距
+     * - 不包含：两端对齐额外拉伸量
+     */
     val measuredWidth: Float = 0f,
+    /**
+     * 字符宽度数组（不含字距），仅两端对齐模式且非段落末行时有值。
+     * 长度 = endCharOffset - startCharOffset，每个元素为对应字符的原始宽度。
+     *
+     * 渲染辅助缓存，不是内容模型。不参与持久化、序列化、equals/hashCode。
+     */
+    val charWidths: FloatArray? = null,
 ) {
     /** 每行独立的渲染缓存，选区/TTS 变化时仅 invalidate 受影响行 */
     @Transient
     var canvasRecorder: CanvasRecorder? = null
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is TextLine) return false
+        return startCharOffset == other.startCharOffset &&
+            endCharOffset == other.endCharOffset &&
+            baseline == other.baseline &&
+            top == other.top &&
+            bottom == other.bottom &&
+            isParagraphEnd == other.isParagraphEnd &&
+            startXOffset == other.startXOffset &&
+            measuredWidth == other.measuredWidth
+    }
+
+    override fun hashCode(): Int {
+        var result = startCharOffset
+        result = 31 * result + endCharOffset
+        result = 31 * result + baseline.hashCode()
+        result = 31 * result + top.hashCode()
+        result = 31 * result + bottom.hashCode()
+        result = 31 * result + isParagraphEnd.hashCode()
+        result = 31 * result + startXOffset.hashCode()
+        result = 31 * result + measuredWidth.hashCode()
+        return result
+    }
 
     /** 标记本行 recorder 失效 */
     fun invalidateSelf() {
@@ -113,7 +142,7 @@ class TextPage(
     val pageSize: PageSize,
     val marginHorizontal: Float,
     val lines: List<TextLine>,
-    val columns: List<TextColumn>,
+    val columns: List<TextColumn> = emptyList(),
     val density: Float = 3f,
     /** 章节正文总字符数（不含标题），用于计算阅读进度 */
     val chapterContentLength: Int = 0,

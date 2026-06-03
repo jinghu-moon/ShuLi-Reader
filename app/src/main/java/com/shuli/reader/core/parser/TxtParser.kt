@@ -34,8 +34,7 @@ class TxtParser {
         private val CHAPTER_TITLE_REGEX = Regex(
             listOf(
                 // ① 核心目录（第X章/节/卷/集/部/篇/回/场/话），含负向先行防误杀
-                //    要求章节标题位于行首（^ 锚定），前导空白会导致不匹配
-                """^(?:序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|集(?![合和])|部(?![分赛游])|回(?![合来事去])|场(?![和合比电是])|话|篇(?!张))).{0,30}$""",
+                """^[ \t　]{0,4}(?:序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|集(?![合和])|部(?![分赛游])|回(?![合来事去])|场(?![和合比电是])|话|篇(?!张))).{0,30}$""",
                 // ② 数字+分隔符+标题名称：1、标题 / 001：标题
                 """^[ 　\t]{0,4}\d{1,5}[:：,.， 、_—\-].{1,30}$""",
                 // ③ 大写数字+分隔符+标题名称：一、标题 / 二十四章 标题
@@ -275,20 +274,30 @@ class TxtParser {
                 blockByteOffset + block.substring(0, titleStart).toByteArray(charset).size.toLong()
             }
 
+            // byteStart 跳过标题行（标题由 UI 层单独绘制，不计入正文）
+            val rawTitle = m.value  // 含前导空白，未 trim
+            val titleLineLen = rawTitle.length
+            val afterTitle = titleStart + titleLineLen
+            val skipNewline = afterTitle < block.length && block[afterTitle] == '\n'
+            val titleLineBytes = block.substring(titleStart, afterTitle).toByteArray(charset).size.toLong() +
+                if (skipNewline) 1L else 0L
+            val contentByteStart = titleByteStart + titleLineBytes
+
             chapters.add(
                 BookChapterEntity(
                     bookId = 0,
                     chapterIndex = chapters.size,
                     title = titleLine,
-                    byteStart = titleByteStart,
-                    byteEnd = titleByteStart, // 占位，由后续章节或 EOF 修正
+                    byteStart = contentByteStart,
+                    byteEnd = contentByteStart, // 占位，由后续章节或 EOF 修正
                     charset = charsetName,
                     wordCount = 0,
                 )
             )
 
             lastChapterWordCount = 0
-            seekChar = titleStart
+            // seekChar 跳过标题行，使上一章 wordCount 不计入标题文本
+            seekChar = if (skipNewline) afterTitle + 1 else afterTitle
         }
 
         // block 末尾剩余内容（未被新章节关闭）→ 累计到 lastChapterWordCount

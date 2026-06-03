@@ -1,6 +1,5 @@
 package com.shuli.reader.core.reader
 
-import com.shuli.reader.core.reader.model.CharColumn
 import com.shuli.reader.core.reader.model.ReaderLayoutConfig
 import com.shuli.reader.core.reader.model.TextChapter
 import com.shuli.reader.core.reader.model.TextLine
@@ -140,113 +139,64 @@ class Paginator(
         chapterTitle: String = "",
     ): TextPage {
         val lines = mutableListOf<TextLine>()
-        val columns = mutableListOf<com.shuli.reader.core.reader.model.TextColumn>()
 
         val lineHeight = textMeasurer.measureTextHeight(config.textSize, config.lineHeight)
         val availableWidth = config.pageSize.width - config.marginHorizontal * 2
-        val density = config.density
-        val headerHeight = if (showHeader) 24f * density else 0f
-        val footerHeight = if (showFooter) 24f * density else 0f
+        val headerHeight = if (showHeader) 24f * config.density else 0f
+        val footerHeight = if (showFooter) 24f * config.density else 0f
         val maxAvailableY = config.pageSize.height - config.marginVertical - footerHeight
+        val titleAreaHeight = calcTitleAreaHeight(config, pageIndex, chapterTitle, availableWidth)
 
-        // S1: 首页计算标题区域高度
-        val titleStyle = config.titleStyle
-        val titleAreaHeight = if (pageIndex == 0 && titleStyle.align != TitleAlign.HIDDEN) {
-            val titleTextSize = config.textSize + titleStyle.sizeOffsetSp * density
-            titleStyle.marginTopDp * density + titleTextSize + titleStyle.marginBottomDp * density
-        } else {
-            0f
-        }
-
-        var currentY = config.marginVertical + headerHeight + titleAreaHeight
+        val startY = config.marginVertical + headerHeight + titleAreaHeight
+        val indentWidth = calcIndent(config, availableWidth)
+        var currentY = startY
         var currentOffset = startOffset
 
         // 按行分页
         while (currentY + lineHeight <= maxAvailableY && currentOffset < content.length) {
-            val isParagraphStart = currentOffset == 0 || (currentOffset > 0 && content[currentOffset - 1] == '\n')
-            var tempOffset = currentOffset
-            if (isParagraphStart) {
-                while (tempOffset < content.length && (content[tempOffset] == ' ' || content[tempOffset] == '\t' || content[tempOffset] == '　' || content[tempOffset] == '\r')) {
-                    tempOffset++
-                }
+            val collapsedOffset = collapseConsecutiveNewlines(content, currentOffset)
+            if (collapsedOffset != currentOffset) {
+                currentOffset = collapsedOffset
+                currentY += config.paragraphSpacing
+                if (currentOffset >= content.length) break
+                continue
             }
-            val skippedSpaces = tempOffset - currentOffset
-            val indentWidth = if (availableWidth > config.indent * config.textSize * 2f) {
-                config.indent * config.textSize
-            } else {
-                0f
-            }
+
+            val isFirstLine = lines.isEmpty()
+            val textStart = skipLeadingSpaces(content, currentOffset, isFirstLine)
+            val skippedSpaces = textStart - currentOffset
+            val isParagraphStart = textStart != currentOffset
 
             val lineResult = calculateLine(
                 content = content,
-                startOffset = tempOffset,
+                startOffset = textStart,
                 widthWindow = widthWindow,
                 availableWidth = if (isParagraphStart) availableWidth - indentWidth else availableWidth,
                 letterSpacingPx = config.letterSpacingPx,
                 useZhLayout = config.useZhLayout,
             )
 
-            val line = TextLine(
-                text = lineResult.text,
-                baseline = currentY + lineHeight * 0.8f,
-                top = currentY,
-                bottom = currentY + lineHeight,
-                isParagraphEnd = lineResult.isParagraphEnd,
-                startCharOffset = currentOffset,
-                endCharOffset = currentOffset + skippedSpaces + lineResult.consumedChars,
-                startXOffset = if (isParagraphStart) indentWidth else 0f,
-                charColumns = lineResult.charColumns,
-                measuredWidth = lineResult.measuredWidth,
-            )
+            val line = buildLine(lineResult, textStart, currentY, lineHeight, isParagraphStart, indentWidth)
             lines.add(line)
 
             currentY += lineHeight
-            if (lineResult.isParagraphEnd) {
-                currentY += config.paragraphSpacing
-            }
+            if (lineResult.isParagraphEnd) currentY += config.paragraphSpacing
             currentOffset += skippedSpaces + lineResult.consumedChars
         }
 
-        // 如果没有行，至少添加一行
+        // 至少一行：保证页面不空
         if (lines.isEmpty() && currentOffset < content.length) {
-            val isParagraphStart = currentOffset == 0 || (currentOffset > 0 && content[currentOffset - 1] == '\n')
-            var tempOffset = currentOffset
-            if (isParagraphStart) {
-                while (tempOffset < content.length && (content[tempOffset] == ' ' || content[tempOffset] == '\t' || content[tempOffset] == '　' || content[tempOffset] == '\r')) {
-                    tempOffset++
-                }
-            }
-            val skippedSpaces = tempOffset - currentOffset
-            val indentWidth = if (availableWidth > config.indent * config.textSize * 2f) {
-                config.indent * config.textSize
-            } else {
-                0f
-            }
-
+            val textStart = skipLeadingSpaces(content, currentOffset, isFirstLine = true)
             val lineResult = calculateLine(
                 content = content,
-                startOffset = tempOffset,
+                startOffset = textStart,
                 widthWindow = widthWindow,
-                availableWidth = if (isParagraphStart) availableWidth - indentWidth else availableWidth,
+                availableWidth = availableWidth - indentWidth,
                 letterSpacingPx = config.letterSpacingPx,
                 useZhLayout = config.useZhLayout,
             )
-
-            val startY = config.marginVertical + headerHeight + titleAreaHeight
-            val line = TextLine(
-                text = lineResult.text,
-                baseline = startY + lineHeight * 0.8f,
-                top = startY,
-                bottom = startY + lineHeight,
-                isParagraphEnd = lineResult.isParagraphEnd,
-                startCharOffset = currentOffset,
-                endCharOffset = currentOffset + skippedSpaces + lineResult.consumedChars,
-                startXOffset = if (isParagraphStart) indentWidth else 0f,
-                charColumns = lineResult.charColumns,
-                measuredWidth = lineResult.measuredWidth,
-            )
-            lines.add(line)
-            currentOffset += skippedSpaces + lineResult.consumedChars
+            lines.add(buildLine(lineResult, textStart, startY, lineHeight, true, indentWidth))
+            currentOffset += (textStart - currentOffset) + lineResult.consumedChars
         }
 
         // 底部对齐：将剩余垂直空间均匀分配到行间距中
@@ -258,16 +208,15 @@ class Paginator(
                 lines.mapIndexed { index, line ->
                     val offset = extraPerGap * index
                     TextLine(
-                        text = line.text,
+                        startCharOffset = line.startCharOffset,
+                        endCharOffset = line.endCharOffset,
                         baseline = line.baseline + offset,
                         top = line.top + offset,
                         bottom = line.bottom + offset,
                         isParagraphEnd = line.isParagraphEnd,
-                        startCharOffset = line.startCharOffset,
-                        endCharOffset = line.endCharOffset,
                         startXOffset = line.startXOffset,
-                        charColumns = line.charColumns,
                         measuredWidth = line.measuredWidth,
+                        charWidths = line.charWidths,
                     )
                 }
             } else {
@@ -285,7 +234,6 @@ class Paginator(
             pageSize = config.pageSize,
             marginHorizontal = config.marginHorizontal,
             lines = finalLines,
-            columns = columns,
             density = config.density,
             chapterContentLength = content.length,
             chapterTitle = if (pageIndex == 0) chapterTitle else "",
@@ -295,11 +243,71 @@ class Paginator(
         )
     }
 
+    /** 计算段落首行缩进宽度 */
+    private fun calcIndent(config: ReaderLayoutConfig, availableWidth: Float): Float =
+        if (availableWidth > config.indent * config.textSize * 2f) config.indent * config.textSize else 0f
+
+    /** 首页标题区域高度（含上下边距，支持多行自动换行） */
+    private fun calcTitleAreaHeight(
+        config: ReaderLayoutConfig,
+        pageIndex: Int,
+        chapterTitle: String,
+        availableWidth: Float,
+    ): Float {
+        val ts = config.titleStyle
+        if (pageIndex != 0 || ts.align == TitleAlign.HIDDEN || chapterTitle.isBlank()) return 0f
+        val d = config.density
+        val titleTextSize = config.textSize + ts.sizeOffsetSp * d
+        val titleLineHeight = titleTextSize * 1.3f
+        val titleWidth = textMeasurer.measureTextWidth(chapterTitle, titleTextSize) * 1.05f
+        val lineCount = if (availableWidth > 0) ((titleWidth / availableWidth).toInt() + 1).coerceAtLeast(1) else 1
+        return ts.marginTopDp * d + lineCount * titleLineHeight + ts.marginBottomDp * d
+    }
+
+    /** 跳过段落起始处的前导空白字符，返回可见文本起始偏移 */
+    private fun skipLeadingSpaces(content: String, offset: Int, isFirstLine: Boolean): Int {
+        if (!isFirstLine && (offset <= 0 || content[offset - 1] != '\n')) return offset
+        var pos = offset
+        while (pos < content.length && content[pos] in " \t　\r") pos++
+        return pos
+    }
+
+    /** 合并连续换行符为一个段间距，返回跳过后的偏移；若无连续换行则返回原值 */
+    private fun collapseConsecutiveNewlines(content: String, offset: Int): Int {
+        if (offset <= 0 || offset >= content.length) return offset
+        if (content[offset - 1] != '\n' || content[offset] != '\n') return offset
+        var pos = offset
+        while (pos < content.length && content[pos] == '\n') pos++
+        return pos
+    }
+
+    /** 根据行计算结果构建 TextLine */
+    private fun buildLine(
+        result: LineResult,
+        textStart: Int,
+        y: Float,
+        lineHeight: Float,
+        isParagraphStart: Boolean,
+        indentWidth: Float,
+    ): TextLine = TextLine(
+        startCharOffset = textStart,
+        endCharOffset = textStart + result.charCount,
+        baseline = y + lineHeight * 0.8f,
+        top = y,
+        bottom = y + lineHeight,
+        isParagraphEnd = result.isParagraphEnd,
+        startXOffset = if (isParagraphStart) indentWidth else 0f,
+        measuredWidth = result.measuredWidth,
+        charWidths = result.charWidths,
+    )
+
     /**
      * 计算一行能容纳的文本。
      *
      * widthWindow 按需分块缓存字符宽度，此方法只做索引查找 + 分行决策。
      * 首次访问新块时触发同步测量并缓存，后续访问命中缓存。
+     *
+     * 单遍遍历：同时完成 charCount 判定和 measuredWidth 累计。
      */
     private fun calculateLine(
         content: String,
@@ -310,7 +318,7 @@ class Paginator(
         useZhLayout: Boolean = false,
     ): LineResult {
         if (startOffset >= content.length) {
-            return LineResult("", false, 0)
+            return LineResult(false, 0, 0)
         }
 
         // 查找换行符（基于原始 content 索引，避免 substring 分配）
@@ -318,19 +326,17 @@ class Paginator(
         val lineEnd = if (newlineAbsIndex >= 0) newlineAbsIndex - startOffset else content.length - startOffset
 
         if (lineEnd == 0 && newlineAbsIndex == startOffset) {
-            return LineResult("", true, 1)
+            return LineResult(true, 0, 1)
         }
 
-        // 计算能容纳的字符数（含字距），纯查表
+        // 唯一遍历：判定 charCount + 累计 measuredWidth
         var currentWidth = 0f
         var charCount = 0
 
         for (i in 0 until lineEnd) {
             val width = widthWindow[startOffset + i]
             val spacing = if (charCount > 0) letterSpacingPx else 0f
-            if (currentWidth + width + spacing > availableWidth) {
-                break
-            }
+            if (currentWidth + width + spacing > availableWidth) break
             currentWidth += width + spacing
             charCount++
         }
@@ -342,7 +348,7 @@ class Paginator(
 
         // 如果仍然没有字符，返回空结果
         if (charCount == 0) {
-            return LineResult("", false, 0)
+            return LineResult(false, 0, 0)
         }
 
         if (useZhLayout) {
@@ -361,15 +367,11 @@ class Paginator(
         }
 
         val consumesLineBreak = newlineAbsIndex >= 0 && charCount == lineEnd
-        val text = content.substring(startOffset, startOffset + charCount)
         val consumedChars = charCount + if (consumesLineBreak) 1 else 0
         val isParagraphEnd = consumesLineBreak
 
-        // 构建 CharColumn 列表（从预计算数组取宽度）
-        val charColumns = ArrayList<CharColumn>(charCount)
-        for (i in 0 until charCount) {
-            charColumns.add(CharColumn(content[startOffset + i].toString(), widthWindow[startOffset + i]))
-        }
+        // measuredWidth 已在循环中累计（currentWidth），但标点调整可能改变 charCount，
+        // 需要重新计算精确的 measuredWidth
         val measuredWidth = if (charCount > 0) {
             var w = 0f
             for (i in 0 until charCount) w += widthWindow[startOffset + i]
@@ -378,19 +380,28 @@ class Paginator(
             0f
         }
 
-        return LineResult(text, isParagraphEnd, consumedChars, charColumns, measuredWidth)
+        // charWidths 在 charCount 确定后分配精确大小，避免 lineEnd != charCount 的浪费
+        val charWidths = if (charCount > 0 && availableWidth - measuredWidth > 0.5f) {
+            FloatArray(charCount) { widthWindow[startOffset + it] }
+        } else {
+            null
+        }
+
+        return LineResult(isParagraphEnd, charCount, consumedChars, charWidths, measuredWidth)
     }
 
     /**
      * 行计算结果
      */
     private data class LineResult(
-        val text: String,
         val isParagraphEnd: Boolean,
+        /** 可见字符数（不含尾部换行符） */
+        val charCount: Int,
+        /** 消耗的总字符数（含尾部换行符），用于推进 currentOffset */
         val consumedChars: Int,
-        /** 字符级宽度信息，用于两端对齐绘制 */
-        val charColumns: List<com.shuli.reader.core.reader.model.CharColumn> = emptyList(),
-        /** 文本总宽度（缓存） */
+        /** 字符宽度数组（不含字距），仅非段落末行且有剩余空间时有值 */
+        val charWidths: FloatArray? = null,
+        /** 文本总宽度（含基础字距，不含两端对齐拉伸） */
         val measuredWidth: Float = 0f,
     )
 }
