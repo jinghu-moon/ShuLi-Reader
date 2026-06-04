@@ -1,6 +1,7 @@
 // Part of T-31 ZIP 导入
 package com.shuli.reader.sync.export
 
+import androidx.annotation.VisibleForTesting
 import com.github.luben.zstd.Zstd
 import com.github.luben.zstd.ZstdInputStream
 import com.shuli.reader.core.database.entity.BookmarkEntity
@@ -129,9 +130,10 @@ class ZipImporter(
     /**
      * 尝试 ZSTD 解压。如果不是 ZSTD 格式，返回原始数据。
      */
-    private fun tryDecompressZstd(data: ByteArray): ByteArray {
+    @VisibleForTesting
+    internal fun tryDecompressZstd(data: ByteArray): ByteArray {
         return try {
-            val decompressedSize = Zstd.decompressedSize(data)
+            val decompressedSize = Zstd.getFrameContentSize(data, 0, data.size)
             if (decompressedSize > 0) {
                 Zstd.decompress(data, decompressedSize.toInt())
             } else {
