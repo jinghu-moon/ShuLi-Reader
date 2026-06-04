@@ -4,8 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shuli.reader.core.data.ChineseConvert
 import com.shuli.reader.core.data.ReaderFontWeight
-import com.shuli.reader.core.text.ChineseConverter
-import com.shuli.reader.core.text.PanguSpacing
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.data.ReaderTheme
@@ -44,14 +42,13 @@ import com.shuli.reader.core.reader.SimpleTextMeasurer
 import com.shuli.reader.core.reader.animation.PageDelegate
 import com.shuli.reader.core.reader.animation.PageDelegateFactory
 import com.shuli.reader.core.reader.cache.CacheManager
-import com.shuli.reader.core.reader.model.PageSize
 import com.shuli.reader.core.reader.model.PageRenderMode
-import com.shuli.reader.core.reader.model.ReaderLayoutConfig
 import com.shuli.reader.core.reader.model.SelectionRange
 import com.shuli.reader.core.reader.model.TextChapter
 import com.shuli.reader.core.reader.model.TextPage
 import com.shuli.reader.core.repository.BookRepository
 import com.shuli.reader.core.repository.SearchResult
+import com.shuli.reader.feature.reader.pagination.ChapterPaginationCoordinator
 import com.shuli.reader.core.tts.TtsConfig
 import com.shuli.reader.core.tts.TtsController
 import com.shuli.reader.core.tts.TtsEngine
@@ -235,9 +232,6 @@ class ReaderViewModel(
     // 工具栏自动隐藏计时器
     private var toolbarAutoHideJob: Job? = null
 
-    // reflow 防抖 Job
-    private var reflowJob: Job? = null
-
     // 书签/笔记加载 Job（R11: 防止多次 openBook 堆积 Job）
     private var bookmarksJob: Job? = null
     private var notesJob: Job? = null
@@ -247,15 +241,22 @@ class ReaderViewModel(
 
     // T-41: 当前排版参数的哈希值，用于持久化 chapterPageCounts
     private var currentLayoutHash: String = ""
-    // T-41: 持久化防抖
-    private var lastPersistedCounts: Map<Int, Int> = emptyMap()
-    private var persistJob: Job? = null
 
     // R7: 章节缓存管理器（从 BookCacheStore 获取，跨 ViewModel 生命周期复用）
     private var cacheManager: CacheManager = CacheManager.forMemoryClass(256)
 
     // R7: 章节提供器（预加载相邻章节）
     private val chapterProvider = ChapterProvider(paginator)
+
+    // 章节分页协调器（SRP：分页/reflow/预加载/字数统计/坐标转换）
+    private val paginationCoordinator = ChapterPaginationCoordinator(
+        uiState = _uiState,
+        paginator = paginator,
+        cacheManager = cacheManager,
+        bookRepository = bookRepository,
+        appContext = appContext,
+        scope = viewModelScope,
+    )
 
     // R7: 阅读状态管理器（进度持久化 + 会话时长）
     private lateinit var readingStateManager: ReadingStateManager
@@ -335,10 +336,14 @@ class ReaderViewModel(
     private var currentBookFilePath: String? = null
     /** 当前书籍是否为 EPUB（轻量解析时 content 为空，跳过全量字数统计） */
     private var isCurrentBookEpub: Boolean = false
-    /** 当前章节的 utf16IndexToByte 映射表（v4：字节↔字符坐标桥接） */
-    private var currentChapterUtf16Map: IntArray = IntArray(0)
-    /** 缓存当前章节已解码文本，避免 loadChapterContent + paginateChapterStreaming 重复读文件 */
-    private var cachedChapterText: String? = null
+    /** 当前章节的 utf16IndexToByte 映射表（v4：字节↔字符坐标桥接） — 委托给 paginationCoordinator */
+    private var currentChapterUtf16Map: IntArray
+        get() = paginationCoordinator.currentChapterUtf16Map
+        set(value) { paginationCoordinator.updateUtf16Map(value) }
+    /** 缓存当前章节已解码文本，避免 loadChapterContent + paginateChapterStreaming 重复读文件 — 委托给 paginationCoordinator */
+    private var cachedChapterText: String?
+        get() = paginationCoordinator.cachedChapterText
+        set(value) { paginationCoordinator.cachedChapterText = value }
     private val ttsController = ttsEngine?.let { engine ->
         TtsController(
             engine = engine,
@@ -363,6 +368,7 @@ class ReaderViewModel(
     fun setDensity(value: Float) {
         if (density != value) {
             density = value
+            paginationCoordinator.density = value
             reflowCurrentChapter(_uiState.value.readerPreferences)
         }
     }
@@ -371,6 +377,8 @@ class ReaderViewModel(
         if (screenWidthPx == widthPx && screenHeightPx == heightPx) return
         screenWidthPx = widthPx
         screenHeightPx = heightPx
+        paginationCoordinator.screenWidthPx = widthPx
+        paginationCoordinator.screenHeightPx = heightPx
         reflowCurrentChapter(_uiState.value.readerPreferences)
     }
 
@@ -395,23 +403,11 @@ class ReaderViewModel(
 
     // ── 字节↔字符坐标桥接（v4） ──────────────────────────────────
 
-    /** UTF-16 char index → 章节内相对字节偏移（O(n) 线性扫描，映射表已排序） */
-    private fun charToByteOffset(charIndex: Int): Int {
-        val map = currentChapterUtf16Map
-        if (map.isEmpty()) return charIndex // 兜底：无映射时 1:1
-        val idx = charIndex.coerceIn(0, map.size - 1)
-        return map[idx]
-    }
+    /** UTF-16 char index → 章节内相对字节偏移 — 委托给 paginationCoordinator */
+    private fun charToByteOffset(charIndex: Int): Int = paginationCoordinator.charToByteOffset(charIndex)
 
-    /** 章节内相对字节偏移 → UTF-16 char index（O(n) 线性扫描） */
-    private fun byteToCharOffset(byteOffset: Int): Int {
-        val map = currentChapterUtf16Map
-        if (map.isEmpty()) return byteOffset // 兜底：无映射时 1:1
-        for (i in map.indices) {
-            if (map[i] > byteOffset) return (i - 1).coerceAtLeast(0)
-        }
-        return map.size - 1
-    }
+    /** 章节内相对字节偏移 → UTF-16 char index — 委托给 paginationCoordinator */
+    private fun byteToCharOffset(byteOffset: Int): Int = paginationCoordinator.byteToCharOffset(byteOffset)
 
     init {
         // 监听用户偏好设置变化
@@ -642,6 +638,7 @@ class ReaderViewModel(
                 logPerf("ensureChapterIndex [${book.fileType}]", indexStart)
 
                 currentBookFilePath = book.filePath
+                paginationCoordinator.currentBookFilePath = book.filePath
                 isCurrentBookEpub = book.fileType == "EPUB"
 
                 val chapterCount = chapterIndexList.size
@@ -669,6 +666,7 @@ class ReaderViewModel(
                 val parseStart = System.currentTimeMillis()
                 val (content, segment) = loadChapterContent(repository, book, chapterIndexList, chapterIndex)
                 loadedBookContent = content
+                paginationCoordinator.loadedBookContent = content
                 currentChapterUtf16Map = segment?.utf16IndexToByte ?: IntArray(0)
                 cachedChapterText = content.content.ifEmpty { null }
                 logPerf("loadChapterContent", parseStart)
@@ -690,17 +688,17 @@ class ReaderViewModel(
                 // 4. 流式分页：首页秒开，目标位置自动跳转
                 val paginateStart = System.currentTimeMillis()
                 // 计算布局哈希，用于持久化 chapterPageCounts
-                currentLayoutHash = computeLayoutHash(_uiState.value.readerPreferences)
-                chapterJob = paginateChapterStreaming(
+                currentLayoutHash = paginationCoordinator.computeLayoutHash(_uiState.value.readerPreferences)
+                chapterJob = paginationCoordinator.paginateChapterStreaming(
                     content = content,
                     index = chapterIndex,
                     targetCharOffset = targetCharOffset,
                     onDone = {
                         logPerf("firstPageReady", perfStart)
-                        preloadAdjacentChapters(content, chapterIndex)
+                        paginationCoordinator.preloadAdjacentChapters(content, chapterIndex)
                         // TXT: 从 DB 章节索引直接计算字数
                         if (!isCurrentBookEpub) {
-                            computeChapterWordCounts(chapterIndexList)
+                            paginationCoordinator.computeChapterWordCounts(chapterIndexList)
                         }
                         // 加载已持久化的页数缓存（异步，不阻塞首屏）
                         viewModelScope.launch(Dispatchers.Default) {
@@ -806,7 +804,7 @@ class ReaderViewModel(
             )
             // R7: 翻页时防抖保存阅读进度
             saveReadingProgress(immediate = false)
-        } else if (loadedBookContent != null && state.chapterIndex < loadedBookContent!!.normalizedChapters().size - 1) {
+        } else if (loadedBookContent != null && state.chapterIndex < paginationCoordinator.run { loadedBookContent!!.normalizedChapters() }.size - 1) {
             // 跨章：打开下一章
             openChapter(state.chapterIndex + 1)
         } else {
@@ -1022,9 +1020,10 @@ class ReaderViewModel(
             viewModelScope.launch { openFallbackChapter(index) }
             return
         }
-        android.util.Log.d(TAG, "openChapter[$index]: loadedBookContent 非 null，章节数=${content.normalizedChapters().size}")
+        val normalizedChapters = paginationCoordinator.run { content.normalizedChapters() }
+        android.util.Log.d(TAG, "openChapter[$index]: loadedBookContent 非 null，章节数=${normalizedChapters.size}")
 
-        val safeIndex = index.coerceIn(0, (content.normalizedChapters().size - 1).coerceAtLeast(0))
+        val safeIndex = index.coerceIn(0, (normalizedChapters.size - 1).coerceAtLeast(0))
 
         // M1: 取消上一次章节加载，防止快速连续调用导致并发冲突
         chapterJob?.cancel()
@@ -1041,14 +1040,14 @@ class ReaderViewModel(
             -1
         }
 
-        chapterJob = paginateChapterStreaming(
+        chapterJob = paginationCoordinator.paginateChapterStreaming(
             content = content,
             index = safeIndex,
             targetCharOffset = targetCharOffset,
             onDone = {
                 // v4: 如果有 targetByteOffset，加载完章节后用映射转为 charOffset 再跳转
                 if (targetByteOffset >= 0 && !targetToLastPage) {
-                    val chapters = content.normalizedChapters()
+                    val chapters = paginationCoordinator.run { content.normalizedChapters() }
                     val chapterByteStart = chapters.getOrNull(safeIndex)?.byteStart ?: 0L
                     val relativeByte = (targetByteOffset - chapterByteStart).toInt().coerceAtLeast(0)
                     val charOffset = byteToCharOffset(relativeByte)
@@ -1073,7 +1072,7 @@ class ReaderViewModel(
                     }
                 }
                 saveReadingProgress(immediate = true)
-                preloadAdjacentChapters(content, safeIndex)
+                paginationCoordinator.preloadAdjacentChapters(content, safeIndex)
                 // TTS 跨章连续播放：章节加载完成后从首页继续朗读
                 if (ttsPendingResume) {
                     ttsPendingResume = false
@@ -1981,7 +1980,7 @@ class ReaderViewModel(
                 return
             }
 
-            val totalChapters = loadedBookContent?.normalizedChapters()?.size ?: 0
+            val totalChapters = loadedBookContent?.let { paginationCoordinator.run { it.normalizedChapters() } }?.size ?: 0
             if (state.chapterIndex < totalChapters - 1) {
                 ttsPendingResume = true
                 openChapter(state.chapterIndex + 1)
@@ -2108,376 +2107,12 @@ class ReaderViewModel(
         )
     }
 
-    /**
-     * 异步计算所有章节字数，不阻塞首屏加载。
-     * v4: 直接使用 BookChapterEntity.wordCount（解析时已计算）。
-     */
-    private fun computeChapterWordCounts(chapterEntities: List<com.shuli.reader.core.database.entity.BookChapterEntity>) {
-        viewModelScope.launch(Dispatchers.Default) {
-            val counts = chapterEntities.map { it.wordCount.coerceAtLeast(0) }
-            _uiState.value = _uiState.value.copy(chapterWordCounts = counts)
-        }
-    }
 
-    private suspend fun paginateChapter(content: BookContent, index: Int): TextChapter? {
-        val chapters = content.normalizedChapters()
-        val chapter = chapters.getOrNull(index) ?: return null
 
-        // R7: 查询章节缓存
-        val config = layoutConfigFor(_uiState.value.readerPreferences)
-        val prefs = _uiState.value.readerPreferences
-        val cacheKey = CacheManager.ChapterCacheKey(
-            bookId = _uiState.value.bookId.toString(),
-            chapterIndex = index,
-            textSize = config.textSize,
-            lineHeight = config.lineHeight,
-            pageWidth = config.pageSize.width,
-            pageHeight = config.pageSize.height,
-            letterSpacingPx = config.letterSpacingPx,
-            marginHorizontal = config.marginHorizontal,
-            marginVertical = config.marginVertical,
-            indent = config.indent,
-            showHeader = prefs.header.visibility != HeaderVisibility.ALWAYS_HIDE,
-            showFooter = prefs.footer.visibility != HeaderVisibility.ALWAYS_HIDE,
-            chineseConvert = prefs.chineseConvert.ordinal,
-            usePanguSpacing = prefs.usePanguSpacing,
-            titleAlignOrdinal = prefs.titleStyle.align.ordinal,
-            titleSizeOffsetSp = prefs.titleStyle.sizeOffsetSp,
-            titleMarginTopDp = prefs.titleStyle.marginTopDp,
-            titleMarginBottomDp = prefs.titleStyle.marginBottomDp,
-        )
-        cacheManager.getChapter(cacheKey)?.let { return it }
-
-        val repository = bookRepository
-        val filePath = currentBookFilePath
-        val chapterText = if (repository != null && filePath != null) {
-            withContext(Dispatchers.IO) {
-                repository.getChapterText(File(filePath), index, content)
-            }
-        } else {
-            content.chapterText(chapter)
-        }
-
-        // 应用简繁转换
-        val convertedText = when (prefs.chineseConvert) {
-            ChineseConvert.NONE -> chapterText
-            ChineseConvert.SIMPLIFIED -> ChineseConverter.toSimplified(chapterText)
-            ChineseConvert.TRADITIONAL -> ChineseConverter.toTraditional(chapterText)
-        }
-
-        // 应用盘古之白
-        val finalText = if (prefs.usePanguSpacing) PanguSpacing.insert(convertedText) else convertedText
-
-        val showHeader = prefs.header.visibility != HeaderVisibility.ALWAYS_HIDE
-        val showFooter = prefs.footer.visibility != HeaderVisibility.ALWAYS_HIDE
-
-        return withContext(Dispatchers.Default) {
-            paginator.paginateChapter(
-                chapterIndex = index,
-                title = chapter.title,
-                content = finalText,
-                config = config,
-                showHeader = showHeader,
-                showFooter = showFooter,
-            ).also { result ->
-                // R7: 存入章节缓存
-                cacheManager.putChapter(cacheKey, result)
-            }
-        }
-    }
-
-    /**
-     * 流式分页：首页先显示，其余后台继续
-     */
-    private fun paginateChapterStreaming(
-        content: BookContent,
-        index: Int,
-        targetCharOffset: Int = 0,
-        onDone: (() -> Unit)? = null,
-        /** reflow 场景注入缩放比投影，非 reflow 传 null 走简单 merge */
-        onMergePageCounts: ((oldPageCounts: Map<Int, Int>, newPageSize: Int) -> Map<Int, Int>)? = null,
-    ): Job {
-        val chapters = content.normalizedChapters()
-        val chapterMeta = chapters.getOrNull(index) ?: return Job().apply { complete() }
-
-        val config = layoutConfigFor(_uiState.value.readerPreferences)
-        val repository = bookRepository
-        val filePath = currentBookFilePath
-
-        // R1: 缓存命中快路径——跳过 IO + 分页，直接恢复 UI 状态
-        val prefs = _uiState.value.readerPreferences
-        val cacheKey = CacheManager.ChapterCacheKey(
-            bookId = _uiState.value.bookId.toString(),
-            chapterIndex = index,
-            textSize = config.textSize,
-            lineHeight = config.lineHeight,
-            pageWidth = config.pageSize.width,
-            pageHeight = config.pageSize.height,
-            letterSpacingPx = config.letterSpacingPx,
-            marginHorizontal = config.marginHorizontal,
-            marginVertical = config.marginVertical,
-            indent = config.indent,
-            showHeader = prefs.header.visibility != HeaderVisibility.ALWAYS_HIDE,
-            showFooter = prefs.footer.visibility != HeaderVisibility.ALWAYS_HIDE,
-            chineseConvert = prefs.chineseConvert.ordinal,
-            usePanguSpacing = prefs.usePanguSpacing,
-            titleAlignOrdinal = prefs.titleStyle.align.ordinal,
-            titleSizeOffsetSp = prefs.titleStyle.sizeOffsetSp,
-            titleMarginTopDp = prefs.titleStyle.marginTopDp,
-            titleMarginBottomDp = prefs.titleStyle.marginBottomDp,
-        )
-        cacheManager.getChapter(cacheKey)?.let { cached ->
-            android.util.Log.d(TAG, "openChapter[$index]: 缓存命中, pages=${cached.pageSize}")
-            return viewModelScope.launch {
-                _uiState.value = _uiState.value.copy(
-                    currentChapter = cached,
-                    chapterIndex = index,
-                    chapterTitle = chapterMeta.title,
-                    totalPages = cached.pageSize,
-                    chapterPageCounts = _uiState.value.chapterPageCounts + (index to cached.pageSize),
-                    isLoading = false,
-                    isReflowing = false,
-                )
-                // P6: 按 targetCharOffset 跳转或显示首页
-                val startPage = if (targetCharOffset > 0) {
-                    cached.getPageIndexByCharIndex(targetCharOffset)
-                } else {
-                    0
-                }
-                _uiState.value = _uiState.value.copy(
-                    pageIndex = startPage,
-                    currentPage = cached.getPage(startPage),
-                )
-                // 持久化页数到文件
-                persistPageCounts()
-                onDone?.invoke()
-            }
-        }
-
-        android.util.Log.d(TAG, "openChapter[$index]: 缓存未命中, 开始加载章节文本")
-
-        return viewModelScope.launch {
-            // reflow 时不显示 loading，保留旧页面内容
-            val isReflow = _uiState.value.currentPage != null
-            if (!isReflow) {
-                _uiState.value = _uiState.value.copy(isLoading = true)
-            }
-
-            try {
-                val textLoadStart = System.currentTimeMillis()
-                // 优先使用缓存文本（openBook 已预加载），避免重复读文件
-                val cached = cachedChapterText
-                val chapterText = if (cached != null) {
-                    cachedChapterText = null // 一次性缓存，用完即清
-                    cached
-                } else if (repository != null && filePath != null) {
-                    withContext(Dispatchers.IO) {
-                        repository.getChapterText(File(filePath), index, content)
-                    }
-                } else {
-                    content.chapterText(chapterMeta)
-                }
-                logPerf("getChapterText[$index]", textLoadStart)
-
-                // 应用简繁转换
-                val convertedText = when (_uiState.value.readerPreferences.chineseConvert) {
-                    ChineseConvert.NONE -> chapterText
-                    ChineseConvert.SIMPLIFIED -> ChineseConverter.toSimplified(chapterText)
-                    ChineseConvert.TRADITIONAL -> ChineseConverter.toTraditional(chapterText)
-                }
-
-                // 应用盘古之白
-                val panguPrefs = _uiState.value.readerPreferences
-                val finalText = if (panguPrefs.usePanguSpacing) PanguSpacing.insert(convertedText) else convertedText
-
-                val chapter = TextChapter(
-                    chapterIndex = index,
-                    title = chapterMeta.title,
-                    content = finalText,
-                )
-
-                // 设置监听器：首页就绪时立即显示
-                chapter.layoutListener = object : TextChapter.LayoutListener {
-                    override fun onPageReady(pageIndex: Int, page: TextPage) {
-                        val currentState = _uiState.value
-                        if (currentState.chapterIndex != index) return
-
-                        // 首页就绪：以下任一条件满足时立即显示
-                        // 1. currentPage 为 null（首次加载）
-                        // 2. isReflowing（排版参数变化）
-                        // 3. currentPage 属于旧章节（章节切换，isReflow=true 保留旧页面场景）
-                        val isChapterSwitch = currentState.currentPage?.chapterIndex?.let { it != index } ?: false
-                        if (pageIndex == 0 && (currentState.currentPage == null || currentState.isReflowing || isChapterSwitch)) {
-                            _uiState.value = currentState.copy(
-                                currentPage = page,
-                                pageIndex = 0,
-                            )
-                        } else if (targetCharOffset > 0 &&
-                            page.startCharOffset <= targetCharOffset &&
-                            targetCharOffset < page.endCharOffset
-                        ) {
-                            // 目标页就绪：跳转到目标位置
-                            _uiState.value = _uiState.value.copy(
-                                currentPage = page,
-                                pageIndex = pageIndex,
-                            )
-                        }
-                    }
-
-                    override fun onLayoutCompleted() {
-                        val currentState = _uiState.value
-                        if (currentState.chapterIndex != index) return
-                        // 缩放比投影（reflow）或简单 merge（普通加载）
-                        val mergedPageCounts = onMergePageCounts?.invoke(currentState.chapterPageCounts, chapter.pageSize)
-                            ?: currentState.chapterPageCounts
-                        _uiState.value = currentState.copy(
-                            totalPages = chapter.pageSize,
-                            chapterPageCounts = mergedPageCounts + (index to chapter.pageSize),
-                            isLoading = false,
-                            isReflowing = false,
-                            layoutVersion = currentState.layoutVersion + 1,
-                        )
-                        // 存入缓存
-                        cacheManager.putChapter(cacheKey, chapter)
-                        // 持久化页数到文件
-                        persistPageCounts()
-                        if (com.shuli.reader.BuildConfig.DEBUG) {
-                            android.util.Log.d(TAG, "layoutCompleted[$index]: ${chapter.pageSize} pages")
-                        }
-                    }
-                }
-
-                // reflow 时保留旧页面，避免 currentPage=null 导致闪烁
-                // 首次加载时清空页面显示 loading
-                val isReflow = _uiState.value.currentPage != null
-                _uiState.value = _uiState.value.copy(
-                    currentChapter = chapter,
-                    chapterIndex = index,
-                    chapterTitle = chapterMeta.title,
-                    currentPage = if (isReflow) _uiState.value.currentPage else null,
-                    pageIndex = if (isReflow) _uiState.value.pageIndex else 0,
-                    totalPages = if (isReflow) _uiState.value.totalPages else 0,
-                )
-
-                // 流式分页
-                val showHeader = _uiState.value.readerPreferences.header.visibility != HeaderVisibility.ALWAYS_HIDE
-                val showFooter = _uiState.value.readerPreferences.footer.visibility != HeaderVisibility.ALWAYS_HIDE
-                withContext(Dispatchers.Default) {
-                    paginator.paginateStreaming(chapter, finalText, config, showHeader = showHeader, showFooter = showFooter).collect()
-                    chapter.markCompleted()
-                }
-
-                onDone?.invoke()
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message,
-                )
-            }
-        }
-    }
-
-    /**
-     * R7: 预加载相邻章节（异步，不阻塞当前流程）
-     */
-    private fun preloadAdjacentChapters(content: BookContent, currentIndex: Int) {
-        val chapters = content.normalizedChapters()
-        val config = layoutConfigFor(_uiState.value.readerPreferences)
-        val bookId = _uiState.value.bookId.toString()
-
-        val indicesToPreload = listOfNotNull(
-            (currentIndex - 1).takeIf { it >= 0 },
-            (currentIndex + 1).takeIf { it < chapters.size },
-        )
-
-        val prefs = _uiState.value.readerPreferences
-        for (index in indicesToPreload) {
-            val cacheKey = CacheManager.ChapterCacheKey(
-                bookId = bookId,
-                chapterIndex = index,
-                textSize = config.textSize,
-                lineHeight = config.lineHeight,
-                pageWidth = config.pageSize.width,
-                pageHeight = config.pageSize.height,
-                letterSpacingPx = config.letterSpacingPx,
-                marginHorizontal = config.marginHorizontal,
-                marginVertical = config.marginVertical,
-                indent = config.indent,
-                showHeader = prefs.header.visibility != HeaderVisibility.ALWAYS_HIDE,
-                showFooter = prefs.footer.visibility != HeaderVisibility.ALWAYS_HIDE,
-                chineseConvert = prefs.chineseConvert.ordinal,
-                usePanguSpacing = prefs.usePanguSpacing,
-                titleAlignOrdinal = prefs.titleStyle.align.ordinal,
-                titleSizeOffsetSp = prefs.titleStyle.sizeOffsetSp,
-                titleMarginTopDp = prefs.titleStyle.marginTopDp,
-                titleMarginBottomDp = prefs.titleStyle.marginBottomDp,
-            )
-            if (cacheManager.getChapter(cacheKey) != null) continue
-
-            viewModelScope.launch(Dispatchers.Default) {
-                val chapter = chapters[index]
-                val repository = bookRepository
-                val filePath = currentBookFilePath
-                val chapterText = if (repository != null && filePath != null) {
-                    withContext(Dispatchers.IO) {
-                        repository.getChapterText(File(filePath), index, content)
-                    }
-                } else {
-                    content.chapterText(chapter)
-                }
-
-                // 应用简繁转换（与 paginateChapterStreaming 保持一致）
-                val convertedText = when (prefs.chineseConvert) {
-                    ChineseConvert.NONE -> chapterText
-                    ChineseConvert.SIMPLIFIED -> ChineseConverter.toSimplified(chapterText)
-                    ChineseConvert.TRADITIONAL -> ChineseConverter.toTraditional(chapterText)
-                }
-                val finalText = if (prefs.usePanguSpacing) PanguSpacing.insert(convertedText) else convertedText
-
-                val result = paginator.paginateChapter(
-                    chapterIndex = index,
-                    title = chapter.title,
-                    content = finalText,
-                    config = config,
-                )
-                cacheManager.putChapter(cacheKey, result)
-            }
-        }
-    }
 
     private fun reflowCurrentChapter(preferences: ReaderPreferences) {
-        val state = _uiState.value
-        val chapter = state.currentChapter ?: return
-        val charOffset = state.currentPage?.startCharOffset ?: 0
-        val content = loadedBookContent ?: return
-        // reflow 前记录当前章节旧页数，用于缩放比投影（coerceAtLeast(1) 防止首屏 totalPages=0 时除零）
-        val oldCurrentPages = (state.chapterPageCounts[chapter.chapterIndex] ?: state.totalPages).coerceAtLeast(1)
-        // 布局参数已变，更新哈希（新哈希用于持久化，旧文件自然失效）
-        currentLayoutHash = computeLayoutHash(preferences)
-        reflowJob?.cancel()
-        reflowJob = viewModelScope.launch {
-            // 无防抖：滑块拖动时实时 reflow，旧协程通过 cancel 自动取消
-
-            // R7: 布局参数变化时清理旧缓存（key 中的 textSize/lineHeight/pageSize 已变）
-            cacheManager.clearBook(state.bookId.toString())
-
-            // 缩放比投影：reflow 完成后按比例修正所有旧页数，不清空 map
-            val mergeFn: (Map<Int, Int>, Int) -> Map<Int, Int> = { oldMap, newPageSize ->
-                if (oldCurrentPages > 0 && newPageSize > 0) {
-                    val scale = newPageSize.toDouble() / oldCurrentPages
-                    oldMap.mapValues { (_, p) -> (p * scale).toInt().coerceAtLeast(1) }
-                } else {
-                    oldMap
-                }
-            }
-            // 流式分页：首页秒开，自动跳转到之前的阅读位置
-            paginateChapterStreaming(
-                content = content,
-                index = chapter.chapterIndex,
-                targetCharOffset = charOffset,
-                onMergePageCounts = mergeFn,
-            )
-        }
+        currentLayoutHash = paginationCoordinator.computeLayoutHash(preferences)
+        paginationCoordinator.reflowCurrentChapter(preferences, currentLayoutHash)
     }
 
     // ── 预设管理 ──────────────────────────────────────────────
@@ -2733,72 +2368,6 @@ class ReaderViewModel(
         }
         
         return Pair(header, footer)
-    }
-
-    private fun layoutConfigFor(preferences: ReaderPreferences): ReaderLayoutConfig {
-        val textSizePx = preferences.fontSize * density
-        return ReaderLayoutConfig(
-            pageSize = PageSize(screenWidthPx, screenHeightPx),
-            textSize = textSizePx,
-            lineHeight = preferences.lineSpacing,
-            paragraphSpacing = preferences.paragraphSpacing * textSizePx,
-            marginHorizontal = preferences.marginHorizontal * density,
-            marginVertical = preferences.marginVertical * density,
-            indent = preferences.indent,
-            density = this.density,
-            letterSpacingPx = preferences.letterSpacing * textSizePx,
-            titleStyle = preferences.titleStyle,
-            useZhLayout = preferences.useZhLayout,
-            bottomJustify = preferences.bottomJustify,
-            headerMarginTop = preferences.header.marginTop * density,
-            footerMarginBottom = preferences.footer.marginBottom * density,
-        )
-    }
-
-    /** 计算当前排版参数的布局哈希，用于持久化 chapterPageCounts */
-    private fun computeLayoutHash(preferences: ReaderPreferences): String {
-        val config = layoutConfigFor(preferences)
-        return com.shuli.reader.core.reader.cache.PageCountPersistence.computeLayoutHash(
-            config = config,
-            showHeader = preferences.header.visibility != HeaderVisibility.ALWAYS_HIDE,
-            showFooter = preferences.footer.visibility != HeaderVisibility.ALWAYS_HIDE,
-            chineseConvert = preferences.chineseConvert.ordinal,
-            usePanguSpacing = preferences.usePanguSpacing,
-        )
-    }
-
-    /** 持久化 chapterPageCounts 到文件（300ms 防抖 + 结构去重） */
-    private fun persistPageCounts() {
-        val ctx = appContext ?: return
-        val state = _uiState.value
-        val counts = state.chapterPageCounts
-        if (counts.isEmpty() || currentLayoutHash.isEmpty()) return
-        if (counts == lastPersistedCounts) return
-        persistJob?.cancel()
-        persistJob = viewModelScope.launch(Dispatchers.IO) {
-            kotlinx.coroutines.delay(300)
-            try {
-                com.shuli.reader.core.reader.cache.PageCountPersistence.save(
-                    ctx, state.bookId.toString(), currentLayoutHash, counts,
-                )
-                lastPersistedCounts = counts  // 落盘成功后才标记，防止进程退出时丢数据
-            } catch (_: Exception) { /* PageCountPersistence.save 内部已记录日志 */ }
-        }
-    }
-
-    private fun BookContent.normalizedChapters(): List<Chapter> {
-        if (chapters.isNotEmpty()) return chapters
-        return if (content.isNotBlank()) {
-            listOf(Chapter(title = "Full Text", byteStart = 0L, byteEnd = content.length.toLong()))
-        } else {
-            emptyList()
-        }
-    }
-
-    private fun BookContent.chapterText(chapter: Chapter): String {
-        // v4: 对于 EPUB，content 已是完整文本，直接返回
-        // 对于 TXT，此方法不再使用（改用 loadChapterText）
-        return content
     }
 
     override fun onCleared() {
