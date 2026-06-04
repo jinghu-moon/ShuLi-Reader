@@ -48,6 +48,7 @@ import com.shuli.reader.core.reader.model.TextChapter
 import com.shuli.reader.core.reader.model.TextPage
 import com.shuli.reader.core.repository.BookRepository
 import com.shuli.reader.core.repository.SearchResult
+import com.shuli.reader.feature.reader.notes.BookmarkNotesManager
 import com.shuli.reader.feature.reader.pagination.ChapterPaginationCoordinator
 import com.shuli.reader.feature.reader.tts.TtsPlaybackManager
 import com.shuli.reader.core.tts.TtsConfig
@@ -233,10 +234,6 @@ class ReaderViewModel(
     // 工具栏自动隐藏计时器
     private var toolbarAutoHideJob: Job? = null
 
-    // 书签/笔记加载 Job（R11: 防止多次 openBook 堆积 Job）
-    private var bookmarksJob: Job? = null
-    private var notesJob: Job? = null
-
     // M1: 章节加载 Job（防止快速连续调用导致多个 openChapter 并发）
     private var chapterJob: Job? = null
 
@@ -355,6 +352,18 @@ class ReaderViewModel(
         onOpenChapter = { this@ReaderViewModel.openChapter(it) }
         onGetChapterCount = { loadedBookContent?.let { paginationCoordinator.run { it.normalizedChapters() } }?.size ?: 0 }
         onSentenceRangesForCurrentPage = { this@ReaderViewModel.sentenceRangesForCurrentPage() }
+    }
+    private val notesManager = BookmarkNotesManager(
+        uiState = _uiState,
+        bookmarkDao = bookmarkDao,
+        noteDao = noteDao,
+        scope = viewModelScope,
+    ).apply {
+        onGetLoadedBookContent = { loadedBookContent }
+        onCharToByteOffset = { this@ReaderViewModel.charToByteOffset(it) }
+        onByteToCharOffset = { this@ReaderViewModel.byteToCharOffset(it) }
+        onJumpToChapterPosition = { chapterIndex, byteOffset -> this@ReaderViewModel.jumpToChapterPosition(chapterIndex, byteOffset) }
+        onClearTextSelection = { this@ReaderViewModel.clearTextSelection() }
     }
 
     var density: Float = 3f
@@ -1539,17 +1548,11 @@ class ReaderViewModel(
     }
 
     fun addBookmarkFromSelection() {
-        val range = _uiState.value.selectedRange ?: return
-        addBookmark(range)
-        clearTextSelection()
+        notesManager.addBookmarkFromSelection()
     }
 
     fun addNoteFromSelection() {
-        val range = _uiState.value.selectedRange ?: return
-        val content = range.selectedText.orEmpty()
-        if (content.isBlank()) return
-        addNote(range, content)
-        clearTextSelection()
+        notesManager.addNoteFromSelection()
     }
 
     // ── TTS 朗读（委托给 ttsManager）──────────────────────────────
@@ -1584,6 +1587,7 @@ class ReaderViewModel(
         toolbarAutoHideJob?.cancel()
         toolbarAutoHideJob = null
         ttsManager.release()
+        notesManager.release()
     }
 
     // ── 正文搜索 ──────────────────────────────────────────────
@@ -1652,203 +1656,24 @@ class ReaderViewModel(
         jumpToChapterPosition(result.chapterIndex, result.byteOffset)
     }
 
-    // ── 书签管理 ──────────────────────────────────────────────
+    // ── 书签管理（委托给 notesManager）────────────────────────────
 
-    /**
-     * 在当前位置添加书签（v4：使用字节偏移）
-     */
-    fun addBookmark(selectedText: String? = null) {
-        val dao = bookmarkDao ?: return
-        val state = _uiState.value
-        if (state.bookId == 0L) return
+    fun addBookmark(selectedText: String? = null) = notesManager.addBookmark(selectedText)
+    fun addBookmark(range: SelectionRange) = notesManager.addBookmark(range)
+    fun deleteBookmark(bookmark: BookmarkEntity) = notesManager.deleteBookmark(bookmark)
+    fun goToBookmark(bookmark: BookmarkEntity) = notesManager.goToBookmark(bookmark)
+    fun loadBookmarks() = notesManager.loadBookmarks()
 
-        viewModelScope.launch {
-            val page = state.currentPage
-            val chapters = loadedBookContent?.chapters
-            val chapterByteStart = chapters?.getOrNull(state.chapterIndex)?.byteStart ?: 0L
-            val charOffset = page?.startCharOffset ?: 0
-            val byteOffset = chapterByteStart + charToByteOffset(charOffset)
+    // ── 笔记管理（委托给 notesManager）────────────────────────────
 
-            val bookmark = BookmarkEntity(
-                bookId = state.bookId,
-                createdTime = System.currentTimeMillis(),
-                byteOffset = byteOffset,
-                selectedText = selectedText,
-                chapterIndex = state.chapterIndex,
-                chapterTitle = state.chapterTitle,
-            )
-            dao.insertBookmark(bookmark)
-            loadBookmarks()
-        }
-    }
-
-    /**
-     * 使用选区添加书签
-     */
-    fun addBookmark(range: SelectionRange) {
-        addBookmark(range.selectedText)
-    }
-
-    /**
-     * 删除书签
-     */
-    fun deleteBookmark(bookmark: BookmarkEntity) {
-        val dao = bookmarkDao ?: return
-        viewModelScope.launch {
-            dao.deleteBookmark(bookmark)
-            loadBookmarks()
-        }
-    }
-
-    /**
-     * 跳转到书签位置（v4：字节偏移）
-     */
-    fun goToBookmark(bookmark: BookmarkEntity) {
-        val chapters = loadedBookContent?.chapters
-        if (chapters.isNullOrEmpty()) return
-        // 通过 byteOffset 查找所在章节
-        val chapterIndex = chapters.indexOfLast { it.byteStart <= bookmark.byteOffset }
-            .coerceIn(0, chapters.lastIndex)
-        jumpToChapterPosition(chapterIndex, bookmark.byteOffset)
-    }
-
-    /**
-     * 加载当前书籍的书签列表
-     */
-    fun loadBookmarks() {
-        val dao = bookmarkDao ?: return
-        val state = _uiState.value
-        if (state.bookId == 0L) return
-
-        bookmarksJob?.cancel()
-        bookmarksJob = viewModelScope.launch {
-            dao.getBookmarksByBookId(state.bookId).collect { bookmarks ->
-                _uiState.value = _uiState.value.copy(bookmarks = bookmarks)
-            }
-        }
-    }
-
-    // ── 笔记管理 ──────────────────────────────────────────────
-
-    /**
-     * 添加笔记（v4：使用字节偏移）
-     */
-    fun addNote(startPos: Int, endPos: Int, content: String, color: String? = null) {
-        val dao = noteDao ?: return
-        val state = _uiState.value
-        if (state.bookId == 0L) return
-
-        viewModelScope.launch {
-            val chapters = loadedBookContent?.chapters
-            val chapterByteStart = chapters?.getOrNull(state.chapterIndex)?.byteStart ?: 0L
-            val byteStart = chapterByteStart + charToByteOffset(startPos)
-            val byteEnd = chapterByteStart + charToByteOffset(endPos)
-
-            val note = NoteEntity(
-                bookId = state.bookId,
-                createdTime = System.currentTimeMillis(),
-                byteStart = byteStart.toLong(),
-                byteEnd = byteEnd.toLong(),
-                noteText = content,
-                color = color,
-            )
-            dao.insertNote(note)
-            loadNotes()
-        }
-    }
-
-    /**
-     * 使用选区添加笔记
-     */
-    fun addNote(range: SelectionRange, content: String, color: String? = null) {
-        addNote(range.startPos, range.endPos, content, color)
-    }
-
-    /**
-     * 删除笔记
-     */
-    fun deleteNote(note: NoteEntity) {
-        val dao = noteDao ?: return
-        viewModelScope.launch {
-            dao.deleteNote(note)
-            loadNotes()
-        }
-    }
-
-    fun updateNote(note: NoteEntity, newText: String, newColor: String? = note.color) {
-        val dao = noteDao ?: return
-        if (newText.isBlank()) return
-        viewModelScope.launch {
-            dao.updateNote(note.copy(noteText = newText, color = newColor))
-            loadNotes()
-        }
-    }
-
-    /**
-     * 跳转到笔记位置（v4：字节偏移）
-     */
-    fun goToNote(note: NoteEntity) {
-        val chapters = loadedBookContent?.chapters
-        if (chapters.isNullOrEmpty()) return
-        val chapterIndex = chapters.indexOfLast { it.byteStart <= note.byteStart }
-            .coerceIn(0, chapters.lastIndex)
-        jumpToChapterPosition(chapterIndex, note.byteStart)
-    }
-
-    /**
-     * 加载当前书籍的笔记列表
-     */
-    fun loadNotes() {
-        val dao = noteDao ?: return
-        val state = _uiState.value
-        if (state.bookId == 0L) return
-
-        notesJob?.cancel()
-        notesJob = viewModelScope.launch {
-            dao.getNotesByBookId(state.bookId).collect { notes ->
-                _uiState.value = _uiState.value.copy(notes = notes)
-            }
-        }
-    }
-
-    fun getVisibleNoteRanges(): List<Pair<SelectionRange, String?>> {
-        val state = _uiState.value
-        val chapter = state.currentChapter ?: return emptyList()
-        val chapters = loadedBookContent?.chapters ?: return emptyList()
-        val chapterByteStart = chapters.getOrNull(state.chapterIndex)?.byteStart ?: 0L
-        val chapterByteEnd = chapters.getOrNull(state.chapterIndex + 1)?.byteStart ?: Long.MAX_VALUE
-
-        return state.notes
-            .filter { it.byteStart >= chapterByteStart && it.byteStart < chapterByteEnd && it.color != null }
-            .mapNotNull { note ->
-                val relativeStart = (note.byteStart - chapterByteStart).toInt().coerceAtLeast(0)
-                val relativeEnd = (note.byteEnd - chapterByteStart).toInt().coerceAtLeast(0)
-                val charStart = byteToCharOffset(relativeStart)
-                val charEnd = byteToCharOffset(relativeEnd)
-                if (charStart < charEnd) {
-                    SelectionRange(
-                        chapterIndex = state.chapterIndex,
-                        startPos = charStart,
-                        endPos = charEnd,
-                    ) to note.color
-                } else null
-            }
-    }
-
-    fun exportNotesAsMarkdown(): String? {
-        val state = _uiState.value
-        if (state.notes.isEmpty() || state.bookTitle.isBlank()) return null
-        val sb = StringBuilder()
-        sb.append("# ${state.bookTitle} — Notes\n\n")
-        for (note in state.notes.sortedBy { it.byteStart }) {
-            sb.append("## ${note.noteText.take(40)}\n")
-            sb.append("- Position: ${note.byteStart}-${note.byteEnd}\n")
-            if (note.color != null) sb.append("- Color: ${note.color}\n")
-            sb.append("- Created: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(note.createdTime))}\n")
-            sb.append("\n${note.noteText}\n\n---\n\n")
-        }
-        return sb.toString()
-    }
+    fun addNote(startPos: Int, endPos: Int, content: String, color: String? = null) = notesManager.addNote(startPos, endPos, content, color)
+    fun addNote(range: SelectionRange, content: String, color: String? = null) = notesManager.addNote(range, content, color)
+    fun deleteNote(note: NoteEntity) = notesManager.deleteNote(note)
+    fun updateNote(note: NoteEntity, newText: String, newColor: String? = note.color) = notesManager.updateNote(note, newText, newColor)
+    fun goToNote(note: NoteEntity) = notesManager.goToNote(note)
+    fun loadNotes() = notesManager.loadNotes()
+    fun getVisibleNoteRanges(): List<Pair<SelectionRange, String?>> = notesManager.getVisibleNoteRanges()
+    fun exportNotesAsMarkdown(): String? = notesManager.exportNotesAsMarkdown()
 
     private fun sentenceRangesForCurrentPage(): List<SelectionRange> {
         val page = _uiState.value.currentPage ?: return emptyList()
