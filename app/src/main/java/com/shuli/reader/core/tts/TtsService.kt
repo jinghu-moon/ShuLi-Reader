@@ -69,20 +69,20 @@ class TtsService : Service() {
 
         val playPauseAction = if (playing) {
             Notification.Action.Builder(
-                android.R.drawable.ic_media_pause,
+                android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_media_pause),
                 getString(android.R.string.cancel),
                 createActionIntent(ACTION_PAUSE),
             ).build()
         } else {
             Notification.Action.Builder(
-                android.R.drawable.ic_media_play,
+                android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_media_play),
                 getString(android.R.string.ok),
                 createActionIntent(ACTION_PLAY),
             ).build()
         }
 
         val stopAction = Notification.Action.Builder(
-            android.R.drawable.ic_menu_close_clear_cancel,
+            android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_menu_close_clear_cancel),
             getString(android.R.string.cancel),
             createActionIntent(ACTION_STOP),
         ).build()
