@@ -49,6 +49,7 @@ import com.shuli.reader.core.repository.BookRepository
 import com.shuli.reader.core.repository.SearchResult
 import com.shuli.reader.feature.reader.book.BookSessionManager
 import com.shuli.reader.feature.reader.notes.BookmarkNotesManager
+import com.shuli.reader.feature.reader.presets.ReaderPresetManager
 import com.shuli.reader.feature.reader.pagination.ChapterPaginationCoordinator
 import com.shuli.reader.feature.reader.tts.TtsPlaybackManager
 import com.shuli.reader.core.tts.TtsConfig
@@ -264,6 +265,14 @@ class ReaderViewModel(
         onGetLoadedBookContent = { loadedBookContent }
         onCharToByteOffset = { this@ReaderViewModel.charToByteOffset(it) }
         onIsCurrentBookEpub = { isCurrentBookEpub }
+    }
+
+    private val presetManager = ReaderPresetManager(
+        uiState = _uiState,
+        presetDao = presetDao,
+        scope = viewModelScope,
+    ).apply {
+        onApplyPreferences = { prefs -> applyAllPreferences(prefs) }
     }
 
     init {
@@ -1491,6 +1500,7 @@ class ReaderViewModel(
         toolbarAutoHideJob = null
         ttsManager.release()
         notesManager.release()
+        presetManager.release()
     }
 
     // ── 正文搜索 ──────────────────────────────────────────────
@@ -1674,159 +1684,54 @@ class ReaderViewModel(
         paginationCoordinator.reflowCurrentChapter(preferences, currentLayoutHash)
     }
 
-    // ── 预设管理 ──────────────────────────────────────────────
+    // ── 预设管理（委托 presetManager）──────────────────────────
 
-    /**
-     * 加载预设列表
-     */
-    fun loadPresets() {
-        val dao = presetDao ?: return
-        viewModelScope.launch {
-            dao.observeAll().collect { presets ->
-                _uiState.value = _uiState.value.copy(presets = presets)
-            }
-        }
-    }
+    fun loadPresets() = presetManager.loadPresets()
+    fun saveCurrentAsPreset(name: String) = presetManager.saveCurrentAsPreset(name)
+    fun applyPreset(presetId: Long) = presetManager.applyPreset(presetId)
+    fun renamePreset(presetId: Long, newName: String) = presetManager.renamePreset(presetId, newName)
+    fun deletePreset(presetId: Long) = presetManager.deletePreset(presetId)
+    fun resetToDefault() = presetManager.resetToDefault()
 
-    /**
-     * 保存当前设置为预设
-     */
-    fun saveCurrentAsPreset(name: String) {
-        val dao = presetDao ?: return
-        viewModelScope.launch {
-            val currentPrefs = _uiState.value.readerPreferences
-            val configJson = kotlinx.serialization.json.Json.encodeToString(
-                ReaderPreferences.serializer(),
-                currentPrefs,
-            )
-            val entity = com.shuli.reader.core.database.entity.ReaderPresetEntity(
-                name = name,
-                createdAt = System.currentTimeMillis(),
-                configJson = configJson,
-            )
-            dao.insert(entity)
-        }
-    }
-
-    /**
-     * 应用预设
-     */
-    fun applyPreset(presetId: Long) {
-        val dao = presetDao ?: return
-        viewModelScope.launch {
-            val entity = dao.getById(presetId) ?: return@launch
-            try {
-                val prefs = kotlinx.serialization.json.Json.decodeFromString(
-                    ReaderPreferences.serializer(),
-                    entity.configJson,
-                )
-                // 依次调用 setter 应用所有设置
-                setFontSize(prefs.fontSize)
-                setLineSpacing(prefs.lineSpacing)
-                setParagraphSpacing(prefs.paragraphSpacing)
-                setIndent(prefs.indent)
-                setMarginHorizontal(prefs.marginHorizontal)
-                setMarginVertical(prefs.marginVertical)
-                setReadingFont(prefs.readingFont)
-                setPageAnimType(prefs.pageAnimType.toFactoryType())
-                setReaderTheme(prefs.backgroundColor)
-                setLetterSpacing(prefs.letterSpacing)
-                setFontWeight(prefs.fontWeight)
-                setTextAlign(prefs.textAlign)
-                setChineseConvert(prefs.chineseConvert)
-                setBrightness(prefs.brightness)
-                setHeaderVisibility(prefs.header.visibility)
-                setHeaderLeft(prefs.header.left)
-                setHeaderCenter(prefs.header.center)
-                setHeaderRight(prefs.header.right)
-                setFooterVisibility(prefs.footer.visibility)
-                setFooterLeft(prefs.footer.left)
-                setFooterCenter(prefs.footer.center)
-                setFooterRight(prefs.footer.right)
-                setHeaderFooterAlpha(prefs.headerFooterAlpha)
-                setShowProgress(prefs.showProgress)
-                setTitleAlign(prefs.titleStyle.align)
-                setTitleSizeOffset(prefs.titleStyle.sizeOffsetSp)
-                setTitleMarginTop(prefs.titleStyle.marginTopDp)
-                setTitleMarginBottom(prefs.titleStyle.marginBottomDp)
-                setKeepScreenOn(prefs.keepScreenOn)
-                setVolumeKeyTurnPage(prefs.volumeKeyTurnPage)
-                setEdgeTurnPage(prefs.edgeTurnPage)
-                setEdgeWidthPercent(prefs.edgeWidthPercent)
-                setShowHeaderLine(prefs.showHeaderLine)
-                setShowFooterLine(prefs.showFooterLine)
-                setHeaderFontSizeRatio(prefs.headerFontSizeRatio)
-                setFooterFontSizeRatio(prefs.footerFontSizeRatio)
-                setBottomJustify(prefs.bottomJustify)
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = "Failed to apply preset: ${e.message}")
-            }
-        }
-    }
-
-    /**
-     * 重命名预设
-     */
-    fun renamePreset(presetId: Long, newName: String) {
-        val dao = presetDao ?: return
-        viewModelScope.launch {
-            val entity = dao.getById(presetId) ?: return@launch
-            dao.update(entity.copy(name = newName))
-        }
-    }
-
-    /**
-     * 删除预设
-     */
-    fun deletePreset(presetId: Long) {
-        val dao = presetDao ?: return
-        viewModelScope.launch {
-            dao.deleteById(presetId)
-        }
-    }
-
-    /**
-     * 恢复默认设置
-     */
-    fun resetToDefault() {
-        val defaults = ReaderPreferences()
-        setFontSize(defaults.fontSize)
-        setLineSpacing(defaults.lineSpacing)
-        setParagraphSpacing(defaults.paragraphSpacing)
-        setIndent(defaults.indent)
-        setMarginHorizontal(defaults.marginHorizontal)
-        setMarginVertical(defaults.marginVertical)
-        setReadingFont(defaults.readingFont)
-        setPageAnimType(defaults.pageAnimType.toFactoryType())
-        setReaderTheme(defaults.backgroundColor)
-        setLetterSpacing(defaults.letterSpacing)
-        setFontWeight(defaults.fontWeight)
-        setTextAlign(defaults.textAlign)
-        setChineseConvert(defaults.chineseConvert)
-        setBrightness(defaults.brightness)
-        setHeaderVisibility(defaults.header.visibility)
-        setHeaderLeft(defaults.header.left)
-        setHeaderCenter(defaults.header.center)
-        setHeaderRight(defaults.header.right)
-        setFooterVisibility(defaults.footer.visibility)
-        setFooterLeft(defaults.footer.left)
-        setFooterCenter(defaults.footer.center)
-        setFooterRight(defaults.footer.right)
-        setHeaderFooterAlpha(defaults.headerFooterAlpha)
-        setShowProgress(defaults.showProgress)
-        setTitleAlign(defaults.titleStyle.align)
-        setTitleSizeOffset(defaults.titleStyle.sizeOffsetSp)
-        setTitleMarginTop(defaults.titleStyle.marginTopDp)
-        setTitleMarginBottom(defaults.titleStyle.marginBottomDp)
-        setKeepScreenOn(defaults.keepScreenOn)
-        setVolumeKeyTurnPage(defaults.volumeKeyTurnPage)
-        setEdgeTurnPage(defaults.edgeTurnPage)
-        setEdgeWidthPercent(defaults.edgeWidthPercent)
-        setShowHeaderLine(defaults.showHeaderLine)
-        setShowFooterLine(defaults.showFooterLine)
-        setHeaderFontSizeRatio(defaults.headerFontSizeRatio)
-        setFooterFontSizeRatio(defaults.footerFontSizeRatio)
-        setBottomJustify(defaults.bottomJustify)
+    /** 将一组偏好依次通过 setter 应用（由 presetManager.onApplyPreferences 回调） */
+    private fun applyAllPreferences(prefs: ReaderPreferences) {
+        setFontSize(prefs.fontSize)
+        setLineSpacing(prefs.lineSpacing)
+        setParagraphSpacing(prefs.paragraphSpacing)
+        setIndent(prefs.indent)
+        setMarginHorizontal(prefs.marginHorizontal)
+        setMarginVertical(prefs.marginVertical)
+        setReadingFont(prefs.readingFont)
+        setPageAnimType(prefs.pageAnimType.toFactoryType())
+        setReaderTheme(prefs.backgroundColor)
+        setLetterSpacing(prefs.letterSpacing)
+        setFontWeight(prefs.fontWeight)
+        setTextAlign(prefs.textAlign)
+        setChineseConvert(prefs.chineseConvert)
+        setBrightness(prefs.brightness)
+        setHeaderVisibility(prefs.header.visibility)
+        setHeaderLeft(prefs.header.left)
+        setHeaderCenter(prefs.header.center)
+        setHeaderRight(prefs.header.right)
+        setFooterVisibility(prefs.footer.visibility)
+        setFooterLeft(prefs.footer.left)
+        setFooterCenter(prefs.footer.center)
+        setFooterRight(prefs.footer.right)
+        setHeaderFooterAlpha(prefs.headerFooterAlpha)
+        setShowProgress(prefs.showProgress)
+        setTitleAlign(prefs.titleStyle.align)
+        setTitleSizeOffset(prefs.titleStyle.sizeOffsetSp)
+        setTitleMarginTop(prefs.titleStyle.marginTopDp)
+        setTitleMarginBottom(prefs.titleStyle.marginBottomDp)
+        setKeepScreenOn(prefs.keepScreenOn)
+        setVolumeKeyTurnPage(prefs.volumeKeyTurnPage)
+        setEdgeTurnPage(prefs.edgeTurnPage)
+        setEdgeWidthPercent(prefs.edgeWidthPercent)
+        setShowHeaderLine(prefs.showHeaderLine)
+        setShowFooterLine(prefs.showFooterLine)
+        setHeaderFontSizeRatio(prefs.headerFontSizeRatio)
+        setFooterFontSizeRatio(prefs.footerFontSizeRatio)
+        setBottomJustify(prefs.bottomJustify)
     }
 
     private fun computeSynchronousBookProgress(): Triple<Long, Long, Float> {
