@@ -36,7 +36,6 @@ import com.shuli.reader.core.parser.model.BookContent
 import com.shuli.reader.core.parser.model.Chapter
 import com.shuli.reader.core.reader.ChapterProvider
 import com.shuli.reader.core.reader.Paginator
-import com.shuli.reader.core.reader.ReadingStateManager
 import com.shuli.reader.core.reader.AndroidTextMeasurer
 import com.shuli.reader.core.reader.SimpleTextMeasurer
 import com.shuli.reader.core.reader.animation.PageDelegate
@@ -48,6 +47,7 @@ import com.shuli.reader.core.reader.model.TextChapter
 import com.shuli.reader.core.reader.model.TextPage
 import com.shuli.reader.core.repository.BookRepository
 import com.shuli.reader.core.repository.SearchResult
+import com.shuli.reader.feature.reader.book.BookSessionManager
 import com.shuli.reader.feature.reader.notes.BookmarkNotesManager
 import com.shuli.reader.feature.reader.pagination.ChapterPaginationCoordinator
 import com.shuli.reader.feature.reader.tts.TtsPlaybackManager
@@ -255,18 +255,19 @@ class ReaderViewModel(
         appContext = appContext,
         scope = viewModelScope,
     )
-
-    // R7: 阅读状态管理器（进度持久化 + 会话时长）
-    private lateinit var readingStateManager: ReadingStateManager
+    private val sessionManager = BookSessionManager(
+        uiState = _uiState,
+        bookRepository = bookRepository,
+        readingProgressDao = readingProgressDao,
+        scope = viewModelScope,
+    ).apply {
+        onGetLoadedBookContent = { loadedBookContent }
+        onCharToByteOffset = { this@ReaderViewModel.charToByteOffset(it) }
+        onIsCurrentBookEpub = { isCurrentBookEpub }
+    }
 
     init {
-        readingStateManager = ReadingStateManager(
-            scope = viewModelScope,
-            saveAction = { state ->
-                // v4: ReadingStateManager 内部仍用 charPos，实际 byteOffset 由 saveReadingProgress 直接写入
-                // 此处仅做兜底，正常路径不会走到这里
-            },
-        )
+        sessionManager.initialize()
         loadPresets()
         loadCustomFonts()
     }
@@ -390,25 +391,6 @@ class ReaderViewModel(
         paginationCoordinator.screenWidthPx = widthPx
         paginationCoordinator.screenHeightPx = heightPx
         reflowCurrentChapter(_uiState.value.readerPreferences)
-    }
-
-    // ── 进度估算（v4） ──────────────────────────────────────────
-
-    /**
-     * TXT 进度估算：扫描完成 → 估算字符%；扫描未完成 → 字节%。
-     * 内部存 byte%（精确），UI 显示用估算字符%（编码无关，用户感知一致）。
-     */
-    private fun computeDisplayProgress(byteOffset: Long, book: BookEntity?): Float {
-        val fileSize = book?.fileSize?.coerceAtLeast(1L) ?: return 0f
-        val estimatedTotalChars = book.estimatedTotalChars
-        if (estimatedTotalChars <= 0L) {
-            // 章节扫描未完成 → 退化为字节%
-            return (byteOffset.toFloat() / fileSize.toFloat()).coerceIn(0f, 1f)
-        }
-        // 用平均 bytesPerChar 估算字符位置
-        val avgBpc = fileSize.toFloat() / estimatedTotalChars.toFloat()
-        val estimatedCharPos = byteOffset.toFloat() / avgBpc
-        return (estimatedCharPos / estimatedTotalChars.toFloat()).coerceIn(0f, 1f)
     }
 
     // ── 字节↔字符坐标桥接（v4） ──────────────────────────────────
@@ -607,9 +589,9 @@ class ReaderViewModel(
         cacheManager = com.shuli.reader.core.reader.cache.BookCacheStore.getBookCache(bookId.toString())
 
         // R7: 结束上一次阅读会话，开始新会话
-        val sessionElapsed = readingStateManager.endSession()
+        val sessionElapsed = sessionManager.endSession()
         if (oldBookId != 0L && sessionElapsed > 0L) {
-            persistReadingTime(oldBookId, sessionElapsed)
+            sessionManager.persistReadingTime(oldBookId, sessionElapsed)
         }
 
         viewModelScope.launch {
@@ -686,7 +668,7 @@ class ReaderViewModel(
                 }
                 loadBookmarks()
                 loadNotes()
-                readingStateManager.startSession()
+                sessionManager.startSession()
 
                 logPerf("openBook.preparation", perfStart)
 
@@ -933,85 +915,10 @@ class ReaderViewModel(
             currentPage = chapter.getPage(pi),
             pageRenderMode = PageRenderMode.SEQUENTIAL,
         )
-        saveReadingProgress(immediate = true)
+        sessionManager.saveReadingProgress(immediate = true)
     }
 
-    private fun persistReadingTime(bookId: Long, elapsedMs: Long) {
-        val dao = readingProgressDao ?: return
-        if (bookId == 0L || elapsedMs < 1000L) return
-        val elapsedSeconds = elapsedMs / 1000L
-        viewModelScope.launch(Dispatchers.IO) {
-            val existing = dao.getReadingDurationByBookId(bookId)
-            if (existing != null) {
-                dao.updateProgress(
-                    bookId = bookId,
-                    pageIndex = _uiState.value.pageIndex,
-                    position = _uiState.value.currentPage?.startCharOffset ?: 0,
-                    readTime = existing + elapsedSeconds,
-                    updatedTime = System.currentTimeMillis(),
-                )
-            } else {
-                dao.insertProgress(
-                    com.shuli.reader.core.database.entity.ReadingProgressEntity(
-                        bookId = bookId,
-                        pageIndex = _uiState.value.pageIndex,
-                        position = _uiState.value.currentPage?.startCharOffset ?: 0,
-                        readTime = elapsedSeconds,
-                        updatedTime = System.currentTimeMillis(),
-                    )
-                )
-            }
-        }
-    }
-
-    /**
-     * R7: 保存阅读进度到数据库
-     * @param immediate true 表示立即保存（翻章、退出），false 表示防抖保存（翻页）
-     */
-    private fun saveReadingProgress(immediate: Boolean) {
-        val state = _uiState.value
-        val page = state.currentPage ?: return
-        val bookId = state.bookId
-        if (bookId == 0L) return
-
-        val chapterPos = page.startCharOffset
-        val chapterTitle = state.chapterTitle
-
-        // v4: ReadingStateManager 内部仍用 charPos 做防抖计时
-        if (immediate) {
-            readingStateManager.saveReadNow(bookId, state.chapterIndex, chapterPos, chapterTitle)
-        } else {
-            readingStateManager.saveReadDebounced(bookId, state.chapterIndex, chapterPos, chapterTitle)
-        }
-
-        // v4: 通过 utf16IndexToByte 映射将 charOffset 转为 byteOffset，写入 BookEntity
-        viewModelScope.launch(Dispatchers.IO) {
-            bookRepository?.let { repo ->
-                val chapters = loadedBookContent?.chapters ?: emptyList()
-                val chapterByteStart = chapters.getOrNull(state.chapterIndex)?.byteStart ?: 0L
-                val relativeByte = charToByteOffset(chapterPos)
-                val absoluteByteOffset = chapterByteStart + relativeByte
-
-                val progress = if (isCurrentBookEpub) {
-                    val totalChapters = state.totalChapters.coerceAtLeast(1)
-                    val chapterContentLength = state.currentChapter?.content?.length?.coerceAtLeast(1) ?: 1
-                    val charOffsetRatio = (chapterPos.toFloat() / chapterContentLength).coerceIn(0f, 1f)
-                    ((state.chapterIndex + charOffsetRatio) / totalChapters).coerceIn(0f, 1f)
-                } else {
-                    // TXT: 优先用 estimatedTotalChars 估算字符%，未完成退化为字节%
-                    val book = repo.getBookById(bookId).first()
-                    computeDisplayProgress(absoluteByteOffset, book)
-                }
-
-                repo.updateReadingPosition(
-                    bookId = bookId,
-                    byteOffset = absoluteByteOffset,
-                    chapterTitle = chapterTitle,
-                    progress = progress,
-                )
-            }
-        }
-    }
+    private fun saveReadingProgress(immediate: Boolean) = sessionManager.saveReadingProgress(immediate)
 
     /**
      * 打开章节
@@ -1566,21 +1473,17 @@ class ReaderViewModel(
     fun pauseTtsOnBackground() = ttsManager.pauseTtsOnBackground()
 
     /** R7: 暂停阅读会话（进入后台、锁屏） */
-    fun pauseReadingSession() {
-        readingStateManager.pauseSession()
-    }
+    fun pauseReadingSession() = sessionManager.pauseReadingSession()
 
     /** R7: 恢复阅读会话（回到前台） */
-    fun resumeReadingSession() {
-        readingStateManager.resumeSession()
-    }
+    fun resumeReadingSession() = sessionManager.resumeReadingSession()
 
     fun releaseReaderResources() {
         // R7: 立即保存进度并结束阅读会话
-        saveReadingProgress(immediate = true)
-        val sessionElapsed = readingStateManager.endSession()
-        persistReadingTime(_uiState.value.bookId, sessionElapsed)
-        readingStateManager.cancel()
+        sessionManager.saveReadingProgress(immediate = true)
+        val sessionElapsed = sessionManager.endSession()
+        sessionManager.persistReadingTime(_uiState.value.bookId, sessionElapsed)
+        sessionManager.release()
         chapterProvider.cancel()
         // 缓存保留在 BookCacheStore 中，短时间返回可复用
 
