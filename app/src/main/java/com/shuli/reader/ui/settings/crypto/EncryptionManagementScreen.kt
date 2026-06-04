@@ -341,7 +341,6 @@ private fun VerifyPasswordDialog(
                         PasswordVerifyResult.WRONG_PASSWORD -> strings.passwordWrong to MaterialTheme.colorScheme.error
                         PasswordVerifyResult.NO_ENCRYPTION -> strings.encryptionNotEnabled to MaterialTheme.colorScheme.onSurfaceVariant
                         PasswordVerifyResult.ERROR -> strings.verifyError to MaterialTheme.colorScheme.error
-                        null -> "" to MaterialTheme.colorScheme.onSurfaceVariant
                     }
                     Text(text = text, style = MaterialTheme.typography.bodySmall, color = color)
                 }

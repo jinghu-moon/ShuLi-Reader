@@ -39,6 +39,7 @@ class BookRepository(
     private val byteWindowReader: ByteWindowReader,
     private val booksDir: java.io.File,
     /** 应用级协程作用域：用于后台建索引（v4） */
+    @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
     private val applicationScope: CoroutineScope = GlobalScope,
 ) {
     private val duplicateChecker = DuplicateChecker(bookDao)
