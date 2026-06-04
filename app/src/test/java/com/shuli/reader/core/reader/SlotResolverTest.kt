@@ -24,12 +24,12 @@ class SlotResolverTest {
 
     @Test
     fun resolve_pageNumber_returnsFormattedString() {
-        assertEquals("3 / 100", SlotResolver.resolve(SlotContent.PAGE_NUMBER, pageNumber = 3, totalPages = 100))
+        assertEquals("3/100", SlotResolver.resolve(SlotContent.CHAPTER_PROGRESS_FRACTION, pageNumber = 3, totalPages = 100))
     }
 
     @Test
     fun resolve_progress_returnsPercentage() {
-        assertEquals("45.0%", SlotResolver.resolve(SlotContent.PROGRESS, progress = 0.45f))
+        assertEquals("45.0%", SlotResolver.resolve(SlotContent.BOOK_PROGRESS_PERCENT, bookProgressPercent = 0.45f))
     }
 
     @Test
@@ -70,7 +70,7 @@ class SlotResolverTest {
         val config = HeaderConfig(
             left = SlotContent.BOOK_TITLE,
             center = SlotContent.CHAPTER_TITLE,
-            right = SlotContent.PAGE_NUMBER,
+            right = SlotContent.CHAPTER_PROGRESS_FRACTION,
         )
         val resolution = SlotResolver.resolveHeader(
             config,
@@ -82,7 +82,7 @@ class SlotResolverTest {
 
         assertEquals("我的书", resolution.left)
         assertEquals("第一章", resolution.center)
-        assertEquals("5 / 200", resolution.right)
+        assertEquals("5/200", resolution.right)
     }
 
     // --- resolveFooter() ---
@@ -94,11 +94,11 @@ class SlotResolverTest {
             config,
             pageNumber = 10,
             totalPages = 50,
-            progress = 0.2f,
+            bookProgressPercent = 0.2f,
         )
 
         assertEquals("20.0%", resolution.left)
-        assertEquals("10 / 50", resolution.center)
+        assertEquals("10/50", resolution.center)
         // right is TIME, just check non-empty
         assert(resolution.right.isNotEmpty()) { "页脚右侧时间不应为空" }
     }
@@ -119,16 +119,16 @@ class SlotResolverTest {
 
     @Test
     fun resolve_progress_zeroPercent() {
-        assertEquals("0.0%", SlotResolver.resolve(SlotContent.PROGRESS, progress = 0f))
+        assertEquals("0.0%", SlotResolver.resolve(SlotContent.BOOK_PROGRESS_PERCENT, bookProgressPercent = 0f))
     }
 
     @Test
     fun resolve_progress_hundredPercent() {
-        assertEquals("100.0%", SlotResolver.resolve(SlotContent.PROGRESS, progress = 1f))
+        assertEquals("100.0%", SlotResolver.resolve(SlotContent.BOOK_PROGRESS_PERCENT, bookProgressPercent = 1f))
     }
 
     @Test
     fun resolve_pageNumber_zeroPage() {
-        assertEquals("0 / 0", SlotResolver.resolve(SlotContent.PAGE_NUMBER, pageNumber = 0, totalPages = 0))
+        assertEquals("0/0", SlotResolver.resolve(SlotContent.CHAPTER_PROGRESS_FRACTION, pageNumber = 0, totalPages = 0))
     }
 }

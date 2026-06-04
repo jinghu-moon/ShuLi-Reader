@@ -155,6 +155,8 @@ data class ReaderUiState(
     val notes: List<NoteEntity> = emptyList(),
     val chapterTitles: List<String> = emptyList(),
     val chapterWordCounts: List<Int> = emptyList(),
+    /** 已分页章节的真实页数（key=chapterIndex），用于精确计算全书进度 */
+    val chapterPageCounts: Map<Int, Int> = emptyMap(),
     val searchQuery: String = "",
     val searchResults: List<SearchResult> = emptyList(),
     val currentSearchResultIndex: Int = -1,
@@ -242,6 +244,12 @@ class ReaderViewModel(
 
     // M1: 章节加载 Job（防止快速连续调用导致多个 openChapter 并发）
     private var chapterJob: Job? = null
+
+    // T-41: 当前排版参数的哈希值，用于持久化 chapterPageCounts
+    private var currentLayoutHash: String = ""
+    // T-41: 持久化防抖
+    private var lastPersistedCounts: Map<Int, Int> = emptyMap()
+    private var persistJob: Job? = null
 
     // R7: 章节缓存管理器（从 BookCacheStore 获取，跨 ViewModel 生命周期复用）
     private var cacheManager: CacheManager = CacheManager.forMemoryClass(256)
@@ -681,6 +689,8 @@ class ReaderViewModel(
 
                 // 4. 流式分页：首页秒开，目标位置自动跳转
                 val paginateStart = System.currentTimeMillis()
+                // 计算布局哈希，用于持久化 chapterPageCounts
+                currentLayoutHash = computeLayoutHash(_uiState.value.readerPreferences)
                 chapterJob = paginateChapterStreaming(
                     content = content,
                     index = chapterIndex,
@@ -691,6 +701,18 @@ class ReaderViewModel(
                         // TXT: 从 DB 章节索引直接计算字数
                         if (!isCurrentBookEpub) {
                             computeChapterWordCounts(chapterIndexList)
+                        }
+                        // 加载已持久化的页数缓存（异步，不阻塞首屏）
+                        viewModelScope.launch(Dispatchers.Default) {
+                            val ctx = appContext ?: return@launch
+                            val persisted = com.shuli.reader.core.reader.cache.PageCountPersistence.load(
+                                ctx, bookId.toString(), currentLayoutHash,
+                            )
+                            if (persisted.isNotEmpty()) {
+                                _uiState.value = _uiState.value.copy(
+                                    chapterPageCounts = persisted + _uiState.value.chapterPageCounts,
+                                )
+                            }
                         }
                     },
                 )
@@ -2172,6 +2194,8 @@ class ReaderViewModel(
         index: Int,
         targetCharOffset: Int = 0,
         onDone: (() -> Unit)? = null,
+        /** reflow 场景注入缩放比投影，非 reflow 传 null 走简单 merge */
+        onMergePageCounts: ((oldPageCounts: Map<Int, Int>, newPageSize: Int) -> Map<Int, Int>)? = null,
     ): Job {
         val chapters = content.normalizedChapters()
         val chapterMeta = chapters.getOrNull(index) ?: return Job().apply { complete() }
@@ -2210,6 +2234,7 @@ class ReaderViewModel(
                     chapterIndex = index,
                     chapterTitle = chapterMeta.title,
                     totalPages = cached.pageSize,
+                    chapterPageCounts = _uiState.value.chapterPageCounts + (index to cached.pageSize),
                     isLoading = false,
                     isReflowing = false,
                 )
@@ -2223,6 +2248,8 @@ class ReaderViewModel(
                     pageIndex = startPage,
                     currentPage = cached.getPage(startPage),
                 )
+                // 持久化页数到文件
+                persistPageCounts()
                 onDone?.invoke()
             }
         }
@@ -2300,14 +2327,20 @@ class ReaderViewModel(
                     override fun onLayoutCompleted() {
                         val currentState = _uiState.value
                         if (currentState.chapterIndex != index) return
+                        // 缩放比投影（reflow）或简单 merge（普通加载）
+                        val mergedPageCounts = onMergePageCounts?.invoke(currentState.chapterPageCounts, chapter.pageSize)
+                            ?: currentState.chapterPageCounts
                         _uiState.value = currentState.copy(
                             totalPages = chapter.pageSize,
+                            chapterPageCounts = mergedPageCounts + (index to chapter.pageSize),
                             isLoading = false,
                             isReflowing = false,
                             layoutVersion = currentState.layoutVersion + 1,
                         )
                         // 存入缓存
                         cacheManager.putChapter(cacheKey, chapter)
+                        // 持久化页数到文件
+                        persistPageCounts()
                         if (com.shuli.reader.BuildConfig.DEBUG) {
                             android.util.Log.d(TAG, "layoutCompleted[$index]: ${chapter.pageSize} pages")
                         }
@@ -2417,6 +2450,10 @@ class ReaderViewModel(
         val chapter = state.currentChapter ?: return
         val charOffset = state.currentPage?.startCharOffset ?: 0
         val content = loadedBookContent ?: return
+        // reflow 前记录当前章节旧页数，用于缩放比投影（coerceAtLeast(1) 防止首屏 totalPages=0 时除零）
+        val oldCurrentPages = (state.chapterPageCounts[chapter.chapterIndex] ?: state.totalPages).coerceAtLeast(1)
+        // 布局参数已变，更新哈希（新哈希用于持久化，旧文件自然失效）
+        currentLayoutHash = computeLayoutHash(preferences)
         reflowJob?.cancel()
         reflowJob = viewModelScope.launch {
             // 无防抖：滑块拖动时实时 reflow，旧协程通过 cancel 自动取消
@@ -2424,11 +2461,21 @@ class ReaderViewModel(
             // R7: 布局参数变化时清理旧缓存（key 中的 textSize/lineHeight/pageSize 已变）
             cacheManager.clearBook(state.bookId.toString())
 
+            // 缩放比投影：reflow 完成后按比例修正所有旧页数，不清空 map
+            val mergeFn: (Map<Int, Int>, Int) -> Map<Int, Int> = { oldMap, newPageSize ->
+                if (oldCurrentPages > 0 && newPageSize > 0) {
+                    val scale = newPageSize.toDouble() / oldCurrentPages
+                    oldMap.mapValues { (_, p) -> (p * scale).toInt().coerceAtLeast(1) }
+                } else {
+                    oldMap
+                }
+            }
             // 流式分页：首页秒开，自动跳转到之前的阅读位置
             paginateChapterStreaming(
                 content = content,
                 index = chapter.chapterIndex,
                 targetCharOffset = charOffset,
+                onMergePageCounts = mergeFn,
             )
         }
     }
@@ -2588,36 +2635,104 @@ class ReaderViewModel(
         setBottomJustify(defaults.bottomJustify)
     }
 
-    /** 解析页眉槽位为 SlotResolution */
-    fun resolveHeaderSlots(): SlotResolution {
-        val prefs = _uiState.value.readerPreferences
-        if (prefs.header.visibility == HeaderVisibility.ALWAYS_HIDE) return SlotResolution()
+    private fun computeSynchronousBookProgress(): Triple<Long, Long, Float> {
         val state = _uiState.value
-        return SlotResolver.resolveHeader(
-            config = prefs.header,
-            chapterTitle = state.chapterTitle,
-            bookTitle = state.bookTitle,
-            pageNumber = state.pageIndex + 1,
-            totalPages = state.totalPages.coerceAtLeast(1),
-            progress = if (state.totalPages > 0) state.pageIndex.toFloat() / state.totalPages else 0f,
-            batteryLevel = 100, // 由 ReaderScreen 传入
-        )
+        val wordCounts = state.chapterWordCounts
+        val pageCounts = state.chapterPageCounts
+        val currentChapterIndex = state.chapterIndex
+        val currentPages = state.totalPages.coerceAtLeast(1)
+        val totalChapters = state.totalChapters.coerceAtLeast(1)
+
+        // 加权平均：基于所有已分页章节的真实数据计算 wordsPerPage
+        var sampledWords = 0L
+        var sampledPages = 0L
+        for ((i, p) in pageCounts) {
+            if (p > 0) {
+                sampledWords += (wordCounts.getOrNull(i) ?: 0).toLong()
+                sampledPages += p.toLong()
+            }
+        }
+        // 当前章节也纳入样本（它一定有真实页数）
+        val currentChapterWords = wordCounts.getOrNull(currentChapterIndex)?.coerceAtLeast(1) ?: 1
+        if (sampledPages == 0L) sampledPages = currentPages.toLong()
+        if (sampledWords == 0L) sampledWords = currentChapterWords.toLong()
+        val wordsPerPage = sampledWords.toDouble() / sampledPages
+
+        // Fallback：完全无数据时降级为章节索引进度，分数槽位仍显示章节数
+        if (wordCounts.isEmpty() && pageCounts.isEmpty()) {
+            val progress = ((currentChapterIndex + state.pageIndex.toFloat() / currentPages) / totalChapters).coerceIn(0f, 1f)
+            return Triple((currentChapterIndex + 1).toLong(), totalChapters.toLong(), progress)
+        }
+
+        // 计算当前页在全书中的位置
+        var pagesBeforeCurrent = 0L
+        for (i in 0 until currentChapterIndex) {
+            val realCount = pageCounts[i]
+            if (realCount != null) {
+                pagesBeforeCurrent += realCount.toLong()
+            } else {
+                val words = wordCounts.getOrNull(i)?.toLong() ?: 0L
+                pagesBeforeCurrent += (words / wordsPerPage).toLong()
+            }
+        }
+        val currentBookPage = pagesBeforeCurrent + state.pageIndex + 1
+
+        // 计算全书总页数
+        var totalBookPages = pagesBeforeCurrent + currentPages
+        for (i in (currentChapterIndex + 1) until totalChapters) {
+            val realCount = pageCounts[i]
+            if (realCount != null) {
+                totalBookPages += realCount.toLong()
+            } else {
+                val words = wordCounts.getOrNull(i)?.toLong() ?: 0L
+                totalBookPages += (words / wordsPerPage).toLong()
+            }
+        }
+        totalBookPages = totalBookPages.coerceAtLeast(currentBookPage)
+
+        val progress = if (totalBookPages > 0) currentBookPage.toFloat() / totalBookPages else 0f
+        return Triple(currentBookPage, totalBookPages, progress.coerceIn(0f, 1f))
     }
 
-    /** 解析页脚槽位为 SlotResolution */
-    fun resolveFooterSlots(): SlotResolution {
-        val prefs = _uiState.value.readerPreferences
-        if (prefs.footer.visibility == HeaderVisibility.ALWAYS_HIDE) return SlotResolution()
+    /** 统一解析页眉和页脚槽位为 SlotResolution，避免重复计算进度 */
+    fun resolveHeaderAndFooterSlots(): Pair<SlotResolution, SlotResolution> {
         val state = _uiState.value
-        return SlotResolver.resolveFooter(
-            config = prefs.footer,
-            chapterTitle = state.chapterTitle,
-            bookTitle = state.bookTitle,
-            pageNumber = state.pageIndex + 1,
-            totalPages = state.totalPages.coerceAtLeast(1),
-            progress = if (state.totalPages > 0) state.pageIndex.toFloat() / state.totalPages else 0f,
-            batteryLevel = 100, // 由 ReaderScreen 传入
-        )
+        val prefs = state.readerPreferences
+        val (currentPos, totalPos, bookProgressPercent) = computeSynchronousBookProgress()
+
+        val header = if (prefs.header.visibility == HeaderVisibility.ALWAYS_HIDE) {
+            SlotResolution()
+        } else {
+            SlotResolver.resolveHeader(
+                config = prefs.header,
+                chapterTitle = state.chapterTitle,
+                bookTitle = state.bookTitle,
+                pageNumber = state.pageIndex + 1,
+                totalPages = state.totalPages.coerceAtLeast(1),
+                bookProgressPercent = bookProgressPercent,
+                bookCurrentPosition = currentPos,
+                bookTotalPosition = totalPos,
+                batteryLevel = 100, // 实际上在 ReaderScreen 中会调用 updateHeaderFooter 覆盖
+            )
+        }
+
+        val footer = if (prefs.footer.visibility == HeaderVisibility.ALWAYS_HIDE) {
+            SlotResolution()
+        } else {
+            SlotResolver.resolveFooter(
+                config = prefs.footer,
+                chapterTitle = state.chapterTitle,
+                bookTitle = state.bookTitle,
+                pageNumber = state.pageIndex + 1,
+                totalPages = state.totalPages.coerceAtLeast(1),
+                bookProgressPercent = bookProgressPercent,
+                bookCurrentPosition = currentPos,
+                bookTotalPosition = totalPos,
+                batteryLevel = 100, // 实际上在 ReaderScreen 中会调用 updateHeaderFooter 覆盖
+            )
+        }
+        
+        return Pair(header, footer)
     }
 
     private fun layoutConfigFor(preferences: ReaderPreferences): ReaderLayoutConfig {
@@ -2638,6 +2753,37 @@ class ReaderViewModel(
             headerMarginTop = preferences.header.marginTop * density,
             footerMarginBottom = preferences.footer.marginBottom * density,
         )
+    }
+
+    /** 计算当前排版参数的布局哈希，用于持久化 chapterPageCounts */
+    private fun computeLayoutHash(preferences: ReaderPreferences): String {
+        val config = layoutConfigFor(preferences)
+        return com.shuli.reader.core.reader.cache.PageCountPersistence.computeLayoutHash(
+            config = config,
+            showHeader = preferences.header.visibility != HeaderVisibility.ALWAYS_HIDE,
+            showFooter = preferences.footer.visibility != HeaderVisibility.ALWAYS_HIDE,
+            chineseConvert = preferences.chineseConvert.ordinal,
+            usePanguSpacing = preferences.usePanguSpacing,
+        )
+    }
+
+    /** 持久化 chapterPageCounts 到文件（300ms 防抖 + 结构去重） */
+    private fun persistPageCounts() {
+        val ctx = appContext ?: return
+        val state = _uiState.value
+        val counts = state.chapterPageCounts
+        if (counts.isEmpty() || currentLayoutHash.isEmpty()) return
+        if (counts == lastPersistedCounts) return
+        persistJob?.cancel()
+        persistJob = viewModelScope.launch(Dispatchers.IO) {
+            kotlinx.coroutines.delay(300)
+            try {
+                com.shuli.reader.core.reader.cache.PageCountPersistence.save(
+                    ctx, state.bookId.toString(), currentLayoutHash, counts,
+                )
+                lastPersistedCounts = counts  // 落盘成功后才标记，防止进程退出时丢数据
+            } catch (_: Exception) { /* PageCountPersistence.save 内部已记录日志 */ }
+        }
     }
 
     private fun BookContent.normalizedChapters(): List<Chapter> {

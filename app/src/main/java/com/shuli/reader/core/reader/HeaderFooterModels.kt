@@ -1,5 +1,6 @@
 package com.shuli.reader.core.reader
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -20,8 +21,10 @@ enum class SlotContent {
     NONE,
     CHAPTER_TITLE,
     BOOK_TITLE,
-    PAGE_NUMBER,
-    PROGRESS,
+    @SerialName("PAGE_NUMBER") CHAPTER_PROGRESS_FRACTION,
+    @SerialName("CHAPTER_PROGRESS_PERCENT") CHAPTER_PROGRESS_PERCENT,
+    @SerialName("PROGRESS") BOOK_PROGRESS_PERCENT,
+    @SerialName("BOOK_PROGRESS_FRACTION") BOOK_PROGRESS_FRACTION,
     TIME,
     BATTERY,
     DATE,
@@ -34,6 +37,9 @@ data class SlotResolution(
     val left: String = "",
     val center: String = "",
     val right: String = "",
+    val leftContent: SlotContent = SlotContent.NONE,
+    val centerContent: SlotContent = SlotContent.NONE,
+    val rightContent: SlotContent = SlotContent.NONE,
 )
 
 /**
@@ -54,8 +60,8 @@ data class HeaderConfig(
 @Serializable
 data class FooterConfig(
     val visibility: HeaderVisibility = HeaderVisibility.ALWAYS_SHOW,
-    val left: SlotContent = SlotContent.PROGRESS,
-    val center: SlotContent = SlotContent.PAGE_NUMBER,
+    val left: SlotContent = SlotContent.BOOK_PROGRESS_PERCENT,
+    val center: SlotContent = SlotContent.CHAPTER_PROGRESS_FRACTION,
     val right: SlotContent = SlotContent.TIME,
     val marginBottom: Float = 48f,
 )

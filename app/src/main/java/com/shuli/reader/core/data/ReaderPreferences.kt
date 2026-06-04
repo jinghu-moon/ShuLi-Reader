@@ -245,8 +245,10 @@ fun String.toSlotContent(): com.shuli.reader.core.reader.SlotContent {
         "none" -> com.shuli.reader.core.reader.SlotContent.NONE
         "chapter_title" -> com.shuli.reader.core.reader.SlotContent.CHAPTER_TITLE
         "book_title" -> com.shuli.reader.core.reader.SlotContent.BOOK_TITLE
-        "page_number" -> com.shuli.reader.core.reader.SlotContent.PAGE_NUMBER
-        "progress" -> com.shuli.reader.core.reader.SlotContent.PROGRESS
+        "page_number" -> com.shuli.reader.core.reader.SlotContent.CHAPTER_PROGRESS_FRACTION
+        "chapter_progress_percent" -> com.shuli.reader.core.reader.SlotContent.CHAPTER_PROGRESS_PERCENT
+        "book_progress_fraction" -> com.shuli.reader.core.reader.SlotContent.BOOK_PROGRESS_FRACTION
+        "progress" -> com.shuli.reader.core.reader.SlotContent.BOOK_PROGRESS_PERCENT
         "time" -> com.shuli.reader.core.reader.SlotContent.TIME
         "battery" -> com.shuli.reader.core.reader.SlotContent.BATTERY
         "date" -> com.shuli.reader.core.reader.SlotContent.DATE
@@ -285,8 +287,10 @@ fun com.shuli.reader.core.reader.SlotContent.toStorageString(): String {
         com.shuli.reader.core.reader.SlotContent.NONE -> "none"
         com.shuli.reader.core.reader.SlotContent.CHAPTER_TITLE -> "chapter_title"
         com.shuli.reader.core.reader.SlotContent.BOOK_TITLE -> "book_title"
-        com.shuli.reader.core.reader.SlotContent.PAGE_NUMBER -> "page_number"
-        com.shuli.reader.core.reader.SlotContent.PROGRESS -> "progress"
+        com.shuli.reader.core.reader.SlotContent.CHAPTER_PROGRESS_FRACTION -> "page_number"
+        com.shuli.reader.core.reader.SlotContent.CHAPTER_PROGRESS_PERCENT -> "chapter_progress_percent"
+        com.shuli.reader.core.reader.SlotContent.BOOK_PROGRESS_FRACTION -> "book_progress_fraction"
+        com.shuli.reader.core.reader.SlotContent.BOOK_PROGRESS_PERCENT -> "progress"
         com.shuli.reader.core.reader.SlotContent.TIME -> "time"
         com.shuli.reader.core.reader.SlotContent.BATTERY -> "battery"
         com.shuli.reader.core.reader.SlotContent.DATE -> "date"

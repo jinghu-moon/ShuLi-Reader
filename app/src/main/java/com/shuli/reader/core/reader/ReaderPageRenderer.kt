@@ -121,7 +121,7 @@ class ReaderPageRenderer(
 
         // 2. 绘制页眉
         val headerBaseline = page.headerMarginTop + 24f * density * 0.6f
-        drawHeaderFooter(canvas, headerSlots, headerPaint, headerAlpha, headerBaseline, page)
+        drawHeaderFooter(canvas, headerSlots, headerPaint, headerAlpha, headerBaseline, page, batteryLevel, density)
 
         // 2.5 绘制页眉分割线
         if (showHeaderLine) {
@@ -133,7 +133,7 @@ class ReaderPageRenderer(
 
         // 3. 绘制页脚
         val footerBaseline = canvas.height - page.footerMarginBottom - 24f * density * 0.4f
-        drawHeaderFooter(canvas, footerSlots, footerPaint, footerAlpha, footerBaseline, page)
+        drawHeaderFooter(canvas, footerSlots, footerPaint, footerAlpha, footerBaseline, page, batteryLevel, density)
 
         // 3.5 绘制页脚分割线
         if (showFooterLine) {
@@ -142,9 +142,6 @@ class ReaderPageRenderer(
             dividerPaint.alpha = (footerAlpha * 255 * 0.5f).toInt()
             canvas.drawLine(page.marginHorizontal, lineY, canvas.width - page.marginHorizontal, lineY, dividerPaint)
         }
-
-        // 4. 绘制电池
-        drawBattery(canvas, page.marginHorizontal, footerBaseline, batteryLevel, density)
 
         // 5. 绘制进度条
         if (showProgress) {
@@ -250,6 +247,8 @@ class ReaderPageRenderer(
         alpha: Float,
         baseline: Float,
         page: TextPage,
+        batteryLevel: Int,
+        density: Float,
     ) {
         if (slots.isEmpty()) return
 
@@ -259,23 +258,19 @@ class ReaderPageRenderer(
         val canvasWidth = canvas.width.toFloat()
         val marginH = page.marginHorizontal
 
-        // 左槽位
-        if (slots.left.isNotEmpty()) {
-            paint.textAlign = Paint.Align.LEFT
-            canvas.drawText(slots.left, marginH, baseline, paint)
+        fun drawSlot(text: String, content: SlotContent, x: Float, align: Paint.Align) {
+            if (text.isEmpty()) return
+            if (content == SlotContent.BATTERY) {
+                drawBatteryAt(canvas, x, baseline, align, batteryLevel, density, paint)
+            } else {
+                paint.textAlign = align
+                canvas.drawText(text, x, baseline, paint)
+            }
         }
 
-        // 中槽位
-        if (slots.center.isNotEmpty()) {
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText(slots.center, canvasWidth / 2f, baseline, paint)
-        }
-
-        // 右槽位
-        if (slots.right.isNotEmpty()) {
-            paint.textAlign = Paint.Align.RIGHT
-            canvas.drawText(slots.right, canvasWidth - marginH, baseline, paint)
-        }
+        drawSlot(slots.left, slots.leftContent, marginH, Paint.Align.LEFT)
+        drawSlot(slots.center, slots.centerContent, canvasWidth / 2f, Paint.Align.CENTER)
+        drawSlot(slots.right, slots.rightContent, canvasWidth - marginH, Paint.Align.RIGHT)
 
         paint.alpha = oldAlpha
         paint.textAlign = Paint.Align.LEFT // 重置
@@ -390,23 +385,41 @@ class ReaderPageRenderer(
         return range.startPos < end && range.endPos > start
     }
 
-    private fun drawBattery(canvas: Canvas, marginHorizontal: Float, footerBaseline: Float, batteryLevel: Int, density: Float) {
+    private fun drawBatteryAt(canvas: Canvas, x: Float, y: Float, align: Paint.Align, batteryLevel: Int, density: Float, paint: Paint) {
+        val batWidth = 22f * density
         val capWidth = 2f * density
         val capHeight = 4f * density
-        val batWidth = 22f * density
         val batHeight = 11f * density
+        val percentText = "$batteryLevel%"
+        val percentTextWidth = paint.measureText(percentText)
+        val spacing = 4f * density
 
-        val batteryRight = canvas.width - marginHorizontal
-        val batteryLeft = batteryRight - batWidth
-        val batteryTop = footerBaseline - footerPaint.textSize * 0.8f
+        val totalWidth = batWidth + spacing + percentTextWidth
+
+        val groupLeft = when (align) {
+            Paint.Align.LEFT -> x
+            Paint.Align.CENTER -> x - totalWidth / 2f
+            Paint.Align.RIGHT -> x - totalWidth
+        }
+
+        // Draw text
+        val textX = groupLeft
+        val oldAlign = paint.textAlign
+        paint.textAlign = Paint.Align.LEFT // Temporarily left-align for explicit coordinates
+        canvas.drawText(percentText, textX, y, paint)
+        paint.textAlign = oldAlign
+
+        // Draw battery icon
+        val batteryLeft = groupLeft + percentTextWidth + spacing
+        val batteryRight = batteryLeft + batWidth
+        val batteryTop = y - paint.textSize * 0.8f
         val batteryBottom = batteryTop + batHeight
 
-        // 更新预分配画笔属性
-        batteryStrokePaint.color = footerPaint.color
-        batteryStrokePaint.alpha = 102
+        batteryStrokePaint.color = paint.color
+        batteryStrokePaint.alpha = paint.alpha
         batteryStrokePaint.strokeWidth = 1f * density
-        batteryFillPaint.color = footerPaint.color
-        batteryFillPaint.alpha = 102
+        batteryFillPaint.color = paint.color
+        batteryFillPaint.alpha = paint.alpha
 
         // 1. 绘制电池外框
         val batteryRect = RectF(batteryLeft, batteryTop, batteryRight, batteryBottom)
@@ -430,11 +443,5 @@ class ReaderPageRenderer(
             batteryBottom - innerPadding
         )
         canvas.drawRect(fillRect, batteryFillPaint)
-
-        // 4. 绘制电量百分比
-        val percentText = "$batteryLevel%"
-        val percentTextWidth = footerPaint.measureText(percentText)
-        val percentX = batteryLeft - 4f * density - percentTextWidth
-        canvas.drawText(percentText, percentX, footerBaseline, footerPaint)
     }
 }

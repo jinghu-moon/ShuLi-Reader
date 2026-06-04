@@ -333,8 +333,10 @@ sealed interface AppStrings {
     val slotNone: String
     val slotChapterTitle: String
     val slotBookTitle: String
-    val slotPageNumber: String
-    val slotProgress: String
+    val slotChapterProgressFraction: String
+    val slotChapterProgressPercent: String
+    val slotBookProgressFraction: String
+    val slotBookProgressPercent: String
     val slotTime: String
     val slotBattery: String
     val slotDate: String
@@ -864,8 +866,10 @@ sealed interface AppStrings {
         override val slotNone = "无"
         override val slotChapterTitle = "章节名"
         override val slotBookTitle = "书名"
-        override val slotPageNumber = "页码"
-        override val slotProgress = "进度"
+        override val slotChapterProgressFraction = "章进度 (12/34)"
+        override val slotChapterProgressPercent = "章进度 (35%)"
+        override val slotBookProgressFraction = "书进度 (1234/50000)"
+        override val slotBookProgressPercent = "书进度 (35%)"
         override val slotTime = "时间"
         override val slotBattery = "电量"
         override val slotDate = "日期"
@@ -1373,8 +1377,10 @@ sealed interface AppStrings {
         override val slotNone = "無"
         override val slotChapterTitle = "章節名"
         override val slotBookTitle = "書名"
-        override val slotPageNumber = "頁碼"
-        override val slotProgress = "進度"
+        override val slotChapterProgressFraction = "章進度 (12/34)"
+        override val slotChapterProgressPercent = "章進度 (35%)"
+        override val slotBookProgressFraction = "書進度 (1234/50000)"
+        override val slotBookProgressPercent = "書進度 (35%)"
         override val slotTime = "時間"
         override val slotBattery = "電量"
         override val slotDate = "日期"
@@ -1882,8 +1888,10 @@ sealed interface AppStrings {
         override val slotNone = "None"
         override val slotChapterTitle = "Chapter Title"
         override val slotBookTitle = "Book Title"
-        override val slotPageNumber = "Page Number"
-        override val slotProgress = "Progress"
+        override val slotChapterProgressFraction = "Chapter Progress (12/34)"
+        override val slotChapterProgressPercent = "Chapter Progress (35%)"
+        override val slotBookProgressFraction = "Book Progress (1234/50000)"
+        override val slotBookProgressPercent = "Book Progress (35%)"
         override val slotTime = "Time"
         override val slotBattery = "Battery"
         override val slotDate = "Date"

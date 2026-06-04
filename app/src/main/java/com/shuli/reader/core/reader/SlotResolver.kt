@@ -18,15 +18,24 @@ object SlotResolver {
         bookTitle: String = "",
         pageNumber: Int = 0,
         totalPages: Int = 0,
-        progress: Float = 0f,
+        bookProgressPercent: Float = 0f,
+        bookCurrentPosition: Long = 0L,
+        bookTotalPosition: Long = 0L,
         batteryLevel: Int = 100,
     ): String {
         return when (slot) {
             SlotContent.NONE -> ""
             SlotContent.CHAPTER_TITLE -> chapterTitle
             SlotContent.BOOK_TITLE -> bookTitle
-            SlotContent.PAGE_NUMBER -> "$pageNumber / $totalPages"
-            SlotContent.PROGRESS -> "%.1f%%".format(progress * 100)
+            SlotContent.CHAPTER_PROGRESS_FRACTION -> "$pageNumber/$totalPages"
+            SlotContent.CHAPTER_PROGRESS_PERCENT -> {
+                val p = if (totalPages > 0) pageNumber.toFloat() / totalPages else 0f
+                "%.1f%%".format(p * 100)
+            }
+            SlotContent.BOOK_PROGRESS_PERCENT -> "%.1f%%".format(bookProgressPercent * 100)
+            SlotContent.BOOK_PROGRESS_FRACTION -> {
+                if (bookTotalPosition > 0L) "$bookCurrentPosition/$bookTotalPosition" else ""
+            }
             SlotContent.TIME -> {
                 val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
                 sdf.format(Date())
@@ -48,13 +57,18 @@ object SlotResolver {
         bookTitle: String = "",
         pageNumber: Int = 0,
         totalPages: Int = 0,
-        progress: Float = 0f,
+        bookProgressPercent: Float = 0f,
+        bookCurrentPosition: Long = 0L,
+        bookTotalPosition: Long = 0L,
         batteryLevel: Int = 100,
     ): SlotResolution {
         return SlotResolution(
-            left = resolve(config.left, chapterTitle, bookTitle, pageNumber, totalPages, progress, batteryLevel),
-            center = resolve(config.center, chapterTitle, bookTitle, pageNumber, totalPages, progress, batteryLevel),
-            right = resolve(config.right, chapterTitle, bookTitle, pageNumber, totalPages, progress, batteryLevel),
+            left = resolve(config.left, chapterTitle, bookTitle, pageNumber, totalPages, bookProgressPercent, bookCurrentPosition, bookTotalPosition, batteryLevel),
+            center = resolve(config.center, chapterTitle, bookTitle, pageNumber, totalPages, bookProgressPercent, bookCurrentPosition, bookTotalPosition, batteryLevel),
+            right = resolve(config.right, chapterTitle, bookTitle, pageNumber, totalPages, bookProgressPercent, bookCurrentPosition, bookTotalPosition, batteryLevel),
+            leftContent = config.left,
+            centerContent = config.center,
+            rightContent = config.right,
         )
     }
 
@@ -67,13 +81,18 @@ object SlotResolver {
         bookTitle: String = "",
         pageNumber: Int = 0,
         totalPages: Int = 0,
-        progress: Float = 0f,
+        bookProgressPercent: Float = 0f,
+        bookCurrentPosition: Long = 0L,
+        bookTotalPosition: Long = 0L,
         batteryLevel: Int = 100,
     ): SlotResolution {
         return SlotResolution(
-            left = resolve(config.left, chapterTitle, bookTitle, pageNumber, totalPages, progress, batteryLevel),
-            center = resolve(config.center, chapterTitle, bookTitle, pageNumber, totalPages, progress, batteryLevel),
-            right = resolve(config.right, chapterTitle, bookTitle, pageNumber, totalPages, progress, batteryLevel),
+            left = resolve(config.left, chapterTitle, bookTitle, pageNumber, totalPages, bookProgressPercent, bookCurrentPosition, bookTotalPosition, batteryLevel),
+            center = resolve(config.center, chapterTitle, bookTitle, pageNumber, totalPages, bookProgressPercent, bookCurrentPosition, bookTotalPosition, batteryLevel),
+            right = resolve(config.right, chapterTitle, bookTitle, pageNumber, totalPages, bookProgressPercent, bookCurrentPosition, bookTotalPosition, batteryLevel),
+            leftContent = config.left,
+            centerContent = config.center,
+            rightContent = config.right,
         )
     }
 }

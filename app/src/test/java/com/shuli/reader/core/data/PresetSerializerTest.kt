@@ -50,12 +50,12 @@ class PresetSerializerTest {
                 visibility = HeaderVisibility.ALWAYS_SHOW,
                 left = SlotContent.BOOK_TITLE,
                 center = SlotContent.CHAPTER_TITLE,
-                right = SlotContent.PAGE_NUMBER,
+                right = SlotContent.CHAPTER_PROGRESS_FRACTION,
             ),
             footer = FooterConfig(
                 visibility = HeaderVisibility.ALWAYS_HIDE,
                 left = SlotContent.NONE,
-                center = SlotContent.PROGRESS,
+                center = SlotContent.BOOK_PROGRESS_PERCENT,
                 right = SlotContent.TIME,
             ),
             headerFooterAlpha = 0.6f,
@@ -126,7 +126,7 @@ class PresetSerializerTest {
         val original = FooterConfig(
             visibility = HeaderVisibility.ALWAYS_HIDE,
             left = SlotContent.NONE,
-            center = SlotContent.PAGE_NUMBER,
+            center = SlotContent.CHAPTER_PROGRESS_FRACTION,
             right = SlotContent.BATTERY,
         )
         val encoded = json.encodeToString(FooterConfig.serializer(), original)

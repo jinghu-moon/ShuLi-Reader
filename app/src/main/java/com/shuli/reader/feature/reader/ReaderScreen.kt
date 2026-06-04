@@ -316,9 +316,10 @@ fun ReaderScreen(
 
                 // 页眉页脚
                 LaunchedEffect(prefs.headerFooterAlpha, prefs.showProgress, prefs.showHeaderLine, prefs.showFooterLine) {
+                    val (headerRes, footerRes) = viewModel.resolveHeaderAndFooterSlots()
                     canvasView?.updateHeaderFooter(
-                        viewModel.resolveHeaderSlots(),
-                        viewModel.resolveFooterSlots(),
+                        headerRes,
+                        footerRes,
                         prefs.headerFooterAlpha,
                         prefs.showProgress,
                         prefs.showHeaderLine,
@@ -386,7 +387,7 @@ fun ReaderScreen(
                             )
                             onPageChanged = viewModel::handlePageDirection
                             onPageChangedSlots = {
-                                Pair(viewModel.resolveHeaderSlots(), viewModel.resolveFooterSlots())
+                                viewModel.resolveHeaderAndFooterSlots()
                             }
                             onTextSelected = viewModel::selectText
                             onCenterClicked = viewModel::toggleToolbar
