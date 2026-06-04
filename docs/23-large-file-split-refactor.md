@@ -871,3 +871,127 @@ class ShuLiAppContainer(...) {
 - [ ] 未引入"循环依赖的接口抽象"（用接口解决循环依赖是反模式）
 - [ ] **Call sites 零残留**：grep 搜索旧类名/旧方法名，结果为 0（所有调用方已同步替换）
 - [ ] **编译无警告**：`./gradlew :app:compileDebugKotlin` 无 `deprecation` / `unused` 警告
+
+---
+
+## 8. 基准提交与回滚指南
+
+> 本节记录本文档对应的 Git 基准位置，便于拆分失败时回退。
+> 最后更新：2026-06-05
+
+### 8.1 基线信息
+
+| 项 | 值 |
+|---|---|
+| 仓库地址 | `https://github.com/jinghu-moon/ShuLi-Reader` |
+| 基线分支 | `main` |
+| 基线 commit | `2756ad2c995e08e77c17b0af0143c30131106409` |
+| 基线 commit 信息 | `docs(refactor): 大文件 SRP 拆分重构方案（重构基准参考）` |
+| 基线 commit 内容 | 新增 `docs/23-large-file-split-refactor.md`（本文档，873 行） |
+| 上一 commit | `7a291e2568445c7c1bdb56b77f2f647c80f12ddf` |
+
+### 8.2 已推送的相关分支
+
+| 分支 | 用途 | 状态 |
+|---|---|---|
+| `main` | 主分支，包含本文档 | ✅ 已推送 |
+| `refactor/split-large-files` | ReaderViewModel 阶段一拆分试验（已完成 3/4 模块） | ✅ 已推送 |
+
+> `refactor/split-large-files` 分支顶 commit：`abcb8b201722fdf49a0858dfd3b26964cae54c39`
+> PR 创建链接：https://github.com/jinghu-moon/ShuLi-Reader/pull/new/refactor/split-large-files
+
+### 8.3 回滚命令速查
+
+#### 情况 1：单个拆分 commit 失败，回退该 commit
+
+```bash
+# 查看待回退 commit
+git log --oneline
+
+# 保留工作区，回退 commit（可重新提交）
+git reset --soft HEAD~1
+
+# 彻底回退（丢弃所有变更）
+git reset --hard HEAD~1
+
+# 创建反向 commit（推荐，不破坏历史）
+git revert <commit-sha>
+```
+
+#### 情况 2：整个拆分分支走不通，删除重来
+
+```bash
+# 切回 main
+git checkout main
+
+# 删除本地试验分支
+git branch -D refactor/split-<name>
+
+# 删除远程试验分支
+git push origin --delete refactor/split-<name>
+
+# 用 git worktree 重新开一个干净的试验分支
+git worktree add ../ShuLi-Reader-refactor-<name> -b refactor/split-<name> main
+```
+
+#### 情况 3：回到本文档记录的基线
+
+```bash
+# 切回 main 并重置到基线 commit
+git checkout main
+git reset --hard 2756ad2c995e08e77c17b0af0143c30131106409
+git push origin main --force-with-lease
+```
+
+### 8.4 推荐的 Git 工作流
+
+每次启动一个新的拆分任务前，建议：
+
+```bash
+# 1. 确保 main 是最新
+git checkout main
+git pull origin main
+
+# 2. 用 git worktree 创建隔离的试验分支
+git worktree add ../ShuLi-Reader-refactor-<module> -b refactor/split-<module> main
+
+# 3. 进入 worktree 开始拆分
+cd ../ShuLi-Reader-refactor-<module>
+
+# 4. 每个模块拆完后独立 commit
+git add -A && git commit -m "refactor(<module>): 按 SRP 拆分 <旧文件> 为 <N> 个职责单一的子模块"
+
+# 5. 拆分完成后推送
+git push -u origin refactor/split-<module>
+
+# 6. 创建 PR review，合并后回到 main 清理 worktree
+cd ../ShuLi-Reader
+git merge refactor/split-<module>
+git worktree remove ../ShuLi-Reader-refactor-<module>
+git branch -d refactor/split-<module>
+```
+
+### 8.5 凭证配置（首次推送须知）
+
+若 `git push` 报 `fatal: could not read Username`，可用以下任一方式解决：
+
+| 方式 | 命令 | 适用场景 |
+|---|---|---|
+| **临时**（单次推送） | `git -c credential.helper='!"C:/Program Files/GitHub CLI/gh" auth git-credential' push origin <branch>` | 一次性使用 |
+| **持久**（推荐） | 安装 [Git Credential Manager](https://github.com/git-ecosystem/git-credential-manager) | Windows 原生，一次认证永久缓存 |
+| **SSH** | 配置 SSH key 后改 remote URL：`git remote set-url origin git@github.com:jinghu-moon/ShuLi-Reader.git` | 长期开发者 |
+
+### 8.6 验证基线
+
+每次拆分前，可用以下命令确认当前处于基线状态：
+
+```bash
+# 应输出 2756ad2c995e08e77c17b0af0143c30131106409（或更新的基线 commit）
+git rev-parse main
+
+# 应只看到本文档
+git ls-files docs/ | grep 23-large-file-split-refactor
+
+# 应无未提交变更
+git status --short
+```
