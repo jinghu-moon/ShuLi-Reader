@@ -14,15 +14,21 @@ class SyncStateMachine {
     private val _state = MutableStateFlow(SyncState.IDLE)
     val state: StateFlow<SyncState> = _state.asStateFlow()
 
+    /** 限流退避截止时间戳（毫秒），RATE_LIMITED 状态下有效 */
+    @Volatile
+    var retryAfterMs: Long = 0L
+        private set
+
     /**
      * 执行状态转换
      * @throws IllegalArgumentException 如果转换无效
      */
-    fun transition(to: SyncState) {
+    fun transition(to: SyncState, retryAfterMs: Long = 0L) {
         val from = _state.value
         require(isValidTransition(from, to)) {
             "Invalid transition: $from → $to"
         }
+        this.retryAfterMs = if (to == SyncState.RATE_LIMITED) retryAfterMs else 0L
         _state.value = to
     }
 

@@ -109,7 +109,7 @@ fun CloudSyncSettingsScreen(
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "WebDAV 服务器",
+                            text = strings.webdavServer,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                         )
@@ -118,7 +118,7 @@ fun CloudSyncSettingsScreen(
                         OutlinedTextField(
                             value = url,
                             onValueChange = { url = it },
-                            label = { Text("服务器地址") },
+                            label = { Text(strings.serverAddress) },
                             placeholder = { Text("https://dav.example.com/dav/") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
@@ -127,7 +127,7 @@ fun CloudSyncSettingsScreen(
                         OutlinedTextField(
                             value = username,
                             onValueChange = { username = it },
-                            label = { Text("用户名") },
+                            label = { Text(strings.webdavUser) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -135,7 +135,7 @@ fun CloudSyncSettingsScreen(
                         OutlinedTextField(
                             value = password,
                             onValueChange = { password = it },
-                            label = { Text("密码") },
+                            label = { Text(strings.webdavPassword) },
                             singleLine = true,
                             visualTransformation = PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -162,7 +162,7 @@ fun CloudSyncSettingsScreen(
                                 if (isTesting) {
                                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                                 } else {
-                                    Text("测试连接")
+                                    Text(strings.testConnection)
                                 }
                             }
                             Button(
@@ -174,7 +174,7 @@ fun CloudSyncSettingsScreen(
                                 enabled = url.isNotBlank() && username.isNotBlank(),
                                 modifier = Modifier.weight(1f),
                             ) {
-                                Text("保存")
+                                Text(strings.save)
                             }
                         }
                     }
@@ -186,14 +186,14 @@ fun CloudSyncSettingsScreen(
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column {
                         Text(
-                            text = "同步内容",
+                            text = strings.syncContent,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp),
                         )
-                        SettingsSwitchItem(title = "书签", checked = syncBookmarks, onCheckedChange = { syncBookmarks = it })
-                        SettingsSwitchItem(title = "笔记", checked = syncNotes, onCheckedChange = { syncNotes = it })
-                        SettingsSwitchItem(title = "阅读进度", checked = syncProgress, onCheckedChange = { syncProgress = it })
+                        SettingsSwitchItem(title = strings.bookmarksTab, checked = syncBookmarks, onCheckedChange = { syncBookmarks = it })
+                        SettingsSwitchItem(title = strings.notesTab, checked = syncNotes, onCheckedChange = { syncNotes = it })
+                        SettingsSwitchItem(title = strings.sortReadingProgress, checked = syncProgress, onCheckedChange = { syncProgress = it })
                     }
                 }
             }
@@ -202,8 +202,8 @@ fun CloudSyncSettingsScreen(
             item {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column {
-                        SettingsSwitchItem(title = "仅 Wi-Fi 同步", checked = wifiOnly, onCheckedChange = { wifiOnly = it })
-                        SettingsSwitchItem(title = "自动同步", checked = autoSync, onCheckedChange = { autoSync = it })
+                        SettingsSwitchItem(title = strings.wifiOnly, checked = wifiOnly, onCheckedChange = { wifiOnly = it })
+                        SettingsSwitchItem(title = strings.autoSync, checked = autoSync, onCheckedChange = { autoSync = it })
                     }
                 }
             }
@@ -213,18 +213,18 @@ fun CloudSyncSettingsScreen(
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column {
                         SettingsClickItem(
-                            title = "加密管理",
-                            subtitle = "端到端加密设置",
+                            title = strings.encryptionManagement,
+                            subtitle = strings.e2eeSettings,
                             onClick = onNavigateToEncryption,
                         )
                         SettingsClickItem(
-                            title = "已同步设备",
-                            subtitle = "管理已注册设备",
+                            title = strings.syncedDevices,
+                            subtitle = strings.manageRegisteredDevices,
                             onClick = onNavigateToDevices,
                         )
                         SettingsClickItem(
-                            title = "同步日志",
-                            subtitle = "查看历史同步记录",
+                            title = strings.syncLog,
+                            subtitle = strings.viewSyncHistory,
                             onClick = onNavigateToLogs,
                         )
                     }
@@ -241,11 +241,12 @@ private fun ConnectionTestResultBanner(
     result: ConnectionTestResult,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     val (message, icon, color) = when (result) {
-        ConnectionTestResult.SUCCESS -> Triple("连接成功", Icons.Outlined.CheckCircle, MaterialTheme.colorScheme.primary)
-        ConnectionTestResult.AUTH_FAILED -> Triple("认证失败，请检查用户名和密码", Icons.Outlined.Error, MaterialTheme.colorScheme.error)
-        ConnectionTestResult.NETWORK_ERROR -> Triple("网络错误，请检查地址和网络连接", Icons.Outlined.Error, MaterialTheme.colorScheme.error)
-        ConnectionTestResult.UNKNOWN_ERROR -> Triple("未知错误，请稍后重试", Icons.Outlined.Error, MaterialTheme.colorScheme.error)
+        ConnectionTestResult.SUCCESS -> Triple(strings.connectionSuccess, Icons.Outlined.CheckCircle, MaterialTheme.colorScheme.primary)
+        ConnectionTestResult.AUTH_FAILED -> Triple(strings.authFailedCheckUserPassword, Icons.Outlined.Error, MaterialTheme.colorScheme.error)
+        ConnectionTestResult.NETWORK_ERROR -> Triple(strings.networkErrorCheckAddress, Icons.Outlined.Error, MaterialTheme.colorScheme.error)
+        ConnectionTestResult.UNKNOWN_ERROR -> Triple(strings.unknownErrorRetryLater, Icons.Outlined.Error, MaterialTheme.colorScheme.error)
     }
 
     Card(

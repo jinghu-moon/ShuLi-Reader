@@ -1,5 +1,6 @@
 package com.shuli.reader.ui.settings.sync
 
+import com.shuli.reader.core.i18n.AppStrings
 import com.shuli.reader.sync.engine.SyncOrchestrator
 import com.shuli.reader.sync.engine.SyncTarget
 import com.shuli.reader.sync.state.SyncState
@@ -19,6 +20,7 @@ import kotlinx.coroutines.launch
 class SyncSummaryViewModel(
     private val stateMachine: SyncStateMachine,
     private val orchestrator: SyncOrchestrator? = null,
+    private val strings: AppStrings = AppStrings.ZhHans,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main),
 ) {
 
@@ -29,28 +31,28 @@ class SyncSummaryViewModel(
         scope.launch {
             stateMachine.state.collect { state ->
                 _cloudSyncUiState.value = when (state) {
-                    SyncState.IDLE -> CloudSyncCardUiState(isLoading = false, statusText = "就绪")
-                    SyncState.SCANNING -> CloudSyncCardUiState(isLoading = true, statusText = "正在扫描本地变更...")
-                    SyncState.DOWNLOADING -> CloudSyncCardUiState(isLoading = true, statusText = "正在下载远端数据...")
-                    SyncState.MERGING -> CloudSyncCardUiState(isLoading = true, statusText = "正在合并数据...")
-                    SyncState.UPLOADING -> CloudSyncCardUiState(isLoading = true, statusText = "正在上传书签与笔记...")
-                    SyncState.SUCCESS -> CloudSyncCardUiState(isLoading = false, statusText = "同步完成")
+                    SyncState.IDLE -> CloudSyncCardUiState(isLoading = false, statusText = strings.ready)
+                    SyncState.SCANNING -> CloudSyncCardUiState(isLoading = true, statusText = strings.scanningLocalChanges)
+                    SyncState.DOWNLOADING -> CloudSyncCardUiState(isLoading = true, statusText = strings.downloadingRemoteData)
+                    SyncState.MERGING -> CloudSyncCardUiState(isLoading = true, statusText = strings.mergingData)
+                    SyncState.UPLOADING -> CloudSyncCardUiState(isLoading = true, statusText = strings.uploadingBookmarksNotes)
+                    SyncState.SUCCESS -> CloudSyncCardUiState(isLoading = false, statusText = strings.syncComplete)
                     SyncState.FAILED -> CloudSyncCardUiState(
                         isLoading = false,
-                        statusText = "同步失败",
+                        statusText = strings.syncFailed,
                         errorType = SyncErrorType.AUTH_FAILED,
                     )
                     SyncState.RATE_LIMITED -> CloudSyncCardUiState(
                         isLoading = false,
-                        statusText = "请求过于频繁，等待重试...",
+                        statusText = strings.rateLimitedWaitRetry,
                         errorType = SyncErrorType.RATE_LIMITED,
                         rateLimitRetryAfterMs = 30000L,
                         showRateLimitLinks = true,
                     )
-                    SyncState.WAITING_RETRY -> CloudSyncCardUiState(isLoading = false, statusText = "等待重试...")
+                    SyncState.WAITING_RETRY -> CloudSyncCardUiState(isLoading = false, statusText = strings.waitingRetry)
                     SyncState.CRYPTO_LOCKED -> CloudSyncCardUiState(
                         isLoading = false,
-                        statusText = "加密锁未解锁",
+                        statusText = strings.cryptoLocked,
                         errorType = SyncErrorType.CRYPTO_LOCKED,
                         requiresPasswordInput = true,
                     )

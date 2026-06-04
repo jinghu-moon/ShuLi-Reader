@@ -7,7 +7,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,6 +27,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.automirrored.outlined.Note
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -43,6 +48,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -74,6 +80,7 @@ fun DirectoryDialog(
     onBookmarkDelete: (BookmarkEntity) -> Unit,
     onNoteClick: (NoteEntity) -> Unit,
     onNoteDelete: (NoteEntity) -> Unit,
+    onNoteEdit: (NoteEntity, String, String?) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -134,6 +141,7 @@ fun DirectoryDialog(
                         notes = notes,
                         onNoteClick = onNoteClick,
                         onNoteDelete = onNoteDelete,
+                        onNoteEdit = onNoteEdit,
                     )
                 }
             }
@@ -217,7 +225,7 @@ private fun ChapterList(
                 if (index < wordCounts.size) {
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = formatWordCount(wordCounts[index]),
+                        text = formatWordCount(wordCounts[index], strings),
                         style = MaterialTheme.typography.labelSmall,
                         color = readerColors.textTertiary,
                     )
@@ -280,6 +288,15 @@ private fun BookmarkList(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
+                    if (!bookmark.chapterTitle.isNullOrBlank()) {
+                        Text(
+                            text = bookmark.chapterTitle,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = readerColors.textTertiary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                     Text(
                         text = bookmark.selectedText ?: "",
                         style = MaterialTheme.typography.bodyMedium,
@@ -336,12 +353,16 @@ private fun NoteList(
     notes: List<NoteEntity>,
     onNoteClick: (NoteEntity) -> Unit,
     onNoteDelete: (NoteEntity) -> Unit,
+    onNoteEdit: (NoteEntity, String, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalAppStrings.current
     val readerColors = LocalReaderColorScheme.current
     val dateFormat = remember { SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()) }
     var noteToDelete by remember { mutableStateOf<NoteEntity?>(null) }
+    var noteToEdit by remember { mutableStateOf<NoteEntity?>(null) }
+    var editText by remember { mutableStateOf("") }
+    var editColor by remember { mutableStateOf<String?>(null) }
 
     if (notes.isEmpty()) {
         Box(
@@ -368,6 +389,8 @@ private fun NoteList(
         return
     }
 
+    val noteColors = listOf("#FFEB3B", "#FF9800", "#F44336", "#4CAF50", "#2196F3", "#9C27B0", null)
+
     LazyColumn(modifier = modifier.then(Modifier.heightIn(max = 400.dp))) {
         items(notes, key = { it.id }) { note ->
             Row(
@@ -377,6 +400,18 @@ private fun NoteList(
                     .padding(horizontal = 24.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (note.color != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(4.dp, 36.dp)
+                            .padding(end = 0.dp)
+                            .background(
+                                color = runCatching { androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(note.color)) }.getOrDefault(androidx.compose.ui.graphics.Color.Gray),
+                                shape = RoundedCornerShape(2.dp),
+                            ),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = note.noteText,
@@ -387,9 +422,21 @@ private fun NoteList(
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "${formatByteOffset(note.byteStart)}-${formatByteOffset(note.byteEnd)}  ${dateFormat.format(Date(note.createdTime))}",
+                        text = strings.notePosition(note.byteStart.toInt(), note.byteEnd.toInt(), dateFormat.format(Date(note.createdTime))),
                         style = MaterialTheme.typography.labelSmall,
                         color = readerColors.textTertiary,
+                    )
+                }
+                IconButton(onClick = {
+                    noteToEdit = note
+                    editText = note.noteText
+                    editColor = note.color
+                }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Edit,
+                        contentDescription = strings.editValue,
+                        tint = readerColors.textSecondary,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
                 IconButton(onClick = { noteToDelete = note }) {
@@ -406,6 +453,58 @@ private fun NoteList(
                 color = readerColors.divider,
             )
         }
+    }
+
+    // 编辑笔记对话框
+    noteToEdit?.let { note ->
+        AlertDialog(
+            onDismissRequest = { noteToEdit = null },
+            title = { Text(strings.editValue) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = editText,
+                        onValueChange = { editText = it },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
+                        maxLines = 5,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        noteColors.forEach { color ->
+                            val isSelected = editColor == color
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(
+                                        color = if (color != null) {
+                                            runCatching { androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(color)) }.getOrDefault(androidx.compose.ui.graphics.Color.Gray)
+                                        } else {
+                                            readerColors.textTertiary.copy(alpha = 0.3f)
+                                        },
+                                        shape = RoundedCornerShape(16.dp),
+                                    )
+                                    .then(
+                                        if (isSelected) Modifier.border(2.dp, readerColors.textPrimary, RoundedCornerShape(16.dp))
+                                        else Modifier,
+                                    )
+                                    .clickable { editColor = color },
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onNoteEdit(note, editText, editColor)
+                        noteToEdit = null
+                    },
+                ) { Text(strings.saveAction) }
+            },
+            dismissButton = {
+                TextButton(onClick = { noteToEdit = null }) { Text(strings.cancelAction) }
+            },
+        )
     }
 
     // 删除确认对话框
@@ -429,10 +528,10 @@ private fun NoteList(
     }
 }
 
-private fun formatWordCount(count: Int): String {
+private fun formatWordCount(count: Int, strings: com.shuli.reader.core.i18n.AppStrings): String {
     return when {
-        count >= 10000 -> String.format("%.2f万字", count / 10000.0)
-        else -> "${count}字"
+        count >= 10000 -> strings.wordCountTenThousand(count / 10000.0f)
+        else -> strings.wordCountUnit(count)
     }
 }
 

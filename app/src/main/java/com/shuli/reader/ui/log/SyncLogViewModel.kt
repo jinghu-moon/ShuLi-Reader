@@ -1,5 +1,6 @@
 package com.shuli.reader.ui.log
 
+import com.shuli.reader.core.i18n.AppStrings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +14,7 @@ import java.util.Locale
 // Part of T-38 同步日志页
 class SyncLogViewModel(
     private val logs: List<SyncLogEntry> = emptyList(),
+    private val strings: AppStrings = AppStrings.ZhHans,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main),
 ) {
 
@@ -47,8 +49,8 @@ class SyncLogViewModel(
         return logs.groupBy { entry ->
             val date = dateFormat.format(Date(entry.timestamp))
             when (date) {
-                today -> "今天"
-                yesterday -> "昨天"
+                today -> strings.today
+                yesterday -> strings.yesterday
                 else -> date
             }
         }

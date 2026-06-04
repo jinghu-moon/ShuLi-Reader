@@ -127,12 +127,186 @@ sealed interface AppStrings {
     val cloudSyncConfig: String
     val localBackupDesc: String
 
+    // 四-A、加密管理
+    val encryptionManagement: String
+    val encryptionEnabled: String
+    val encryptionDisabled: String
+    val e2eeProtectsSyncData: String
+    val dataSyncedInPlaintext: String
+    val e2eeNotEnabled: String
+    val e2eeNotEnabledDesc: String
+    val enableEncryption: String
+    val rememberEncryptionPassword: String
+    val rememberEncryptionPasswordDesc: String
+    val verifyPassword: String
+    val changePassword: String
+    val setEncryptionPassword: String
+    val inputPasswordToVerify: String
+    val encryptionPassword: String
+    val verifySuccess: String
+    val passwordWrong: String
+    val encryptionNotEnabled: String
+    val verifyError: String
+    val verify: String
+    val oldPassword: String
+    val newPassword: String
+    val confirmNewPassword: String
+    val passwordMismatch: String
+    val confirmChange: String
+    val confirmSet: String
+    val algorithmDetails: String
+    val encryptionAlgorithm: String
+    val kdfIterations: String
+    val keyVersion: String
+    val createdAt: String
+
+    // 四-B、同步状态与导航
+    val webdavServer: String
+    val webdavServerSettings: String
+    val e2eeStatus: String
+    val e2eeSettings: String
+    val syncedDevices: String
+    val manageRegisteredDevices: String
+    val syncLog: String
+    val viewSyncHistory: String
+    val exportData: String
+    val exportBookmarksNotesProgress: String
+    val syncStatus: String
+    val ready: String
+    val authFailedCheckCredentials: String
+    val networkConnectionFailed: String
+    val rateLimitedRetryLater: String
+    val cryptoLockedVerifyPassword: String
+    val unknownError: String
+    val serverAddress: String
+    val save: String
+    val syncContent: String
+    val wifiOnly: String
+    val autoSync: String
+    val connectionSuccess: String
+    val authFailedCheckUserPassword: String
+    val networkErrorCheckAddress: String
+    val unknownErrorRetryLater: String
+
+    // 四-C、同步中状态
+    val syncing: String
+    val cancelSync: String
+    val cancelSyncExplanation: String
+    val syncAgain: String
+    val scanningLocalChanges: String
+    val downloadingRemoteData: String
+    val mergingData: String
+    val uploadingBookmarksNotes: String
+    val syncComplete: String
+    val syncFailed: String
+    val rateLimitedWaitRetry: String
+    val waitingRetry: String
+    val cryptoLocked: String
+
+    // 四-D、本地同步路径
+    val internalStorage: String
+    val externalStorage: String
+    val rootDirectory: String
+
+    // 四-E、冲突解决
+    val otherDevice: String
+    val readingProgressConflict: String
+    val conflictDetectedMessage: (String) -> String
+    val thisDevice: String
+    val keepLocal: String
+    val useRemote: String
+    val progressPosition: (Int, Long) -> String
+    val updatedAtLabel: String
+
+    // 四-F、设备管理
+    val noSyncedDevices: String
+    val unknownDevice: String
+    val lastSyncLabel: String
+    val appVersionLabel: String
+    val removeDevice: String
+    val removeDeviceConfirm: (String) -> String
+    val remove: String
+    val deviceFallbackName: (String) -> String
+
+    // 四-G、导出与备份
+    val selectExportContent: String
+    val bookFiles: String
+    val bookmarks: String
+    val notes: String
+    val readingProgressExport: String
+    val readerConfig: String
+    val estimatingSize: String
+    val estimatedSize: (String) -> String
+    val encryptedExport: String
+    val rememberExportPassword: String
+    val password: String
+    val passwordConfirm: String
+    val export: String
+    val backupDescription: String
+    val backupLocation: String
+    val defaultAppDirectory: String
+    val select: String
+    val customBackupDirSelected: String
+    val backupInPrivateDirWarning: String
+    val autoBackup: String
+    val autoBackupDesc: String
+    val backupFrequency: String
+    val backupEveryNHours: (Int) -> String
+    val backupOnStart: String
+    val backupOnStartDesc: String
+    val backupOnExit: String
+    val backupOnExitDesc: String
+    val autoBackupNote: String
+    val manualBackup: String
+    val exportBackup: String
+    val exportBackupDesc: String
+    val importBackup: String
+    val importBackupDesc: String
+    val selectFile: String
+    val backupNotes: String
+    val backupNotesContent: String
+    val backupResultSuccess: String
+    val backupResultComplete: String
+
+    // 四-H、同步日志
+    val filterCloud: String
+    val filterLocal: String
+    val filterFailed: String
+    val noSyncLogs: String
+    val syncTypeCloud: String
+    val syncTypeLocal: String
+    val syncTypeUnknown: String
+    val requestCount: (Int) -> String
+    val today: String
+    val yesterday: String
+
+    // 杂项
+    val favorite: String
+    val deleteFont: String
+
+    // 四-I、时长格式化
+    val durationSeconds: (Long) -> String
+    val durationMinutesSeconds: (Long, Long) -> String
+    val durationHoursMinutes: (Long, Long) -> String
+
+    // 四-J、错误消息
+    val invalidEncryptedFileFormat: String
+    val zipMissingManifest: String
+    val backupMissingManifest: String
+    val decryptFailedPasswordWrong: String
+    val cannotReadFontFile: (String) -> String
+    val fontWriteFailedOrEmpty: (String) -> String
+
     // 五、朗读设置 (TTS)
     val ttsSettings: String
     val ttsSpeed: String
     val ttsPitch: String
     val ttsAutoPage: String
     val ttsHighlightSentence: String
+    val ttsSkipTitle: String
+    val ttsSleepTimer: String
+    val ttsSleepTimerOff: String
+    val ttsSleepTimerRemaining: (Int) -> String
     val ttsStart: String
     val ttsPause: String
     val ttsStop: String
@@ -247,6 +421,8 @@ sealed interface AppStrings {
     val deselectAll: String
     val importSelected: (Int) -> String
     val alreadyLatestVersion: String
+    val alreadyFirstPage: String
+    val alreadyLastPage: String
     val folderImportDesc: String
 
     val bookDeleted: String
@@ -316,6 +492,45 @@ sealed interface AppStrings {
     val unifiedCoverColor: String
     val unifiedCoverColorAuto: String
     val unifiedCoverColorActive: (Int) -> String
+
+    // 本地备份
+    val backupExportFailedWriteDir: String
+    val backupExportSuccessCustom: String
+    val backupExportFailedCreateFile: String
+    val backupExportFailedPermission: String
+    val backupExportSuccess: (String) -> String
+    val backupExportFailed: (String) -> String
+    val backupImportFailedRead: String
+    val backupImportSuccess: String
+    val backupImportFailed: (String) -> String
+
+    // 字体导入
+    val fontImportSuccess: (String, Int) -> String
+    val fontImportFailed: (String) -> String
+
+    // 字数统计
+    val wordCountTenThousand: (Float) -> String
+    val wordCountUnit: (Int) -> String
+
+    // EPUB 图片占位
+    val imagePlaceholder: String
+
+    // 书架操作补充
+    val groupCreatedAndMoved: String
+
+    // 编辑模式与分组
+    val selectedItemCount: (Int) -> String
+    val selectItems: String
+    val folderLabel: String
+    val moreLabel: String
+    val confirmDeleteTitle: String
+    val confirmDeleteSelected: (Int) -> String
+    val moveToExistingGroup: String
+    val newGroupName: String
+    val createAndMove: String
+    val createNewGroup: String
+    val removeFromGroup: String
+    val folderEmpty: String
 
     // 领域错误提示
     val unableToReadFile: String
@@ -443,11 +658,187 @@ sealed interface AppStrings {
         override val cloudSyncConfig = "云端同步配置"
         override val localBackupDesc = "导出与导入数据备份"
 
+        override val encryptionManagement = "加密管理"
+        override val encryptionEnabled = "加密已启用"
+        override val encryptionDisabled = "加密未启用"
+        override val e2eeProtectsSyncData = "端到端加密保护您的同步数据"
+        override val dataSyncedInPlaintext = "数据以明文方式同步"
+        override val e2eeNotEnabled = "端到端加密未启用"
+        override val e2eeNotEnabledDesc = "启用后，同步数据将在设备端加密后上传，服务器无法读取内容。"
+        override val enableEncryption = "启用加密"
+        override val rememberEncryptionPassword = "请牢记加密密码"
+        override val rememberEncryptionPasswordDesc = "加密密码无法找回。如果忘记密码，加密的同步数据将无法恢复。"
+        override val verifyPassword = "验证密码"
+        override val changePassword = "更换密码"
+        override val setEncryptionPassword = "设置加密密码"
+        override val inputPasswordToVerify = "输入加密密码以验证正确性"
+        override val encryptionPassword = "加密密码"
+        override val verifySuccess = "验证成功"
+        override val passwordWrong = "密码错误"
+        override val encryptionNotEnabled = "未启用加密"
+        override val verifyError = "验证出错"
+        override val verify = "验证"
+        override val oldPassword = "旧密码"
+        override val newPassword = "新密码"
+        override val confirmNewPassword = "确认新密码"
+        override val passwordMismatch = "密码不一致"
+        override val confirmChange = "确认更换"
+        override val confirmSet = "确认设置"
+        override val algorithmDetails = "算法详情"
+        override val encryptionAlgorithm = "加密算法"
+        override val kdfIterations = "KDF 迭代次数"
+        override val keyVersion = "密钥版本"
+        override val createdAt = "创建时间"
+
+        override val webdavServer = "WebDAV 服务器"
+        override val webdavServerSettings = "WebDAV 服务器设置"
+        override val e2eeStatus = "端到端加密状态"
+        override val e2eeSettings = "端到端加密设置"
+        override val syncedDevices = "已同步设备"
+        override val manageRegisteredDevices = "管理已注册设备"
+        override val syncLog = "同步日志"
+        override val viewSyncHistory = "查看历史同步记录"
+        override val exportData = "导出数据"
+        override val exportBookmarksNotesProgress = "导出书签、笔记、进度"
+        override val syncStatus = "同步状态"
+        override val ready = "就绪"
+        override val authFailedCheckCredentials = "认证失败，请检查账号密码"
+        override val networkConnectionFailed = "网络连接失败"
+        override val rateLimitedRetryLater = "请求过于频繁，稍后重试"
+        override val cryptoLockedVerifyPassword = "加密锁未解锁，请先验证密码"
+        override val unknownError = "发生未知错误"
+        override val serverAddress = "服务器地址"
+        override val save = "保存"
+        override val syncContent = "同步内容"
+        override val wifiOnly = "仅 Wi-Fi 同步"
+        override val autoSync = "自动同步"
+        override val connectionSuccess = "连接成功"
+        override val authFailedCheckUserPassword = "认证失败，请检查用户名和密码"
+        override val networkErrorCheckAddress = "网络错误，请检查地址和网络连接"
+        override val unknownErrorRetryLater = "未知错误，请稍后重试"
+
+        override val syncing = "正在同步"
+        override val cancelSync = "取消同步"
+        override val cancelSyncExplanation = "取消不会丢失已完成的部分，下次同步时继续"
+        override val syncAgain = "再次同步"
+        override val scanningLocalChanges = "正在扫描本地变更..."
+        override val downloadingRemoteData = "正在下载远端数据..."
+        override val mergingData = "正在合并数据..."
+        override val uploadingBookmarksNotes = "正在上传书签与笔记..."
+        override val syncComplete = "同步完成"
+        override val syncFailed = "同步失败"
+        override val rateLimitedWaitRetry = "请求过于频繁，等待重试..."
+        override val waitingRetry = "等待重试..."
+        override val cryptoLocked = "加密锁未解锁"
+
+        override val internalStorage = "内部存储"
+        override val externalStorage = "外部存储"
+        override val rootDirectory = "根目录"
+
+        // 四-E、冲突解决
+        override val otherDevice = "其他设备"
+        override val readingProgressConflict = "阅读进度冲突"
+        override val conflictDetectedMessage = { name: String -> "检测到 \"$name\" 与本机的阅读进度不一致。请选择要保留的进度：" }
+        override val thisDevice = "本机"
+        override val keepLocal = "保留本地"
+        override val useRemote = "使用远端"
+        override val progressPosition = { chapter: Int, offset: Long -> "位置: 第 $chapter 章，偏移 $offset" }
+        override val updatedAtLabel = "更新时间"
+
+        // 四-F、设备管理
+        override val noSyncedDevices = "暂无已同步设备"
+        override val unknownDevice = "未知设备"
+        override val lastSyncLabel = "最后同步"
+        override val appVersionLabel = "版本"
+        override val removeDevice = "移除设备"
+        override val removeDeviceConfirm = { name: String -> "确定要移除 \"$name\" 吗？移除后该设备需要重新同步。" }
+        override val remove = "移除"
+        override val deviceFallbackName = { id: String -> "设备 $id" }
+
+        // 四-G、导出与备份
+        override val selectExportContent = "选择要导出的内容："
+        override val bookFiles = "书籍文件"
+        override val bookmarks = "书签"
+        override val notes = "笔记"
+        override val readingProgressExport = "阅读进度"
+        override val readerConfig = "阅读器配置"
+        override val estimatingSize = "正在估算导出大小..."
+        override val estimatedSize = { size: String -> "预估大小: $size" }
+        override val encryptedExport = "加密导出"
+        override val rememberExportPassword = "请牢记加密密码。密码丢失后，导出的数据将无法恢复。"
+        override val password = "密码"
+        override val passwordConfirm = "确认密码"
+        override val export = "导出"
+        override val backupDescription = "将书签、笔记、阅读进度等数据备份到本地文件，或从备份文件恢复数据。"
+        override val backupLocation = "备份存储位置"
+        override val defaultAppDirectory = "应用默认目录"
+        override val select = "选择"
+        override val customBackupDirSelected = "已选择自定义备份目录"
+        override val backupInPrivateDirWarning = "备份将保存在应用私有目录，卸载应用时数据会被清除"
+        override val autoBackup = "自动备份"
+        override val autoBackupDesc = "按计划自动备份数据"
+        override val backupFrequency = "备份频率"
+        override val backupEveryNHours = { hours: Int ->
+            when {
+                hours < 24 -> "每 $hours 小时"
+                hours == 24 -> "每天"
+                else -> "每 ${hours / 24} 天"
+            }
+        }
+        override val backupOnStart = "启动时备份"
+        override val backupOnStartDesc = "每次打开应用时自动备份"
+        override val backupOnExit = "关闭时备份"
+        override val backupOnExitDesc = "每次关闭应用时自动备份"
+        override val autoBackupNote = "自动备份不包含书籍文件，仅备份书签、笔记和进度数据。最多保留 5 个备份。"
+        override val manualBackup = "手动备份"
+        override val exportBackup = "导出备份"
+        override val exportBackupDesc = "将数据导出为 ZIP 文件"
+        override val importBackup = "导入备份"
+        override val importBackupDesc = "从 ZIP 文件恢复数据"
+        override val selectFile = "选择文件"
+        override val backupNotes = "注意事项"
+        override val backupNotesContent = "• 导入会合并现有数据，不会覆盖较新的本地数据\n• 加密备份需要输入正确的密码才能导入\n• 建议定期备份以防止数据丢失\n• 自定义目录需要授予应用读写权限"
+        override val backupResultSuccess = "成功"
+        override val backupResultComplete = "完成"
+
+        // 四-H、同步日志
+        override val filterCloud = "云端"
+        override val filterLocal = "本地"
+        override val filterFailed = "失败"
+        override val noSyncLogs = "暂无同步日志"
+        override val syncTypeCloud = "云端"
+        override val syncTypeLocal = "本地"
+        override val syncTypeUnknown = "未知"
+        override val requestCount = { count: Int -> "$count 次请求" }
+        override val today = "今天"
+        override val yesterday = "昨天"
+
+        // 杂项
+        override val favorite = "收藏"
+        override val deleteFont = "删除字体"
+
+        // 四-I、时长格式化
+        override val durationSeconds = { seconds: Long -> "${seconds}秒" }
+        override val durationMinutesSeconds = { minutes: Long, seconds: Long -> "${minutes}分${seconds}秒" }
+        override val durationHoursMinutes = { hours: Long, minutes: Long -> "${hours}时${minutes}分" }
+
+        // 四-J、错误消息
+        override val invalidEncryptedFileFormat = "加密文件格式无效"
+        override val zipMissingManifest = "ZIP 文件缺少 manifest.json"
+        override val backupMissingManifest = "备份文件缺少 manifest.json，格式无效"
+        override val decryptFailedPasswordWrong = "解密失败：密码错误或文件已损坏"
+        override val cannotReadFontFile = { uri: String -> "无法读取字体文件: $uri" }
+        override val fontWriteFailedOrEmpty = { path: String -> "字体文件写入失败或文件为空: $path" }
+
         override val ttsSettings = "朗读设置 (TTS)"
         override val ttsSpeed = "语速调节"
         override val ttsPitch = "音调调节"
         override val ttsAutoPage = "自动翻页"
         override val ttsHighlightSentence = "高亮当前句子"
+        override val ttsSkipTitle = "跳过章节标题"
+        override val ttsSleepTimer = "定时停止"
+        override val ttsSleepTimerOff = "关闭"
+        override val ttsSleepTimerRemaining = { seconds: Int -> "${seconds / 60}分${seconds % 60}秒后停止" }
         override val ttsStart = "开始朗读"
         override val ttsPause = "暂停朗读"
         override val ttsStop = "停止朗读"
@@ -558,6 +949,8 @@ sealed interface AppStrings {
         override val deselectAll = "取消全选"
         override val importSelected = { count: Int -> "导入所选 ($count)" }
         override val alreadyLatestVersion = "已是最新版本"
+        override val alreadyFirstPage = "已经是第一页了"
+        override val alreadyLastPage = "已经是最后一页了"
         override val folderImportDesc = "自动扫描文件夹内所有可导入的书籍"
 
         override val bookDeleted = "已删除"
@@ -621,6 +1014,33 @@ sealed interface AppStrings {
         override val unifiedCoverColor = "统一封面颜色"
         override val unifiedCoverColorAuto = "自动（按书名散列）"
         override val unifiedCoverColorActive = { idx: Int -> "已统一为色盘 #$idx" }
+        override val backupExportFailedWriteDir = "无法写入目标目录"
+        override val backupExportSuccessCustom = "导出成功：自定义目录"
+        override val backupExportFailedCreateFile = "导出失败：无法创建文件"
+        override val backupExportFailedPermission = "导出失败：目录无写入权限，请重新选择"
+        override val backupExportSuccess = { dir: String -> "导出成功：$dir" }
+        override val backupExportFailed = { msg: String -> "导出失败：$msg" }
+        override val backupImportFailedRead = "无法读取备份文件"
+        override val backupImportSuccess = "导入成功"
+        override val backupImportFailed = { msg: String -> "导入失败：$msg" }
+        override val fontImportSuccess = { name: String, count: Int -> "字体导入成功: $name（共 $count 个自定义字体）" }
+        override val fontImportFailed = { msg: String -> "字体导入失败: $msg" }
+        override val wordCountTenThousand = { v: Float -> String.format("%.2f万字", v) }
+        override val wordCountUnit = { count: Int -> "${count}字" }
+        override val imagePlaceholder = "图片"
+        override val groupCreatedAndMoved = "已创建分组并移动"
+        override val selectedItemCount = { count: Int -> "已选择 $count 项" }
+        override val selectItems = "请选择项目"
+        override val folderLabel = "分组"
+        override val moreLabel = "更多"
+        override val confirmDeleteTitle = "确认删除"
+        override val confirmDeleteSelected = { count: Int -> "确定要删除选中的 $count 项吗？此操作不可撤销。" }
+        override val moveToExistingGroup = "移动到现有分组："
+        override val newGroupName = "新分组名称"
+        override val createAndMove = "创建并移动"
+        override val createNewGroup = "创建新分组"
+        override val removeFromGroup = "从分组中移出"
+        override val folderEmpty = "分组内暂无书籍"
         override val unableToReadFile = "无法读取文件"
         override val invalidFolderPath = "无效的文件夹路径"
         override val invalidFolder = "不是有效的文件夹"
@@ -747,11 +1167,187 @@ sealed interface AppStrings {
         override val cloudSyncConfig = "雲端同步配置"
         override val localBackupDesc = "匯出與匯入資料備份"
 
+        override val encryptionManagement = "加密管理"
+        override val encryptionEnabled = "加密已啟用"
+        override val encryptionDisabled = "加密未啟用"
+        override val e2eeProtectsSyncData = "端到端加密保護您的同步資料"
+        override val dataSyncedInPlaintext = "資料以明文方式同步"
+        override val e2eeNotEnabled = "端到端加密未啟用"
+        override val e2eeNotEnabledDesc = "啟用後，同步資料將在裝置端加密後上傳，伺服器無法讀取內容。"
+        override val enableEncryption = "啟用加密"
+        override val rememberEncryptionPassword = "請牢記加密密碼"
+        override val rememberEncryptionPasswordDesc = "加密密碼無法找回。如果忘記密碼，加密的同步資料將無法恢復。"
+        override val verifyPassword = "驗證密碼"
+        override val changePassword = "更換密碼"
+        override val setEncryptionPassword = "設定加密密碼"
+        override val inputPasswordToVerify = "輸入加密密碼以驗證正確性"
+        override val encryptionPassword = "加密密碼"
+        override val verifySuccess = "驗證成功"
+        override val passwordWrong = "密碼錯誤"
+        override val encryptionNotEnabled = "未啟用加密"
+        override val verifyError = "驗證出錯"
+        override val verify = "驗證"
+        override val oldPassword = "舊密碼"
+        override val newPassword = "新密碼"
+        override val confirmNewPassword = "確認新密碼"
+        override val passwordMismatch = "密碼不一致"
+        override val confirmChange = "確認更換"
+        override val confirmSet = "確認設定"
+        override val algorithmDetails = "演算法詳情"
+        override val encryptionAlgorithm = "加密演算法"
+        override val kdfIterations = "KDF 迭代次數"
+        override val keyVersion = "金鑰版本"
+        override val createdAt = "建立時間"
+
+        override val webdavServer = "WebDAV 伺服器"
+        override val webdavServerSettings = "WebDAV 伺服器設定"
+        override val e2eeStatus = "端到端加密狀態"
+        override val e2eeSettings = "端到端加密設定"
+        override val syncedDevices = "已同步裝置"
+        override val manageRegisteredDevices = "管理已註冊裝置"
+        override val syncLog = "同步日誌"
+        override val viewSyncHistory = "查看歷史同步記錄"
+        override val exportData = "匯出資料"
+        override val exportBookmarksNotesProgress = "匯出書籤、筆記、進度"
+        override val syncStatus = "同步狀態"
+        override val ready = "就緒"
+        override val authFailedCheckCredentials = "認證失敗，請檢查帳號密碼"
+        override val networkConnectionFailed = "網路連線失敗"
+        override val rateLimitedRetryLater = "請求過於頻繁，稍後重試"
+        override val cryptoLockedVerifyPassword = "加密鎖未解鎖，請先驗證密碼"
+        override val unknownError = "發生未知錯誤"
+        override val serverAddress = "伺服器位址"
+        override val save = "儲存"
+        override val syncContent = "同步內容"
+        override val wifiOnly = "僅 Wi-Fi 同步"
+        override val autoSync = "自動同步"
+        override val connectionSuccess = "連線成功"
+        override val authFailedCheckUserPassword = "認證失敗，請檢查使用者名稱和密碼"
+        override val networkErrorCheckAddress = "網路錯誤，請檢查位址和網路連線"
+        override val unknownErrorRetryLater = "未知錯誤，請稍後重試"
+
+        override val syncing = "正在同步"
+        override val cancelSync = "取消同步"
+        override val cancelSyncExplanation = "取消不會丟失已完成的部分，下次同步時繼續"
+        override val syncAgain = "再次同步"
+        override val scanningLocalChanges = "正在掃描本機變更..."
+        override val downloadingRemoteData = "正在下載遠端資料..."
+        override val mergingData = "正在合併資料..."
+        override val uploadingBookmarksNotes = "正在上傳書籤與筆記..."
+        override val syncComplete = "同步完成"
+        override val syncFailed = "同步失敗"
+        override val rateLimitedWaitRetry = "請求過於頻繁，等待重試..."
+        override val waitingRetry = "等待重試..."
+        override val cryptoLocked = "加密鎖未解鎖"
+
+        override val internalStorage = "內部儲存"
+        override val externalStorage = "外部儲存"
+        override val rootDirectory = "根目錄"
+
+        // 四-E、衝突解決
+        override val otherDevice = "其他裝置"
+        override val readingProgressConflict = "閱讀進度衝突"
+        override val conflictDetectedMessage = { name: String -> "偵測到 \"$name\" 與本機的閱讀進度不一致。請選擇要保留的進度：" }
+        override val thisDevice = "本機"
+        override val keepLocal = "保留本機"
+        override val useRemote = "使用遠端"
+        override val progressPosition = { chapter: Int, offset: Long -> "位置: 第 $chapter 章，偏移 $offset" }
+        override val updatedAtLabel = "更新時間"
+
+        // 四-F、裝置管理
+        override val noSyncedDevices = "暫無已同步裝置"
+        override val unknownDevice = "未知裝置"
+        override val lastSyncLabel = "最後同步"
+        override val appVersionLabel = "版本"
+        override val removeDevice = "移除裝置"
+        override val removeDeviceConfirm = { name: String -> "確定要移除 \"$name\" 嗎？移除後該裝置需要重新同步。" }
+        override val remove = "移除"
+        override val deviceFallbackName = { id: String -> "裝置 $id" }
+
+        // 四-G、匯出與備份
+        override val selectExportContent = "選擇要匯出的內容："
+        override val bookFiles = "書籍檔案"
+        override val bookmarks = "書籤"
+        override val notes = "筆記"
+        override val readingProgressExport = "閱讀進度"
+        override val readerConfig = "閱讀器配置"
+        override val estimatingSize = "正在估算匯出大小..."
+        override val estimatedSize = { size: String -> "預估大小: $size" }
+        override val encryptedExport = "加密匯出"
+        override val rememberExportPassword = "請牢記加密密碼。密碼遺失後，匯出的資料將無法恢復。"
+        override val password = "密碼"
+        override val passwordConfirm = "確認密碼"
+        override val export = "匯出"
+        override val backupDescription = "將書籤、筆記、閱讀進度等資料備份到本機檔案，或從備份檔案恢復資料。"
+        override val backupLocation = "備份儲存位置"
+        override val defaultAppDirectory = "應用預設目錄"
+        override val select = "選擇"
+        override val customBackupDirSelected = "已選擇自訂備份目錄"
+        override val backupInPrivateDirWarning = "備份將保存在應用私有目錄，解除安裝應用時資料會被清除"
+        override val autoBackup = "自動備份"
+        override val autoBackupDesc = "按計劃自動備份資料"
+        override val backupFrequency = "備份頻率"
+        override val backupEveryNHours = { hours: Int ->
+            when {
+                hours < 24 -> "每 $hours 小時"
+                hours == 24 -> "每天"
+                else -> "每 ${hours / 24} 天"
+            }
+        }
+        override val backupOnStart = "啟動時備份"
+        override val backupOnStartDesc = "每次開啟應用時自動備份"
+        override val backupOnExit = "關閉時備份"
+        override val backupOnExitDesc = "每次關閉應用時自動備份"
+        override val autoBackupNote = "自動備份不包含書籍檔案，僅備份書籤、筆記和進度資料。最多保留 5 個備份。"
+        override val manualBackup = "手動備份"
+        override val exportBackup = "匯出備份"
+        override val exportBackupDesc = "將資料匯出為 ZIP 檔案"
+        override val importBackup = "匯入備份"
+        override val importBackupDesc = "從 ZIP 檔案恢復資料"
+        override val selectFile = "選擇檔案"
+        override val backupNotes = "注意事項"
+        override val backupNotesContent = "• 匯入會合併現有資料，不會覆蓋較新的本機資料\n• 加密備份需要輸入正確的密碼才能匯入\n• 建議定期備份以防止資料遺失\n• 自訂目錄需要授予應用讀寫權限"
+        override val backupResultSuccess = "成功"
+        override val backupResultComplete = "完成"
+
+        // 四-H、同步日誌
+        override val filterCloud = "雲端"
+        override val filterLocal = "本機"
+        override val filterFailed = "失敗"
+        override val noSyncLogs = "暫無同步日誌"
+        override val syncTypeCloud = "雲端"
+        override val syncTypeLocal = "本機"
+        override val syncTypeUnknown = "未知"
+        override val requestCount = { count: Int -> "$count 次請求" }
+        override val today = "今天"
+        override val yesterday = "昨天"
+
+        // 雜項
+        override val favorite = "收藏"
+        override val deleteFont = "刪除字型"
+
+        // 四-I、時長格式化
+        override val durationSeconds = { seconds: Long -> "${seconds}秒" }
+        override val durationMinutesSeconds = { minutes: Long, seconds: Long -> "${minutes}分${seconds}秒" }
+        override val durationHoursMinutes = { hours: Long, minutes: Long -> "${hours}時${minutes}分" }
+
+        // 四-J、錯誤訊息
+        override val invalidEncryptedFileFormat = "加密檔案格式無效"
+        override val zipMissingManifest = "ZIP 檔案缺少 manifest.json"
+        override val backupMissingManifest = "備份檔案缺少 manifest.json，格式無效"
+        override val decryptFailedPasswordWrong = "解密失敗：密碼錯誤或檔案已損壞"
+        override val cannotReadFontFile = { uri: String -> "無法讀取字型檔案: $uri" }
+        override val fontWriteFailedOrEmpty = { path: String -> "字型檔案寫入失敗或檔案為空: $path" }
+
         override val ttsSettings = "朗讀設定 (TTS)"
         override val ttsSpeed = "語速調節"
         override val ttsPitch = "音調調節"
         override val ttsAutoPage = "自動翻頁"
         override val ttsHighlightSentence = "高亮當前句子"
+        override val ttsSkipTitle = "跳過章節標題"
+        override val ttsSleepTimer = "定時停止"
+        override val ttsSleepTimerOff = "關閉"
+        override val ttsSleepTimerRemaining = { seconds: Int -> "${seconds / 60}分${seconds % 60}秒後停止" }
         override val ttsStart = "開始朗讀"
         override val ttsPause = "暫停朗讀"
         override val ttsStop = "停止朗讀"
@@ -862,6 +1458,8 @@ sealed interface AppStrings {
         override val deselectAll = "取消全選"
         override val importSelected = { count: Int -> "匯入所選 ($count)" }
         override val alreadyLatestVersion = "已是最新版本"
+        override val alreadyFirstPage = "已經是第一頁了"
+        override val alreadyLastPage = "已經是最後一頁了"
         override val folderImportDesc = "自動掃描資料夾內所有可匯入的書籍"
 
         override val bookDeleted = "已刪除"
@@ -925,6 +1523,33 @@ sealed interface AppStrings {
         override val unifiedCoverColor = "統一封面顏色"
         override val unifiedCoverColorAuto = "自動（按書名散列）"
         override val unifiedCoverColorActive = { idx: Int -> "已統一為色盤 #$idx" }
+        override val backupExportFailedWriteDir = "無法寫入目標目錄"
+        override val backupExportSuccessCustom = "匯出成功：自訂目錄"
+        override val backupExportFailedCreateFile = "匯出失敗：無法建立檔案"
+        override val backupExportFailedPermission = "匯出失敗：目錄無寫入權限，請重新選擇"
+        override val backupExportSuccess = { dir: String -> "匯出成功：$dir" }
+        override val backupExportFailed = { msg: String -> "匯出失敗：$msg" }
+        override val backupImportFailedRead = "無法讀取備份檔案"
+        override val backupImportSuccess = "匯入成功"
+        override val backupImportFailed = { msg: String -> "匯入失敗：$msg" }
+        override val fontImportSuccess = { name: String, count: Int -> "字型匯入成功: $name（共 $count 個自訂字型）" }
+        override val fontImportFailed = { msg: String -> "字型匯入失敗: $msg" }
+        override val wordCountTenThousand = { v: Float -> String.format("%.2f萬字", v) }
+        override val wordCountUnit = { count: Int -> "${count}字" }
+        override val imagePlaceholder = "圖片"
+        override val groupCreatedAndMoved = "已建立分組並移動"
+        override val selectedItemCount = { count: Int -> "已選擇 $count 項" }
+        override val selectItems = "請選擇項目"
+        override val folderLabel = "分組"
+        override val moreLabel = "更多"
+        override val confirmDeleteTitle = "確認刪除"
+        override val confirmDeleteSelected = { count: Int -> "確定要刪除選中的 $count 項嗎？此操作不可撤銷。" }
+        override val moveToExistingGroup = "移動到現有分組："
+        override val newGroupName = "新分組名稱"
+        override val createAndMove = "建立並移動"
+        override val createNewGroup = "建立新分組"
+        override val removeFromGroup = "從分組中移出"
+        override val folderEmpty = "分組內暫無書籍"
         override val unableToReadFile = "無法讀取檔案"
         override val invalidFolderPath = "無效的資料夾路徑"
         override val invalidFolder = "不是有效的資料夾"
@@ -1051,11 +1676,187 @@ sealed interface AppStrings {
         override val cloudSyncConfig = "Cloud Sync Settings"
         override val localBackupDesc = "Export and import data backup"
 
+        override val encryptionManagement = "Encryption Management"
+        override val encryptionEnabled = "Encryption Enabled"
+        override val encryptionDisabled = "Encryption Disabled"
+        override val e2eeProtectsSyncData = "End-to-end encryption protects your sync data"
+        override val dataSyncedInPlaintext = "Data is synced in plaintext"
+        override val e2eeNotEnabled = "End-to-end encryption is not enabled"
+        override val e2eeNotEnabledDesc = "Once enabled, sync data will be encrypted on device before upload. The server cannot read the content."
+        override val enableEncryption = "Enable Encryption"
+        override val rememberEncryptionPassword = "Remember Your Encryption Password"
+        override val rememberEncryptionPasswordDesc = "The encryption password cannot be recovered. If forgotten, encrypted sync data will be unrecoverable."
+        override val verifyPassword = "Verify Password"
+        override val changePassword = "Change Password"
+        override val setEncryptionPassword = "Set Encryption Password"
+        override val inputPasswordToVerify = "Enter encryption password to verify"
+        override val encryptionPassword = "Encryption Password"
+        override val verifySuccess = "Verification successful"
+        override val passwordWrong = "Incorrect password"
+        override val encryptionNotEnabled = "Encryption not enabled"
+        override val verifyError = "Verification error"
+        override val verify = "Verify"
+        override val oldPassword = "Old Password"
+        override val newPassword = "New Password"
+        override val confirmNewPassword = "Confirm New Password"
+        override val passwordMismatch = "Passwords do not match"
+        override val confirmChange = "Confirm Change"
+        override val confirmSet = "Confirm Set"
+        override val algorithmDetails = "Algorithm Details"
+        override val encryptionAlgorithm = "Encryption Algorithm"
+        override val kdfIterations = "KDF Iterations"
+        override val keyVersion = "Key Version"
+        override val createdAt = "Created At"
+
+        override val webdavServer = "WebDAV Server"
+        override val webdavServerSettings = "WebDAV Server Settings"
+        override val e2eeStatus = "E2EE Status"
+        override val e2eeSettings = "E2EE Settings"
+        override val syncedDevices = "Synced Devices"
+        override val manageRegisteredDevices = "Manage registered devices"
+        override val syncLog = "Sync Log"
+        override val viewSyncHistory = "View sync history"
+        override val exportData = "Export Data"
+        override val exportBookmarksNotesProgress = "Export bookmarks, notes, progress"
+        override val syncStatus = "Sync Status"
+        override val ready = "Ready"
+        override val authFailedCheckCredentials = "Authentication failed, please check your credentials"
+        override val networkConnectionFailed = "Network connection failed"
+        override val rateLimitedRetryLater = "Too many requests, please retry later"
+        override val cryptoLockedVerifyPassword = "Encryption locked, please verify password first"
+        override val unknownError = "An unknown error occurred"
+        override val serverAddress = "Server Address"
+        override val save = "Save"
+        override val syncContent = "Sync Content"
+        override val wifiOnly = "Wi-Fi Only"
+        override val autoSync = "Auto Sync"
+        override val connectionSuccess = "Connection successful"
+        override val authFailedCheckUserPassword = "Authentication failed, please check username and password"
+        override val networkErrorCheckAddress = "Network error, please check address and connection"
+        override val unknownErrorRetryLater = "Unknown error, please retry later"
+
+        override val syncing = "Syncing"
+        override val cancelSync = "Cancel Sync"
+        override val cancelSyncExplanation = "Cancelling won't lose completed progress. Next sync will continue."
+        override val syncAgain = "Sync Again"
+        override val scanningLocalChanges = "Scanning local changes..."
+        override val downloadingRemoteData = "Downloading remote data..."
+        override val mergingData = "Merging data..."
+        override val uploadingBookmarksNotes = "Uploading bookmarks and notes..."
+        override val syncComplete = "Sync complete"
+        override val syncFailed = "Sync failed"
+        override val rateLimitedWaitRetry = "Too many requests, waiting to retry..."
+        override val waitingRetry = "Waiting to retry..."
+        override val cryptoLocked = "Encryption locked"
+
+        override val internalStorage = "Internal Storage"
+        override val externalStorage = "External Storage"
+        override val rootDirectory = "Root Directory"
+
+        // Conflict Resolution
+        override val otherDevice = "Other device"
+        override val readingProgressConflict = "Reading Progress Conflict"
+        override val conflictDetectedMessage = { name: String -> "Detected that \"$name\" has a different reading progress from this device. Please choose which progress to keep:" }
+        override val thisDevice = "This Device"
+        override val keepLocal = "Keep Local"
+        override val useRemote = "Use Remote"
+        override val progressPosition = { chapter: Int, offset: Long -> "Position: Chapter $chapter, offset $offset" }
+        override val updatedAtLabel = "Updated at"
+
+        // Device Management
+        override val noSyncedDevices = "No synced devices"
+        override val unknownDevice = "Unknown device"
+        override val lastSyncLabel = "Last sync"
+        override val appVersionLabel = "Version"
+        override val removeDevice = "Remove Device"
+        override val removeDeviceConfirm = { name: String -> "Remove \"$name\"? This device will need to re-sync." }
+        override val remove = "Remove"
+        override val deviceFallbackName = { id: String -> "Device $id" }
+
+        // Export & Backup
+        override val selectExportContent = "Select content to export:"
+        override val bookFiles = "Book files"
+        override val bookmarks = "Bookmarks"
+        override val notes = "Notes"
+        override val readingProgressExport = "Reading progress"
+        override val readerConfig = "Reader settings"
+        override val estimatingSize = "Estimating export size..."
+        override val estimatedSize = { size: String -> "Estimated size: $size" }
+        override val encryptedExport = "Encrypted export"
+        override val rememberExportPassword = "Remember your encryption password. If lost, exported data cannot be recovered."
+        override val password = "Password"
+        override val passwordConfirm = "Confirm password"
+        override val export = "Export"
+        override val backupDescription = "Back up bookmarks, notes, reading progress and other data to a local file, or restore from a backup."
+        override val backupLocation = "Backup location"
+        override val defaultAppDirectory = "Default app directory"
+        override val select = "Select"
+        override val customBackupDirSelected = "Custom backup directory selected"
+        override val backupInPrivateDirWarning = "Backups are saved in app private storage. Uninstalling the app will delete them."
+        override val autoBackup = "Auto Backup"
+        override val autoBackupDesc = "Back up data on a schedule"
+        override val backupFrequency = "Backup frequency"
+        override val backupEveryNHours = { hours: Int ->
+            when {
+                hours < 24 -> "Every $hours hours"
+                hours == 24 -> "Daily"
+                else -> "Every ${hours / 24} days"
+            }
+        }
+        override val backupOnStart = "Backup on start"
+        override val backupOnStartDesc = "Auto back up every time the app opens"
+        override val backupOnExit = "Backup on exit"
+        override val backupOnExitDesc = "Auto back up every time the app closes"
+        override val autoBackupNote = "Auto backup excludes book files. Only bookmarks, notes and progress are backed up. Keeps up to 5 backups."
+        override val manualBackup = "Manual Backup"
+        override val exportBackup = "Export Backup"
+        override val exportBackupDesc = "Export data as a ZIP file"
+        override val importBackup = "Import Backup"
+        override val importBackupDesc = "Restore data from a ZIP file"
+        override val selectFile = "Select File"
+        override val backupNotes = "Notes"
+        override val backupNotesContent = "• Importing merges with existing data; newer local data is not overwritten\n• Encrypted backups require the correct password to import\n• Regular backups are recommended to prevent data loss\n• Custom directories require granting read/write permissions"
+        override val backupResultSuccess = "Success"
+        override val backupResultComplete = "Complete"
+
+        // Sync Log
+        override val filterCloud = "Cloud"
+        override val filterLocal = "Local"
+        override val filterFailed = "Failed"
+        override val noSyncLogs = "No sync logs"
+        override val syncTypeCloud = "Cloud"
+        override val syncTypeLocal = "Local"
+        override val syncTypeUnknown = "Unknown"
+        override val requestCount = { count: Int -> "$count requests" }
+        override val today = "Today"
+        override val yesterday = "Yesterday"
+
+        // Misc
+        override val favorite = "Favorite"
+        override val deleteFont = "Delete Font"
+
+        // Duration formatting
+        override val durationSeconds = { seconds: Long -> "${seconds}s" }
+        override val durationMinutesSeconds = { minutes: Long, seconds: Long -> "${minutes}m${seconds}s" }
+        override val durationHoursMinutes = { hours: Long, minutes: Long -> "${hours}h${minutes}m" }
+
+        // Error messages
+        override val invalidEncryptedFileFormat = "Invalid encrypted file format"
+        override val zipMissingManifest = "ZIP file missing manifest.json"
+        override val backupMissingManifest = "Backup file missing manifest.json, invalid format"
+        override val decryptFailedPasswordWrong = "Decryption failed: wrong password or file corrupted"
+        override val cannotReadFontFile = { uri: String -> "Cannot read font file: $uri" }
+        override val fontWriteFailedOrEmpty = { path: String -> "Font file write failed or file is empty: $path" }
+
         override val ttsSettings = "TTS Settings"
         override val ttsSpeed = "Speech Speed"
         override val ttsPitch = "Speech Pitch"
         override val ttsAutoPage = "Auto Page Turn"
         override val ttsHighlightSentence = "Highlight Active Sentence"
+        override val ttsSkipTitle = "Skip Chapter Title"
+        override val ttsSleepTimer = "Sleep Timer"
+        override val ttsSleepTimerOff = "Off"
+        override val ttsSleepTimerRemaining = { seconds: Int -> "Stop in ${seconds / 60}m${seconds % 60}s" }
         override val ttsStart = "Start Reading"
         override val ttsPause = "Pause Reading"
         override val ttsStop = "Stop Reading"
@@ -1166,6 +1967,8 @@ sealed interface AppStrings {
         override val deselectAll = "Deselect All"
         override val importSelected = { count: Int -> "Import Selected ($count)" }
         override val alreadyLatestVersion = "Already up to date"
+        override val alreadyFirstPage = "Already the first page"
+        override val alreadyLastPage = "Already the last page"
         override val folderImportDesc = "Auto-scan all importable books in the folder"
 
         override val bookDeleted = "Deleted"
@@ -1229,6 +2032,33 @@ sealed interface AppStrings {
         override val unifiedCoverColor = "Unified cover color"
         override val unifiedCoverColorAuto = "Auto (hash by title)"
         override val unifiedCoverColorActive = { idx: Int -> "Unified to palette #$idx" }
+        override val backupExportFailedWriteDir = "Cannot write to target directory"
+        override val backupExportSuccessCustom = "Exported: custom directory"
+        override val backupExportFailedCreateFile = "Export failed: cannot create file"
+        override val backupExportFailedPermission = "Export failed: no write permission, please choose another directory"
+        override val backupExportSuccess = { dir: String -> "Exported: $dir" }
+        override val backupExportFailed = { msg: String -> "Export failed: $msg" }
+        override val backupImportFailedRead = "Cannot read backup file"
+        override val backupImportSuccess = "Import successful"
+        override val backupImportFailed = { msg: String -> "Import failed: $msg" }
+        override val fontImportSuccess = { name: String, count: Int -> "Font imported: $name ($count custom fonts)" }
+        override val fontImportFailed = { msg: String -> "Font import failed: $msg" }
+        override val wordCountTenThousand = { v: Float -> String.format("%.1fK words", v * 10) }
+        override val wordCountUnit = { count: Int -> "$count words" }
+        override val imagePlaceholder = "Image"
+        override val groupCreatedAndMoved = "Folder created and books moved"
+        override val selectedItemCount = { count: Int -> "$count items selected" }
+        override val selectItems = "Select items"
+        override val folderLabel = "Folder"
+        override val moreLabel = "More"
+        override val confirmDeleteTitle = "Confirm Delete"
+        override val confirmDeleteSelected = { count: Int -> "Are you sure you want to delete $count items? This action cannot be undone." }
+        override val moveToExistingGroup = "Move to existing folder:"
+        override val newGroupName = "New folder name"
+        override val createAndMove = "Create & Move"
+        override val createNewGroup = "Create new folder"
+        override val removeFromGroup = "Remove from folder"
+        override val folderEmpty = "No books in this folder"
         override val unableToReadFile = "Unable to read file"
         override val invalidFolderPath = "Invalid folder path"
         override val invalidFolder = "Invalid folder"

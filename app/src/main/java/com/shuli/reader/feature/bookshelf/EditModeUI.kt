@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.shuli.reader.core.i18n.LocalAppStrings
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,18 +30,22 @@ fun EditModeTopBar(
     onCancel: () -> Unit,
     onSelectAll: () -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     TopAppBar(
         title = {
-            Text(if (selectedCount > 0) "已选择 $selectedCount 项" else "请选择项目", style = MaterialTheme.typography.titleMedium)
+            Text(
+                if (selectedCount > 0) strings.selectedItemCount(selectedCount) else strings.selectItems,
+                style = MaterialTheme.typography.titleMedium,
+            )
         },
         navigationIcon = {
             IconButton(onClick = onCancel) {
-                Icon(Icons.Default.Close, contentDescription = "取消")
+                Icon(Icons.Default.Close, contentDescription = strings.cancelAction)
             }
         },
         actions = {
             IconButton(onClick = onSelectAll) {
-                Icon(Icons.Default.SelectAll, contentDescription = "全选")
+                Icon(Icons.Default.SelectAll, contentDescription = strings.selectAll)
             }
         }
     )
@@ -53,6 +58,7 @@ fun EditModeBottomBar(
     onDeleteClick: () -> Unit,
     onMoreClick: () -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     BottomAppBar(
         actions = {
             Spacer(modifier = Modifier.weight(1f))
@@ -62,8 +68,8 @@ fun EditModeBottomBar(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(Icons.Default.Folder, contentDescription = "分组", tint = if (selectedCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("分组", style = MaterialTheme.typography.labelSmall, color = if (selectedCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Default.Folder, contentDescription = strings.folderLabel, tint = if (selectedCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(strings.folderLabel, style = MaterialTheme.typography.labelSmall, color = if (selectedCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(modifier = Modifier.weight(1f))
             Column(
@@ -72,8 +78,8 @@ fun EditModeBottomBar(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(Icons.Default.Delete, contentDescription = "删除", tint = if (selectedCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("删除", style = MaterialTheme.typography.labelSmall, color = if (selectedCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Default.Delete, contentDescription = strings.deleteAction, tint = if (selectedCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(strings.deleteAction, style = MaterialTheme.typography.labelSmall, color = if (selectedCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(modifier = Modifier.weight(1f))
             Column(
@@ -82,8 +88,8 @@ fun EditModeBottomBar(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(Icons.Default.MoreVert, contentDescription = "更多", tint = if (selectedCount > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("更多", style = MaterialTheme.typography.labelSmall, color = if (selectedCount > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Default.MoreVert, contentDescription = strings.moreLabel, tint = if (selectedCount > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(strings.moreLabel, style = MaterialTheme.typography.labelSmall, color = if (selectedCount > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(modifier = Modifier.weight(1f))
         }

@@ -178,11 +178,11 @@ fun GroupPickerDialog(
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("分组") },
+        title = { Text(strings.folderLabel) },
         text = {
             Column {
                 if (folders.isNotEmpty()) {
-                    Text("移动到现有分组：", style = MaterialTheme.typography.bodySmall)
+                    Text(strings.moveToExistingGroup, style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(8.dp))
                     folders.forEach { folder ->
                         ListItem(
@@ -202,7 +202,7 @@ fun GroupPickerDialog(
                     OutlinedTextField(
                         value = newFolderName,
                         onValueChange = { newFolderName = it },
-                        label = { Text("新分组名称") },
+                        label = { Text(strings.newGroupName) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -216,7 +216,7 @@ fun GroupPickerDialog(
                         enabled = newFolderName.isNotBlank(),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("创建并移动")
+                        Text(strings.createAndMove)
                     }
                 } else {
                     TextButton(
@@ -225,7 +225,7 @@ fun GroupPickerDialog(
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("创建新分组")
+                        Text(strings.createNewGroup)
                     }
                 }
 
@@ -235,7 +235,7 @@ fun GroupPickerDialog(
                     onClick = onRemoveFromFolder,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("从分组中移出")
+                    Text(strings.removeFromGroup)
                 }
             }
         },
@@ -300,7 +300,7 @@ fun MoreActionsSheet(
             }
             // 从分组中移出
             ListItem(
-                headlineContent = { Text("从分组中移出") },
+                headlineContent = { Text(strings.removeFromGroup) },
                 leadingContent = { Icon(Icons.Default.Folder, contentDescription = null) },
                 colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
                 modifier = Modifier.clickable { onMoveOut() },
@@ -358,7 +358,7 @@ fun FolderDetailSheet(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "分组内暂无书籍",
+                            text = strings.folderEmpty,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

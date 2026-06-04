@@ -1,5 +1,6 @@
 package com.shuli.reader.ui.conflict
 
+import com.shuli.reader.core.i18n.AppStrings
 import com.shuli.reader.sync.conflict.BookState
 import com.shuli.reader.sync.device.DeviceInfo
 import kotlinx.coroutines.CoroutineScope
@@ -11,6 +12,7 @@ import kotlinx.coroutines.launch
 
 // Part of T-36 冲突解决弹窗
 class ConflictDialogViewModel(
+    private val strings: AppStrings = AppStrings.ZhHans,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main),
 ) {
 
@@ -23,7 +25,7 @@ class ConflictDialogViewModel(
         remoteDeviceInfo: DeviceInfo?,
     ) {
         scope.launch {
-            val deviceName = getDeviceDisplayName(remoteDeviceInfo)
+            val deviceName = getDeviceDisplayName(remoteDeviceInfo, strings)
             _events.emit(
                 SyncUiEvent.ShowConflictDialog(
                     localState = localState,
@@ -40,11 +42,11 @@ class ConflictDialogViewModel(
          *
          * 优先使用 model，如果为空则使用 deviceId 的前 6 位作为 fallback。
          */
-        fun getDeviceDisplayName(deviceInfo: DeviceInfo?): String {
-            if (deviceInfo == null) return "其他设备"
+        fun getDeviceDisplayName(deviceInfo: DeviceInfo?, strings: AppStrings = AppStrings.ZhHans): String {
+            if (deviceInfo == null) return strings.otherDevice
             if (deviceInfo.model.isNotBlank()) return deviceInfo.model
             val shortId = deviceInfo.deviceId.take(6)
-            return "其他设备（$shortId）"
+            return strings.deviceFallbackName(shortId)
         }
     }
 }

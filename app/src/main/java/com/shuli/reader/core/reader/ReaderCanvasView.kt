@@ -117,6 +117,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         var batteryLevel: Int = 100
         var ttsActiveRange: SelectionRange? = null
         var selectedRange: SelectionRange? = null
+        var noteRanges: List<Pair<SelectionRange, Paint>> = emptyList()
         var showHeaderLine: Boolean = false
         var showFooterLine: Boolean = false
     }
@@ -142,6 +143,10 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     // 翻页后立即获取新页眉页脚槽位（同步更新，避免页码延迟）
     var onPageChangedSlots: (() -> Pair<SlotResolution, SlotResolution>)? = null
+
+    // 边界检测回调（用于拦截无效的翻页动画）
+    var canTurnPrev: (() -> Boolean)? = null
+    var canTurnNext: (() -> Boolean)? = null
 
     // 文本选区回调
     var onTextSelected: ((SelectionRange) -> Unit)? = null
@@ -183,6 +188,7 @@ class ReaderCanvasView @JvmOverloads constructor(
                 selectedRange = renderContext.selectedRange,
                 ttsHighlightPaint = ttsHighlightPaint,
                 selectionPaint = selectionPaint,
+                noteRanges = renderContext.noteRanges,
             )
         }
         return shellDirty || contentDirty
@@ -619,6 +625,27 @@ class ReaderCanvasView @JvmOverloads constructor(
         invalidate()
     }
 
+    private val notePaintCache = mutableMapOf<String, Paint>()
+
+    fun setNoteRanges(ranges: List<Pair<SelectionRange, String?>>) {
+        val pairs = ranges.mapNotNull { (range, colorHex) ->
+            if (colorHex.isNullOrBlank()) return@mapNotNull null
+            val paint = notePaintCache.getOrPut(colorHex) {
+                val colorInt = runCatching { android.graphics.Color.parseColor(colorHex) }.getOrDefault(android.graphics.Color.YELLOW)
+                Paint().apply {
+                    color = colorInt
+                    alpha = 0x33
+                    style = Paint.Style.FILL
+                    isAntiAlias = true
+                }
+            }
+            range to paint
+        }
+        renderContext.noteRanges = pairs
+        currentPage?.invalidate()
+        invalidate()
+    }
+
     /**
      * 设置主题
      */
@@ -863,9 +890,17 @@ class ReaderCanvasView @JvmOverloads constructor(
                         touchDownY > h / 3f && touchDownY < h * 2f / 3f
                     if (!isCenter) {
                         if (touchDownX <= w * edgeWidthPercent) {
-                            delegate?.startPrev() ?: onPageChanged?.invoke(PageDelegate.Direction.PREV)
+                            if (canTurnPrev?.invoke() == false) {
+                                onPageChanged?.invoke(PageDelegate.Direction.PREV)
+                            } else {
+                                delegate?.startPrev() ?: onPageChanged?.invoke(PageDelegate.Direction.PREV)
+                            }
                         } else {
-                            delegate?.startNext() ?: onPageChanged?.invoke(PageDelegate.Direction.NEXT)
+                            if (canTurnNext?.invoke() == false) {
+                                onPageChanged?.invoke(PageDelegate.Direction.NEXT)
+                            } else {
+                                delegate?.startNext() ?: onPageChanged?.invoke(PageDelegate.Direction.NEXT)
+                            }
                         }
                         return true
                     }

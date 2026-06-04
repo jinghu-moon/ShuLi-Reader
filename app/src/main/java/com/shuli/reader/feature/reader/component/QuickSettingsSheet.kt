@@ -183,7 +183,7 @@ fun QuickSettingsSheet(
         contentColor = readerColors.textPrimary,
         dragHandle = { BottomSheetDefaults.DragHandle(color = readerColors.textSecondary) },
     ) {
-        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.62f)) {
+        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.45f)) {
             // 常驻：主题色块
             ThemeColorRow(
                 currentTheme = uiState.readerPreferences.backgroundColor,
@@ -597,7 +597,7 @@ private fun StylePanel(
                     )
                     Icon(
                         imageVector = Icons.Outlined.Delete,
-                        contentDescription = "删除字体",
+                        contentDescription = strings.deleteFont,
                         modifier = Modifier
                             .size(18.dp)
                             .clickable { onDeleteFont(entry.id) },

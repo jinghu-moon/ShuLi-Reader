@@ -34,6 +34,7 @@ import com.shuli.reader.ui.theme.AppSurface
 import com.shuli.reader.ui.theme.MoTuInk300
 import com.shuli.reader.ui.theme.MoTuInk600
 import com.shuli.reader.ui.theme.MoTuInk700
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.ui.theme.MoTuInk800
 import com.shuli.reader.ui.theme.MoTuInk950
 
@@ -122,6 +123,7 @@ fun DefaultBookCover(
     val coverBorder = BorderStroke(1.dp, MoTuInk300.copy(alpha = 0.6f))
     val textColor = MoTuInk800
     
+    val strings = LocalAppStrings.current
     val tagColor = when (fileType) {
         FileType.EPUB -> MoTuInk700
         FileType.TXT -> MoTuInk600
@@ -162,7 +164,7 @@ fun DefaultBookCover(
             if (isFavorite) {
                 Icon(
                     imageVector = Icons.Filled.Favorite,
-                    contentDescription = "收藏",
+                    contentDescription = strings.favorite,
                     tint = Color(0xFFE53935),
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -183,7 +185,7 @@ fun DefaultBookCover(
             if (isFavorite) {
                 Icon(
                     imageVector = Icons.Filled.Favorite,
-                    contentDescription = "收藏",
+                    contentDescription = strings.favorite,
                     tint = Color(0xFFE53935),
                     modifier = Modifier
                         .align(Alignment.TopEnd)

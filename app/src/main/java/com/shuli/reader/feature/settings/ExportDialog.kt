@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.sync.export.ExportOptions
 
 /**
@@ -37,6 +38,7 @@ fun ExportDialog(
     onExport: (ExportOptions) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     var includeBookFiles by remember { mutableStateOf(true) }
     var includeBookmarks by remember { mutableStateOf(true) }
     var includeNotes by remember { mutableStateOf(true) }
@@ -51,37 +53,37 @@ fun ExportDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("导出数据") },
+        title = { Text(strings.exportData) },
         text = {
             Column {
                 Text(
-                    text = "选择要导出的内容：",
+                    text = strings.selectExportContent,
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(8.dp))
 
                 ExportOptionCheckbox(
-                    text = "书籍文件",
+                    text = strings.bookFiles,
                     checked = includeBookFiles,
                     onCheckedChange = { includeBookFiles = it },
                 )
                 ExportOptionCheckbox(
-                    text = "书签",
+                    text = strings.bookmarks,
                     checked = includeBookmarks,
                     onCheckedChange = { includeBookmarks = it },
                 )
                 ExportOptionCheckbox(
-                    text = "笔记",
+                    text = strings.notes,
                     checked = includeNotes,
                     onCheckedChange = { includeNotes = it },
                 )
                 ExportOptionCheckbox(
-                    text = "阅读进度",
+                    text = strings.readingProgressExport,
                     checked = includeProgress,
                     onCheckedChange = { includeProgress = it },
                 )
                 ExportOptionCheckbox(
-                    text = "阅读器配置",
+                    text = strings.readerConfig,
                     checked = includeConfig,
                     onCheckedChange = { includeConfig = it },
                 )
@@ -94,7 +96,7 @@ fun ExportDialog(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
-                        text = "加密导出",
+                        text = strings.encryptedExport,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f),
                     )
@@ -109,7 +111,7 @@ fun ExportDialog(
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text("密码") },
+                        label = { Text(strings.password) },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
@@ -118,7 +120,7 @@ fun ExportDialog(
                     OutlinedTextField(
                         value = confirmPassword,
                         onValueChange = { confirmPassword = it },
-                        label = { Text("确认密码") },
+                        label = { Text(strings.passwordConfirm) },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         isError = useEncryption && password.isNotEmpty() && !passwordsMatch,
@@ -126,7 +128,7 @@ fun ExportDialog(
                     )
                     if (useEncryption && password.isNotEmpty() && !passwordsMatch) {
                         Text(
-                            text = "密码不一致",
+                            text = strings.passwordMismatch,
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(start = 16.dp, top = 4.dp),
@@ -150,12 +152,12 @@ fun ExportDialog(
                 },
                 enabled = canExport,
             ) {
-                Text("导出")
+                Text(strings.export)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("取消")
+                Text(strings.cancel)
             }
         },
         modifier = modifier,

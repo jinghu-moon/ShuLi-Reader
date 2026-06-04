@@ -10,4 +10,7 @@ enum class ImportStrategy {
 
     /** 覆盖：先清空本地数据，再导入 ZIP 中的数据 */
     OVERWRITE,
+
+    /** 仅导入本地不存在的数据，已存在的条目不覆盖 */
+    IMPORT_ONLY_NEW,
 }

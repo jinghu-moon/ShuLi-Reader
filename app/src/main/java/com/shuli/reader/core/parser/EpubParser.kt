@@ -10,7 +10,10 @@ import java.io.File
 import java.io.InputStream
 import java.util.zip.ZipFile
 
-class EpubParser {
+class EpubParser(
+    imagePlaceholder: String = "Image",
+) {
+    var imagePlaceholder: String = imagePlaceholder
 
     /** 缓存的 OPF 元数据，避免 parseChapter() 重复解析 XML */
     private data class CachedOpfMetadata(
@@ -264,21 +267,29 @@ class EpubParser {
         spineItems: List<String>,
     ): Map<Int, String> {
         val doc = Jsoup.parse(ncxContent, "", org.jsoup.parser.Parser.xmlParser())
-        val navPoints = doc.select("navMap > navPoint")
-        if (navPoints.isEmpty()) return emptyMap()
+        val navMap = doc.select("navMap").first() ?: return emptyMap()
 
         val hrefToSpine = buildHrefToSpineIndex(manifestItems, spineItems)
 
         val result = mutableMapOf<Int, String>()
-        for (navPoint in navPoints) {
-            val title = navPoint.select("navLabel > text").first()?.text()?.trim() ?: continue
-            val src = navPoint.select("content").first()?.attr("src")
-                ?.substringBefore("#")?.substringBefore("?") ?: continue
-            if (src.isNotBlank()) {
+        collectNcxNavPoints(navMap, hrefToSpine, result)
+        return result
+    }
+
+    private fun collectNcxNavPoints(
+        parent: org.jsoup.nodes.Element,
+        hrefToSpine: Map<String, Int>,
+        result: MutableMap<Int, String>,
+    ) {
+        for (navPoint in parent.children().filter { it.tagName().equals("navPoint", ignoreCase = true) }) {
+            val title = navPoint.selectFirst("navLabel > text")?.text()?.trim()
+            val src = navPoint.selectFirst("content")?.attr("src")
+                ?.substringBefore("#")?.substringBefore("?")
+            if (!title.isNullOrBlank() && !src.isNullOrBlank()) {
                 hrefToSpine[src]?.let { spineIdx -> result[spineIdx] = title }
             }
+            collectNcxNavPoints(navPoint, hrefToSpine, result)
         }
-        return result
     }
 
     /**
@@ -548,15 +559,36 @@ class EpubParser {
     }
 
     private fun collectBlockText(element: org.jsoup.nodes.Element, out: MutableList<String>) {
-        for (child in element.children()) {
-            if (child.tagName() in BLOCK_TAGS) {
-                // 块级元素：处理内联内容（保留粗体/斜体格式）
-                val text = processInlineContent(child).trim()
-                if (text.isNotBlank()) out.add(text)
-            } else {
-                // 非块级元素（如 span、a），递归查找内部块级
-                collectBlockText(child, out)
+        // 收集直接子级中的孤立文本节点（未被块级元素包裹的文字）
+        val orphanText = StringBuilder()
+        for (node in element.childNodes()) {
+            when {
+                node is org.jsoup.nodes.TextNode -> {
+                    val t = node.text().trim()
+                    if (t.isNotBlank()) {
+                        if (orphanText.isNotEmpty()) orphanText.append(' ')
+                        orphanText.append(t)
+                    }
+                }
+                node is org.jsoup.nodes.Element -> {
+                    // 先 flush 之前积累的孤立文本
+                    if (orphanText.isNotEmpty()) {
+                        out.add(orphanText.toString())
+                        orphanText.clear()
+                    }
+                    if (node.tagName() == "hr") {
+                        out.add("———")
+                    } else if (node.tagName() in BLOCK_TAGS) {
+                        val text = processInlineContent(node).trim()
+                        if (text.isNotBlank()) out.add(text)
+                    } else {
+                        collectBlockText(node, out)
+                    }
+                }
             }
+        }
+        if (orphanText.isNotEmpty()) {
+            out.add(orphanText.toString())
         }
     }
 
@@ -572,7 +604,14 @@ class EpubParser {
             when {
                 node is org.jsoup.nodes.TextNode -> sb.append(node.text())
                 node is org.jsoup.nodes.Element && node.tagName() == "img" -> {
-                    val alt = node.attr("alt").ifBlank { "图片" }
+                    val alt = node.attr("alt").ifBlank { imagePlaceholder }
+                    sb.append("[$alt]")
+                }
+                node is org.jsoup.nodes.Element && node.tagName() in setOf("svg", "picture", "figure") -> {
+                    val img = node.selectFirst("img")
+                    val alt = img?.attr("alt")?.ifBlank { null }
+                        ?: node.selectFirst("figcaption")?.text()?.ifBlank { null }
+                        ?: imagePlaceholder
                     sb.append("[$alt]")
                 }
                 node is org.jsoup.nodes.Element && node.tagName() in BOLD_TAGS -> {

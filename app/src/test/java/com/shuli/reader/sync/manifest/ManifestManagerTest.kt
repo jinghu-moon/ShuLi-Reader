@@ -52,7 +52,7 @@ class ManifestManagerTest {
         }
         jobs.forEach { it.join() }
         assertEquals(10, writes.size)
-        coVerify(exactly = 10) { transport.write("manifest.json", any()) }
+        coVerify(exactly = 10) { transport.write("manifest.json", any(), any()) }
     }
 
     @Test

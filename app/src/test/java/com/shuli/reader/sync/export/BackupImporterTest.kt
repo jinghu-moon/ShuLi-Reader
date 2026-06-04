@@ -241,6 +241,7 @@ class FakeImportDatabase(
     }
 
     override suspend fun clearBooks() { books.clear() }
+    override suspend fun getExistingBookIds(): Set<Long> = books.map { it.id }.toSet()
 
     override suspend fun upsertBookmark(bookmark: BookmarkEntity) {
         if (bookmark.id == 0L) { bookmarks.add(bookmark); return }
@@ -249,6 +250,7 @@ class FakeImportDatabase(
     }
 
     override suspend fun clearBookmarks() { bookmarks.clear() }
+    override suspend fun getExistingBookmarkIds(): Set<Long> = bookmarks.map { it.id }.toSet()
 
     override suspend fun upsertNote(note: NoteEntity) {
         if (note.id == 0L) { notes.add(note); return }
@@ -257,6 +259,7 @@ class FakeImportDatabase(
     }
 
     override suspend fun clearNotes() { notes.clear() }
+    override suspend fun getExistingNoteIds(): Set<Long> = notes.map { it.id }.toSet()
 
     override suspend fun upsertProgress(progress: ReadingProgressEntity) {
         if (progress.id == 0L) { this.progress.add(progress); return }
@@ -265,6 +268,7 @@ class FakeImportDatabase(
     }
 
     override suspend fun clearProgress() { progress.clear() }
+    override suspend fun getExistingProgressBookIds(): Set<Long> = progress.map { it.bookId }.toSet()
 
     override suspend fun runInTransaction(block: suspend () -> Unit) {
         // 测试用：直接执行，不包裹事务

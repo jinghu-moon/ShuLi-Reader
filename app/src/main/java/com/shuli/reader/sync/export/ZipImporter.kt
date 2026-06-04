@@ -4,6 +4,7 @@ package com.shuli.reader.sync.export
 import com.github.luben.zstd.Zstd
 import com.github.luben.zstd.ZstdInputStream
 import com.shuli.reader.core.database.entity.BookmarkEntity
+import com.shuli.reader.core.i18n.AppStrings
 import com.shuli.reader.sync.crypto.AesGcmCipher
 import com.shuli.reader.sync.crypto.KeyDerivation
 import com.shuli.reader.sync.crypto.KeyDerivationParams
@@ -29,6 +30,7 @@ import java.util.zip.ZipInputStream
  */
 class ZipImporter(
     private val db: ImportDatabase,
+    private val strings: AppStrings = AppStrings.ZhHans,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -62,7 +64,7 @@ class ZipImporter(
             val manifestData = entries["manifest.json.zst"] ?: entries["manifest.json"]
             manifestData
                 ?.let { json.parseToJsonElement(it).jsonObject }
-                ?: throw IllegalArgumentException("ZIP 文件缺少 manifest.json")
+                ?: throw IllegalArgumentException(strings.zipMissingManifest)
 
             // 解析 bookmarks - 支持 .json.zst 和 .json 两种格式
             val zipBookmarks = mutableListOf<BookmarkEntity>()
@@ -151,7 +153,7 @@ class ZipImporter(
      */
     private fun readEncryptedZipEntries(zipFile: File, password: String): Map<String, String> {
         val fileBytes = zipFile.readBytes()
-        require(fileBytes.size > 16 + 12 + 16) { "加密文件格式无效" }
+        require(fileBytes.size > 16 + 12 + 16) { strings.invalidEncryptedFileFormat }
 
         // 提取 salt
         val salt = fileBytes.copyOfRange(0, 16)
@@ -172,7 +174,7 @@ class ZipImporter(
         val decryptedBytes = try {
             cipher.decrypt(encryptedData, key)
         } catch (e: Exception) {
-            throw IllegalArgumentException("解密失败：密码错误或文件已损坏", e)
+            throw IllegalArgumentException(strings.decryptFailedPasswordWrong, e)
         }
 
         // ZSTD 解压（加密格式：zstd(zip_data)）
@@ -241,6 +243,11 @@ class ZipImporter(
                     // 否则保留本地条目
                 }
                 merged
+            }
+            ImportStrategy.IMPORT_ONLY_NEW -> {
+                // 仅导入本地不存在的条目
+                val existingIds = localBookmarks.map { it.id }.toSet()
+                localBookmarks + zipBookmarks.filter { it.id !in existingIds }
             }
         }
     }

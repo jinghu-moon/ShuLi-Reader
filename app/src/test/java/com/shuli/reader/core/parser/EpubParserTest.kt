@@ -237,7 +237,7 @@ class EpubParserTest {
     fun extractTextFromHtml_imgWithoutAlt_usesDefaultPlaceholder() {
         val html = """<html><body><p><img src="pic.png"/></p></body></html>"""
         val result = EpubParser.extractTextFromHtmlForTest(html)
-        assertTrue("无 alt 时应使用默认占位符 [图片]", result.contains("[图片]"))
+        assertTrue("无 alt 时应使用默认占位符 [Image]", result.contains("[Image]"))
     }
 
     // ── 错误处理测试 ──────────────────────────────────────────────

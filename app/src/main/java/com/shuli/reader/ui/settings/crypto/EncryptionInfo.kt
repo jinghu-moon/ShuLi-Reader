@@ -7,4 +7,5 @@ data class EncryptionInfo(
     val kdfIterations: Int = 0,
     val keyVersion: Int = 0,
     val createdAt: Long = 0L,
+    val salt: ByteArray = ByteArray(0),
 )

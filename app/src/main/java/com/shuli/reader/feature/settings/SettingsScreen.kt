@@ -741,14 +741,14 @@ fun SettingsScreen(
                                                     tempFile.inputStream().use { inp ->
                                                         inp.copyTo(out)
                                                     }
-                                                } ?: throw IllegalStateException("无法写入目标目录")
+                                                } ?: throw IllegalStateException(strings.backupExportFailedWriteDir)
                                             }
-                                            exportResult = "导出成功：自定义目录"
+                                            exportResult = strings.backupExportSuccessCustom
                                         } else {
-                                            exportResult = "导出失败：无法创建文件"
+                                            exportResult = strings.backupExportFailedCreateFile
                                         }
                                     } else {
-                                        exportResult = "导出失败：目录无写入权限，请重新选择"
+                                        exportResult = strings.backupExportFailedPermission
                                     }
                                 } else {
                                     // 默认目录：应用私有目录
@@ -757,13 +757,13 @@ fun SettingsScreen(
                                     withContext(Dispatchers.IO) {
                                         tempFile.copyTo(outputFile, overwrite = true)
                                     }
-                                    exportResult = "导出成功：${outputFile.parent}"
+                                    exportResult = strings.backupExportSuccess(outputFile.parent ?: "")
                                 }
 
                                 // 清理临时文件
                                 withContext(Dispatchers.IO) { tempFile.delete() }
                             } catch (e: Exception) {
-                                exportResult = "导出失败：${e.message}"
+                                exportResult = strings.backupExportFailed(e.message ?: "")
                             } finally {
                                 isExporting = false
                             }
@@ -790,29 +790,33 @@ fun SettingsScreen(
                                     override suspend fun clearNotes() = database.noteDao().deleteAllNotes()
                                     override suspend fun upsertProgress(progress: ReadingProgressEntity) = database.readingProgressDao().upsertProgress(progress)
                                     override suspend fun clearProgress() = database.readingProgressDao().deleteAllProgress()
+                                    override suspend fun getExistingBookIds(): Set<Long> = database.bookDao().getAllBooksSync().map { it.id }.toSet()
+                                    override suspend fun getExistingBookmarkIds(): Set<Long> = database.bookmarkDao().queryAllActive().map { it.id }.toSet()
+                                    override suspend fun getExistingNoteIds(): Set<Long> = database.noteDao().queryAllActive().map { it.id }.toSet()
+                                    override suspend fun getExistingProgressBookIds(): Set<Long> = database.readingProgressDao().queryAllActive().map { it.bookId }.toSet()
                                     override suspend fun runInTransaction(block: suspend () -> Unit) {
                                         database.withTransaction { block() }
                                     }
                                 }
-                                val importer = BackupImporter(db = importDb)
+                                val importer = BackupImporter(db = importDb, strings = strings)
 
                                 // 从 SAF URI 复制到临时文件再导入
                                 val tempFile = withContext(Dispatchers.IO) {
                                     File.createTempFile("shuli_import_", ".zip", context.cacheDir).also { file ->
                                         context.contentResolver.openInputStream(uri)?.use { input ->
                                             file.outputStream().use { output -> input.copyTo(output) }
-                                        } ?: throw IllegalStateException("无法读取备份文件")
+                                        } ?: throw IllegalStateException(strings.backupImportFailedRead)
                                     }
                                 }
 
                                 try {
                                     importer.import(tempFile, strategy = ImportStrategy.MERGE)
-                                    importResult = "导入成功"
+                                    importResult = strings.backupImportSuccess
                                 } finally {
                                     withContext(Dispatchers.IO) { tempFile.delete() }
                                 }
                             } catch (e: Exception) {
-                                importResult = "导入失败：${e.message}"
+                                importResult = strings.backupImportFailed(e.message ?: "")
                             } finally {
                                 isImporting = false
                             }

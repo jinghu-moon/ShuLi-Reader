@@ -97,32 +97,32 @@ fun SyncSettingsScreen(
                     Column {
                         SyncNavigationItem(
                             icon = Icons.Outlined.Cloud,
-                            title = "云端同步配置",
-                            subtitle = "WebDAV 服务器设置",
+                            title = strings.cloudSyncConfig,
+                            subtitle = strings.webdavServerSettings,
                             onClick = onNavigateToCloudSync,
                         )
                         SyncNavigationItem(
                             icon = Icons.Outlined.Lock,
-                            title = "加密管理",
-                            subtitle = "端到端加密状态",
+                            title = strings.encryptionManagement,
+                            subtitle = strings.e2eeStatus,
                             onClick = onNavigateToEncryption,
                         )
                         SyncNavigationItem(
                             icon = Icons.Outlined.Devices,
-                            title = "已同步设备",
-                            subtitle = "管理已注册设备",
+                            title = strings.syncedDevices,
+                            subtitle = strings.manageRegisteredDevices,
                             onClick = onNavigateToDevices,
                         )
                         SyncNavigationItem(
                             icon = Icons.Outlined.History,
-                            title = "同步日志",
-                            subtitle = "查看历史同步记录",
+                            title = strings.syncLog,
+                            subtitle = strings.viewSyncHistory,
                             onClick = onNavigateToLogs,
                         )
                         SyncNavigationItem(
                             icon = Icons.Outlined.FileDownload,
-                            title = "导出数据",
-                            subtitle = "导出书签、笔记、进度",
+                            title = strings.exportData,
+                            subtitle = strings.exportBookmarksNotesProgress,
                             onClick = onNavigateToExport,
                         )
                     }
@@ -141,6 +141,7 @@ private fun SyncSummaryCard(
     onSyncClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
         modifier = modifier.fillMaxWidth(),
@@ -159,12 +160,12 @@ private fun SyncSummaryCard(
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "同步状态",
+                        text = strings.syncStatus,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = uiState.statusText.ifEmpty { "就绪" },
+                        text = uiState.statusText.ifEmpty { strings.ready },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -173,7 +174,7 @@ private fun SyncSummaryCard(
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 } else {
                     androidx.compose.material3.TextButton(onClick = onSyncClick) {
-                        Text("立即同步")
+                        Text(strings.syncNow)
                     }
                 }
             }
@@ -201,12 +202,13 @@ private fun SyncErrorBanner(
     errorType: SyncErrorType,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     val (message, color) = when (errorType) {
-        SyncErrorType.AUTH_FAILED -> "认证失败，请检查账号密码" to MaterialTheme.colorScheme.error
-        SyncErrorType.NETWORK_ERROR -> "网络连接失败" to MaterialTheme.colorScheme.error
-        SyncErrorType.RATE_LIMITED -> "请求过于频繁，稍后重试" to MaterialTheme.colorScheme.tertiary
-        SyncErrorType.CRYPTO_LOCKED -> "加密锁未解锁，请先验证密码" to MaterialTheme.colorScheme.tertiary
-        SyncErrorType.UNKNOWN -> "发生未知错误" to MaterialTheme.colorScheme.error
+        SyncErrorType.AUTH_FAILED -> strings.authFailedCheckCredentials to MaterialTheme.colorScheme.error
+        SyncErrorType.NETWORK_ERROR -> strings.networkConnectionFailed to MaterialTheme.colorScheme.error
+        SyncErrorType.RATE_LIMITED -> strings.rateLimitedRetryLater to MaterialTheme.colorScheme.tertiary
+        SyncErrorType.CRYPTO_LOCKED -> strings.cryptoLockedVerifyPassword to MaterialTheme.colorScheme.tertiary
+        SyncErrorType.UNKNOWN -> strings.unknownError to MaterialTheme.colorScheme.error
         SyncErrorType.NONE -> return
     }
 

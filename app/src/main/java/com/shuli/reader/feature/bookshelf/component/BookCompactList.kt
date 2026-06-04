@@ -124,6 +124,14 @@ fun BookCompactList(
 
                 Box(
                     modifier = Modifier
+                        .animateItem(
+                            fadeInSpec = androidx.compose.animation.core.tween(300),
+                            fadeOutSpec = androidx.compose.animation.core.tween(300),
+                            placementSpec = androidx.compose.animation.core.spring(
+                                dampingRatio = androidx.compose.animation.core.Spring.DampingRatioLowBouncy,
+                                stiffness = androidx.compose.animation.core.Spring.StiffnessLow,
+                            ),
+                        )
                         .graphicsLayer {
                             scaleX = scale
                             scaleY = scale

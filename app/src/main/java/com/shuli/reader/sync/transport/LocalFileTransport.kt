@@ -1,5 +1,6 @@
 package com.shuli.reader.sync.transport
 
+import com.shuli.reader.sync.crypto.SyncCryptoManager
 import java.io.File
 
 /**
@@ -7,9 +8,11 @@ import java.io.File
  *
  * 实现 SyncTransport 接口，使用本地文件系统。
  * 写入操作使用原子写入（临时文件 + rename）。
+ * E2EE 模式下透明加密/解密（manifest.json 除外）。
  */
 class LocalFileTransport(
     private val rootDir: File,
+    private val cryptoManager: SyncCryptoManager? = null,
 ) : SyncTransport {
 
     init {
@@ -20,13 +23,24 @@ class LocalFileTransport(
 
     override suspend fun read(path: String): ByteArray? {
         val file = resolveFile(path)
-        return if (file.exists()) file.readBytes() else null
+        if (!file.exists()) return null
+        val raw = file.readBytes()
+        return if (cryptoManager != null && !isPlaintextPath(path)) {
+            cryptoManager.decrypt(raw)
+        } else {
+            raw
+        }
     }
 
     override suspend fun write(path: String, data: ByteArray, etag: String?) {
         val file = resolveFile(path)
         file.parentFile?.mkdirs()
-        atomicWrite(file, data)
+        val payload = if (cryptoManager != null && !isPlaintextPath(path)) {
+            cryptoManager.encrypt(data)
+        } else {
+            data
+        }
+        atomicWrite(file, payload)
     }
 
     override suspend fun delete(path: String) {
@@ -79,5 +93,10 @@ class LocalFileTransport(
                 tmpFile.delete()
             }
         }
+    }
+
+    /** manifest.json 保持明文以便无密钥时发现远端状态 */
+    private fun isPlaintextPath(path: String): Boolean {
+        return path == "manifest.json" || path.endsWith("/manifest.json")
     }
 }

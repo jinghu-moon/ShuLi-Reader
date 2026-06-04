@@ -142,6 +142,11 @@ class MainActivity : ComponentActivity() {
                 else -> AppStrings.ZhHans
             }
 
+            // 同步 EpubParser 的图片占位符文本
+            LaunchedEffect(currentStrings) {
+                appContainer.epubParser.imagePlaceholder = currentStrings.imagePlaceholder
+            }
+
             // 计算全局主题
             val darkTheme = when (settingsState.themeMode) {
                 "light" -> false
@@ -194,7 +199,10 @@ class MainActivity : ComponentActivity() {
                                         bookmarkDao = appContainer.database.bookmarkDao(),
                                         noteDao = appContainer.database.noteDao(),
                                         presetDao = appContainer.database.readerPresetDao(),
+                                        readingProgressDao = appContainer.database.readingProgressDao(),
                                         fontManager = FontManager(context),
+                                        stringResolver = { currentStrings },
+                                        appContext = context.applicationContext,
                                     )
                                 }
                                 // 音量键翻页：设置/清理 ViewModel 引用

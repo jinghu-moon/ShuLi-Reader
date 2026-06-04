@@ -5,6 +5,7 @@ data class TtsConfig(
     val pitch: Float = 1.0f,
     val autoPage: Boolean = false,
     val highlightSentence: Boolean = false,
+    val skipTitle: Boolean = false,
 )
 
 enum class TtsState {

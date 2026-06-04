@@ -161,6 +161,7 @@ data class ReaderUiState(
     val selectedRange: SelectionRange? = null,
     val ttsState: TtsState = TtsState.IDLE,
     val ttsActiveRange: SelectionRange? = null,
+    val sleepTimerRemainingSeconds: Int = -1,
     val presets: List<com.shuli.reader.core.database.entity.ReaderPresetEntity> = emptyList(),
     /** 用户导入的自定义字体列表 */
     val customFonts: List<com.shuli.reader.core.font.FontManager.FontEntry> = emptyList(),
@@ -186,9 +187,12 @@ class ReaderViewModel(
     private val bookmarkDao: BookmarkDao? = null,
     private val noteDao: NoteDao? = null,
     private val presetDao: com.shuli.reader.core.database.dao.ReaderPresetDao? = null,
+    private val readingProgressDao: com.shuli.reader.core.database.dao.ReadingProgressDao? = null,
     private val paginator: Paginator = Paginator(SimpleTextMeasurer()),
     ttsEngine: TtsEngine? = null,
     private val fontManager: com.shuli.reader.core.font.FontManager? = null,
+    private val stringResolver: () -> com.shuli.reader.core.i18n.AppStrings = { com.shuli.reader.core.i18n.AppStrings.ZhHans },
+    private val appContext: android.content.Context? = null,
 ) : ViewModel() {
 
     companion object {
@@ -288,7 +292,7 @@ class ReaderViewModel(
                     android.util.Log.d("FontManager", "loadCustomFonts 完成, customFonts.size=$count")
                     android.widget.Toast.makeText(
                         fm.context,
-                        "字体导入成功: ${entry.name}（共 $count 个自定义字体）",
+                        stringResolver().fontImportSuccess(entry.name, count),
                         android.widget.Toast.LENGTH_SHORT,
                     ).show()
                 }
@@ -297,7 +301,7 @@ class ReaderViewModel(
                 withContext(Dispatchers.Main) {
                     android.widget.Toast.makeText(
                         fm.context,
-                        "字体导入失败: ${e.message}",
+                        stringResolver().fontImportFailed(e.message ?: ""),
                         android.widget.Toast.LENGTH_SHORT,
                     ).show()
                 }
@@ -336,6 +340,8 @@ class ReaderViewModel(
     private var activeTtsConfig = TtsConfig()
     private var ttsSentences: List<SelectionRange> = emptyList()
     private var ttsSentenceIndex: Int = -1
+    private var ttsPendingResume: Boolean = false
+    private var sleepTimerJob: kotlinx.coroutines.Job? = null
 
     var density: Float = 3f
         private set
@@ -587,7 +593,10 @@ class ReaderViewModel(
         cacheManager = com.shuli.reader.core.reader.cache.BookCacheStore.getBookCache(bookId.toString())
 
         // R7: 结束上一次阅读会话，开始新会话
-        readingStateManager.endSession()
+        val sessionElapsed = readingStateManager.endSession()
+        if (oldBookId != 0L && sessionElapsed > 0L) {
+            persistReadingTime(oldBookId, sessionElapsed)
+        }
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, bookId = bookId)
@@ -778,6 +787,11 @@ class ReaderViewModel(
         } else if (loadedBookContent != null && state.chapterIndex < loadedBookContent!!.normalizedChapters().size - 1) {
             // 跨章：打开下一章
             openChapter(state.chapterIndex + 1)
+        } else {
+            // 已经是最后一章最后一页
+            appContext?.let {
+                android.widget.Toast.makeText(it, stringResolver().alreadyLastPage, android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -798,6 +812,11 @@ class ReaderViewModel(
         } else if (state.chapterIndex > 0) {
             // 跨章：打开上一章末页
             openChapter(state.chapterIndex - 1, targetToLastPage = true)
+        } else {
+            // 已经是第一章第一页
+            appContext?.let {
+                android.widget.Toast.makeText(it, stringResolver().alreadyFirstPage, android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -885,6 +904,34 @@ class ReaderViewModel(
             pageRenderMode = PageRenderMode.SEQUENTIAL,
         )
         saveReadingProgress(immediate = true)
+    }
+
+    private fun persistReadingTime(bookId: Long, elapsedMs: Long) {
+        val dao = readingProgressDao ?: return
+        if (bookId == 0L || elapsedMs < 1000L) return
+        val elapsedSeconds = elapsedMs / 1000L
+        viewModelScope.launch(Dispatchers.IO) {
+            val existing = dao.getReadingDurationByBookId(bookId)
+            if (existing != null) {
+                dao.updateProgress(
+                    bookId = bookId,
+                    pageIndex = _uiState.value.pageIndex,
+                    position = _uiState.value.currentPage?.startCharOffset ?: 0,
+                    readTime = existing + elapsedSeconds,
+                    updatedTime = System.currentTimeMillis(),
+                )
+            } else {
+                dao.insertProgress(
+                    com.shuli.reader.core.database.entity.ReadingProgressEntity(
+                        bookId = bookId,
+                        pageIndex = _uiState.value.pageIndex,
+                        position = _uiState.value.currentPage?.startCharOffset ?: 0,
+                        readTime = elapsedSeconds,
+                        updatedTime = System.currentTimeMillis(),
+                    )
+                )
+            }
+        }
     }
 
     /**
@@ -1005,6 +1052,15 @@ class ReaderViewModel(
                 }
                 saveReadingProgress(immediate = true)
                 preloadAdjacentChapters(content, safeIndex)
+                // TTS 跨章连续播放：章节加载完成后从首页继续朗读
+                if (ttsPendingResume) {
+                    ttsPendingResume = false
+                    ttsSentences = sentenceRangesForCurrentPage()
+                    ttsSentenceIndex = 0
+                    if (ttsSentences.isNotEmpty()) {
+                        speakCurrentTtsSentence()
+                    }
+                }
             },
         )
     }
@@ -1487,32 +1543,95 @@ class ReaderViewModel(
         val controller = ttsController ?: return
         activeTtsConfig = config
         controller.initialize(config.copy(autoPage = false))
-        ttsSentences = sentenceRangesForCurrentPage()
+        var sentences = sentenceRangesForCurrentPage()
+        if (config.skipTitle && sentences.isNotEmpty()) {
+            val title = _uiState.value.chapterTitle.trim()
+            if (title.isNotBlank() && sentences.first().selectedText.orEmpty().trim() == title) {
+                sentences = sentences.drop(1)
+            }
+        }
+        ttsSentences = sentences
         ttsSentenceIndex = 0
         speakCurrentTtsSentence()
+        startTtsService()
+    }
+
+    private fun startTtsService() {
+        val ctx = appContext ?: return
+        com.shuli.reader.core.tts.TtsService.onPlay = { resumeTts() }
+        com.shuli.reader.core.tts.TtsService.onPause = { pauseTts() }
+        com.shuli.reader.core.tts.TtsService.onStop = { stopTts() }
+        com.shuli.reader.core.tts.TtsService.isPlaying = { _uiState.value.ttsState == TtsState.PLAYING }
+        com.shuli.reader.core.tts.TtsService.currentTitle = { _uiState.value.bookTitle }
+        com.shuli.reader.core.tts.TtsService.currentSubtitle = { _uiState.value.chapterTitle }
+        val intent = android.content.Intent(ctx, com.shuli.reader.core.tts.TtsService::class.java)
+        ctx.startForegroundService(intent)
     }
 
     fun pauseTts() {
         val controller = ttsController ?: return
         controller.pause()
         _uiState.value = _uiState.value.copy(ttsState = controller.state)
+        updateTtsServiceNotification()
     }
 
     fun resumeTts() {
         val controller = ttsController ?: return
         controller.resume()
         _uiState.value = _uiState.value.copy(ttsState = controller.state)
+        updateTtsServiceNotification()
+    }
+
+    private fun updateTtsServiceNotification() {
+        val ctx = appContext ?: return
+        val intent = android.content.Intent(ctx, com.shuli.reader.core.tts.TtsService::class.java)
+        ctx.startForegroundService(intent)
     }
 
     fun stopTts() {
+        cancelSleepTimer()
         val controller = ttsController ?: return
         controller.stop()
         ttsSentences = emptyList()
         ttsSentenceIndex = -1
+        ttsPendingResume = false
         _uiState.value = _uiState.value.copy(
             ttsState = controller.state,
             ttsActiveRange = null,
         )
+        stopTtsService()
+    }
+
+    private fun stopTtsService() {
+        val ctx = appContext ?: return
+        val intent = android.content.Intent(ctx, com.shuli.reader.core.tts.TtsService::class.java).apply {
+            action = com.shuli.reader.core.tts.TtsService.ACTION_STOP
+        }
+        ctx.startService(intent)
+        com.shuli.reader.core.tts.TtsService.onPlay = null
+        com.shuli.reader.core.tts.TtsService.onPause = null
+        com.shuli.reader.core.tts.TtsService.onStop = null
+    }
+
+    fun startSleepTimer(minutes: Int) {
+        cancelSleepTimer()
+        if (minutes <= 0) return
+        var remaining = minutes * 60
+        _uiState.value = _uiState.value.copy(sleepTimerRemainingSeconds = remaining)
+        sleepTimerJob = viewModelScope.launch {
+            while (remaining > 0) {
+                delay(1000)
+                remaining--
+                _uiState.value = _uiState.value.copy(sleepTimerRemainingSeconds = remaining)
+            }
+            stopTts()
+        }
+    }
+
+    fun cancelSleepTimer() {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        _uiState.value = _uiState.value.copy(sleepTimerRemainingSeconds = -1)
     }
 
     fun pauseTtsOnBackground() {
@@ -1534,14 +1653,19 @@ class ReaderViewModel(
     fun releaseReaderResources() {
         // R7: 立即保存进度并结束阅读会话
         saveReadingProgress(immediate = true)
-        readingStateManager.endSession()
+        val sessionElapsed = readingStateManager.endSession()
+        persistReadingTime(_uiState.value.bookId, sessionElapsed)
         readingStateManager.cancel()
         chapterProvider.cancel()
         // 缓存保留在 BookCacheStore 中，短时间返回可复用
 
         toolbarAutoHideJob?.cancel()
         toolbarAutoHideJob = null
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        ttsPendingResume = false
         ttsController?.release()
+        stopTtsService()
         ttsSentences = emptyList()
         ttsSentenceIndex = -1
         _uiState.value = _uiState.value.copy(
@@ -1638,6 +1762,8 @@ class ReaderViewModel(
                 createdTime = System.currentTimeMillis(),
                 byteOffset = byteOffset,
                 selectedText = selectedText,
+                chapterIndex = state.chapterIndex,
+                chapterTitle = state.chapterTitle,
             )
             dao.insertBookmark(bookmark)
             loadBookmarks()
@@ -1737,6 +1863,15 @@ class ReaderViewModel(
         }
     }
 
+    fun updateNote(note: NoteEntity, newText: String, newColor: String? = note.color) {
+        val dao = noteDao ?: return
+        if (newText.isBlank()) return
+        viewModelScope.launch {
+            dao.updateNote(note.copy(noteText = newText, color = newColor))
+            loadNotes()
+        }
+    }
+
     /**
      * 跳转到笔记位置（v4：字节偏移）
      */
@@ -1764,6 +1899,45 @@ class ReaderViewModel(
         }
     }
 
+    fun getVisibleNoteRanges(): List<Pair<SelectionRange, String?>> {
+        val state = _uiState.value
+        val chapter = state.currentChapter ?: return emptyList()
+        val chapters = loadedBookContent?.chapters ?: return emptyList()
+        val chapterByteStart = chapters.getOrNull(state.chapterIndex)?.byteStart ?: 0L
+        val chapterByteEnd = chapters.getOrNull(state.chapterIndex + 1)?.byteStart ?: Long.MAX_VALUE
+
+        return state.notes
+            .filter { it.byteStart >= chapterByteStart && it.byteStart < chapterByteEnd && it.color != null }
+            .mapNotNull { note ->
+                val relativeStart = (note.byteStart - chapterByteStart).toInt().coerceAtLeast(0)
+                val relativeEnd = (note.byteEnd - chapterByteStart).toInt().coerceAtLeast(0)
+                val charStart = byteToCharOffset(relativeStart)
+                val charEnd = byteToCharOffset(relativeEnd)
+                if (charStart < charEnd) {
+                    SelectionRange(
+                        chapterIndex = state.chapterIndex,
+                        startPos = charStart,
+                        endPos = charEnd,
+                    ) to note.color
+                } else null
+            }
+    }
+
+    fun exportNotesAsMarkdown(): String? {
+        val state = _uiState.value
+        if (state.notes.isEmpty() || state.bookTitle.isBlank()) return null
+        val sb = StringBuilder()
+        sb.append("# ${state.bookTitle} — Notes\n\n")
+        for (note in state.notes.sortedBy { it.byteStart }) {
+            sb.append("## ${note.noteText.take(40)}\n")
+            sb.append("- Position: ${note.byteStart}-${note.byteEnd}\n")
+            if (note.color != null) sb.append("- Color: ${note.color}\n")
+            sb.append("- Created: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(note.createdTime))}\n")
+            sb.append("\n${note.noteText}\n\n---\n\n")
+        }
+        return sb.toString()
+    }
+
 
     private fun handleTtsUtteranceCompleted() {
         val nextIndex = ttsSentenceIndex + 1
@@ -1773,13 +1947,22 @@ class ReaderViewModel(
             return
         }
 
-        if (activeTtsConfig.autoPage) {
-            val previousPageIndex = _uiState.value.pageIndex
-            nextPage()
-            if (_uiState.value.pageIndex != previousPageIndex) {
+        val state = _uiState.value
+        val chapter = state.currentChapter
+
+        if (activeTtsConfig.autoPage && chapter != null) {
+            if (state.pageIndex < chapter.lastIndex) {
+                nextPage()
                 ttsSentences = sentenceRangesForCurrentPage()
                 ttsSentenceIndex = 0
                 speakCurrentTtsSentence()
+                return
+            }
+
+            val totalChapters = loadedBookContent?.normalizedChapters()?.size ?: 0
+            if (state.chapterIndex < totalChapters - 1) {
+                ttsPendingResume = true
+                openChapter(state.chapterIndex + 1)
                 return
             }
         }
@@ -1877,11 +2060,10 @@ class ReaderViewModel(
         return this == '.' ||
             this == '!' ||
             this == '?' ||
-            this == ';' ||
-            this == '\u3002' ||
-            this == '\uff01' ||
-            this == '\uff1f' ||
-            this == '\uff1b'
+            this == '\u3002' ||  // 。
+            this == '\uff01' ||  // ！
+            this == '\uff1f' ||  // ？
+            this == '\u2026'     // …
     }
 
     private fun openFallbackBook(bookId: Long) {

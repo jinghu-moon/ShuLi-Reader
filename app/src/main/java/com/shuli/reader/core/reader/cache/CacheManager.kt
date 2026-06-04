@@ -13,9 +13,9 @@ class CacheManager(
     companion object {
         fun limitsForMemoryClass(memoryClassMb: Int): CacheLimits {
             return when {
-                memoryClassMb < 256 -> CacheLimits(pageCacheSize = 20, chapterCacheSize = 4)
-                memoryClassMb < 512 -> CacheLimits(pageCacheSize = 40, chapterCacheSize = 8)
-                else -> CacheLimits(pageCacheSize = 80, chapterCacheSize = 16)
+                memoryClassMb < 256 -> CacheLimits(pageCacheSize = 2 * 1024 * 1024, chapterCacheSize = 5 * 1024 * 1024)
+                memoryClassMb < 512 -> CacheLimits(pageCacheSize = 4 * 1024 * 1024, chapterCacheSize = 10 * 1024 * 1024)
+                else -> CacheLimits(pageCacheSize = 8 * 1024 * 1024, chapterCacheSize = 20 * 1024 * 1024)
             }
         }
 
@@ -66,11 +66,15 @@ class CacheManager(
         val titleMarginBottomDp: Float = 60f,
     )
 
-    // 页面缓存
-    private val pageCache = LruCache<PageCacheKey, TextPage>(pageCacheSize)
+    // 页面缓存 (预估每页包含若干 TextLine 和 CanvasRecorder 句柄，固定按 10KB 估算)
+    private val pageCache = LruCache<PageCacheKey, TextPage>(pageCacheSize) { _, _ ->
+        10 * 1024 // 10KB
+    }
 
-    // 章节缓存
-    private val chapterCache = LruCache<ChapterCacheKey, TextChapter>(chapterCacheSize)
+    // 章节缓存 (基于字符串 content 长度估算字节：每个 Char 占 2 字节)
+    private val chapterCache = LruCache<ChapterCacheKey, TextChapter>(chapterCacheSize) { _, chapter ->
+        chapter.content.length * 2 + 1024 // 额外 1KB 用于框架对象
+    }
 
     /**
      * 获取页面
@@ -120,20 +124,17 @@ class CacheManager(
      * 响应内存紧张
      */
     fun onTrimMemory(level: Int) {
-        when (level) {
-            // 完全释放
-            80 -> clear()
-            // 释放部分
-            60 -> {
-                // 保留最近使用的
-                val pageStats = pageCache.stats()
-                val chapterStats = chapterCache.stats()
-                if (pageStats.size > pageStats.maxSize / 2) {
-                    pageCache.clear()
-                }
-                if (chapterStats.size > chapterStats.maxSize / 2) {
-                    chapterCache.clear()
-                }
+        when {
+            // TRIM_MEMORY_COMPLETE 或更高：完全释放
+            level >= 80 -> clear()
+            // TRIM_MEMORY_MODERATE：释放一半（直接清空，由后续访问按需重建）
+            level >= 60 -> {
+                pageCache.clear()
+                chapterCache.clear()
+            }
+            // TRIM_MEMORY_BACKGROUND：保守释放页面缓存
+            level >= 40 -> {
+                pageCache.clear()
             }
         }
     }

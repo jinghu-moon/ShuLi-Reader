@@ -26,16 +26,37 @@ class ManifestManager(
     }
 
     /**
-     * 原子更新 manifest：读取 → 应用变换 → 写回
+     * 原子更新 manifest：读取 → 应用变换 → 带 If-Match 写回
      *
-     * 整个过程在 Mutex.withLock 内完成，防止并发写丢失。
+     * 整个过程在 Mutex.withLock 内完成，防止本地并发写丢失。
+     * 使用 ETag + If-Match 实现远端乐观锁，防止多设备并发覆盖。
+     * 若远端返回 409/412（冲突），重新读取后重试，最多 3 次。
      */
     suspend fun updateManifest(update: (SyncManifest) -> SyncManifest) {
         mutex.withLock {
-            val current = readManifest() ?: SyncManifest()
-            val updated = update(current)
-            val data = json.encodeToString(SyncManifest.serializer(), updated).toByteArray()
-            transport.write("manifest.json", data)
+            var retries = 0
+            while (retries < MAX_CONFLICT_RETRIES) {
+                val meta = transport.getMetadata("manifest.json")
+                val currentEtag = meta?.etag
+                val current = readManifest() ?: SyncManifest()
+                val updated = update(current)
+                val data = json.encodeToString(SyncManifest.serializer(), updated).toByteArray()
+                try {
+                    transport.write("manifest.json", data, etag = currentEtag)
+                    return
+                } catch (e: Exception) {
+                    val msg = e.message ?: ""
+                    if (retries < MAX_CONFLICT_RETRIES - 1 && (msg.contains("412") || msg.contains("409") || msg.contains("Conflict"))) {
+                        retries++
+                        continue
+                    }
+                    throw e
+                }
+            }
         }
+    }
+
+    private companion object {
+        const val MAX_CONFLICT_RETRIES = 3
     }
 }

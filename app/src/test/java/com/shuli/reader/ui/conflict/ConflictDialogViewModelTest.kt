@@ -1,5 +1,6 @@
 package com.shuli.reader.ui.conflict
 
+import com.shuli.reader.core.i18n.AppStrings
 import com.shuli.reader.sync.conflict.BookState
 import com.shuli.reader.sync.device.DeviceInfo
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -12,26 +13,28 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ConflictDialogViewModelTest {
 
+    private val strings = AppStrings.ZhHans
+
     @Test
     fun `getDeviceDisplayName returns model when available`() {
         val info = DeviceInfo(deviceId = "d1", model = "Pixel 7", lastSyncAt = 0)
-        assertEquals("Pixel 7", ConflictDialogViewModel.getDeviceDisplayName(info))
+        assertEquals("Pixel 7", ConflictDialogViewModel.getDeviceDisplayName(info, strings))
     }
 
     @Test
     fun `getDeviceDisplayName returns fallback when model is blank`() {
         val info = DeviceInfo(deviceId = "f47ac10b-58cc", model = "", lastSyncAt = 0)
-        assertEquals("其他设备（f47ac1）", ConflictDialogViewModel.getDeviceDisplayName(info))
+        assertEquals(strings.deviceFallbackName("f47ac1"), ConflictDialogViewModel.getDeviceDisplayName(info, strings))
     }
 
     @Test
     fun `getDeviceDisplayName returns fallback when deviceInfo is null`() {
-        assertEquals("其他设备", ConflictDialogViewModel.getDeviceDisplayName(null))
+        assertEquals(strings.otherDevice, ConflictDialogViewModel.getDeviceDisplayName(null, strings))
     }
 
     @Test
     fun `onProgressConflictDetected emits ShowConflictDialog event`() = runTest(UnconfinedTestDispatcher()) {
-        val vm = ConflictDialogViewModel(scope = backgroundScope)
+        val vm = ConflictDialogViewModel(strings = strings, scope = backgroundScope)
         val localState = BookState(version = 1, updatedAt = 100)
         val remoteState = BookState(version = 2, updatedAt = 200)
 

@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.shuli.reader.core.i18n.LocalAppStrings
 
 /**
  * 同步中状态卡片（T-41）
@@ -42,6 +43,7 @@ fun SyncInProgressCard(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     val animatedProgress by animateFloatAsState(
         targetValue = progress ?: 0f,
         animationSpec = tween(durationMillis = 300),
@@ -64,7 +66,7 @@ fun SyncInProgressCard(
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "正在同步",
+                        text = strings.syncing,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -102,14 +104,14 @@ fun SyncInProgressCard(
                 onClick = onCancel,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("取消同步")
+                Text(strings.cancelSync)
             }
 
             Spacer(Modifier.height(8.dp))
 
             // 取消说明文案
             Text(
-                text = "取消不会丢失已完成的部分，下次同步时继续",
+                text = strings.cancelSyncExplanation,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -130,6 +132,7 @@ fun SyncCompletedCard(
     onSyncAgain: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
         modifier = modifier.fillMaxWidth(),
@@ -160,7 +163,7 @@ fun SyncCompletedCard(
                 }
             }
             OutlinedButton(onClick = onSyncAgain) {
-                Text("再次同步")
+                Text(strings.syncAgain)
             }
         }
     }

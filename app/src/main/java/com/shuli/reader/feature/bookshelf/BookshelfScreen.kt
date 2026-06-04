@@ -258,7 +258,7 @@ fun BookshelfScreen(
                         onToggleSelection = viewModel::onToggleNodeSelection,
                         onLongPressToEdit = { nodeId -> viewModel.onToggleEditMode(nodeId) },
                         onDragToSlot = { nodeId, slot -> viewModel.pinNode(nodeId, slot) },
-                        onMerge = { sourceId, targetId -> viewModel.mergeNodes(sourceId, targetId, sourceIsFolder = false, targetIsFolder = false) },
+                        onMerge = { sourceId, targetId -> viewModel.mergeNodes(sourceId, targetId, sourceIsFolder = false, targetIsFolder = false, defaultFolderName = strings.newFolder) },
                     )
                 }
             }
@@ -336,19 +336,19 @@ fun BookshelfScreen(
         val count = uiState.selectedNodeIds.size
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text("确认删除") },
-            text = { Text("确定要删除选中的 $count 项吗？此操作不可撤销。") },
+            title = { Text(strings.confirmDeleteTitle) },
+            text = { Text(strings.confirmDeleteSelected(count)) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.deleteNodes(uiState.selectedNodeIds)
                     showDeleteConfirmDialog = false
                 }) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
+                    Text(strings.deleteAction, color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                    Text("取消")
+                    Text(strings.cancelAction)
                 }
             },
         )

@@ -1,5 +1,6 @@
 package com.shuli.reader.sync.transport
 
+import com.shuli.reader.sync.crypto.SyncCryptoManager
 import com.shuli.reader.sync.network.webdav.SyncWebDavClient
 
 /**
@@ -7,20 +8,32 @@ import com.shuli.reader.sync.network.webdav.SyncWebDavClient
  *
  * 将 SyncTransport 接口方法委托给 SyncWebDavClient。
  * 自动拼接 rootPath 前缀。
+ * E2EE 模式下透明加密/解密（manifest.json 除外）。
  */
 class WebDavTransport(
     private val client: SyncWebDavClient,
     private val rootPath: String,
+    private val cryptoManager: SyncCryptoManager? = null,
 ) : SyncTransport {
 
     private val normalizedRoot = rootPath.trimEnd('/')
 
     override suspend fun read(path: String): ByteArray? {
-        return client.get(buildFullPath(path))
+        val raw = client.get(buildFullPath(path)) ?: return null
+        return if (cryptoManager != null && !isPlaintextPath(path)) {
+            cryptoManager.decrypt(raw)
+        } else {
+            raw
+        }
     }
 
     override suspend fun write(path: String, data: ByteArray, etag: String?) {
-        client.put(buildFullPath(path), data, ifMatch = etag)
+        val payload = if (cryptoManager != null && !isPlaintextPath(path)) {
+            cryptoManager.encrypt(data)
+        } else {
+            data
+        }
+        client.put(buildFullPath(path), payload, ifMatch = etag)
     }
 
     override suspend fun delete(path: String) {
@@ -55,7 +68,7 @@ class WebDavTransport(
     /**
      * 确保所有必需的目录存在
      */
-    fun ensureDirectories() {
+    override fun ensureDirectories() {
         val dirs = listOf("books/", "state/", "bookmarks/", "notes/", "config/", "device/")
         for (dir in dirs) {
             client.mkcol("$normalizedRoot/$dir")
@@ -65,5 +78,10 @@ class WebDavTransport(
     private fun buildFullPath(relativePath: String): String {
         val normalizedPath = relativePath.trimStart('/')
         return "$normalizedRoot/$normalizedPath"
+    }
+
+    /** manifest.json 保持明文以便无密钥时发现远端状态 */
+    private fun isPlaintextPath(path: String): Boolean {
+        return path == "manifest.json" || path.endsWith("/manifest.json")
     }
 }

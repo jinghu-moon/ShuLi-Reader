@@ -7,6 +7,7 @@ import com.shuli.reader.core.database.entity.BookEntity
 import com.shuli.reader.core.database.entity.BookmarkEntity
 import com.shuli.reader.core.database.entity.NoteEntity
 import com.shuli.reader.core.database.entity.ReadingProgressEntity
+import com.shuli.reader.core.i18n.AppStrings
 import com.shuli.reader.sync.crypto.KeyDerivation
 import com.shuli.reader.sync.crypto.KeyDerivationParams
 import kotlinx.coroutines.Dispatchers
@@ -49,6 +50,7 @@ import java.util.zip.ZipInputStream
  */
 class BackupImporter(
     private val db: ImportDatabase,
+    private val strings: AppStrings = AppStrings.ZhHans,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -70,7 +72,7 @@ class BackupImporter(
 
             // 验证 manifest
             val manifestData = entries["manifest.json"]
-                ?: throw IllegalArgumentException("备份文件缺少 manifest.json，格式无效")
+                ?: throw IllegalArgumentException(strings.backupMissingManifest)
 
             val manifest = json.parseToJsonElement(manifestData).jsonObject
             val version = manifest["version"]?.jsonPrimitive?.int ?: 1
@@ -89,21 +91,35 @@ class BackupImporter(
                         db.clearBookmarks()
                         db.clearNotes()
                         db.clearProgress()
+                        for (book in importBooks) { db.upsertBook(book) }
+                        for (bookmark in importBookmarks) { db.upsertBookmark(bookmark) }
+                        for (note in importNotes) { db.upsertNote(note) }
+                        for (prog in importProgress) { db.upsertProgress(prog) }
                     }
-                    ImportStrategy.MERGE -> { /* MERGE: @Upsert 自动处理冲突 */ }
-                }
-
-                for (book in importBooks) {
-                    db.upsertBook(book)
-                }
-                for (bookmark in importBookmarks) {
-                    db.upsertBookmark(bookmark)
-                }
-                for (note in importNotes) {
-                    db.upsertNote(note)
-                }
-                for (prog in importProgress) {
-                    db.upsertProgress(prog)
+                    ImportStrategy.MERGE -> {
+                        for (book in importBooks) { db.upsertBook(book) }
+                        for (bookmark in importBookmarks) { db.upsertBookmark(bookmark) }
+                        for (note in importNotes) { db.upsertNote(note) }
+                        for (prog in importProgress) { db.upsertProgress(prog) }
+                    }
+                    ImportStrategy.IMPORT_ONLY_NEW -> {
+                        val existingBookIds = db.getExistingBookIds()
+                        val existingBookmarkIds = db.getExistingBookmarkIds()
+                        val existingNoteIds = db.getExistingNoteIds()
+                        val existingProgressBookIds = db.getExistingProgressBookIds()
+                        for (book in importBooks) {
+                            if (book.id !in existingBookIds) db.upsertBook(book)
+                        }
+                        for (bookmark in importBookmarks) {
+                            if (bookmark.id !in existingBookmarkIds) db.upsertBookmark(bookmark)
+                        }
+                        for (note in importNotes) {
+                            if (note.id !in existingNoteIds) db.upsertNote(note)
+                        }
+                        for (prog in importProgress) {
+                            if (prog.bookId !in existingProgressBookIds) db.upsertProgress(prog)
+                        }
+                    }
                 }
             }
         }
@@ -122,7 +138,7 @@ class BackupImporter(
     /** 读取加密 ZIP 条目：salt(16) + nonce(12) + CipherInputStream(ZIP) + tag(16) */
     private fun readEncryptedEntries(file: File, password: String): Map<String, String> {
         val fileBytes = file.readBytes()
-        require(fileBytes.size > 16 + 12 + 16) { "加密文件格式无效" }
+        require(fileBytes.size > 16 + 12 + 16) { strings.invalidEncryptedFileFormat }
 
         val salt = fileBytes.copyOfRange(0, 16)
         val nonce = fileBytes.copyOfRange(16, 28)

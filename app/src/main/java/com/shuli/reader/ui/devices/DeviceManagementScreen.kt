@@ -62,7 +62,7 @@ fun DeviceManagementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("已同步设备", fontWeight = FontWeight.Bold) },
+                title = { Text(strings.syncedDevices, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
@@ -81,7 +81,7 @@ fun DeviceManagementScreen(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = "暂无已同步设备",
+                    text = strings.noSyncedDevices,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -111,7 +111,7 @@ fun DeviceManagementScreen(
     // 移除确认弹窗
     showRemoveDialog?.let { device ->
         RemoveDeviceDialog(
-            deviceName = device.model.ifBlank { "设备 ${device.deviceId.take(6)}" },
+            deviceName = device.model.ifBlank { strings.deviceFallbackName(device.deviceId.take(6)) },
             onConfirm = {
                 viewModel.removeDevice(device.deviceId)
                 showRemoveDialog = null
@@ -127,6 +127,7 @@ private fun DeviceCard(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
 
     Card(
@@ -148,7 +149,7 @@ private fun DeviceCard(
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = device.model.ifBlank { "未知设备" },
+                        text = device.model.ifBlank { strings.unknownDevice },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -156,7 +157,7 @@ private fun DeviceCard(
                         Spacer(Modifier.width(8.dp))
                         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))) {
                             Text(
-                                text = "本机",
+                                text = strings.thisDevice,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
@@ -172,13 +173,13 @@ private fun DeviceCard(
                     )
                 }
                 Text(
-                    text = "最后同步: ${dateFormat.format(Date(device.lastSyncAt))}",
+                    text = "${strings.lastSyncLabel}: ${dateFormat.format(Date(device.lastSyncAt))}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (device.appVersion.isNotBlank()) {
                     Text(
-                        text = "版本: ${device.appVersion}",
+                        text = "${strings.appVersionLabel}: ${device.appVersion}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -189,7 +190,7 @@ private fun DeviceCard(
                 IconButton(onClick = onRemove) {
                     Icon(
                         Icons.Outlined.DeleteOutline,
-                        contentDescription = "移除设备",
+                        contentDescription = strings.removeDevice,
                         tint = MaterialTheme.colorScheme.error,
                     )
                 }
@@ -204,20 +205,21 @@ private fun RemoveDeviceDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("移除设备") },
+        title = { Text(strings.removeDevice) },
         text = {
-            Text("确定要移除 \"$deviceName\" 吗？移除后该设备需要重新同步。")
+            Text(strings.removeDeviceConfirm(deviceName))
         },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text("移除", color = MaterialTheme.colorScheme.error)
+                Text(strings.remove, color = MaterialTheme.colorScheme.error)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("取消")
+                Text(strings.cancel)
             }
         },
     )

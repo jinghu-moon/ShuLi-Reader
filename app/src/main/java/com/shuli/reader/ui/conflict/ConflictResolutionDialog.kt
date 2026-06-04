@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.sync.conflict.BookState
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -41,22 +42,23 @@ fun ConflictResolutionDialog(
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val deviceDisplayName = remoteDeviceName ?: "其他设备"
+    val strings = LocalAppStrings.current
+    val deviceDisplayName = remoteDeviceName ?: strings.otherDevice
 
     AlertDialog(
         onDismissRequest = onSkip,
-        title = { Text("阅读进度冲突") },
+        title = { Text(strings.readingProgressConflict) },
         text = {
             Column {
                 Text(
-                    text = "检测到 \"$deviceDisplayName\" 与本机的阅读进度不一致。请选择要保留的进度：",
+                    text = strings.conflictDetectedMessage(deviceDisplayName),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(16.dp))
 
                 // 本地进度
                 ProgressCard(
-                    label = "本机",
+                    label = strings.thisDevice,
                     state = localState,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -73,12 +75,12 @@ fun ConflictResolutionDialog(
         },
         confirmButton = {
             TextButton(onClick = onKeepLocal) {
-                Text("保留本地")
+                Text(strings.keepLocal)
             }
         },
         dismissButton = {
             TextButton(onClick = onUseRemote) {
-                Text("使用远端")
+                Text(strings.useRemote)
             }
         },
         modifier = modifier,
@@ -91,6 +93,7 @@ private fun ProgressCard(
     state: BookState,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     val dateFormat = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
 
     Card(
@@ -106,12 +109,12 @@ private fun ProgressCard(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "位置: 第 ${state.chapterIndex + 1} 章，偏移 ${state.byteOffset}",
+                text = strings.progressPosition(state.chapterIndex + 1, state.byteOffset),
                 style = MaterialTheme.typography.bodySmall,
             )
             if (state.updatedAt > 0) {
                 Text(
-                    text = "更新时间: ${dateFormat.format(Date(state.updatedAt))}",
+                    text = "${strings.updatedAtLabel}: ${dateFormat.format(Date(state.updatedAt))}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

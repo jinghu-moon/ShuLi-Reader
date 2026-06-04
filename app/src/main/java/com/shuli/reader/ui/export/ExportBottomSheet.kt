@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.sync.export.ExportOptions
 
 /**
@@ -51,6 +52,7 @@ fun ExportBottomSheet(
     isEstimating: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     val sheetState = rememberModalBottomSheetState()
     var includeBookFiles by remember { mutableStateOf(true) }
     var includeBookmarks by remember { mutableStateOf(true) }
@@ -76,7 +78,7 @@ fun ExportBottomSheet(
                 .padding(bottom = 32.dp),
         ) {
             Text(
-                text = "导出数据",
+                text = strings.exportData,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
@@ -84,16 +86,16 @@ fun ExportBottomSheet(
 
             // 导出内容选择
             Text(
-                text = "选择要导出的内容：",
+                text = strings.selectExportContent,
                 style = MaterialTheme.typography.bodyMedium,
             )
             Spacer(Modifier.height(8.dp))
 
-            ExportOptionCheckbox(text = "书籍文件", checked = includeBookFiles, onCheckedChange = { includeBookFiles = it })
-            ExportOptionCheckbox(text = "书签", checked = includeBookmarks, onCheckedChange = { includeBookmarks = it })
-            ExportOptionCheckbox(text = "笔记", checked = includeNotes, onCheckedChange = { includeNotes = it })
-            ExportOptionCheckbox(text = "阅读进度", checked = includeProgress, onCheckedChange = { includeProgress = it })
-            ExportOptionCheckbox(text = "阅读器配置", checked = includeConfig, onCheckedChange = { includeConfig = it })
+            ExportOptionCheckbox(text = strings.bookFiles, checked = includeBookFiles, onCheckedChange = { includeBookFiles = it })
+            ExportOptionCheckbox(text = strings.bookmarks, checked = includeBookmarks, onCheckedChange = { includeBookmarks = it })
+            ExportOptionCheckbox(text = strings.notes, checked = includeNotes, onCheckedChange = { includeNotes = it })
+            ExportOptionCheckbox(text = strings.readingProgressExport, checked = includeProgress, onCheckedChange = { includeProgress = it })
+            ExportOptionCheckbox(text = strings.readerConfig, checked = includeConfig, onCheckedChange = { includeConfig = it })
 
             Spacer(Modifier.height(16.dp))
 
@@ -102,11 +104,11 @@ fun ExportBottomSheet(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
-                    Text("正在估算导出大小...", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(strings.estimatingSize, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else if (estimatedSize != null) {
                 Text(
-                    text = "预估大小: $estimatedSize",
+                    text = strings.estimatedSize(estimatedSize),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -120,7 +122,7 @@ fun ExportBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    text = "加密导出",
+                    text = strings.encryptedExport,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
@@ -149,7 +151,7 @@ fun ExportBottomSheet(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "请牢记加密密码。密码丢失后，导出的数据将无法恢复。",
+                            text = strings.rememberExportPassword,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
@@ -160,7 +162,7 @@ fun ExportBottomSheet(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("密码") },
+                    label = { Text(strings.password) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
@@ -169,7 +171,7 @@ fun ExportBottomSheet(
                 OutlinedTextField(
                     value = confirmPassword,
                     onValueChange = { confirmPassword = it },
-                    label = { Text("确认密码") },
+                    label = { Text(strings.passwordConfirm) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     isError = useEncryption && password.isNotEmpty() && !passwordsMatch,
@@ -177,7 +179,7 @@ fun ExportBottomSheet(
                 )
                 if (useEncryption && password.isNotEmpty() && !passwordsMatch) {
                     Text(
-                        text = "密码不一致",
+                        text = strings.passwordMismatch,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(start = 16.dp, top = 4.dp),
@@ -203,7 +205,7 @@ fun ExportBottomSheet(
                 enabled = canExport,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("导出")
+                Text(strings.export)
             }
         }
     }

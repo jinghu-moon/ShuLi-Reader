@@ -140,7 +140,7 @@ fun LocalBackupScreen(
                         )
                         Spacer(Modifier.width(12.dp))
                         Text(
-                            text = "将书签、笔记、阅读进度等数据备份到本地文件，或从备份文件恢复数据。",
+                            text = strings.backupDescription,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -165,7 +165,7 @@ fun LocalBackupScreen(
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "备份存储位置",
+                                    text = strings.backupLocation,
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold,
                                 )
@@ -174,7 +174,7 @@ fun LocalBackupScreen(
                                         // 从 URI 提取路径显示
                                         Uri.parse(backupLocation).lastPathSegment ?: backupLocation
                                     } else {
-                                        "应用默认目录"
+                                        strings.defaultAppDirectory
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -183,20 +183,20 @@ fun LocalBackupScreen(
                                 )
                             }
                             OutlinedButton(onClick = { folderLauncher.launch(null) }) {
-                                Text("选择")
+                                Text(strings.select)
                             }
                         }
                         if (backupLocation.isNotEmpty()) {
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = "已选择自定义备份目录",
+                                text = strings.customBackupDirSelected,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         } else {
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = "备份将保存在应用私有目录，卸载应用时数据会被清除",
+                                text = strings.backupInPrivateDirWarning,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -222,12 +222,12 @@ fun LocalBackupScreen(
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "自动备份",
+                                    text = strings.autoBackup,
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold,
                                 )
                                 Text(
-                                    text = "按计划自动备份数据",
+                                    text = strings.autoBackupDesc,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -243,15 +243,14 @@ fun LocalBackupScreen(
 
                             // 定时间隔选择
                             Text(
-                                text = "备份频率",
+                                text = strings.backupFrequency,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Spacer(Modifier.height(8.dp))
 
                             val intervals = listOf(6, 12, 24, 48, 72)
-                            val labels = listOf("每 6 小时", "每 12 小时", "每天", "每 2 天", "每 3 天")
-                            intervals.forEachIndexed { index, hours ->
+                            intervals.forEach { hours ->
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
@@ -264,7 +263,7 @@ fun LocalBackupScreen(
                                     )
                                     Spacer(Modifier.width(8.dp))
                                     Text(
-                                        text = labels[index],
+                                        text = strings.backupEveryNHours(hours),
                                         style = MaterialTheme.typography.bodyMedium,
                                     )
                                 }
@@ -276,23 +275,23 @@ fun LocalBackupScreen(
 
                             // 启动时备份
                             SettingsSwitchItem(
-                                title = "启动时备份",
-                                subtitle = "每次打开应用时自动备份",
+                                title = strings.backupOnStart,
+                                subtitle = strings.backupOnStartDesc,
                                 checked = backupOnAppStart,
                                 onCheckedChange = onBackupOnAppStartChange,
                             )
 
                             // 关闭时备份
                             SettingsSwitchItem(
-                                title = "关闭时备份",
-                                subtitle = "每次关闭应用时自动备份",
+                                title = strings.backupOnExit,
+                                subtitle = strings.backupOnExitDesc,
                                 checked = backupOnAppExit,
                                 onCheckedChange = onBackupOnAppExitChange,
                             )
 
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = "自动备份不包含书籍文件，仅备份书签、笔记和进度数据。最多保留 5 个备份。",
+                                text = strings.autoBackupNote,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -306,7 +305,7 @@ fun LocalBackupScreen(
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "手动备份",
+                            text = strings.manualBackup,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                         )
@@ -315,9 +314,9 @@ fun LocalBackupScreen(
                         // 导出
                         BackupActionButton(
                             icon = Icons.Outlined.FileDownload,
-                            title = "导出备份",
-                            subtitle = "将数据导出为 ZIP 文件",
-                            buttonText = "导出",
+                            title = strings.exportBackup,
+                            subtitle = strings.exportBackupDesc,
+                            buttonText = strings.export,
                             isLoading = isExporting,
                             resultText = exportResult,
                             onClick = { showExportSheet = true },
@@ -328,9 +327,9 @@ fun LocalBackupScreen(
                         // 导入
                         BackupActionButton(
                             icon = Icons.Outlined.FileUpload,
-                            title = "导入备份",
-                            subtitle = "从 ZIP 文件恢复数据",
-                            buttonText = "选择文件",
+                            title = strings.importBackup,
+                            subtitle = strings.importBackupDesc,
+                            buttonText = strings.selectFile,
                             isLoading = isImporting,
                             resultText = importResult,
                             onClick = { importLauncher.launch("application/zip") },
@@ -355,14 +354,14 @@ fun LocalBackupScreen(
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "注意事项",
+                                text = strings.backupNotes,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = "• 导入会合并现有数据，不会覆盖较新的本地数据\n• 加密备份需要输入正确的密码才能导入\n• 建议定期备份以防止数据丢失\n• 自定义目录需要授予应用读写权限",
+                                text = strings.backupNotesContent,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                             )
@@ -432,6 +431,7 @@ private fun BackupActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.fillMaxWidth(),
@@ -459,7 +459,7 @@ private fun BackupActionButton(
                 Text(
                     text = resultText,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (resultText.contains("成功") || resultText.contains("完成"))
+                    color = if (resultText.contains(strings.backupResultSuccess) || resultText.contains(strings.backupResultComplete))
                         MaterialTheme.colorScheme.primary
                     else
                         MaterialTheme.colorScheme.error,

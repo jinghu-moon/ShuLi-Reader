@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.shuli.reader.core.i18n.AppStrings
 import com.shuli.reader.core.i18n.LocalAppStrings
 
 /**
@@ -59,7 +60,7 @@ fun SyncLogScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("同步日志", fontWeight = FontWeight.Bold) },
+                title = { Text(strings.syncLog, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
@@ -84,22 +85,22 @@ fun SyncLogScreen(
                 FilterChip(
                     selected = currentFilter == SyncLogFilter.ALL,
                     onClick = { viewModel.applyFilter(SyncLogFilter.ALL) },
-                    label = { Text("全部") },
+                    label = { Text(strings.filterAll) },
                 )
                 FilterChip(
                     selected = currentFilter == SyncLogFilter.CLOUD,
                     onClick = { viewModel.applyFilter(SyncLogFilter.CLOUD) },
-                    label = { Text("云端") },
+                    label = { Text(strings.filterCloud) },
                 )
                 FilterChip(
                     selected = currentFilter == SyncLogFilter.LOCAL,
                     onClick = { viewModel.applyFilter(SyncLogFilter.LOCAL) },
-                    label = { Text("本地") },
+                    label = { Text(strings.filterLocal) },
                 )
                 FilterChip(
                     selected = currentFilter == SyncLogFilter.FAILED,
                     onClick = { viewModel.applyFilter(SyncLogFilter.FAILED) },
-                    label = { Text("失败") },
+                    label = { Text(strings.filterFailed) },
                 )
             }
 
@@ -110,7 +111,7 @@ fun SyncLogScreen(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
-                        text = "暂无同步日志",
+                        text = strings.noSyncLogs,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -150,6 +151,7 @@ private fun SyncLogEntryCard(
     entry: SyncLogEntry,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
     Card(
@@ -189,9 +191,9 @@ private fun SyncLogEntryCard(
                     )
                     Text(
                         text = when (entry.syncType) {
-                            SyncLogFilter.CLOUD -> "云端"
-                            SyncLogFilter.LOCAL -> "本地"
-                            else -> "未知"
+                            SyncLogFilter.CLOUD -> strings.syncTypeCloud
+                            SyncLogFilter.LOCAL -> strings.syncTypeLocal
+                            else -> strings.syncTypeUnknown
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -205,12 +207,12 @@ private fun SyncLogEntryCard(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Text(
-                        text = formatDuration(entry.duration),
+                        text = formatDuration(entry.duration, strings),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = "${entry.requestCount} 次请求",
+                        text = strings.requestCount(entry.requestCount),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -234,12 +236,12 @@ private fun SyncLogEntryCard(
     }
 }
 
-private fun formatDuration(millis: Long): String {
+private fun formatDuration(millis: Long, strings: AppStrings): String {
     val seconds = millis / 1000
     return when {
-        seconds < 60 -> "${seconds}秒"
-        seconds < 3600 -> "${seconds / 60}分${seconds % 60}秒"
-        else -> "${seconds / 3600}时${(seconds % 3600) / 60}分"
+        seconds < 60 -> strings.durationSeconds(seconds)
+        seconds < 3600 -> strings.durationMinutesSeconds(seconds / 60, seconds % 60)
+        else -> strings.durationHoursMinutes(seconds / 3600, (seconds % 3600) / 60)
     }
 }
 

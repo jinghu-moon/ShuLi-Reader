@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Typeface
 import android.net.Uri
 import android.provider.OpenableColumns
+import com.shuli.reader.core.i18n.AppStrings
 import java.io.File
 
 /**
@@ -12,7 +13,7 @@ import java.io.File
  * 存储路径: context.filesDir/resources/fonts/
  * 字体 key 格式: "custom:{id}"，id = 文件名(不含扩展名)
  */
-class FontManager(val context: Context) {
+class FontManager(val context: Context, val strings: AppStrings = AppStrings.ZhHans) {
 
     /** 内置字体 key */
     companion object {
@@ -98,7 +99,7 @@ class FontManager(val context: Context) {
         }
         if (inputStream == null) {
             android.util.Log.e(TAG, "importFont: openInputStream 返回 null，无法读取 URI")
-            throw IllegalArgumentException("无法读取字体文件: $uri")
+            throw IllegalArgumentException(strings.cannotReadFontFile(uri.toString()))
         }
 
         inputStream.use { input ->
@@ -109,7 +110,7 @@ class FontManager(val context: Context) {
         }
 
         if (!dest.exists() || dest.length() == 0L) {
-            throw IllegalArgumentException("字体文件写入失败或文件为空: ${dest.absolutePath}")
+            throw IllegalArgumentException(strings.fontWriteFailedOrEmpty(dest.absolutePath))
         }
 
         val id = dest.nameWithoutExtension

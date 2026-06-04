@@ -49,4 +49,9 @@ interface SyncTransport {
      * @return 元数据，不存在时返回 null
      */
     suspend fun getMetadata(path: String): TransportResourceMetadata?
+
+    /**
+     * 确保远端目录结构存在
+     */
+    fun ensureDirectories() {}
 }

@@ -54,19 +54,6 @@ class ShuLiAppContainer(
             ShuLiDatabase::class.java,
             ShuLiDatabase.DATABASE_NAME,
         )
-            .addMigrations(
-                ShuLiDatabase.MIGRATION_1_2,
-                ShuLiDatabase.MIGRATION_2_3,
-                ShuLiDatabase.MIGRATION_3_4,
-                ShuLiDatabase.MIGRATION_4_5,
-                ShuLiDatabase.MIGRATION_5_6,
-                ShuLiDatabase.MIGRATION_6_7,
-                ShuLiDatabase.MIGRATION_7_8,
-                ShuLiDatabase.MIGRATION_8_9,
-                ShuLiDatabase.MIGRATION_10_11,
-                ShuLiDatabase.MIGRATION_13_14,
-                ShuLiDatabase.MIGRATION_14_15,
-            )
             .fallbackToDestructiveMigration()
             .build()
     }
@@ -75,13 +62,17 @@ class ShuLiAppContainer(
         UserPreferences(appContext.userPreferencesDataStore)
     }
 
+    val epubParser: EpubParser by lazy {
+        EpubParser()
+    }
+
     val bookRepository: BookRepository by lazy {
         BookRepository(
             bookDao = database.bookDao(),
             bookChapterDao = database.bookChapterDao(),
             readingProgressDao = database.readingProgressDao(),
             txtParser = TxtParser(),
-            epubParser = EpubParser(),
+            epubParser = epubParser,
             byteWindowReader = byteWindowReader,
             booksDir = java.io.File(appContext.filesDir, "books"),
             applicationScope = applicationScope,

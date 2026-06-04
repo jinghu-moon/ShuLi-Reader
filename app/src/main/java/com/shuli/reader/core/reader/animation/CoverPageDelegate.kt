@@ -112,13 +112,13 @@ class CoverPageDelegate : PageDelegate {
                     shadowDrawableR.draw(canvas)
                     canvas.restore()
                 } else {
-                    // PREV：目标页在底层，当前页在上层向右滑出（上一页从左边进入覆盖）
-                    target.draw(canvas)
+                    // PREV：当前页在底层，目标页（上一页）在上层从左侧滑入覆盖
+                    current.draw(canvas)
                     canvas.save()
                     canvas.translate(pageOffset - screenWidth, 0f)
-                    current.draw(canvas)
+                    target.draw(canvas)
                     canvas.restore()
-                    // 渐变阴影条：紧贴当前页（上一页）右边缘
+                    // 渐变阴影条：紧贴目标页（上一页）右边缘
                     canvas.save()
                     canvas.translate(pageOffset, 0f)
                     shadowDrawableR.draw(canvas)

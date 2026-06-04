@@ -1,5 +1,6 @@
 package com.shuli.reader.sync.notification
 
+import com.shuli.reader.core.i18n.AppStrings
 import com.shuli.reader.sync.state.SyncState
 import com.shuli.reader.sync.state.SyncStateMachine
 import kotlinx.coroutines.test.runTest
@@ -9,19 +10,21 @@ import org.junit.Test
 // Part of T-25 通知状态更新
 class SyncNotifierTest {
 
+    private val strings = AppStrings.ZhHans
+
     @Test
     fun `SyncStateTextMapper maps SCANNING correctly`() {
-        assertEquals("正在扫描本地变更...", SyncStateTextMapper.map(SyncState.SCANNING))
+        assertEquals(strings.scanningLocalChanges, SyncStateTextMapper.map(SyncState.SCANNING, strings))
     }
 
     @Test
     fun `SyncStateTextMapper maps UPLOADING correctly`() {
-        assertEquals("正在上传书签与笔记...", SyncStateTextMapper.map(SyncState.UPLOADING))
+        assertEquals(strings.uploadingBookmarksNotes, SyncStateTextMapper.map(SyncState.UPLOADING, strings))
     }
 
     @Test
     fun `SyncStateTextMapper maps SUCCESS correctly`() {
-        assertEquals("同步完成", SyncStateTextMapper.map(SyncState.SUCCESS))
+        assertEquals(strings.syncComplete, SyncStateTextMapper.map(SyncState.SUCCESS, strings))
     }
 }
 

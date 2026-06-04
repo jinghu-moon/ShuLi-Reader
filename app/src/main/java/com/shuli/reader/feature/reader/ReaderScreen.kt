@@ -366,6 +366,12 @@ fun ReaderScreen(
                     }
                 }
 
+                // 笔记高亮
+                val noteHashes = uiState.notes.hashCode() to uiState.chapterIndex
+                LaunchedEffect(noteHashes) {
+                    canvasView?.setNoteRanges(viewModel.getVisibleNoteRanges())
+                }
+
                 AndroidView(
                     modifier = Modifier.fillMaxSize().testTag(UiTestTags.READER_CANVAS).onGloballyPositioned { coordinates ->
                         viewModel.setScreenSize(coordinates.size.width, coordinates.size.height)
@@ -395,6 +401,15 @@ fun ReaderScreen(
 
                         val isLayoutChange = layoutVersionRef.intValue != uiState.layoutVersion
                         if (isLayoutChange) layoutVersionRef.intValue = uiState.layoutVersion
+                        
+                        view.canTurnPrev = { uiState.pageIndex > 0 || uiState.chapterIndex > 0 }
+                        view.canTurnNext = {
+                            val chapter = uiState.currentChapter
+                            if (chapter != null) {
+                                uiState.pageIndex < chapter.lastIndex || uiState.chapterIndex < uiState.totalChapters - 1
+                            } else false
+                        }
+                        
                         view.setPage(page, nextPage, prevPage, uiState.currentChapter?.content ?: "", uiState.pageRenderMode, isLayoutChange = isLayoutChange)
                     },
                 )
@@ -642,6 +657,9 @@ fun ReaderScreen(
                         },
                         onNoteDelete = { note ->
                             viewModel.deleteNote(note)
+                        },
+                        onNoteEdit = { note, newText, newColor ->
+                            viewModel.updateNote(note, newText, newColor)
                         },
                         onDismiss = {
                             viewModel.toggleDirectory()

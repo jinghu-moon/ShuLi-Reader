@@ -172,11 +172,28 @@ class ReaderPageRenderer(
         selectedRange: SelectionRange? = null,
         ttsHighlightPaint: Paint? = null,
         selectionPaint: Paint? = null,
+        noteRanges: List<Pair<SelectionRange, Paint>> = emptyList(),
     ) {
         val page = ctx.page
         val density = page.density
 
-        // 1. 绘制高亮背景（TTS高亮与用户选区）
+        // 1. 绘制笔记高亮背景（彩色半透明，在 TTS/选区高亮之下）
+        if (noteRanges.isNotEmpty()) {
+            page.lines.forEach { line ->
+                val startX = page.marginHorizontal + line.startXOffset
+                val textWidth = line.measuredWidth
+                val top = line.top
+                val bottom = line.bottom
+                val rect = RectF(startX - 6f, top, startX + textWidth + 6f, bottom)
+                for ((range, paint) in noteRanges) {
+                    if (intersects(range, line.startCharOffset, line.endCharOffset)) {
+                        canvas.drawRoundRect(rect, 6f, 6f, paint)
+                    }
+                }
+            }
+        }
+
+        // 2. 绘制 TTS/选区高亮背景
         page.lines.forEach { line ->
             val startX = page.marginHorizontal + line.startXOffset
             val textWidth = line.measuredWidth
@@ -340,10 +357,11 @@ class ReaderPageRenderer(
     }
 
     /**
-     * 两端对齐绘制：使用预计算的 charWidths 逐字符定位，零 String 分配
+     * 两端对齐绘制：通过临时调整 Paint.letterSpacing 实现单次 drawText，O(1) JNI 调用
      */
     private fun Canvas.drawTextJustified(line: TextLine, x: Float, y: Float, ctx: PageRenderContext) {
-        val extraSpace = ctx.availableWidth - line.measuredWidth
+        // 两端对齐时，可用宽度需要减去该行的起始偏移（即首行缩进），否则会将缩进宽度也作为额外空间分配给字距，导致整行超出右边界
+        val extraSpace = ctx.availableWidth - line.startXOffset - line.measuredWidth
 
         if (extraSpace <= 0f) {
             drawText(ctx.content, line.startCharOffset, line.endCharOffset, x, y, ctx.textPaint)
@@ -352,14 +370,19 @@ class ReaderPageRenderer(
 
         val charCount = line.endCharOffset - line.startCharOffset
         val justifySpacing = if (charCount > 1) extraSpace / (charCount - 1) else 0f
-        var currentX = x
-
-        for (i in 0 until charCount) {
-            drawText(ctx.content, line.startCharOffset + i, line.startCharOffset + i + 1, currentX, y, ctx.textPaint)
-            if (i < charCount - 1) {
-                currentX += line.charWidths!![i] + ctx.letterSpacingPx + justifySpacing
-            }
+        
+        // 临时调整画笔的 letterSpacing 以合并 JNI 调用
+        // Paint.letterSpacing 的单位是 em (em = pixel / textSize)
+        val originalLetterSpacing = ctx.textPaint.letterSpacing
+        val totalSpacingPx = ctx.letterSpacingPx + justifySpacing
+        if (ctx.textPaint.textSize > 0) {
+            ctx.textPaint.letterSpacing = totalSpacingPx / ctx.textPaint.textSize
         }
+
+        drawText(ctx.content, line.startCharOffset, line.endCharOffset, x, y, ctx.textPaint)
+
+        // 恢复画笔
+        ctx.textPaint.letterSpacing = originalLetterSpacing
     }
 
     private fun intersects(range: SelectionRange?, start: Int, end: Int): Boolean {

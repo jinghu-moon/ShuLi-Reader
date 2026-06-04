@@ -31,6 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,6 +61,7 @@ fun EncryptionManagementScreen(
 ) {
     val encryptionInfo by viewModel.encryptionInfo.collectAsState()
     val verifyResult by viewModel.verifyResult.collectAsState()
+    val changePasswordResult by viewModel.changePasswordResult.collectAsState()
     val strings = LocalAppStrings.current
     var showVerifyDialog by remember { mutableStateOf(false) }
     var showChangePasswordDialog by remember { mutableStateOf(false) }
@@ -67,7 +69,7 @@ fun EncryptionManagementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("加密管理", fontWeight = FontWeight.Bold) },
+                title = { Text(strings.encryptionManagement, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
@@ -98,8 +100,8 @@ fun EncryptionManagementScreen(
                 // warn-card: 密码丢失提示
                 item {
                     WarnCard(
-                        title = "请牢记加密密码",
-                        message = "加密密码无法找回。如果忘记密码，加密的同步数据将无法恢复。",
+                        title = strings.rememberEncryptionPassword,
+                        message = strings.rememberEncryptionPasswordDesc,
                     )
                 }
 
@@ -111,14 +113,14 @@ fun EncryptionManagementScreen(
                                 onClick = { showVerifyDialog = true },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text("验证密码")
+                                Text(strings.verifyPassword)
                             }
                             Spacer(Modifier.height(8.dp))
                             OutlinedButton(
                                 onClick = { showChangePasswordDialog = true },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text("更换密码")
+                                Text(strings.changePassword)
                             }
                         }
                     }
@@ -129,12 +131,12 @@ fun EncryptionManagementScreen(
                     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                text = "端到端加密未启用",
+                                text = strings.e2eeNotEnabled,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = "启用后，同步数据将在设备端加密后上传，服务器无法读取内容。",
+                                text = strings.e2eeNotEnabledDesc,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -143,7 +145,7 @@ fun EncryptionManagementScreen(
                                 onClick = { showChangePasswordDialog = true },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text("启用加密")
+                                Text(strings.enableEncryption)
                             }
                         }
                     }
@@ -168,9 +170,24 @@ fun EncryptionManagementScreen(
     // 更换密码弹窗
     if (showChangePasswordDialog) {
         ChangePasswordDialog(
-            onDismiss = { showChangePasswordDialog = false },
-            onConfirm = { /* TODO: implement password change */ },
+            isEncryptionEnabled = encryptionInfo.isEnabled,
+            onDismiss = {
+                showChangePasswordDialog = false
+            },
+            onConfirm = { oldPassword, newPassword ->
+                viewModel.changePassword(oldPassword, newPassword, encryptionInfo.salt)
+            },
         )
+    }
+
+    // 密码变更结果反馈
+    LaunchedEffect(changePasswordResult) {
+        when (changePasswordResult) {
+            PasswordChangeResult.SUCCESS -> {
+                showChangePasswordDialog = false
+            }
+            else -> { /* 错误状态由 dialog 内部处理或忽略 */ }
+        }
     }
 }
 
@@ -179,6 +196,7 @@ private fun EncryptionStatusCard(
     info: EncryptionInfo,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
         modifier = modifier.fillMaxWidth(),
@@ -196,12 +214,12 @@ private fun EncryptionStatusCard(
             Spacer(Modifier.width(16.dp))
             Column {
                 Text(
-                    text = if (info.isEnabled) "加密已启用" else "加密未启用",
+                    text = if (info.isEnabled) strings.encryptionEnabled else strings.encryptionDisabled,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = if (info.isEnabled) "端到端加密保护您的同步数据" else "数据以明文方式同步",
+                    text = if (info.isEnabled) strings.e2eeProtectsSyncData else strings.dataSyncedInPlaintext,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -215,21 +233,22 @@ private fun AlgorithmDetailsCard(
     info: EncryptionInfo,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
     val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
 
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)), modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "算法详情",
+                text = strings.algorithmDetails,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
             Spacer(Modifier.height(12.dp))
-            DetailRow(label = "加密算法", value = info.algorithm.ifEmpty { "AES-256-GCM" })
-            DetailRow(label = "KDF 迭代次数", value = info.kdfIterations.toString())
-            DetailRow(label = "密钥版本", value = info.keyVersion.toString())
+            DetailRow(label = strings.encryptionAlgorithm, value = info.algorithm.ifEmpty { "AES-256-GCM" })
+            DetailRow(label = strings.kdfIterations, value = info.kdfIterations.toString())
+            DetailRow(label = strings.keyVersion, value = info.keyVersion.toString())
             if (info.createdAt > 0) {
-                DetailRow(label = "创建时间", value = dateFormat.format(Date(info.createdAt)))
+                DetailRow(label = strings.createdAt, value = dateFormat.format(Date(info.createdAt)))
             }
         }
     }
@@ -297,19 +316,20 @@ private fun VerifyPasswordDialog(
     onVerify: (String, ByteArray) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     var password by remember { mutableStateOf("") }
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("验证密码") },
+        title = { Text(strings.verifyPassword) },
         text = {
             Column {
-                Text("输入加密密码以验证正确性", style = MaterialTheme.typography.bodyMedium)
+                Text(strings.inputPasswordToVerify, style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("加密密码") },
+                    label = { Text(strings.encryptionPassword) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
@@ -317,10 +337,10 @@ private fun VerifyPasswordDialog(
                 if (verifyResult != null) {
                     Spacer(Modifier.height(8.dp))
                     val (text, color) = when (verifyResult) {
-                        PasswordVerifyResult.SUCCESS -> "验证成功" to MaterialTheme.colorScheme.primary
-                        PasswordVerifyResult.WRONG_PASSWORD -> "密码错误" to MaterialTheme.colorScheme.error
-                        PasswordVerifyResult.NO_ENCRYPTION -> "未启用加密" to MaterialTheme.colorScheme.onSurfaceVariant
-                        PasswordVerifyResult.ERROR -> "验证出错" to MaterialTheme.colorScheme.error
+                        PasswordVerifyResult.SUCCESS -> strings.verifySuccess to MaterialTheme.colorScheme.primary
+                        PasswordVerifyResult.WRONG_PASSWORD -> strings.passwordWrong to MaterialTheme.colorScheme.error
+                        PasswordVerifyResult.NO_ENCRYPTION -> strings.encryptionNotEnabled to MaterialTheme.colorScheme.onSurfaceVariant
+                        PasswordVerifyResult.ERROR -> strings.verifyError to MaterialTheme.colorScheme.error
                         null -> "" to MaterialTheme.colorScheme.onSurfaceVariant
                     }
                     Text(text = text, style = MaterialTheme.typography.bodySmall, color = color)
@@ -335,12 +355,12 @@ private fun VerifyPasswordDialog(
                 },
                 enabled = password.isNotEmpty(),
             ) {
-                Text("验证")
+                Text(strings.verify)
             }
         },
         dismissButton = {
             androidx.compose.material3.TextButton(onClick = onDismiss) {
-                Text("取消")
+                Text(strings.cancel)
             }
         },
     )
@@ -348,22 +368,36 @@ private fun VerifyPasswordDialog(
 
 @Composable
 private fun ChangePasswordDialog(
+    isEncryptionEnabled: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit,
+    onConfirm: (oldPassword: String, newPassword: String) -> Unit,
 ) {
+    val strings = LocalAppStrings.current
+    var oldPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     val passwordsMatch = newPassword == confirmPassword
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("更换密码") },
+        title = { Text(if (isEncryptionEnabled) strings.changePassword else strings.setEncryptionPassword) },
         text = {
             Column {
+                if (isEncryptionEnabled) {
+                    OutlinedTextField(
+                        value = oldPassword,
+                        onValueChange = { oldPassword = it },
+                        label = { Text(strings.oldPassword) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
                 OutlinedTextField(
                     value = newPassword,
                     onValueChange = { newPassword = it },
-                    label = { Text("新密码") },
+                    label = { Text(strings.newPassword) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
@@ -372,7 +406,7 @@ private fun ChangePasswordDialog(
                 OutlinedTextField(
                     value = confirmPassword,
                     onValueChange = { confirmPassword = it },
-                    label = { Text("确认新密码") },
+                    label = { Text(strings.confirmNewPassword) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     isError = newPassword.isNotEmpty() && !passwordsMatch,
@@ -380,7 +414,7 @@ private fun ChangePasswordDialog(
                 )
                 if (newPassword.isNotEmpty() && !passwordsMatch) {
                     Text(
-                        text = "密码不一致",
+                        text = strings.passwordMismatch,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(start = 16.dp, top = 4.dp),
@@ -390,15 +424,16 @@ private fun ChangePasswordDialog(
         },
         confirmButton = {
             androidx.compose.material3.TextButton(
-                onClick = { onConfirm(newPassword) },
-                enabled = newPassword.isNotEmpty() && passwordsMatch,
+                onClick = { onConfirm(oldPassword, newPassword) },
+                enabled = newPassword.isNotEmpty() && passwordsMatch &&
+                    (!isEncryptionEnabled || oldPassword.isNotEmpty()),
             ) {
-                Text("确认更换")
+                Text(if (isEncryptionEnabled) strings.confirmChange else strings.confirmSet)
             }
         },
         dismissButton = {
             androidx.compose.material3.TextButton(onClick = onDismiss) {
-                Text("取消")
+                Text(strings.cancel)
             }
         },
     )

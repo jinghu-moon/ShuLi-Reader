@@ -321,11 +321,11 @@ class BookshelfViewModel(
             val folderId = bookRepository.createFolder(folderName)
             if (bookIds.isNotEmpty()) bookRepository.moveBooksToFolder(bookIds, folderId)
             onToggleEditMode()
-            _events.emit(BookshelfEvent.ShowMessage { "已创建分组并移动" })
+            _events.emit(BookshelfEvent.ShowMessage { it.groupCreatedAndMoved })
         }
     }
 
-    fun mergeNodes(sourceId: Long, targetId: Long, sourceIsFolder: Boolean, targetIsFolder: Boolean) {
+    fun mergeNodes(sourceId: Long, targetId: Long, sourceIsFolder: Boolean, targetIsFolder: Boolean, defaultFolderName: String = "New Folder") {
         val srcIsFolder = sourceIsFolder || sourceId < 0
         val tgtIsFolder = targetIsFolder || targetId < 0
         if (srcIsFolder || sourceId == targetId) return
@@ -334,7 +334,7 @@ class BookshelfViewModel(
             if (tgtIsFolder) {
                 bookRepository.moveBooksToFolder(listOf(sourceId), -targetId)
             } else {
-                val newFolderId = bookRepository.createFolder("新建文件夹")
+                val newFolderId = bookRepository.createFolder(defaultFolderName)
                 bookRepository.moveBooksToFolder(listOf(sourceId, targetId), newFolderId)
             }
         }

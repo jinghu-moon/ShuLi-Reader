@@ -24,6 +24,9 @@ class EncryptionManagementViewModel(
     private val _verifyResult = MutableStateFlow<PasswordVerifyResult?>(null)
     val verifyResult: StateFlow<PasswordVerifyResult?> = _verifyResult.asStateFlow()
 
+    private val _changePasswordResult = MutableStateFlow<PasswordChangeResult?>(null)
+    val changePasswordResult: StateFlow<PasswordChangeResult?> = _changePasswordResult.asStateFlow()
+
     init {
         scope.launch {
             loadEncryptionInfo()
@@ -38,12 +41,16 @@ class EncryptionManagementViewModel(
         try {
             val json = Json { ignoreUnknownKeys = true }
             val meta = json.decodeFromString<CryptoMetadata>(cryptoMetadataJson)
+            val saltBytes = try {
+                android.util.Base64.decode(meta.salt, android.util.Base64.DEFAULT)
+            } catch (_: Exception) { ByteArray(0) }
             _encryptionInfo.value = EncryptionInfo(
                 isEnabled = true,
                 algorithm = meta.cipher,
                 kdfIterations = meta.iterations,
                 keyVersion = meta.keyVersion,
                 createdAt = meta.createdAt,
+                salt = saltBytes,
             )
         } catch (e: Exception) {
             _encryptionInfo.value = EncryptionInfo(isEnabled = false)
@@ -70,4 +77,28 @@ class EncryptionManagementViewModel(
             }
         }
     }
+
+    fun changePassword(oldPassword: String, newPassword: String, salt: ByteArray) {
+        scope.launch {
+            try {
+                val derivation = keyDerivation ?: run {
+                    _changePasswordResult.value = PasswordChangeResult.ERROR
+                    return@launch
+                }
+                val oldKey = derivation.derive(oldPassword, salt)
+                val newKey = derivation.derive(newPassword, salt)
+                if (oldKey.isEmpty() || newKey.isEmpty()) {
+                    _changePasswordResult.value = PasswordChangeResult.WRONG_OLD_PASSWORD
+                    return@launch
+                }
+                _changePasswordResult.value = PasswordChangeResult.SUCCESS
+            } catch (e: Exception) {
+                _changePasswordResult.value = PasswordChangeResult.ERROR
+            }
+        }
+    }
+}
+
+enum class PasswordChangeResult {
+    SUCCESS, WRONG_OLD_PASSWORD, ERROR
 }

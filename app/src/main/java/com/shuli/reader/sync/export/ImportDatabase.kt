@@ -15,18 +15,22 @@ interface ImportDatabase : ExportDatabase {
     // --- Book ---
     suspend fun upsertBook(book: BookEntity)
     suspend fun clearBooks()
+    suspend fun getExistingBookIds(): Set<Long>
 
     // --- Bookmark ---
     suspend fun upsertBookmark(bookmark: BookmarkEntity)
     suspend fun clearBookmarks()
+    suspend fun getExistingBookmarkIds(): Set<Long>
 
     // --- Note ---
     suspend fun upsertNote(note: NoteEntity)
     suspend fun clearNotes()
+    suspend fun getExistingNoteIds(): Set<Long>
 
     // --- ReadingProgress ---
     suspend fun upsertProgress(progress: ReadingProgressEntity)
     suspend fun clearProgress()
+    suspend fun getExistingProgressBookIds(): Set<Long>
 
     // --- Transaction ---
     /** 在数据库事务内执行 [block]，失败时自动回滚 */
