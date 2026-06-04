@@ -326,3 +326,53 @@ UI 侧：`ReaderSearchControls` 在 TopAppBar 的 `actions` 槽内渲染，**仅
 | 缓存（未接） | `@app/src/main/java/com/shuli/reader/core/reader/cache/CacheManager.kt`、`LruCache.kt` |
 | 章节预加载（未接） | `@app/src/main/java/com/shuli/reader/core/reader/ChapterProvider.kt` |
 | 进度+时长（未接） | `@app/src/main/java/com/shuli/reader/core/reader/ReadingStateManager.kt` |
+
+---
+
+## 13. ReaderViewModel 模块化拆分（2026-06-04 起）
+
+`ReaderViewModel.kt` 在多个迭代中累积至 2808 行，承载 7 类不同职责。按"单一职责 + 可独立测试"原则拆出子模块。
+
+### 13.1 已完成模块
+
+| 模块 | 文件 | 行数 | 职责 |
+|---|---|---|---|
+| `TextSearchManager` | `feature/reader/search/TextSearchManager.kt` | 91 | 查询发起、结果列表、结果间跳转 |
+| `ReadingProgressTracker` | `feature/reader/progress/ReadingProgressTracker.kt` | 227 | 全书进度计算、页眉/页脚槽位解析、页数持久化、布局哈希 |
+| `LayoutConfigBuilder` | `feature/reader/progress/LayoutConfigBuilder.kt` | 36 | `ReaderPreferences → ReaderLayoutConfig` 共享工具 |
+| `NormalizedChapters` | `feature/reader/progress/NormalizedChapters.kt` | 21 | `BookContent` 规范化为章节列表的共享扩展 |
+| `ReaderPreferencesBridge` | `feature/reader/prefs/ReaderPreferencesBridge.kt` | 349 | 40+ 偏好 setter + `updatePrefs` 辅助 + 主题切换 + 字体操作 |
+
+拆分后 `ReaderViewModel` 约 2336 行，剩余职责：UI state、章节导航、TTS、书签/笔记、工具栏、分页。
+
+### 13.2 依赖注入模式
+
+所有子模块使用**构造器注入 + 回调**，避免对 ViewModel 的反向依赖：
+
+```kotlin
+class TextSearchManager(
+    private val bookRepository: BookRepository?,
+    private val uiState: MutableStateFlow<ReaderUiState>,
+    private val scope: CoroutineScope,
+    private val jumpTo: (chapterIndex: Int, byteOffset: Long) -> Unit,
+)
+```
+
+**公共 API 保持不变**：ViewModel 保留同名公共方法作为 delegation，UI 调用方无需修改。
+
+### 13.3 待拆分模块
+
+| 模块 | 预估行数 | 暂缓理由 |
+|---|---|---|
+| `ChapterPaginationCoordinator` | ~450 | `paginateChapterStreaming` 有 3 层嵌套回调，与 ViewModel state 紧耦合 |
+| `AppStrings.kt` 拆分为 7 子接口 | ~2077 → 7 文件 | 700 词条 × 3 实现，机械搬运；call sites 可用 delegation 兼容 |
+| `QuickSettingsSheet.kt` 拆分为 5 面板 | ~1160 → 6 文件 | 面板间独立，低风险，但非紧迫 |
+| `ReaderScreen.kt` 拆分为 4 UI 区域 | ~918 → 5 文件 | 手势处理与 ViewModel 耦合较深 |
+
+### 13.4 拆分原则
+
+1. **单文件 > 500 行** 才考虑拆；< 300 行不拆
+2. 按"可独立测试的职责单元"拆，不按"行数平均"拆
+3. 子模块通过 `MutableStateFlow<UiState>` 或回调注入，**不复制 state**
+4. ViewModel 保留同名公共方法作为 delegation，避免破坏 call sites
+5. 拆分完成后**必须编译通过**并**跑相关单测**

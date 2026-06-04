@@ -33,6 +33,7 @@ import com.shuli.reader.core.database.dao.NoteDao
 import com.shuli.reader.core.database.entity.BookEntity
 import com.shuli.reader.core.database.entity.BookmarkEntity
 import com.shuli.reader.core.database.entity.NoteEntity
+import com.shuli.reader.feature.reader.progress.normalizedChapters
 import com.shuli.reader.core.parser.DecodedSegment
 import com.shuli.reader.core.parser.model.BookContent
 import com.shuli.reader.core.parser.model.Chapter
@@ -245,12 +246,6 @@ class ReaderViewModel(
     // M1: 章节加载 Job（防止快速连续调用导致多个 openChapter 并发）
     private var chapterJob: Job? = null
 
-    // T-41: 当前排版参数的哈希值，用于持久化 chapterPageCounts
-    private var currentLayoutHash: String = ""
-    // T-41: 持久化防抖
-    private var lastPersistedCounts: Map<Int, Int> = emptyMap()
-    private var persistJob: Job? = null
-
     // R7: 章节缓存管理器（从 BookCacheStore 获取，跨 ViewModel 生命周期复用）
     private var cacheManager: CacheManager = CacheManager.forMemoryClass(256)
 
@@ -260,12 +255,50 @@ class ReaderViewModel(
     // R7: 阅读状态管理器（进度持久化 + 会话时长）
     private lateinit var readingStateManager: ReadingStateManager
 
+    // 搜索管理器（从本类抽出，避免 ReaderViewModel 继续膨胀）
+    private lateinit var textSearchManager: com.shuli.reader.feature.reader.search.TextSearchManager
+
+    // 进度计算 + 页眉页脚解析 + 页数持久化（从本类抽出）
+    private lateinit var progressTracker: com.shuli.reader.feature.reader.progress.ReadingProgressTracker
+
+    // 偏好设置统一入口（从本类抽出）
+    private lateinit var prefsBridge: com.shuli.reader.feature.reader.prefs.ReaderPreferencesBridge
+
     init {
         readingStateManager = ReadingStateManager(
             scope = viewModelScope,
             saveAction = { state ->
                 // v4: ReadingStateManager 内部仍用 charPos，实际 byteOffset 由 saveReadingProgress 直接写入
                 // 此处仅做兜底，正常路径不会走到这里
+            },
+        )
+        textSearchManager = com.shuli.reader.feature.reader.search.TextSearchManager(
+            bookRepository = bookRepository,
+            uiState = _uiState,
+            scope = viewModelScope,
+            jumpTo = { chapterIndex, byteOffset ->
+                jumpToChapterPosition(chapterIndex, byteOffset)
+            },
+        )
+        progressTracker = com.shuli.reader.feature.reader.progress.ReadingProgressTracker(
+            uiState = _uiState,
+            scope = viewModelScope,
+            appContext = { appContext },
+            densityProvider = { density },
+            screenSizeProvider = { screenWidthPx to screenHeightPx },
+        )
+        prefsBridge = com.shuli.reader.feature.reader.prefs.ReaderPreferencesBridge(
+            uiState = _uiState,
+            scope = viewModelScope,
+            userPreferences = userPreferences,
+            reflow = { updated -> reflowCurrentChapter(updated) },
+            invalidate = { _uiState.value.currentPage?.invalidate() },
+            resetToolbarAutoHide = { resetToolbarAutoHide() },
+            fontOps = object : com.shuli.reader.feature.reader.prefs.ReaderPreferencesBridge.FontOps {
+                override fun loadCustomFonts() = this@ReaderViewModel.loadCustomFonts()
+                override fun importFont(uri: android.net.Uri, displayName: String?) =
+                    this@ReaderViewModel.importFont(uri, displayName)
+                override fun deleteFont(fontId: String) = this@ReaderViewModel.deleteFont(fontId)
             },
         )
         loadPresets()
@@ -690,7 +723,7 @@ class ReaderViewModel(
                 // 4. 流式分页：首页秒开，目标位置自动跳转
                 val paginateStart = System.currentTimeMillis()
                 // 计算布局哈希，用于持久化 chapterPageCounts
-                currentLayoutHash = computeLayoutHash(_uiState.value.readerPreferences)
+                progressTracker.updateLayoutHash(_uiState.value.readerPreferences)
                 chapterJob = paginateChapterStreaming(
                     content = content,
                     index = chapterIndex,
@@ -703,16 +736,10 @@ class ReaderViewModel(
                             computeChapterWordCounts(chapterIndexList)
                         }
                         // 加载已持久化的页数缓存（异步，不阻塞首屏）
-                        viewModelScope.launch(Dispatchers.Default) {
-                            val ctx = appContext ?: return@launch
-                            val persisted = com.shuli.reader.core.reader.cache.PageCountPersistence.load(
-                                ctx, bookId.toString(), currentLayoutHash,
+                        progressTracker.loadPersistedAsync { persisted ->
+                            _uiState.value = _uiState.value.copy(
+                                chapterPageCounts = persisted + _uiState.value.chapterPageCounts,
                             )
-                            if (persisted.isNotEmpty()) {
-                                _uiState.value = _uiState.value.copy(
-                                    chapterPageCounts = persisted + _uiState.value.chapterPageCounts,
-                                )
-                            }
                         }
                     },
                 )
@@ -1091,350 +1118,57 @@ class ReaderViewModel(
      * 更新阅读主题
      */
     fun setReaderTheme(theme: ReaderTheme) {
-        val currentPrefs = _uiState.value.readerPreferences
-        val newPrefs = currentPrefs.copy(backgroundColor = theme)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = newPrefs,
-            themeColors = theme.toReaderColorScheme().toCanvasThemeColors(),
-        )
+        prefsBridge.setReaderTheme(theme)
     }
 
-    /**
-     * 循环切换主题：LIGHT → DARK → PAPER → LIGHT
-     */
-    fun cycleTheme() {
-        val current = _uiState.value.readerPreferences.backgroundColor
-        val next = when (current) {
-            ReaderTheme.LIGHT -> ReaderTheme.DARK
-            ReaderTheme.DARK -> ReaderTheme.PAPER
-            ReaderTheme.PAPER -> ReaderTheme.LIGHT
-            ReaderTheme.OLED -> ReaderTheme.PAPER
-        }
-        setReaderTheme(next)
-    }
+    // ── 偏好设置（委托给 ReaderPreferencesBridge）────────────────
 
-    /**
-     * 更新字号
-     */
-    fun setFontSize(size: Float) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(fontSize = size) }, { it.setDefaultFontSize(size) }, reflow = true)
-    }
+    fun cycleTheme() { prefsBridge.cycleTheme() }
 
-    /**
-     * 更新行距
-     */
-    fun setLineSpacing(spacing: Float) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(lineSpacing = spacing) }, { it.setDefaultLineSpacing(spacing) }, reflow = true)
-    }
+    fun setFontSize(size: Float) { prefsBridge.setFontSize(size) }
+    fun setLineSpacing(spacing: Float) { prefsBridge.setLineSpacing(spacing) }
+    fun setBrightness(brightness: Float, finished: Boolean = false) { prefsBridge.setBrightness(brightness, finished) }
+    fun setParagraphSpacing(spacing: Float) { prefsBridge.setParagraphSpacing(spacing) }
+    fun setIndent(indent: Float) { prefsBridge.setIndent(indent) }
+    fun setMarginHorizontal(margin: Float) { prefsBridge.setMarginHorizontal(margin) }
+    fun setMarginVertical(margin: Float) { prefsBridge.setMarginVertical(margin) }
+    fun setHeaderMarginTop(margin: Float) { prefsBridge.setHeaderMarginTop(margin) }
+    fun setFooterMarginBottom(margin: Float) { prefsBridge.setFooterMarginBottom(margin) }
+    fun setReadingFont(font: String) { prefsBridge.setReadingFont(font) }
+    fun setLetterSpacing(spacing: Float) { prefsBridge.setLetterSpacing(spacing) }
+    fun setFontWeight(weight: ReaderFontWeight) { prefsBridge.setFontWeight(weight) }
+    fun setTtsSpeed(speed: Float) { prefsBridge.setTtsSpeed(speed) }
+    fun setTtsPitch(pitch: Float) { prefsBridge.setTtsPitch(pitch) }
+    fun setTextAlign(align: ReaderTextAlign) { prefsBridge.setTextAlign(align) }
+    fun setChineseConvert(convert: ChineseConvert) { prefsBridge.setChineseConvert(convert) }
+    fun setUseZhLayout(enabled: Boolean) { prefsBridge.setUseZhLayout(enabled) }
+    fun setPanguSpacing(enabled: Boolean) { prefsBridge.setPanguSpacing(enabled) }
+    fun setBottomJustify(enabled: Boolean) { prefsBridge.setBottomJustify(enabled) }
 
-    /**
-     * 更新亮度
-     */
-    fun setBrightness(brightness: Float, finished: Boolean = false) {
-        resetToolbarAutoHide()
-        updatePrefs(
-            { it.copy(brightness = brightness) },
-            { if (finished) it.setBrightness(brightness) },
-        )
-    }
+    fun setHeaderVisibility(visibility: HeaderVisibility) { prefsBridge.setHeaderVisibility(visibility) }
+    fun setHeaderLeft(slot: SlotContent) { prefsBridge.setHeaderLeft(slot) }
+    fun setHeaderCenter(slot: SlotContent) { prefsBridge.setHeaderCenter(slot) }
+    fun setHeaderRight(slot: SlotContent) { prefsBridge.setHeaderRight(slot) }
+    fun setFooterVisibility(visibility: HeaderVisibility) { prefsBridge.setFooterVisibility(visibility) }
+    fun setFooterLeft(slot: SlotContent) { prefsBridge.setFooterLeft(slot) }
+    fun setFooterCenter(slot: SlotContent) { prefsBridge.setFooterCenter(slot) }
+    fun setFooterRight(slot: SlotContent) { prefsBridge.setFooterRight(slot) }
+    fun setHeaderFooterAlpha(alpha: Float) { prefsBridge.setHeaderFooterAlpha(alpha) }
+    fun setShowProgress(show: Boolean) { prefsBridge.setShowProgress(show) }
+    fun setShowHeaderLine(show: Boolean) { prefsBridge.setShowHeaderLine(show) }
+    fun setShowFooterLine(show: Boolean) { prefsBridge.setShowFooterLine(show) }
+    fun setHeaderFontSizeRatio(ratio: Float) { prefsBridge.setHeaderFontSizeRatio(ratio) }
+    fun setFooterFontSizeRatio(ratio: Float) { prefsBridge.setFooterFontSizeRatio(ratio) }
 
-    /**
-     * 更新段距
-     */
-    fun setParagraphSpacing(spacing: Float) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(paragraphSpacing = spacing) }, { it.setDefaultParagraphSpacing(spacing) }, reflow = true)
-    }
+    fun setTitleAlign(align: TitleAlign) { prefsBridge.setTitleAlign(align) }
+    fun setTitleSizeOffset(offsetSp: Int) { prefsBridge.setTitleSizeOffset(offsetSp) }
+    fun setTitleMarginTop(dp: Float) { prefsBridge.setTitleMarginTop(dp) }
+    fun setTitleMarginBottom(dp: Float) { prefsBridge.setTitleMarginBottom(dp) }
 
-    /**
-     * 更新首行缩进
-     */
-    fun setIndent(indent: Float) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(indent = indent) }, { it.setDefaultIndent(indent) }, reflow = true)
-    }
-
-    /**
-     * 更新左右边距
-     */
-    fun setMarginHorizontal(margin: Float) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(marginHorizontal = margin) }, { it.setMarginHorizontal(margin) }, reflow = true)
-    }
-
-    /**
-     * 更新上下边距
-     */
-    fun setMarginVertical(margin: Float) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(marginVertical = margin) }, { it.setMarginVertical(margin) }, reflow = true)
-    }
-
-    /**
-     * 更新页眉顶距
-     */
-    fun setHeaderMarginTop(margin: Float) {
-        resetToolbarAutoHide()
-        updatePrefs(
-            { it.copy(header = it.header.copy(marginTop = margin)) },
-            { it.setHeaderMarginTop(margin) },
-        )
-    }
-
-    /**
-     * 更新页脚底距
-     */
-    fun setFooterMarginBottom(margin: Float) {
-        resetToolbarAutoHide()
-        updatePrefs(
-            { it.copy(footer = it.footer.copy(marginBottom = margin)) },
-            { it.setFooterMarginBottom(margin) },
-        )
-    }
-
-    /**
-     * 更新阅读字体
-     */
-    fun setReadingFont(font: String) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(readingFont = font) }, { it.setReadingFont(font) })
-    }
-
-    /**
-     * 更新字距
-     */
-    fun setLetterSpacing(spacing: Float) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(letterSpacing = spacing) }, { it.setLetterSpacing(spacing) }, reflow = true)
-    }
-
-    /**
-     * 更新字重（FakeBold 不改变字宽，无需 reflow）
-     */
-    fun setFontWeight(weight: ReaderFontWeight) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(fontWeight = weight) }, { it.setFontWeight(weight.toStorageString()) }, invalidate = true)
-    }
-
-    fun setTtsSpeed(speed: Float) {
-        updatePrefs({ it.copy(ttsSpeed = speed) }, { it.setTtsSpeed(speed) })
-    }
-
-    fun setTtsPitch(pitch: Float) {
-        updatePrefs({ it.copy(ttsPitch = pitch) }, { it.setTtsPitch(pitch) })
-    }
-
-    /**
-     * 更新对齐方式（对齐不改变每行字符数，无需 reflow）
-     */
-    fun setTextAlign(align: ReaderTextAlign) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(textAlign = align) }, { it.setTextAlign(align.toStorageString()) }, invalidate = true)
-    }
-
-    /**
-     * 更新简繁转换
-     */
-    fun setChineseConvert(convert: ChineseConvert) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(chineseConvert = convert) }, { it.setChineseConvert(convert.toStorageString()) }, reflow = true)
-    }
-
-    /**
-     * 更新中文分行模式（改变断行位置，需要 reflow）
-     */
-    fun setUseZhLayout(enabled: Boolean) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(useZhLayout = enabled) }, { it.setUseZhLayout(enabled) }, reflow = true)
-    }
-
-    /**
-     * 更新盘古之白（中英文间加空格，需要 reflow）
-     */
-    fun setPanguSpacing(enabled: Boolean) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(usePanguSpacing = enabled) }, { it.setUsePanguSpacing(enabled) }, reflow = true)
-    }
-
-    // ── 页眉脚设置 ──────────────────────────────────────────────
-
-    fun setHeaderVisibility(visibility: HeaderVisibility) {
-        updatePrefs(
-            { it.copy(header = it.header.copy(visibility = visibility)) },
-            { it.setHeaderVisibility(visibility.toStorageString()) },
-            reflow = true,
-        )
-    }
-
-    fun setHeaderLeft(slot: SlotContent) {
-        updatePrefs(
-            { it.copy(header = it.header.copy(left = slot)) },
-            { it.setHeaderLeft(slot.toStorageString()) },
-            invalidate = true,
-        )
-    }
-
-    fun setHeaderCenter(slot: SlotContent) {
-        updatePrefs(
-            { it.copy(header = it.header.copy(center = slot)) },
-            { it.setHeaderCenter(slot.toStorageString()) },
-            invalidate = true,
-        )
-    }
-
-    fun setHeaderRight(slot: SlotContent) {
-        updatePrefs(
-            { it.copy(header = it.header.copy(right = slot)) },
-            { it.setHeaderRight(slot.toStorageString()) },
-            invalidate = true,
-        )
-    }
-
-    fun setFooterVisibility(visibility: HeaderVisibility) {
-        updatePrefs(
-            { it.copy(footer = it.footer.copy(visibility = visibility)) },
-            { it.setFooterVisibility(visibility.toStorageString()) },
-            reflow = true,
-        )
-    }
-
-    fun setFooterLeft(slot: SlotContent) {
-        updatePrefs(
-            { it.copy(footer = it.footer.copy(left = slot)) },
-            { it.setFooterLeft(slot.toStorageString()) },
-            invalidate = true,
-        )
-    }
-
-    fun setFooterCenter(slot: SlotContent) {
-        updatePrefs(
-            { it.copy(footer = it.footer.copy(center = slot)) },
-            { it.setFooterCenter(slot.toStorageString()) },
-            invalidate = true,
-        )
-    }
-
-    fun setFooterRight(slot: SlotContent) {
-        updatePrefs(
-            { it.copy(footer = it.footer.copy(right = slot)) },
-            { it.setFooterRight(slot.toStorageString()) },
-            invalidate = true,
-        )
-    }
-
-    fun setHeaderFooterAlpha(alpha: Float) {
-        updatePrefs({ it.copy(headerFooterAlpha = alpha) }, { it.setHeaderFooterAlpha(alpha) }, invalidate = true)
-    }
-
-    fun setShowProgress(show: Boolean) {
-        updatePrefs({ it.copy(showProgress = show) }, { it.setShowProgress(show) }, invalidate = true)
-    }
-
-    // ── 正文标题样式（章首页标题）──────────────────────────────
-
-    /** 标题对齐：LEFT / CENTER / HIDDEN。改变后影响 titleAreaHeight，需重排 */
-    fun setTitleAlign(align: TitleAlign) {
-        updatePrefs(
-            { it.copy(titleStyle = it.titleStyle.copy(align = align)) },
-            { it.setTitleAlign(align.toStorageString()) },
-            reflow = true,
-        )
-    }
-
-    /** 标题字号偏移（相对正文字号，sp）。改变后影响 titleAreaHeight，需重排 */
-    fun setTitleSizeOffset(offsetSp: Int) {
-        updatePrefs(
-            { it.copy(titleStyle = it.titleStyle.copy(sizeOffsetSp = offsetSp)) },
-            { it.setTitleSizeOffset(offsetSp) },
-            reflow = true,
-        )
-    }
-
-    /** 标题上距（dp）。影响 titleAreaHeight，需重排 */
-    fun setTitleMarginTop(dp: Float) {
-        updatePrefs(
-            { it.copy(titleStyle = it.titleStyle.copy(marginTopDp = dp)) },
-            { it.setTitleMarginTop(dp) },
-            reflow = true,
-        )
-    }
-
-    /** 标题下距（dp）。影响 titleAreaHeight，需重排 */
-    fun setTitleMarginBottom(dp: Float) {
-        updatePrefs(
-            { it.copy(titleStyle = it.titleStyle.copy(marginBottomDp = dp)) },
-            { it.setTitleMarginBottom(dp) },
-            reflow = true,
-        )
-    }
-
-    /** 使当前页 recorder 失效并触发重绘（页眉脚/进度条变化时使用） */
-    private fun currentPageInvalidate() {
-        _uiState.value.currentPage?.invalidate()
-    }
-
-    // ── 偏好设置通用更新辅助 ──────────────────────────────────────
-
-    /** 更新 ReaderPreferences 并同步持久化，需要 reflow 时触发重排 */
-    private fun updatePrefs(
-        transform: (ReaderPreferences) -> ReaderPreferences,
-        save: suspend (UserPreferences) -> Unit,
-        reflow: Boolean = false,
-        invalidate: Boolean = false,
-    ) {
-        val updated = transform(_uiState.value.readerPreferences)
-        _uiState.value = _uiState.value.copy(
-            readerPreferences = updated,
-            isReflowing = reflow,
-        )
-        if (reflow) reflowCurrentChapter(updated)
-        if (invalidate) currentPageInvalidate()
-        viewModelScope.launch { userPreferences?.let { save(it) } }
-    }
-
-    // ── 阶段六：杂项设置 ──────────────────────────────────────
-
-    fun setKeepScreenOn(enabled: Boolean) {
-        updatePrefs({ it.copy(keepScreenOn = enabled) }, { it.setKeepScreenOn(enabled) })
-    }
-
-    fun setVolumeKeyTurnPage(enabled: Boolean) {
-        updatePrefs({ it.copy(volumeKeyTurnPage = enabled) }, { it.setVolumeKeyTurnPage(enabled) })
-    }
-
-    fun setEdgeTurnPage(enabled: Boolean) {
-        updatePrefs({ it.copy(edgeTurnPage = enabled) }, { it.setEdgeTurnPage(enabled) })
-    }
-
-    fun setEdgeWidthPercent(percent: Float) {
-        updatePrefs({ it.copy(edgeWidthPercent = percent) }, { it.setEdgeWidthPercent(percent) })
-    }
-
-    // ── 页眉页脚增强 ──────────────────────────────────────────
-
-    fun setShowHeaderLine(show: Boolean) {
-        updatePrefs({ it.copy(showHeaderLine = show) }, { it.setShowHeaderLine(show) }, invalidate = true)
-    }
-
-    fun setShowFooterLine(show: Boolean) {
-        updatePrefs({ it.copy(showFooterLine = show) }, { it.setShowFooterLine(show) }, invalidate = true)
-    }
-
-    fun setHeaderFontSizeRatio(ratio: Float) {
-        updatePrefs({ it.copy(headerFontSizeRatio = ratio) }, { it.setHeaderFontSizeRatio(ratio) }, invalidate = true)
-    }
-
-    fun setFooterFontSizeRatio(ratio: Float) {
-        updatePrefs({ it.copy(footerFontSizeRatio = ratio) }, { it.setFooterFontSizeRatio(ratio) }, invalidate = true)
-    }
-
-    // ── 底部对齐 ──────────────────────────────────────────────
-
-    fun setBottomJustify(enabled: Boolean) {
-        updatePrefs({ it.copy(bottomJustify = enabled) }, { it.setBottomJustify(enabled) }, reflow = true)
-    }
+    fun setKeepScreenOn(enabled: Boolean) { prefsBridge.setKeepScreenOn(enabled) }
+    fun setVolumeKeyTurnPage(enabled: Boolean) { prefsBridge.setVolumeKeyTurnPage(enabled) }
+    fun setEdgeTurnPage(enabled: Boolean) { prefsBridge.setEdgeTurnPage(enabled) }
+    fun setEdgeWidthPercent(percent: Float) { prefsBridge.setEdgeWidthPercent(percent) }
 
     /**
      * 显示/隐藏工具栏
@@ -1696,71 +1430,18 @@ class ReaderViewModel(
         )
     }
 
-    // ── 正文搜索 ──────────────────────────────────────────────
+    // ── 正文搜索（委托给 TextSearchManager）──────────────────────
 
-    fun searchInCurrentBook(query: String) {
-        val repository = bookRepository
-        val bookId = _uiState.value.bookId
-        if (repository == null || bookId == 0L || query.isBlank()) {
-            clearSearchResults(query)
-            return
-        }
+    fun searchInCurrentBook(query: String) = textSearchManager.searchInCurrentBook(query)
 
-        viewModelScope.launch {
-            val results = withContext(Dispatchers.IO) {
-                repository.searchInBook(bookId, query)
-            }
-            setSearchResults(query, results)
-        }
-    }
+    fun setSearchResults(query: String, results: List<com.shuli.reader.core.repository.SearchResult>) =
+        textSearchManager.setSearchResults(query, results)
 
-    fun setSearchResults(query: String, results: List<SearchResult>) {
-        val nextIndex = if (results.isEmpty()) -1 else 0
-        _uiState.value = _uiState.value.copy(
-            searchQuery = query,
-            searchResults = results,
-            currentSearchResultIndex = nextIndex,
-        )
-        results.firstOrNull()?.let(::navigateToSearchResult)
-    }
+    fun goToNextSearchResult() = textSearchManager.goToNextSearchResult()
 
-    fun goToNextSearchResult() {
-        val state = _uiState.value
-        if (state.searchResults.isEmpty()) return
+    fun goToPreviousSearchResult() = textSearchManager.goToPreviousSearchResult()
 
-        val nextIndex = if (state.currentSearchResultIndex < state.searchResults.lastIndex) {
-            state.currentSearchResultIndex + 1
-        } else {
-            0
-        }
-        _uiState.value = state.copy(currentSearchResultIndex = nextIndex)
-        navigateToSearchResult(state.searchResults[nextIndex])
-    }
-
-    fun goToPreviousSearchResult() {
-        val state = _uiState.value
-        if (state.searchResults.isEmpty()) return
-
-        val previousIndex = if (state.currentSearchResultIndex > 0) {
-            state.currentSearchResultIndex - 1
-        } else {
-            state.searchResults.lastIndex
-        }
-        _uiState.value = state.copy(currentSearchResultIndex = previousIndex)
-        navigateToSearchResult(state.searchResults[previousIndex])
-    }
-
-    private fun clearSearchResults(query: String = "") {
-        _uiState.value = _uiState.value.copy(
-            searchQuery = query,
-            searchResults = emptyList(),
-            currentSearchResultIndex = -1,
-        )
-    }
-
-    private fun navigateToSearchResult(result: SearchResult) {
-        jumpToChapterPosition(result.chapterIndex, result.byteOffset)
-    }
+    fun clearSearchResults(query: String = "") = textSearchManager.clearSearchResults(query)
 
     // ── 书签管理 ──────────────────────────────────────────────
 
@@ -2249,7 +1930,7 @@ class ReaderViewModel(
                     currentPage = cached.getPage(startPage),
                 )
                 // 持久化页数到文件
-                persistPageCounts()
+                progressTracker.schedulePersist()
                 onDone?.invoke()
             }
         }
@@ -2340,7 +2021,7 @@ class ReaderViewModel(
                         // 存入缓存
                         cacheManager.putChapter(cacheKey, chapter)
                         // 持久化页数到文件
-                        persistPageCounts()
+                        progressTracker.schedulePersist()
                         if (com.shuli.reader.BuildConfig.DEBUG) {
                             android.util.Log.d(TAG, "layoutCompleted[$index]: ${chapter.pageSize} pages")
                         }
@@ -2453,7 +2134,7 @@ class ReaderViewModel(
         // reflow 前记录当前章节旧页数，用于缩放比投影（coerceAtLeast(1) 防止首屏 totalPages=0 时除零）
         val oldCurrentPages = (state.chapterPageCounts[chapter.chapterIndex] ?: state.totalPages).coerceAtLeast(1)
         // 布局参数已变，更新哈希（新哈希用于持久化，旧文件自然失效）
-        currentLayoutHash = computeLayoutHash(preferences)
+        progressTracker.updateLayoutHash(preferences)
         reflowJob?.cancel()
         reflowJob = viewModelScope.launch {
             // 无防抖：滑块拖动时实时 reflow，旧协程通过 cancel 自动取消
@@ -2635,165 +2316,12 @@ class ReaderViewModel(
         setBottomJustify(defaults.bottomJustify)
     }
 
-    private fun computeSynchronousBookProgress(): Triple<Long, Long, Float> {
-        val state = _uiState.value
-        val wordCounts = state.chapterWordCounts
-        val pageCounts = state.chapterPageCounts
-        val currentChapterIndex = state.chapterIndex
-        val currentPages = state.totalPages.coerceAtLeast(1)
-        val totalChapters = state.totalChapters.coerceAtLeast(1)
-
-        // 加权平均：基于所有已分页章节的真实数据计算 wordsPerPage
-        var sampledWords = 0L
-        var sampledPages = 0L
-        for ((i, p) in pageCounts) {
-            if (p > 0) {
-                sampledWords += (wordCounts.getOrNull(i) ?: 0).toLong()
-                sampledPages += p.toLong()
-            }
-        }
-        // 当前章节也纳入样本（它一定有真实页数）
-        val currentChapterWords = wordCounts.getOrNull(currentChapterIndex)?.coerceAtLeast(1) ?: 1
-        if (sampledPages == 0L) sampledPages = currentPages.toLong()
-        if (sampledWords == 0L) sampledWords = currentChapterWords.toLong()
-        val wordsPerPage = sampledWords.toDouble() / sampledPages
-
-        // Fallback：完全无数据时降级为章节索引进度，分数槽位仍显示章节数
-        if (wordCounts.isEmpty() && pageCounts.isEmpty()) {
-            val progress = ((currentChapterIndex + state.pageIndex.toFloat() / currentPages) / totalChapters).coerceIn(0f, 1f)
-            return Triple((currentChapterIndex + 1).toLong(), totalChapters.toLong(), progress)
-        }
-
-        // 计算当前页在全书中的位置
-        var pagesBeforeCurrent = 0L
-        for (i in 0 until currentChapterIndex) {
-            val realCount = pageCounts[i]
-            if (realCount != null) {
-                pagesBeforeCurrent += realCount.toLong()
-            } else {
-                val words = wordCounts.getOrNull(i)?.toLong() ?: 0L
-                pagesBeforeCurrent += (words / wordsPerPage).toLong()
-            }
-        }
-        val currentBookPage = pagesBeforeCurrent + state.pageIndex + 1
-
-        // 计算全书总页数
-        var totalBookPages = pagesBeforeCurrent + currentPages
-        for (i in (currentChapterIndex + 1) until totalChapters) {
-            val realCount = pageCounts[i]
-            if (realCount != null) {
-                totalBookPages += realCount.toLong()
-            } else {
-                val words = wordCounts.getOrNull(i)?.toLong() ?: 0L
-                totalBookPages += (words / wordsPerPage).toLong()
-            }
-        }
-        totalBookPages = totalBookPages.coerceAtLeast(currentBookPage)
-
-        val progress = if (totalBookPages > 0) currentBookPage.toFloat() / totalBookPages else 0f
-        return Triple(currentBookPage, totalBookPages, progress.coerceIn(0f, 1f))
-    }
-
     /** 统一解析页眉和页脚槽位为 SlotResolution，避免重复计算进度 */
-    fun resolveHeaderAndFooterSlots(): Pair<SlotResolution, SlotResolution> {
-        val state = _uiState.value
-        val prefs = state.readerPreferences
-        val (currentPos, totalPos, bookProgressPercent) = computeSynchronousBookProgress()
+    fun resolveHeaderAndFooterSlots(): Pair<SlotResolution, SlotResolution> =
+        progressTracker.resolveHeaderAndFooterSlots()
 
-        val header = if (prefs.header.visibility == HeaderVisibility.ALWAYS_HIDE) {
-            SlotResolution()
-        } else {
-            SlotResolver.resolveHeader(
-                config = prefs.header,
-                chapterTitle = state.chapterTitle,
-                bookTitle = state.bookTitle,
-                pageNumber = state.pageIndex + 1,
-                totalPages = state.totalPages.coerceAtLeast(1),
-                bookProgressPercent = bookProgressPercent,
-                bookCurrentPosition = currentPos,
-                bookTotalPosition = totalPos,
-                batteryLevel = 100, // 实际上在 ReaderScreen 中会调用 updateHeaderFooter 覆盖
-            )
-        }
-
-        val footer = if (prefs.footer.visibility == HeaderVisibility.ALWAYS_HIDE) {
-            SlotResolution()
-        } else {
-            SlotResolver.resolveFooter(
-                config = prefs.footer,
-                chapterTitle = state.chapterTitle,
-                bookTitle = state.bookTitle,
-                pageNumber = state.pageIndex + 1,
-                totalPages = state.totalPages.coerceAtLeast(1),
-                bookProgressPercent = bookProgressPercent,
-                bookCurrentPosition = currentPos,
-                bookTotalPosition = totalPos,
-                batteryLevel = 100, // 实际上在 ReaderScreen 中会调用 updateHeaderFooter 覆盖
-            )
-        }
-        
-        return Pair(header, footer)
-    }
-
-    private fun layoutConfigFor(preferences: ReaderPreferences): ReaderLayoutConfig {
-        val textSizePx = preferences.fontSize * density
-        return ReaderLayoutConfig(
-            pageSize = PageSize(screenWidthPx, screenHeightPx),
-            textSize = textSizePx,
-            lineHeight = preferences.lineSpacing,
-            paragraphSpacing = preferences.paragraphSpacing * textSizePx,
-            marginHorizontal = preferences.marginHorizontal * density,
-            marginVertical = preferences.marginVertical * density,
-            indent = preferences.indent,
-            density = this.density,
-            letterSpacingPx = preferences.letterSpacing * textSizePx,
-            titleStyle = preferences.titleStyle,
-            useZhLayout = preferences.useZhLayout,
-            bottomJustify = preferences.bottomJustify,
-            headerMarginTop = preferences.header.marginTop * density,
-            footerMarginBottom = preferences.footer.marginBottom * density,
-        )
-    }
-
-    /** 计算当前排版参数的布局哈希，用于持久化 chapterPageCounts */
-    private fun computeLayoutHash(preferences: ReaderPreferences): String {
-        val config = layoutConfigFor(preferences)
-        return com.shuli.reader.core.reader.cache.PageCountPersistence.computeLayoutHash(
-            config = config,
-            showHeader = preferences.header.visibility != HeaderVisibility.ALWAYS_HIDE,
-            showFooter = preferences.footer.visibility != HeaderVisibility.ALWAYS_HIDE,
-            chineseConvert = preferences.chineseConvert.ordinal,
-            usePanguSpacing = preferences.usePanguSpacing,
-        )
-    }
-
-    /** 持久化 chapterPageCounts 到文件（300ms 防抖 + 结构去重） */
-    private fun persistPageCounts() {
-        val ctx = appContext ?: return
-        val state = _uiState.value
-        val counts = state.chapterPageCounts
-        if (counts.isEmpty() || currentLayoutHash.isEmpty()) return
-        if (counts == lastPersistedCounts) return
-        persistJob?.cancel()
-        persistJob = viewModelScope.launch(Dispatchers.IO) {
-            kotlinx.coroutines.delay(300)
-            try {
-                com.shuli.reader.core.reader.cache.PageCountPersistence.save(
-                    ctx, state.bookId.toString(), currentLayoutHash, counts,
-                )
-                lastPersistedCounts = counts  // 落盘成功后才标记，防止进程退出时丢数据
-            } catch (_: Exception) { /* PageCountPersistence.save 内部已记录日志 */ }
-        }
-    }
-
-    private fun BookContent.normalizedChapters(): List<Chapter> {
-        if (chapters.isNotEmpty()) return chapters
-        return if (content.isNotBlank()) {
-            listOf(Chapter(title = "Full Text", byteStart = 0L, byteEnd = content.length.toLong()))
-        } else {
-            emptyList()
-        }
-    }
+    private fun layoutConfigFor(preferences: ReaderPreferences): ReaderLayoutConfig =
+        progressTracker.buildLayoutConfig(preferences)
 
     private fun BookContent.chapterText(chapter: Chapter): String {
         // v4: 对于 EPUB，content 已是完整文本，直接返回
