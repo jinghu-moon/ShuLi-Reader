@@ -34,18 +34,18 @@ fun EditModeTopBar(
     TopAppBar(
         title = {
             Text(
-                if (selectedCount > 0) strings.selectedItemCount(selectedCount) else strings.selectItems,
+                if (selectedCount > 0) strings.bookshelf.selectedItemCount(selectedCount) else strings.bookshelf.selectItems,
                 style = MaterialTheme.typography.titleMedium,
             )
         },
         navigationIcon = {
             IconButton(onClick = onCancel) {
-                Icon(Icons.Default.Close, contentDescription = strings.cancelAction)
+                Icon(Icons.Default.Close, contentDescription = strings.reader.cancelAction)
             }
         },
         actions = {
             IconButton(onClick = onSelectAll) {
-                Icon(Icons.Default.SelectAll, contentDescription = strings.selectAll)
+                Icon(Icons.Default.SelectAll, contentDescription = strings.bookshelf.selectAll)
             }
         }
     )
@@ -68,8 +68,8 @@ fun EditModeBottomBar(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(Icons.Default.Folder, contentDescription = strings.folderLabel, tint = if (selectedCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(strings.folderLabel, style = MaterialTheme.typography.labelSmall, color = if (selectedCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Default.Folder, contentDescription = strings.bookshelf.folderLabel, tint = if (selectedCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(strings.bookshelf.folderLabel, style = MaterialTheme.typography.labelSmall, color = if (selectedCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(modifier = Modifier.weight(1f))
             Column(
@@ -78,8 +78,8 @@ fun EditModeBottomBar(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(Icons.Default.Delete, contentDescription = strings.deleteAction, tint = if (selectedCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(strings.deleteAction, style = MaterialTheme.typography.labelSmall, color = if (selectedCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Default.Delete, contentDescription = strings.reader.deleteAction, tint = if (selectedCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(strings.reader.deleteAction, style = MaterialTheme.typography.labelSmall, color = if (selectedCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(modifier = Modifier.weight(1f))
             Column(
@@ -88,8 +88,8 @@ fun EditModeBottomBar(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(Icons.Default.MoreVert, contentDescription = strings.moreLabel, tint = if (selectedCount > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(strings.moreLabel, style = MaterialTheme.typography.labelSmall, color = if (selectedCount > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Default.MoreVert, contentDescription = strings.bookshelf.moreLabel, tint = if (selectedCount > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(strings.bookshelf.moreLabel, style = MaterialTheme.typography.labelSmall, color = if (selectedCount > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(modifier = Modifier.weight(1f))
         }

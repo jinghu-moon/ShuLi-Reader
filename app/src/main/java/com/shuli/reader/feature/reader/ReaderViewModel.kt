@@ -300,7 +300,7 @@ class ReaderViewModel(
                     android.util.Log.d("FontManager", "loadCustomFonts 完成, customFonts.size=$count")
                     android.widget.Toast.makeText(
                         fm.context,
-                        stringResolver().fontImportSuccess(entry.name, count),
+                        stringResolver().sync.fontImportSuccess(entry.name, count),
                         android.widget.Toast.LENGTH_SHORT,
                     ).show()
                 }
@@ -309,7 +309,7 @@ class ReaderViewModel(
                 withContext(Dispatchers.Main) {
                     android.widget.Toast.makeText(
                         fm.context,
-                        stringResolver().fontImportFailed(e.message ?: ""),
+                        stringResolver().sync.fontImportFailed(e.message ?: ""),
                         android.widget.Toast.LENGTH_SHORT,
                     ).show()
                 }
@@ -812,7 +812,7 @@ class ReaderViewModel(
         } else {
             // 已经是最后一章最后一页
             appContext?.let {
-                android.widget.Toast.makeText(it, stringResolver().alreadyLastPage, android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(it, stringResolver().reader.alreadyLastPage, android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -837,7 +837,7 @@ class ReaderViewModel(
         } else {
             // 已经是第一章第一页
             appContext?.let {
-                android.widget.Toast.makeText(it, stringResolver().alreadyFirstPage, android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(it, stringResolver().reader.alreadyFirstPage, android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }

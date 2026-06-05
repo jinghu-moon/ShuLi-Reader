@@ -169,13 +169,13 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(strings.settings, fontWeight = FontWeight.Bold) },
+                title = { Text(strings.common.settings, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(
                         onClick = onBackClick,
                         modifier = Modifier.testTag(UiTestTags.SETTINGS_BACK_BUTTON),
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.common.backIconDesc)
                     }
                 }
             )
@@ -191,41 +191,41 @@ fun SettingsScreen(
         ) {
             // ================= 外观设置 (Appearance) =================
             item {
-                SettingsSectionHeader(title = strings.appearance, icon = Icons.Outlined.ColorLens)
+                SettingsSectionHeader(title = strings.common.appearance, icon = Icons.Outlined.ColorLens)
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column {
                         // 界面语言
                         val currentLangText = when (uiState.language) {
-                            "zh-TW" -> strings.languageTw
-                            "en" -> strings.languageEn
-                            else -> strings.languageCn
+                            "zh-TW" -> strings.common.languageTw
+                            "en" -> strings.common.languageEn
+                            else -> strings.common.languageCn
                         }
                         SettingsClickItem(
-                            title = strings.languageLabel,
+                            title = strings.common.languageLabel,
                             subtitle = currentLangText,
                             onClick = { showLanguageDialog = true }
                         )
 
                         // 界面字体
                         val currentFontText = when (uiState.appFont) {
-                            "system" -> strings.appFontSystem
-                            else -> strings.appFontHarmony
+                            "system" -> strings.common.appFontSystem
+                            else -> strings.common.appFontHarmony
                         }
                         SettingsClickItem(
-                            title = strings.appFontLabel,
+                            title = strings.common.appFontLabel,
                             subtitle = currentFontText,
                             onClick = { showFontDialog = true }
                         )
 
                         // 深浅主题 (带色块预览)
                         val currentThemeText = when (uiState.themeMode) {
-                            "light" -> strings.themeLight
-                            "dark" -> strings.themeDark
-                            "paper" -> strings.themePaper
-                            else -> strings.themeSystem
+                            "light" -> strings.common.themeLight
+                            "dark" -> strings.common.themeDark
+                            "paper" -> strings.common.themePaper
+                            else -> strings.common.themeSystem
                         }
                         ListItem(
-                            headlineContent = { Text(strings.themeModeLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) },
+                            headlineContent = { Text(strings.common.themeModeLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) },
                             supportingContent = { Text(currentThemeText, style = MaterialTheme.typography.bodySmall) },
                             trailingContent = {
                                 Row(
@@ -257,7 +257,7 @@ fun SettingsScreen(
 
             // ================= 阅读器显示偏好 =================
             item {
-                SettingsSectionHeader(title = strings.readerPreferences, icon = Icons.Outlined.Palette)
+                SettingsSectionHeader(title = strings.reader.readerPreferences, icon = Icons.Outlined.Palette)
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column(modifier = Modifier.padding(vertical = 8.dp)) {
                         // 默认字号缩放
@@ -266,7 +266,7 @@ fun SettingsScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(strings.defaultFontSize, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text(strings.reader.defaultFontSize, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 Text("${uiState.defaultFontSize.toInt()} sp", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                             }
                             Slider(
@@ -279,27 +279,27 @@ fun SettingsScreen(
 
                         // 默认行距
                         val lineSpacingText = when (uiState.defaultLineSpacing) {
-                            1.2f -> strings.lineSpacingCompact
-                            1.8f -> strings.lineSpacingWide
-                            else -> strings.lineSpacingMedium
+                            1.2f -> strings.reader.lineSpacingCompact
+                            1.8f -> strings.reader.lineSpacingWide
+                            else -> strings.reader.lineSpacingMedium
                         }
                         SettingsClickItem(
-                            title = strings.defaultLineSpacing,
+                            title = strings.reader.defaultLineSpacing,
                             subtitle = lineSpacingText,
                             onClick = { showLineSpacingDialog = true }
                         )
 
                         // 默认翻页动画
                         val pageAnimText = when (uiState.defaultPageAnim) {
-                            PageAnimConst.OVERLAY -> strings.pageAnimOverlay
-                            PageAnimConst.SLIDE -> strings.pageAnimSlide
-                            PageAnimConst.SIMULATION -> strings.pageAnimSimulation
-                            PageAnimConst.FADE -> strings.pageAnimFade
-                            PageAnimConst.NONE -> strings.pageAnimNone
+                            PageAnimConst.OVERLAY -> strings.reader.pageAnimOverlay
+                            PageAnimConst.SLIDE -> strings.reader.pageAnimSlide
+                            PageAnimConst.SIMULATION -> strings.reader.pageAnimSimulation
+                            PageAnimConst.FADE -> strings.reader.pageAnimFade
+                            PageAnimConst.NONE -> strings.reader.pageAnimNone
                             else -> uiState.defaultPageAnim
                         }
                         SettingsClickItem(
-                            title = strings.defaultPageAnim,
+                            title = strings.reader.defaultPageAnim,
                             subtitle = pageAnimText,
                             onClick = { showPageAnimDialog = true }
                         )
@@ -310,7 +310,7 @@ fun SettingsScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(strings.paragraphSpacing, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text(strings.reader.paragraphSpacing, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 Text(String.format("%.1f em", uiState.defaultParagraphSpacing), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                             }
                             Slider(
@@ -327,7 +327,7 @@ fun SettingsScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(strings.firstLineIndent, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text(strings.reader.firstLineIndent, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 Text(String.format("%.1f em", uiState.defaultIndent), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                             }
                             Slider(
@@ -340,26 +340,26 @@ fun SettingsScreen(
 
                         // 翻页方向
                         val pageTurnDirText = when (uiState.pageTurnDir) {
-                            PageTurnDirConst.HORIZONTAL -> strings.pageTurnHorizontal
-                            PageTurnDirConst.VERTICAL -> strings.pageTurnVertical
+                            PageTurnDirConst.HORIZONTAL -> strings.reader.pageTurnHorizontal
+                            PageTurnDirConst.VERTICAL -> strings.reader.pageTurnVertical
                             else -> uiState.pageTurnDir
                         }
                         SettingsClickItem(
-                            title = strings.pageTurnDirection,
+                            title = strings.reader.pageTurnDirection,
                             subtitle = pageTurnDirText,
                             onClick = { showPageDirDialog = true }
                         )
 
                         // 全屏模式
                         SettingsSwitchItem(
-                            title = strings.fullScreenMode,
+                            title = strings.reader.fullScreenMode,
                             checked = uiState.fullScreen,
                             onCheckedChange = { viewModel.updateFullScreen(it) }
                         )
 
                         // 屏幕常亮
                         SettingsSwitchItem(
-                            title = strings.keepScreenOn,
+                            title = strings.reader.keepScreenOn,
                             checked = uiState.keepScreenOn,
                             onCheckedChange = { viewModel.updateKeepScreenOn(it) }
                         )
@@ -370,9 +370,9 @@ fun SettingsScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(strings.brightness, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text(strings.reader.brightness, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 Text(
-                                    if (uiState.brightness < 0) strings.brightnessFollowSystem
+                                    if (uiState.brightness < 0) strings.reader.brightnessFollowSystem
                                     else "${(uiState.brightness * 100).toInt()}%",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.primary
@@ -391,18 +391,18 @@ fun SettingsScreen(
 
             // ================= 书库与导入设置 =================
             item {
-                SettingsSectionHeader(title = strings.libraryImportSettings, icon = Icons.AutoMirrored.Outlined.LibraryBooks)
+                SettingsSectionHeader(title = strings.bookshelf.libraryImportSettings, icon = Icons.AutoMirrored.Outlined.LibraryBooks)
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column {
                         SettingsSwitchItem(
-                            title = strings.duplicateCheck,
-                            subtitle = strings.duplicateCheckDesc,
+                            title = strings.bookshelf.duplicateCheck,
+                            subtitle = strings.bookshelf.duplicateCheckDesc,
                             checked = uiState.duplicateCheckEnabled,
                             onCheckedChange = { viewModel.updateDuplicateCheckEnabled(it) }
                         )
                         SettingsSwitchItem(
-                            title = strings.importCopy,
-                            subtitle = strings.importCopyDesc,
+                            title = strings.bookshelf.importCopy,
+                            subtitle = strings.bookshelf.importCopyDesc,
                             checked = uiState.importCopyFile,
                             onCheckedChange = { viewModel.updateImportCopyFile(it) }
                         )
@@ -412,9 +412,9 @@ fun SettingsScreen(
                             else unifiedPalette.toIntOrNull()?.takeIf { it in 0..19 }
                         var showCoverPaletteDialog by remember { mutableStateOf(false) }
                         SettingsClickItem(
-                            title = strings.unifiedCoverColor,
-                            subtitle = if (currentPaletteIndex == null) strings.unifiedCoverColorAuto
-                                else strings.unifiedCoverColorActive(currentPaletteIndex + 1),
+                            title = strings.reader.unifiedCoverColor,
+                            subtitle = if (currentPaletteIndex == null) strings.reader.unifiedCoverColorAuto
+                                else strings.reader.unifiedCoverColorActive(currentPaletteIndex + 1),
                             onClick = { showCoverPaletteDialog = true }
                         )
                         if (showCoverPaletteDialog) {
@@ -430,11 +430,11 @@ fun SettingsScreen(
                             )
                         }
                         SettingsButtonItem(
-                            title = strings.clearTempCache,
-                            subtitle = strings.clearTempCacheDesc,
-                            buttonText = strings.clearTempCache,
+                            title = strings.bookshelf.clearTempCache,
+                            subtitle = strings.bookshelf.clearTempCacheDesc,
+                            buttonText = strings.bookshelf.clearTempCache,
                             onClick = {
-                                Toast.makeText(context, strings.clearCacheSuccess, Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, strings.bookshelf.clearCacheSuccess, Toast.LENGTH_SHORT).show()
                             }
                         )
                     }
@@ -443,12 +443,12 @@ fun SettingsScreen(
 
             // ================= 阅读统计 =================
             item {
-                SettingsSectionHeader(title = strings.readingStats, icon = Icons.AutoMirrored.Outlined.ShowChart)
+                SettingsSectionHeader(title = strings.settings.readingStats, icon = Icons.AutoMirrored.Outlined.ShowChart)
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column(modifier = Modifier.padding(vertical = 8.dp)) {
                         SettingsSwitchItem(
-                            title = strings.statsEnable,
-                            subtitle = strings.statsEnableDesc,
+                            title = strings.settings.statsEnable,
+                            subtitle = strings.settings.statsEnableDesc,
                             checked = uiState.readingTimeEnabled,
                             onCheckedChange = { viewModel.updateReadingTimeEnabled(it) }
                         )
@@ -459,8 +459,8 @@ fun SettingsScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text(strings.statsDailyTarget, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                    Text(strings.readingTargetMinutes(uiState.readingDailyTarget), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                                    Text(strings.settings.statsDailyTarget, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                    Text(strings.settings.readingTargetMinutes(uiState.readingDailyTarget), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                                 }
                                 Slider(
                                     value = uiState.readingDailyTarget.toFloat(),
@@ -476,29 +476,29 @@ fun SettingsScreen(
 
             // ================= 同步设置 =================
             item {
-                SettingsSectionHeader(title = strings.syncSettings, icon = Icons.Outlined.Sync)
+                SettingsSectionHeader(title = strings.sync.syncSettings, icon = Icons.Outlined.Sync)
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column(modifier = Modifier.padding(vertical = 8.dp)) {
                         val syncMethodText = when (uiState.syncMethod) {
-                            SyncMethodConst.LOCAL -> strings.syncMethodLocal
-                            SyncMethodConst.WEBDAV -> strings.syncMethodWebdav
+                            SyncMethodConst.LOCAL -> strings.sync.syncMethodLocal
+                            SyncMethodConst.WEBDAV -> strings.sync.syncMethodWebdav
                             else -> uiState.syncMethod
                         }
                         SettingsClickItem(
-                            title = strings.syncMethod,
+                            title = strings.sync.syncMethod,
                             subtitle = syncMethodText,
                             onClick = { currentSubScreen = SettingsSubScreen.Sync }
                         )
                         if (uiState.syncMethod == SyncMethodConst.WEBDAV) {
                             SettingsClickItem(
-                                title = strings.syncAndBackup,
-                                subtitle = strings.syncAndBackupDesc,
+                                title = strings.sync.syncAndBackup,
+                                subtitle = strings.sync.syncAndBackupDesc,
                                 onClick = { currentSubScreen = SettingsSubScreen.Sync }
                             )
                         }
                         SettingsClickItem(
-                            title = strings.syncMethodLocal,
-                            subtitle = strings.localBackupDesc,
+                            title = strings.sync.syncMethodLocal,
+                            subtitle = strings.sync.localBackupDesc,
                             onClick = { currentSubScreen = SettingsSubScreen.LocalBackup }
                         )
                     }
@@ -507,7 +507,7 @@ fun SettingsScreen(
 
             // ================= 朗读设置 =================
             item {
-                SettingsSectionHeader(title = strings.ttsSettings, icon = Icons.AutoMirrored.Outlined.VolumeUp)
+                SettingsSectionHeader(title = strings.tts.ttsSettings, icon = Icons.AutoMirrored.Outlined.VolumeUp)
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column(modifier = Modifier.padding(vertical = 8.dp)) {
                         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -515,7 +515,7 @@ fun SettingsScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(strings.ttsSpeed, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text(strings.tts.ttsSpeed, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 Text(String.format("%.1fx", uiState.ttsSpeed), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                             }
                             Slider(
@@ -531,7 +531,7 @@ fun SettingsScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(strings.ttsPitch, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text(strings.tts.ttsPitch, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 Text(String.format("%.1f", uiState.ttsPitch), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                             }
                             Slider(
@@ -543,13 +543,13 @@ fun SettingsScreen(
                         }
 
                         SettingsSwitchItem(
-                            title = strings.ttsAutoPage,
+                            title = strings.tts.ttsAutoPage,
                             checked = uiState.ttsAutoPage,
                             onCheckedChange = { viewModel.updateTtsAutoPage(it) }
                         )
 
                         SettingsSwitchItem(
-                            title = strings.ttsHighlightSentence,
+                            title = strings.tts.ttsHighlightSentence,
                             checked = uiState.ttsHighlightSentence,
                             onCheckedChange = { viewModel.updateTtsHighlightSentence(it) }
                         )
@@ -559,23 +559,23 @@ fun SettingsScreen(
 
             // ================= 高级设置 =================
             item {
-                SettingsSectionHeader(title = strings.advancedSettings, icon = Icons.Outlined.Settings)
+                SettingsSectionHeader(title = strings.settings.advancedSettings, icon = Icons.Outlined.Settings)
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column {
                         SettingsSwitchItem(
-                            title = strings.gpuAcceleration,
+                            title = strings.settings.gpuAcceleration,
                             checked = uiState.gpuAcceleration,
                             onCheckedChange = { viewModel.updateGpuAcceleration(it) }
                         )
                         SettingsSwitchItem(
-                            title = strings.loggingEnabled,
+                            title = strings.settings.loggingEnabled,
                             checked = uiState.loggingEnabled,
                             onCheckedChange = { viewModel.updateLoggingEnabled(it) }
                         )
                         SettingsButtonItem(
-                            title = strings.resetAllSettings,
-                            subtitle = strings.resetAllSettingsDesc,
-                            buttonText = strings.resetAllSettings,
+                            title = strings.settings.resetAllSettings,
+                            subtitle = strings.settings.resetAllSettingsDesc,
+                            buttonText = strings.settings.resetAllSettings,
                             onClick = { showResetDialog = true }
                         )
                     }
@@ -584,7 +584,7 @@ fun SettingsScreen(
 
             // ================= 关于与版权 =================
             item {
-                SettingsSectionHeader(title = strings.aboutLabel, icon = Icons.Outlined.Info)
+                SettingsSectionHeader(title = strings.settings.aboutLabel, icon = Icons.Outlined.Info)
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
                     modifier = Modifier.padding(bottom = 24.dp)
@@ -592,20 +592,20 @@ fun SettingsScreen(
                     Column(modifier = Modifier.padding(vertical = 8.dp)) {
                         // 开发者卡片
                         ListItem(
-                            headlineContent = { Text(strings.developerLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) },
+                            headlineContent = { Text(strings.settings.developerLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) },
                             supportingContent = { Text("jinghu-moon", style = MaterialTheme.typography.bodySmall) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
 
                         // 版本号
                         ListItem(
-                            headlineContent = { Text(strings.versionLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) },
+                            headlineContent = { Text(strings.settings.versionLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) },
                             supportingContent = { Text("v1.0.0 (Build 20260523)", style = MaterialTheme.typography.bodySmall) },
                             trailingContent = {
                                 OutlinedButton(onClick = {
-                                    Toast.makeText(context, strings.alreadyLatestVersion, Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, strings.reader.alreadyLatestVersion, Toast.LENGTH_SHORT).show()
                                 }) {
-                                    Text(strings.checkUpdate, style = MaterialTheme.typography.labelMedium)
+                                    Text(strings.settings.checkUpdate, style = MaterialTheme.typography.labelMedium)
                                 }
                             },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -620,7 +620,7 @@ fun SettingsScreen(
 
                         // 开源许可证 (AGPL-3.0)
                         SettingsClickItem(
-                            title = strings.licenseLabel,
+                            title = strings.settings.licenseLabel,
                             subtitle = "AGPL-3.0 License",
                             onClick = { showLicenseDialog = true }
                         )
@@ -741,14 +741,14 @@ fun SettingsScreen(
                                                     tempFile.inputStream().use { inp ->
                                                         inp.copyTo(out)
                                                     }
-                                                } ?: throw IllegalStateException(strings.backupExportFailedWriteDir)
+                                                } ?: throw IllegalStateException(strings.sync.backupExportFailedWriteDir)
                                             }
-                                            exportResult = strings.backupExportSuccessCustom
+                                            exportResult = strings.sync.backupExportSuccessCustom
                                         } else {
-                                            exportResult = strings.backupExportFailedCreateFile
+                                            exportResult = strings.sync.backupExportFailedCreateFile
                                         }
                                     } else {
-                                        exportResult = strings.backupExportFailedPermission
+                                        exportResult = strings.sync.backupExportFailedPermission
                                     }
                                 } else {
                                     // 默认目录：应用私有目录
@@ -757,13 +757,13 @@ fun SettingsScreen(
                                     withContext(Dispatchers.IO) {
                                         tempFile.copyTo(outputFile, overwrite = true)
                                     }
-                                    exportResult = strings.backupExportSuccess(outputFile.parent ?: "")
+                                    exportResult = strings.sync.backupExportSuccess(outputFile.parent ?: "")
                                 }
 
                                 // 清理临时文件
                                 withContext(Dispatchers.IO) { tempFile.delete() }
                             } catch (e: Exception) {
-                                exportResult = strings.backupExportFailed(e.message ?: "")
+                                exportResult = strings.sync.backupExportFailed(e.message ?: "")
                             } finally {
                                 isExporting = false
                             }
@@ -805,18 +805,18 @@ fun SettingsScreen(
                                     File.createTempFile("shuli_import_", ".zip", context.cacheDir).also { file ->
                                         context.contentResolver.openInputStream(uri)?.use { input ->
                                             file.outputStream().use { output -> input.copyTo(output) }
-                                        } ?: throw IllegalStateException(strings.backupImportFailedRead)
+                                        } ?: throw IllegalStateException(strings.sync.backupImportFailedRead)
                                     }
                                 }
 
                                 try {
                                     importer.import(tempFile, strategy = ImportStrategy.MERGE)
-                                    importResult = strings.backupImportSuccess
+                                    importResult = strings.sync.backupImportSuccess
                                 } finally {
                                     withContext(Dispatchers.IO) { tempFile.delete() }
                                 }
                             } catch (e: Exception) {
-                                importResult = strings.backupImportFailed(e.message ?: "")
+                                importResult = strings.sync.backupImportFailed(e.message ?: "")
                             } finally {
                                 isImporting = false
                             }
@@ -847,10 +847,10 @@ fun SettingsScreen(
     // 1. 语言切换
     if (showLanguageDialog) {
         val options = listOf("zh-CN", "zh-TW", "en")
-        val optionLabels = listOf(strings.languageCn, strings.languageTw, strings.languageEn)
+        val optionLabels = listOf(strings.common.languageCn, strings.common.languageTw, strings.common.languageEn)
         AlertDialog(
             onDismissRequest = { showLanguageDialog = false },
-            title = { Text(strings.languageLabel) },
+            title = { Text(strings.common.languageLabel) },
             text = {
                 Column {
                     options.forEachIndexed { index, code ->
@@ -876,10 +876,10 @@ fun SettingsScreen(
     // 2. 界面字体
     if (showFontDialog) {
         val options = listOf("harmony", "system")
-        val optionLabels = listOf(strings.appFontHarmony, strings.appFontSystem)
+        val optionLabels = listOf(strings.common.appFontHarmony, strings.common.appFontSystem)
         AlertDialog(
             onDismissRequest = { showFontDialog = false },
-            title = { Text(strings.appFontLabel) },
+            title = { Text(strings.common.appFontLabel) },
             text = {
                 Column {
                     options.forEachIndexed { index, code ->
@@ -905,10 +905,10 @@ fun SettingsScreen(
     // 3. 主题选择
     if (showThemeDialog) {
         val options = listOf("system", "light", "dark", "paper")
-        val optionLabels = listOf(strings.themeSystem, strings.themeLight, strings.themeDark, strings.themePaper)
+        val optionLabels = listOf(strings.common.themeSystem, strings.common.themeLight, strings.common.themeDark, strings.common.themePaper)
         AlertDialog(
             onDismissRequest = { showThemeDialog = false },
-            title = { Text(strings.themeModeLabel) },
+            title = { Text(strings.common.themeModeLabel) },
             text = {
                 Column {
                     options.forEachIndexed { index, code ->
@@ -934,10 +934,10 @@ fun SettingsScreen(
     // 4. 行距选择
     if (showLineSpacingDialog) {
         val options = listOf(1.2f, 1.5f, 1.8f)
-        val optionLabels = listOf(strings.lineSpacingCompact, strings.lineSpacingMedium, strings.lineSpacingWide)
+        val optionLabels = listOf(strings.reader.lineSpacingCompact, strings.reader.lineSpacingMedium, strings.reader.lineSpacingWide)
         AlertDialog(
             onDismissRequest = { showLineSpacingDialog = false },
-            title = { Text(strings.defaultLineSpacing) },
+            title = { Text(strings.reader.defaultLineSpacing) },
             text = {
                 Column {
                     options.forEachIndexed { index, size ->
@@ -970,15 +970,15 @@ fun SettingsScreen(
             PageAnimConst.NONE
         )
         val optionLabels = listOf(
-            strings.pageAnimOverlay,
-            strings.pageAnimSlide,
-            strings.pageAnimSimulation,
-            strings.pageAnimFade,
-            strings.pageAnimNone
+            strings.reader.pageAnimOverlay,
+            strings.reader.pageAnimSlide,
+            strings.reader.pageAnimSimulation,
+            strings.reader.pageAnimFade,
+            strings.reader.pageAnimNone
         )
         AlertDialog(
             onDismissRequest = { showPageAnimDialog = false },
-            title = { Text(strings.defaultPageAnim) },
+            title = { Text(strings.reader.defaultPageAnim) },
             text = {
                 Column {
                     options.forEachIndexed { index, code ->
@@ -1008,12 +1008,12 @@ fun SettingsScreen(
             PageTurnDirConst.VERTICAL
         )
         val optionLabels = listOf(
-            strings.pageTurnHorizontal,
-            strings.pageTurnVertical
+            strings.reader.pageTurnHorizontal,
+            strings.reader.pageTurnVertical
         )
         AlertDialog(
             onDismissRequest = { showPageDirDialog = false },
-            title = { Text(strings.pageTurnDirection) },
+            title = { Text(strings.reader.pageTurnDirection) },
             text = {
                 Column {
                     options.forEachIndexed { index, code ->
@@ -1040,19 +1040,19 @@ fun SettingsScreen(
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
-            title = { Text(strings.resetAllSettings) },
-            text = { Text(strings.resetAllSettingsDesc) },
+            title = { Text(strings.settings.resetAllSettings) },
+            text = { Text(strings.settings.resetAllSettingsDesc) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.resetAllSettings()
                     showResetDialog = false
                 }) {
-                    Text(strings.resetAllSettings, color = MaterialTheme.colorScheme.error)
+                    Text(strings.settings.resetAllSettings, color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showResetDialog = false }) {
-                    Text(strings.backIconDesc)
+                    Text(strings.common.backIconDesc)
                 }
             }
         )
@@ -1062,7 +1062,7 @@ fun SettingsScreen(
     if (showLicenseDialog) {
         AlertDialog(
             onDismissRequest = { showLicenseDialog = false },
-            title = { Text(strings.licenseLabel) },
+            title = { Text(strings.settings.licenseLabel) },
             text = {
                 Column {
                     Text("ShuLi Reader is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).", style = MaterialTheme.typography.bodyMedium)
@@ -1072,7 +1072,7 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showLicenseDialog = false }) {
-                    Text(strings.backIconDesc)
+                    Text(strings.common.backIconDesc)
                 }
             }
         )

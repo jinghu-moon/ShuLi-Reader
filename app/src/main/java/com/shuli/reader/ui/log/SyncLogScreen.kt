@@ -60,10 +60,10 @@ fun SyncLogScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(strings.syncLog, fontWeight = FontWeight.Bold) },
+                title = { Text(strings.sync.syncLog, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.common.backIconDesc)
                     }
                 },
             )
@@ -85,22 +85,22 @@ fun SyncLogScreen(
                 FilterChip(
                     selected = currentFilter == SyncLogFilter.ALL,
                     onClick = { viewModel.applyFilter(SyncLogFilter.ALL) },
-                    label = { Text(strings.filterAll) },
+                    label = { Text(strings.bookshelf.filterAll) },
                 )
                 FilterChip(
                     selected = currentFilter == SyncLogFilter.CLOUD,
                     onClick = { viewModel.applyFilter(SyncLogFilter.CLOUD) },
-                    label = { Text(strings.filterCloud) },
+                    label = { Text(strings.sync.filterCloud) },
                 )
                 FilterChip(
                     selected = currentFilter == SyncLogFilter.LOCAL,
                     onClick = { viewModel.applyFilter(SyncLogFilter.LOCAL) },
-                    label = { Text(strings.filterLocal) },
+                    label = { Text(strings.sync.filterLocal) },
                 )
                 FilterChip(
                     selected = currentFilter == SyncLogFilter.FAILED,
                     onClick = { viewModel.applyFilter(SyncLogFilter.FAILED) },
-                    label = { Text(strings.filterFailed) },
+                    label = { Text(strings.sync.filterFailed) },
                 )
             }
 
@@ -111,7 +111,7 @@ fun SyncLogScreen(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
-                        text = strings.noSyncLogs,
+                        text = strings.sync.noSyncLogs,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -191,9 +191,9 @@ private fun SyncLogEntryCard(
                     )
                     Text(
                         text = when (entry.syncType) {
-                            SyncLogFilter.CLOUD -> strings.syncTypeCloud
-                            SyncLogFilter.LOCAL -> strings.syncTypeLocal
-                            else -> strings.syncTypeUnknown
+                            SyncLogFilter.CLOUD -> strings.sync.syncTypeCloud
+                            SyncLogFilter.LOCAL -> strings.sync.syncTypeLocal
+                            else -> strings.sync.syncTypeUnknown
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -212,7 +212,7 @@ private fun SyncLogEntryCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = strings.requestCount(entry.requestCount),
+                        text = strings.sync.requestCount(entry.requestCount),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -239,9 +239,9 @@ private fun SyncLogEntryCard(
 private fun formatDuration(millis: Long, strings: AppStrings): String {
     val seconds = millis / 1000
     return when {
-        seconds < 60 -> strings.durationSeconds(seconds)
-        seconds < 3600 -> strings.durationMinutesSeconds(seconds / 60, seconds % 60)
-        else -> strings.durationHoursMinutes(seconds / 3600, (seconds % 3600) / 60)
+        seconds < 60 -> strings.sync.durationSeconds(seconds)
+        seconds < 3600 -> strings.sync.durationMinutesSeconds(seconds / 60, seconds % 60)
+        else -> strings.sync.durationHoursMinutes(seconds / 3600, (seconds % 3600) / 60)
     }
 }
 

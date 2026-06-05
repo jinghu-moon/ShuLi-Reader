@@ -199,7 +199,7 @@ fun QuickSettingsSheet(
                 contentColor = readerColors.textPrimary,
                 divider = {},
             ) {
-                listOf(strings.layoutTab, strings.styleTab, strings.settingsTab).forEachIndexed { index, title ->
+                listOf(strings.reader.layoutTab, strings.reader.styleTab, strings.reader.settingsTab).forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTab == index,
                         onClick = { selectedTab = index },
@@ -334,7 +334,7 @@ private fun ThemeColorRow(
     ) {
         // 左侧说明文本
         Text(
-            text = strings.readerThemeLabel,
+            text = strings.common.readerThemeLabel,
             style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
             color = readerColors.textPrimary,
             modifier = Modifier.weight(1f),
@@ -447,7 +447,7 @@ private fun LayoutPanel(
 
     // 字号
     ReaderValueSlider(
-        label = strings.defaultFontSize,
+        label = strings.reader.defaultFontSize,
         value = prefs.fontSize,
         valueRange = 10f..32f,
         steps = 21,
@@ -456,7 +456,7 @@ private fun LayoutPanel(
     )
     // 行距
     ReaderValueSlider(
-        label = strings.defaultLineSpacing,
+        label = strings.reader.defaultLineSpacing,
         value = prefs.lineSpacing,
         valueRange = 1.0f..3.0f,
         steps = 19,
@@ -465,7 +465,7 @@ private fun LayoutPanel(
     )
     // 边距（合并自原"边距"Tab）
     ReaderValueSlider(
-        label = strings.marginTopBottom,
+        label = strings.reader.marginTopBottom,
         value = prefs.marginVertical,
         valueRange = 0f..96f,
         steps = 23,
@@ -473,7 +473,7 @@ private fun LayoutPanel(
         onValueChange = onMarginVerticalChange,
     )
     ReaderValueSlider(
-        label = strings.marginLeftRight,
+        label = strings.reader.marginLeftRight,
         value = prefs.marginHorizontal,
         valueRange = 0f..64f,
         steps = 15,
@@ -482,7 +482,7 @@ private fun LayoutPanel(
     )
     // 段距
     ReaderValueSlider(
-        label = strings.paragraphSpacing,
+        label = strings.reader.paragraphSpacing,
         value = prefs.paragraphSpacing,
         valueRange = 0.5f..3.0f,
         steps = 24,
@@ -491,7 +491,7 @@ private fun LayoutPanel(
     )
     // 缩进
     ReaderValueSlider(
-        label = strings.firstLineIndent,
+        label = strings.reader.firstLineIndent,
         value = prefs.indent,
         valueRange = 0f..10f,
         steps = 19,
@@ -500,7 +500,7 @@ private fun LayoutPanel(
     )
     // 字距
     ReaderValueSlider(
-        label = strings.letterSpacingLabel,
+        label = strings.reader.letterSpacingLabel,
         value = prefs.letterSpacing,
         valueRange = 0f..0.2f,
         steps = 19,
@@ -538,13 +538,13 @@ private fun StylePanel(
 
     // 翻页动画（提到最顶部）
     ReaderFormPickerRow(
-        label = strings.defaultPageAnim,
+        label = strings.reader.defaultPageAnim,
         options = listOf(
-            PageAnimType.NONE to strings.pageAnimNone,
-            PageAnimType.COVER to strings.pageAnimOverlay,
-            PageAnimType.HORIZONTAL to strings.pageAnimSlide,
-            PageAnimType.SIMULATION to strings.pageAnimSimulation,
-            PageAnimType.SCROLL to strings.pageAnimFade,
+            PageAnimType.NONE to strings.reader.pageAnimNone,
+            PageAnimType.COVER to strings.reader.pageAnimOverlay,
+            PageAnimType.HORIZONTAL to strings.reader.pageAnimSlide,
+            PageAnimType.SIMULATION to strings.reader.pageAnimSimulation,
+            PageAnimType.SCROLL to strings.reader.pageAnimFade,
         ),
         selected = prefs.pageAnimType,
         onSelect = onPageAnimTypeChange,
@@ -552,8 +552,8 @@ private fun StylePanel(
 
     // 字体
     val fontOptions = buildList {
-        add("harmony" to strings.readingFontHarmony)
-        add("system" to strings.readingFontSystem)
+        add("harmony" to strings.reader.readingFontHarmony)
+        add("system" to strings.reader.readingFontSystem)
         customFonts.forEach { entry ->
             add(entry.key to entry.name)
         }
@@ -563,7 +563,7 @@ private fun StylePanel(
         customFonts.associate { entry -> entry.key to entry.file }
     }
     ReaderFormPickerRow(
-        label = strings.readingFont,
+        label = strings.reader.readingFont,
         options = fontOptions,
         selected = prefs.readingFont,
         onSelect = onReadingFontChange,
@@ -579,7 +579,7 @@ private fun StylePanel(
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(4.dp))
-        Text(strings.importFont, style = MaterialTheme.typography.bodySmall)
+        Text(strings.reader.importFont, style = MaterialTheme.typography.bodySmall)
     }
     // 已导入字体列表（可删除）
     if (customFonts.isNotEmpty()) {
@@ -597,7 +597,7 @@ private fun StylePanel(
                     )
                     Icon(
                         imageVector = Icons.Outlined.Delete,
-                        contentDescription = strings.deleteFont,
+                        contentDescription = strings.common.deleteFont,
                         modifier = Modifier
                             .size(18.dp)
                             .clickable { onDeleteFont(entry.id) },
@@ -609,52 +609,52 @@ private fun StylePanel(
     }
     // 字重
     ReaderFormPickerRow(
-        label = strings.fontWeightLabel,
+        label = strings.reader.fontWeightLabel,
         options = listOf(
-            ReaderFontWeight.LIGHT to strings.fontWeightLight,
-            ReaderFontWeight.NORMAL to strings.fontWeightNormal,
-            ReaderFontWeight.MEDIUM to strings.fontWeightMedium,
-            ReaderFontWeight.BOLD to strings.fontWeightBold,
+            ReaderFontWeight.LIGHT to strings.reader.fontWeightLight,
+            ReaderFontWeight.NORMAL to strings.reader.fontWeightNormal,
+            ReaderFontWeight.MEDIUM to strings.reader.fontWeightMedium,
+            ReaderFontWeight.BOLD to strings.reader.fontWeightBold,
         ),
         selected = prefs.fontWeight,
         onSelect = onFontWeightChange,
     )
     // 对齐
     ReaderFormPickerRow(
-        label = strings.textAlignLabel,
+        label = strings.reader.textAlignLabel,
         options = listOf(
-            ReaderTextAlign.LEFT to strings.textAlignLeft,
-            ReaderTextAlign.JUSTIFY to strings.textAlignJustify,
+            ReaderTextAlign.LEFT to strings.reader.textAlignLeft,
+            ReaderTextAlign.JUSTIFY to strings.reader.textAlignJustify,
         ),
         selected = prefs.textAlign,
         onSelect = onTextAlignChange,
     )
     // 简繁转换
     ReaderFormPickerRow(
-        label = strings.chineseConvertLabel,
+        label = strings.reader.chineseConvertLabel,
         options = listOf(
-            ChineseConvert.NONE to strings.chineseConvertNone,
-            ChineseConvert.SIMPLIFIED to strings.chineseConvertSimplified,
-            ChineseConvert.TRADITIONAL to strings.chineseConvertTraditional,
+            ChineseConvert.NONE to strings.reader.chineseConvertNone,
+            ChineseConvert.SIMPLIFIED to strings.reader.chineseConvertSimplified,
+            ChineseConvert.TRADITIONAL to strings.reader.chineseConvertTraditional,
         ),
         selected = prefs.chineseConvert,
         onSelect = onChineseConvertChange,
     )
     // 自定义中文分行
     ReaderSwitchRow(
-        label = strings.useZhLayoutLabel,
+        label = strings.reader.useZhLayoutLabel,
         checked = prefs.useZhLayout,
         onCheckedChange = onUseZhLayoutChange,
     )
     // 中英文间增加空格
     ReaderSwitchRow(
-        label = strings.usePanguSpacingLabel,
+        label = strings.reader.usePanguSpacingLabel,
         checked = prefs.usePanguSpacing,
         onCheckedChange = onPanguSpacingChange,
     )
     // 底部对齐
     ReaderSwitchRow(
-        label = strings.bottomJustifyLabel,
+        label = strings.reader.bottomJustifyLabel,
         checked = prefs.bottomJustify,
         onCheckedChange = onBottomJustifyChange,
     )
@@ -664,16 +664,16 @@ private fun StylePanel(
 
 @Composable
 private fun slotOptions() = listOf(
-    SlotContent.NONE to LocalAppStrings.current.slotNone,
-    SlotContent.CHAPTER_TITLE to LocalAppStrings.current.slotChapterTitle,
-    SlotContent.BOOK_TITLE to LocalAppStrings.current.slotBookTitle,
-    SlotContent.CHAPTER_PROGRESS_FRACTION to LocalAppStrings.current.slotChapterProgressFraction,
-    SlotContent.CHAPTER_PROGRESS_PERCENT to LocalAppStrings.current.slotChapterProgressPercent,
-    SlotContent.BOOK_PROGRESS_FRACTION to LocalAppStrings.current.slotBookProgressFraction,
-    SlotContent.BOOK_PROGRESS_PERCENT to LocalAppStrings.current.slotBookProgressPercent,
-    SlotContent.TIME to LocalAppStrings.current.slotTime,
-    SlotContent.BATTERY to LocalAppStrings.current.slotBattery,
-    SlotContent.DATE to LocalAppStrings.current.slotDate,
+    SlotContent.NONE to LocalAppStrings.current.reader.slotNone,
+    SlotContent.CHAPTER_TITLE to LocalAppStrings.current.reader.slotChapterTitle,
+    SlotContent.BOOK_TITLE to LocalAppStrings.current.reader.slotBookTitle,
+    SlotContent.CHAPTER_PROGRESS_FRACTION to LocalAppStrings.current.reader.slotChapterProgressFraction,
+    SlotContent.CHAPTER_PROGRESS_PERCENT to LocalAppStrings.current.reader.slotChapterProgressPercent,
+    SlotContent.BOOK_PROGRESS_FRACTION to LocalAppStrings.current.reader.slotBookProgressFraction,
+    SlotContent.BOOK_PROGRESS_PERCENT to LocalAppStrings.current.reader.slotBookProgressPercent,
+    SlotContent.TIME to LocalAppStrings.current.reader.slotTime,
+    SlotContent.BATTERY to LocalAppStrings.current.reader.slotBattery,
+    SlotContent.DATE to LocalAppStrings.current.reader.slotDate,
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -729,22 +729,22 @@ private fun SettingsPanel(
 
     // ── 页面元素开关 ──
     ReaderSwitchRow(
-        label = strings.headerLabel,
+        label = strings.reader.headerLabel,
         checked = prefs.header.visibility != HeaderVisibility.ALWAYS_HIDE,
         onCheckedChange = { onHeaderVisibilityChange(if (it) HeaderVisibility.HIDE_WHEN_STATUS_BAR else HeaderVisibility.ALWAYS_HIDE) },
     )
     ReaderSwitchRow(
-        label = strings.footerLabel,
+        label = strings.reader.footerLabel,
         checked = prefs.footer.visibility != HeaderVisibility.ALWAYS_HIDE,
         onCheckedChange = { onFooterVisibilityChange(if (it) HeaderVisibility.ALWAYS_SHOW else HeaderVisibility.ALWAYS_HIDE) },
     )
     ReaderSwitchRow(
-        label = strings.progressBarLabel,
+        label = strings.reader.progressBarLabel,
         checked = prefs.showProgress,
         onCheckedChange = onShowProgressChange,
     )
     ReaderValueSlider(
-        label = strings.opacityLabel,
+        label = strings.reader.opacityLabel,
         value = prefs.headerFooterAlpha,
         valueRange = 0.1f..1.0f,
         steps = 8,
@@ -759,51 +759,51 @@ private fun SettingsPanel(
 
     // ── 页眉脚详细（可折叠） ──
     ExpandableSection(
-        title = strings.headerFooterCustom,
+        title = strings.reader.headerFooterCustom,
         expanded = expandedHeaderFooter,
         onToggle = { expandedHeaderFooter = !expandedHeaderFooter },
     ) {
         // 页眉
         Text(
-            text = strings.headerLabel,
+            text = strings.reader.headerLabel,
             style = MaterialTheme.typography.labelMedium,
             color = readerColors.textSecondary,
             modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
         )
         if (prefs.header.visibility != HeaderVisibility.ALWAYS_HIDE) {
             ReaderFormPickerRow(
-                label = strings.displayLabel,
+                label = strings.reader.displayLabel,
                 options = listOf(
-                    HeaderVisibility.HIDE_WHEN_STATUS_BAR to strings.displayFollowStatusBar,
-                    HeaderVisibility.ALWAYS_SHOW to strings.displayAlwaysShow,
-                    HeaderVisibility.ALWAYS_HIDE to strings.displayAlwaysHide,
+                    HeaderVisibility.HIDE_WHEN_STATUS_BAR to strings.reader.displayFollowStatusBar,
+                    HeaderVisibility.ALWAYS_SHOW to strings.reader.displayAlwaysShow,
+                    HeaderVisibility.ALWAYS_HIDE to strings.reader.displayAlwaysHide,
                 ),
                 selected = prefs.header.visibility,
                 onSelect = onHeaderVisibilityChange,
             )
             ReaderFormPickerRow(
-                label = strings.positionLeft,
+                label = strings.reader.positionLeft,
                 options = slotOptions(),
                 selected = prefs.header.left,
                 onSelect = onHeaderLeftChange,
-                sheetTitle = strings.headerLeft,
+                sheetTitle = strings.reader.headerLeft,
             )
             ReaderFormPickerRow(
-                label = strings.positionCenter,
+                label = strings.reader.positionCenter,
                 options = slotOptions(),
                 selected = prefs.header.center,
                 onSelect = onHeaderCenterChange,
-                sheetTitle = strings.headerCenter,
+                sheetTitle = strings.reader.headerCenter,
             )
             ReaderFormPickerRow(
-                label = strings.positionRight,
+                label = strings.reader.positionRight,
                 options = slotOptions(),
                 selected = prefs.header.right,
                 onSelect = onHeaderRightChange,
-                sheetTitle = strings.headerRight,
+                sheetTitle = strings.reader.headerRight,
             )
             ReaderValueSlider(
-                label = strings.headerMarginTop,
+                label = strings.reader.headerMarginTop,
                 value = prefs.header.marginTop,
                 valueRange = 0f..100f,
                 steps = 100,
@@ -811,12 +811,12 @@ private fun SettingsPanel(
                 onValueChange = onHeaderMarginTopChange,
             )
             ReaderSwitchRow(
-                label = strings.headerLineLabel,
+                label = strings.reader.headerLineLabel,
                 checked = prefs.showHeaderLine,
                 onCheckedChange = onShowHeaderLineChange,
             )
             ReaderValueSlider(
-                label = strings.headerFontSizeLabel,
+                label = strings.reader.headerFontSizeLabel,
                 value = prefs.headerFontSizeRatio,
                 valueRange = 0.5f..1.2f,
                 steps = 6,
@@ -825,7 +825,7 @@ private fun SettingsPanel(
             )
         } else {
             Text(
-                text = strings.headerHidden,
+                text = strings.reader.headerHidden,
                 style = MaterialTheme.typography.bodySmall,
                 color = readerColors.textSecondary,
                 modifier = Modifier.padding(vertical = 4.dp),
@@ -834,45 +834,45 @@ private fun SettingsPanel(
 
         // 页脚
         Text(
-            text = strings.footerLabel,
+            text = strings.reader.footerLabel,
             style = MaterialTheme.typography.labelMedium,
             color = readerColors.textSecondary,
             modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
         )
         if (prefs.footer.visibility != HeaderVisibility.ALWAYS_HIDE) {
             ReaderFormPickerRow(
-                label = strings.displayLabel,
+                label = strings.reader.displayLabel,
                 options = listOf(
-                    HeaderVisibility.ALWAYS_SHOW to strings.displayAlwaysShow,
-                    HeaderVisibility.HIDE_WHEN_STATUS_BAR to strings.displayFollowStatusBar,
-                    HeaderVisibility.ALWAYS_HIDE to strings.displayAlwaysHide,
+                    HeaderVisibility.ALWAYS_SHOW to strings.reader.displayAlwaysShow,
+                    HeaderVisibility.HIDE_WHEN_STATUS_BAR to strings.reader.displayFollowStatusBar,
+                    HeaderVisibility.ALWAYS_HIDE to strings.reader.displayAlwaysHide,
                 ),
                 selected = prefs.footer.visibility,
                 onSelect = onFooterVisibilityChange,
             )
             ReaderFormPickerRow(
-                label = strings.positionLeft,
+                label = strings.reader.positionLeft,
                 options = slotOptions(),
                 selected = prefs.footer.left,
                 onSelect = onFooterLeftChange,
-                sheetTitle = strings.footerLeft,
+                sheetTitle = strings.reader.footerLeft,
             )
             ReaderFormPickerRow(
-                label = strings.positionCenter,
+                label = strings.reader.positionCenter,
                 options = slotOptions(),
                 selected = prefs.footer.center,
                 onSelect = onFooterCenterChange,
-                sheetTitle = strings.footerCenter,
+                sheetTitle = strings.reader.footerCenter,
             )
             ReaderFormPickerRow(
-                label = strings.positionRight,
+                label = strings.reader.positionRight,
                 options = slotOptions(),
                 selected = prefs.footer.right,
                 onSelect = onFooterRightChange,
-                sheetTitle = strings.footerRight,
+                sheetTitle = strings.reader.footerRight,
             )
             ReaderValueSlider(
-                label = strings.footerMarginBottom,
+                label = strings.reader.footerMarginBottom,
                 value = prefs.footer.marginBottom,
                 valueRange = 0f..100f,
                 steps = 100,
@@ -880,12 +880,12 @@ private fun SettingsPanel(
                 onValueChange = onFooterMarginBottomChange,
             )
             ReaderSwitchRow(
-                label = strings.footerLineLabel,
+                label = strings.reader.footerLineLabel,
                 checked = prefs.showFooterLine,
                 onCheckedChange = onShowFooterLineChange,
             )
             ReaderValueSlider(
-                label = strings.footerFontSizeLabel,
+                label = strings.reader.footerFontSizeLabel,
                 value = prefs.footerFontSizeRatio,
                 valueRange = 0.5f..1.2f,
                 steps = 6,
@@ -894,7 +894,7 @@ private fun SettingsPanel(
             )
         } else {
             Text(
-                text = strings.footerHidden,
+                text = strings.reader.footerHidden,
                 style = MaterialTheme.typography.bodySmall,
                 color = readerColors.textSecondary,
                 modifier = Modifier.padding(vertical = 4.dp),
@@ -909,23 +909,23 @@ private fun SettingsPanel(
 
     // ── 标题样式（可折叠） ──
     ExpandableSection(
-        title = strings.titleStyleLabel,
+        title = strings.reader.titleStyleLabel,
         expanded = expandedTitleStyle,
         onToggle = { expandedTitleStyle = !expandedTitleStyle },
     ) {
         ReaderFormPickerRow(
-            label = strings.textAlignLabel,
+            label = strings.reader.textAlignLabel,
             options = listOf(
-                TitleAlign.LEFT to strings.titleAlignLeft,
-                TitleAlign.CENTER to strings.titleAlignCenter,
-                TitleAlign.HIDDEN to strings.titleAlignHidden,
+                TitleAlign.LEFT to strings.reader.titleAlignLeft,
+                TitleAlign.CENTER to strings.reader.titleAlignCenter,
+                TitleAlign.HIDDEN to strings.reader.titleAlignHidden,
             ),
             selected = prefs.titleStyle.align,
             onSelect = onTitleAlignChange,
         )
         if (prefs.titleStyle.align != TitleAlign.HIDDEN) {
             ReaderValueSlider(
-                label = strings.titleSizeOffset,
+                label = strings.reader.titleSizeOffset,
                 value = prefs.titleStyle.sizeOffsetSp.toFloat(),
                 valueRange = 0f..16f,
                 steps = 15,
@@ -933,7 +933,7 @@ private fun SettingsPanel(
                 onValueChange = { onTitleSizeOffsetChange(it.toInt()) },
             )
             ReaderValueSlider(
-                label = strings.titleMarginTop,
+                label = strings.reader.titleMarginTop,
                 value = prefs.titleStyle.marginTopDp,
                 valueRange = 0f..60f,
                 steps = 11,
@@ -941,7 +941,7 @@ private fun SettingsPanel(
                 onValueChange = onTitleMarginTopChange,
             )
             ReaderValueSlider(
-                label = strings.titleMarginBottom,
+                label = strings.reader.titleMarginBottom,
                 value = prefs.titleStyle.marginBottomDp,
                 valueRange = 0f..120f,
                 steps = 11,
@@ -958,26 +958,26 @@ private fun SettingsPanel(
 
     // ── 行为开关 ──
     ReaderSwitchRow(
-        label = strings.keepScreenOnLabel,
+        label = strings.reader.keepScreenOnLabel,
         checked = prefs.keepScreenOn,
         onCheckedChange = onKeepScreenOnChange,
-        description = strings.keepScreenOnDesc,
+        description = strings.reader.keepScreenOnDesc,
     )
     ReaderSwitchRow(
-        label = strings.volumeKeyLabel,
+        label = strings.reader.volumeKeyLabel,
         checked = prefs.volumeKeyTurnPage,
         onCheckedChange = onVolumeKeyTurnPageChange,
-        description = strings.volumeKeyDesc,
+        description = strings.reader.volumeKeyDesc,
     )
     ReaderSwitchRow(
-        label = strings.edgeTurnPageLabel,
+        label = strings.reader.edgeTurnPageLabel,
         checked = prefs.edgeTurnPage,
         onCheckedChange = onEdgeTurnPageChange,
-        description = strings.edgeTurnPageDesc,
+        description = strings.reader.edgeTurnPageDesc,
     )
     if (prefs.edgeTurnPage) {
         ReaderValueSlider(
-            label = strings.edgeWidthLabel,
+            label = strings.reader.edgeWidthLabel,
             value = prefs.edgeWidthPercent,
             valueRange = 0.1f..0.4f,
             steps = 5,
@@ -994,7 +994,7 @@ private fun SettingsPanel(
     // ── TTS 朗读 ──
     var expandedTts by remember { mutableStateOf(false) }
     ExpandableSection(
-        title = strings.ttsSettings,
+        title = strings.tts.ttsSettings,
         expanded = expandedTts,
         onToggle = { expandedTts = !expandedTts },
     ) {
@@ -1014,17 +1014,17 @@ private fun SettingsPanel(
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(4.dp))
-                Text(if (isPlaying) strings.ttsPause else if (isPaused) strings.ttsStart else strings.ttsStart)
+                Text(if (isPlaying) strings.tts.ttsPause else if (isPaused) strings.tts.ttsStart else strings.tts.ttsStart)
             }
             if (isPlaying || isPaused) {
                 OutlinedButton(onClick = onTtsStop) {
-                    Text(strings.ttsStop)
+                    Text(strings.tts.ttsStop)
                 }
             }
         }
         // 语速
         ReaderValueSlider(
-            label = strings.ttsSpeed,
+            label = strings.tts.ttsSpeed,
             value = prefs.ttsSpeed,
             valueRange = 0.5f..2.0f,
             steps = 14,
@@ -1033,7 +1033,7 @@ private fun SettingsPanel(
         )
         // 音调
         ReaderValueSlider(
-            label = strings.ttsPitch,
+            label = strings.tts.ttsPitch,
             value = prefs.ttsPitch,
             valueRange = 0.5f..2.0f,
             steps = 14,
@@ -1049,7 +1049,7 @@ private fun SettingsPanel(
 
     // ── 预设 ──
     Text(
-        text = strings.readingPresets,
+        text = strings.reader.readingPresets,
         style = MaterialTheme.typography.titleSmall,
         color = readerColors.textPrimary,
         modifier = Modifier.padding(vertical = 8.dp),
@@ -1072,7 +1072,7 @@ private fun SettingsPanel(
         item {
             AssistChip(
                 onClick = { showSaveDialog = true },
-                label = { Text(strings.savePresetAction) },
+                label = { Text(strings.reader.savePresetAction) },
             )
         }
     }
@@ -1087,25 +1087,25 @@ private fun SettingsPanel(
         onClick = { showResetDialog = true },
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text(strings.resetToDefault)
+        Text(strings.reader.resetToDefault)
     }
 
     // ── 对话框 ──
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
-            title = { Text(strings.resetToDefault) },
-            text = { Text(strings.resetToDefaultConfirm) },
+            title = { Text(strings.reader.resetToDefault) },
+            text = { Text(strings.reader.resetToDefaultConfirm) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         onResetToDefault()
                         showResetDialog = false
                     },
-                ) { Text(strings.confirmAction) }
+                ) { Text(strings.reader.confirmAction) }
             },
             dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) { Text(strings.cancelAction) }
+                TextButton(onClick = { showResetDialog = false }) { Text(strings.reader.cancelAction) }
             },
         )
     }
@@ -1113,12 +1113,12 @@ private fun SettingsPanel(
     if (showSaveDialog) {
         AlertDialog(
             onDismissRequest = { showSaveDialog = false },
-            title = { Text(strings.savePresetTitle) },
+            title = { Text(strings.reader.savePresetTitle) },
             text = {
                 OutlinedTextField(
                     value = presetName,
                     onValueChange = { presetName = it },
-                    label = { Text(strings.presetNameLabel) },
+                    label = { Text(strings.reader.presetNameLabel) },
                     singleLine = true,
                 )
             },
@@ -1131,10 +1131,10 @@ private fun SettingsPanel(
                             showSaveDialog = false
                         }
                     },
-                ) { Text(strings.saveAction) }
+                ) { Text(strings.reader.saveAction) }
             },
             dismissButton = {
-                TextButton(onClick = { showSaveDialog = false }) { Text(strings.cancelAction) }
+                TextButton(onClick = { showSaveDialog = false }) { Text(strings.reader.cancelAction) }
             },
         )
     }
@@ -1142,18 +1142,18 @@ private fun SettingsPanel(
     showDeleteDialog?.let { presetId ->
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
-            title = { Text(strings.deletePresetTitle) },
-            text = { Text(strings.deletePresetConfirm) },
+            title = { Text(strings.reader.deletePresetTitle) },
+            text = { Text(strings.reader.deletePresetConfirm) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         onDeletePreset(presetId)
                         showDeleteDialog = null
                     },
-                ) { Text(strings.deleteAction) }
+                ) { Text(strings.reader.deleteAction) }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = null }) { Text(strings.cancelAction) }
+                TextButton(onClick = { showDeleteDialog = null }) { Text(strings.reader.cancelAction) }
             },
         )
     }

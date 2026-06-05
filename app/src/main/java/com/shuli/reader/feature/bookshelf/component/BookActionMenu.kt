@@ -43,7 +43,7 @@ fun BookActionMenu(
         modifier = modifier,
     ) {
         DropdownMenuItem(
-            text = { Text(if (book.isFavorite) strings.removeFavorite else strings.addFavorite) },
+            text = { Text(if (book.isFavorite) strings.bookshelf.removeFavorite else strings.bookshelf.addFavorite) },
             onClick = {
                 onToggleFavorite(book.id)
                 onDismiss()
@@ -51,42 +51,42 @@ fun BookActionMenu(
             leadingIcon = {
                 Icon(
                     imageVector = if (book.isFavorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = strings.favoriteIconDesc,
+                    contentDescription = strings.common.favoriteIconDesc,
                     tint = if (book.isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 )
             },
         )
         DropdownMenuItem(
-            text = { Text(strings.bookInfo) },
+            text = { Text(strings.bookshelf.bookInfo) },
             onClick = {
                 onShowInfo(book.id)
                 onDismiss()
             },
             leadingIcon = {
-                Icon(Icons.Outlined.Info, contentDescription = strings.infoIconDesc)
+                Icon(Icons.Outlined.Info, contentDescription = strings.common.infoIconDesc)
             },
         )
         if (onCustomizeCover != null) {
             DropdownMenuItem(
-                text = { Text(strings.customizeCover) },
+                text = { Text(strings.reader.customizeCover) },
                 onClick = {
                     onCustomizeCover(book.id)
                     onDismiss()
                 },
                 leadingIcon = {
-                    Icon(Icons.Outlined.Palette, contentDescription = strings.customizeCover)
+                    Icon(Icons.Outlined.Palette, contentDescription = strings.reader.customizeCover)
                 },
             )
         }
         DropdownMenuItem(
-            text = { Text(strings.deleteBook, color = MaterialTheme.colorScheme.error) },
+            text = { Text(strings.bookshelf.deleteBook, color = MaterialTheme.colorScheme.error) },
             onClick = {
                 showDeleteDialog = true
             },
             leadingIcon = {
                 Icon(
                     Icons.Outlined.Delete,
-                    contentDescription = strings.deleteIconDesc,
+                    contentDescription = strings.common.deleteIconDesc,
                     tint = MaterialTheme.colorScheme.error,
                 )
             },
@@ -96,8 +96,8 @@ fun BookActionMenu(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text(strings.deleteBookTitle) },
-            text = { Text(strings.deleteBookConfirm(book.title)) },
+            title = { Text(strings.bookshelf.deleteBookTitle) },
+            text = { Text(strings.bookshelf.deleteBookConfirm(book.title)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -106,12 +106,12 @@ fun BookActionMenu(
                         onDismiss()
                     },
                 ) {
-                    Text(strings.deleteBook, color = MaterialTheme.colorScheme.error)
+                    Text(strings.bookshelf.deleteBook, color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text(strings.cancel)
+                    Text(strings.common.cancel)
                 }
             },
         )

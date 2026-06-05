@@ -17,9 +17,9 @@ fun FilterTabs(
 ) {
     val strings = LocalAppStrings.current
     val tabs = listOf(
-        FilterType.ALL to strings.filterAll,
-        FilterType.FINISHED to strings.filterFinished,
-        FilterType.FAVORITE to strings.filterFavorite,
+        FilterType.ALL to strings.bookshelf.filterAll,
+        FilterType.FINISHED to strings.bookshelf.filterFinished,
+        FilterType.FAVORITE to strings.bookshelf.filterFavorite,
     )
 
     TabRow(

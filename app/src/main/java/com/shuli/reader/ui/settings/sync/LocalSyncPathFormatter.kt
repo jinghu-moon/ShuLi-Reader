@@ -34,11 +34,11 @@ object LocalSyncPathFormatter {
         val pathPart = parts.getOrElse(1) { "" }
 
         val isPrimary = storageId == "primary"
-        val storageLabel = if (isPrimary) strings.internalStorage else strings.externalStorage
+        val storageLabel = if (isPrimary) strings.sync.internalStorage else strings.sync.externalStorage
 
         val displayPath = pathPart
             .replace("/", " / ")
-            .ifEmpty { strings.rootDirectory }
+            .ifEmpty { strings.sync.rootDirectory }
 
         return FormattedPath(
             displayPath = displayPath,

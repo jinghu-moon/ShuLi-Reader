@@ -259,7 +259,7 @@ fun ReaderScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = strings.loading,
+                        text = strings.common.loading,
                         style = MaterialTheme.typography.bodyLarge,
                         color = readerColors.textSecondary,
                     )
@@ -431,7 +431,7 @@ fun ReaderScreen(
                         TopAppBar(
                             title = {
                                 Text(
-                                    text = uiState.bookTitle.ifBlank { "${strings.appName} - #$bookId" },
+                                    text = uiState.bookTitle.ifBlank { "${strings.common.appName} - #$bookId" },
                                     style = MaterialTheme.typography.titleMedium,
                                     color = readerColors.textPrimary
                                 )
@@ -443,7 +443,7 @@ fun ReaderScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = strings.backIconDesc,
+                                        contentDescription = strings.common.backIconDesc,
                                         tint = readerColors.textPrimary
                                     )
                                 }
@@ -458,7 +458,7 @@ fun ReaderScreen(
                                 IconButton(onClick = viewModel::toggleSearch) {
                                     Icon(
                                         imageVector = Icons.Outlined.Search,
-                                        contentDescription = strings.search,
+                                        contentDescription = strings.common.search,
                                         tint = readerColors.textPrimary,
                                     )
                                 }
@@ -519,7 +519,7 @@ fun ReaderScreen(
                                 IconButton(
                                     onClick = { if (uiState.chapterIndex > 0) viewModel.openChapter(uiState.chapterIndex - 1) }
                                 ) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.previousChapter, tint = readerColors.textPrimary)
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.reader.previousChapter, tint = readerColors.textPrimary)
                                 }
                                 Text(
                                     text = uiState.chapterTitle,
@@ -533,7 +533,7 @@ fun ReaderScreen(
                                 IconButton(
                                     onClick = { if (uiState.chapterIndex + 1 < uiState.totalChapters) viewModel.openChapter(uiState.chapterIndex + 1) }
                                 ) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = strings.nextChapter, tint = readerColors.textPrimary)
+                                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = strings.reader.nextChapter, tint = readerColors.textPrimary)
                                 }
                             }
 
@@ -591,26 +591,26 @@ fun ReaderScreen(
                                     modifier = Modifier.testTag(UiTestTags.READER_DIRECTORY_BUTTON)
                                 ) {
                                     @Suppress("DEPRECATION")
-                                    Icon(Icons.Outlined.List, contentDescription = strings.directoryTab, tint = readerColors.textPrimary)
+                                    Icon(Icons.Outlined.List, contentDescription = strings.reader.directoryTab, tint = readerColors.textPrimary)
                                 }
                                 IconButton(onClick = { viewModel.cycleTheme() }) {
                                     val isDark = uiState.readerPreferences.backgroundColor == ReaderTheme.DARK
                                             || uiState.readerPreferences.backgroundColor == ReaderTheme.OLED
                                     Icon(
                                         imageVector = if (isDark) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
-                                        contentDescription = strings.themeModeLabel,
+                                        contentDescription = strings.common.themeModeLabel,
                                         tint = readerColors.textPrimary,
                                     )
                                 }
                                 IconButton(onClick = { viewModel.addBookmark() }) {
                                     Icon(
                                         Icons.Outlined.Bookmark,
-                                        contentDescription = strings.addBookmarkAction,
+                                        contentDescription = strings.reader.addBookmarkAction,
                                         tint = readerColors.textPrimary,
                                     )
                                 }
                                 IconButton(onClick = viewModel::toggleQuickSettings) {
-                                    Icon(Icons.Outlined.Settings, contentDescription = strings.readerPreferences, tint = readerColors.textPrimary)
+                                    Icon(Icons.Outlined.Settings, contentDescription = strings.reader.readerPreferences, tint = readerColors.textPrimary)
                                 }
                             }
                         }
@@ -778,7 +778,7 @@ private fun ReaderSelectionActionBar(
                 modifier = Modifier.testTag(UiTestTags.READER_COPY_SELECTION_BUTTON),
             ) {
                 Icon(Icons.Outlined.ContentCopy, contentDescription = null)
-                Text(strings.copySelection)
+                Text(strings.reader.copySelection)
             }
             FilledTonalButton(
                 onClick = onBookmark,
@@ -786,7 +786,7 @@ private fun ReaderSelectionActionBar(
                 modifier = Modifier.testTag(UiTestTags.READER_BOOKMARK_SELECTION_BUTTON),
             ) {
                 Icon(Icons.Outlined.Bookmark, contentDescription = null)
-                Text(strings.addBookmarkAction)
+                Text(strings.reader.addBookmarkAction)
             }
             FilledTonalButton(
                 onClick = onNote,
@@ -794,7 +794,7 @@ private fun ReaderSelectionActionBar(
                 modifier = Modifier.testTag(UiTestTags.READER_NOTE_SELECTION_BUTTON),
             ) {
                 Icon(Icons.AutoMirrored.Outlined.Note, contentDescription = null)
-                Text(strings.addNoteAction)
+                Text(strings.reader.addNoteAction)
             }
         }
     }
@@ -819,7 +819,7 @@ private fun ReaderSearchControls(
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = strings.previousSearchResult,
+                contentDescription = strings.common.previousSearchResult,
                 tint = readerColors.textPrimary,
             )
         }
@@ -835,7 +835,7 @@ private fun ReaderSearchControls(
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = strings.nextSearchResult,
+                contentDescription = strings.common.nextSearchResult,
                 tint = readerColors.textPrimary,
             )
         }
@@ -877,7 +877,7 @@ private fun ReaderSearchBar(
             IconButton(onClick = onClose) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = strings.backIconDesc,
+                    contentDescription = strings.common.backIconDesc,
                     tint = readerColors.textPrimary,
                 )
             }
@@ -885,7 +885,7 @@ private fun ReaderSearchBar(
                 value = query,
                 onValueChange = { query = it },
                 placeholder = {
-                    Text(strings.search, color = readerColors.textTertiary)
+                    Text(strings.common.search, color = readerColors.textTertiary)
                 },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
@@ -909,7 +909,7 @@ private fun ReaderSearchBar(
             IconButton(onClick = { onSearch(query) }) {
                 Icon(
                     imageVector = Icons.Outlined.Search,
-                    contentDescription = strings.search,
+                    contentDescription = strings.common.search,
                     tint = readerColors.textPrimary,
                 )
             }

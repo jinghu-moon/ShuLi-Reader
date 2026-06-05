@@ -43,22 +43,22 @@ fun ConflictResolutionDialog(
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalAppStrings.current
-    val deviceDisplayName = remoteDeviceName ?: strings.otherDevice
+    val deviceDisplayName = remoteDeviceName ?: strings.sync.otherDevice
 
     AlertDialog(
         onDismissRequest = onSkip,
-        title = { Text(strings.readingProgressConflict) },
+        title = { Text(strings.sync.readingProgressConflict) },
         text = {
             Column {
                 Text(
-                    text = strings.conflictDetectedMessage(deviceDisplayName),
+                    text = strings.sync.conflictDetectedMessage(deviceDisplayName),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(16.dp))
 
                 // 本地进度
                 ProgressCard(
-                    label = strings.thisDevice,
+                    label = strings.sync.thisDevice,
                     state = localState,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -75,12 +75,12 @@ fun ConflictResolutionDialog(
         },
         confirmButton = {
             TextButton(onClick = onKeepLocal) {
-                Text(strings.keepLocal)
+                Text(strings.sync.keepLocal)
             }
         },
         dismissButton = {
             TextButton(onClick = onUseRemote) {
-                Text(strings.useRemote)
+                Text(strings.sync.useRemote)
             }
         },
         modifier = modifier,
@@ -109,12 +109,12 @@ private fun ProgressCard(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = strings.progressPosition(state.chapterIndex + 1, state.byteOffset),
+                text = strings.sync.progressPosition(state.chapterIndex + 1, state.byteOffset),
                 style = MaterialTheme.typography.bodySmall,
             )
             if (state.updatedAt > 0) {
                 Text(
-                    text = "${strings.updatedAtLabel}: ${dateFormat.format(Date(state.updatedAt))}",
+                    text = "${strings.sync.updatedAtLabel}: ${dateFormat.format(Date(state.updatedAt))}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

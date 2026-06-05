@@ -65,7 +65,7 @@ class ZipImporter(
             val manifestData = entries["manifest.json.zst"] ?: entries["manifest.json"]
             manifestData
                 ?.let { json.parseToJsonElement(it).jsonObject }
-                ?: throw IllegalArgumentException(strings.zipMissingManifest)
+                ?: throw IllegalArgumentException(strings.sync.zipMissingManifest)
 
             // 解析 bookmarks - 支持 .json.zst 和 .json 两种格式
             val zipBookmarks = mutableListOf<BookmarkEntity>()
@@ -155,7 +155,7 @@ class ZipImporter(
      */
     private fun readEncryptedZipEntries(zipFile: File, password: String): Map<String, String> {
         val fileBytes = zipFile.readBytes()
-        require(fileBytes.size > 16 + 12 + 16) { strings.invalidEncryptedFileFormat }
+        require(fileBytes.size > 16 + 12 + 16) { strings.sync.invalidEncryptedFileFormat }
 
         // 提取 salt
         val salt = fileBytes.copyOfRange(0, 16)
@@ -176,7 +176,7 @@ class ZipImporter(
         val decryptedBytes = try {
             cipher.decrypt(encryptedData, key)
         } catch (e: Exception) {
-            throw IllegalArgumentException(strings.decryptFailedPasswordWrong, e)
+            throw IllegalArgumentException(strings.sync.decryptFailedPasswordWrong, e)
         }
 
         // ZSTD 解压（加密格式：zstd(zip_data)）

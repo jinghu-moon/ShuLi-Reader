@@ -49,8 +49,8 @@ class SyncLogViewModel(
         return logs.groupBy { entry ->
             val date = dateFormat.format(Date(entry.timestamp))
             when (date) {
-                today -> strings.today
-                yesterday -> strings.yesterday
+                today -> strings.sync.today
+                yesterday -> strings.sync.yesterday
                 else -> date
             }
         }

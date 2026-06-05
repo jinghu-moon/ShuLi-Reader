@@ -146,7 +146,7 @@ class SettingsViewModel(
                     _events.emit(SettingsEvent.Recreate)
                 }
             }.onFailure {
-                _events.emit(SettingsEvent.ShowMessage { it.saveFailed })
+                _events.emit(SettingsEvent.ShowMessage { it.reader.saveFailed })
             }
         }
     }

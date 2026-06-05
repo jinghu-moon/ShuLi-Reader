@@ -43,10 +43,10 @@ class ConflictDialogViewModel(
          * 优先使用 model，如果为空则使用 deviceId 的前 6 位作为 fallback。
          */
         fun getDeviceDisplayName(deviceInfo: DeviceInfo?, strings: AppStrings = AppStrings.ZhHans): String {
-            if (deviceInfo == null) return strings.otherDevice
+            if (deviceInfo == null) return strings.sync.otherDevice
             if (deviceInfo.model.isNotBlank()) return deviceInfo.model
             val shortId = deviceInfo.deviceId.take(6)
-            return strings.deviceFallbackName(shortId)
+            return strings.sync.deviceFallbackName(shortId)
         }
     }
 }

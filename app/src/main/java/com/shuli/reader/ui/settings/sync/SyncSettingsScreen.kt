@@ -67,10 +67,10 @@ fun SyncSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(strings.syncAndBackup, fontWeight = FontWeight.Bold) },
+                title = { Text(strings.sync.syncAndBackup, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.common.backIconDesc)
                     }
                 },
             )
@@ -97,32 +97,32 @@ fun SyncSettingsScreen(
                     Column {
                         SyncNavigationItem(
                             icon = Icons.Outlined.Cloud,
-                            title = strings.cloudSyncConfig,
-                            subtitle = strings.webdavServerSettings,
+                            title = strings.sync.cloudSyncConfig,
+                            subtitle = strings.sync.webdavServerSettings,
                             onClick = onNavigateToCloudSync,
                         )
                         SyncNavigationItem(
                             icon = Icons.Outlined.Lock,
-                            title = strings.encryptionManagement,
-                            subtitle = strings.e2eeStatus,
+                            title = strings.encryption.encryptionManagement,
+                            subtitle = strings.sync.e2eeStatus,
                             onClick = onNavigateToEncryption,
                         )
                         SyncNavigationItem(
                             icon = Icons.Outlined.Devices,
-                            title = strings.syncedDevices,
-                            subtitle = strings.manageRegisteredDevices,
+                            title = strings.sync.syncedDevices,
+                            subtitle = strings.sync.manageRegisteredDevices,
                             onClick = onNavigateToDevices,
                         )
                         SyncNavigationItem(
                             icon = Icons.Outlined.History,
-                            title = strings.syncLog,
-                            subtitle = strings.viewSyncHistory,
+                            title = strings.sync.syncLog,
+                            subtitle = strings.sync.viewSyncHistory,
                             onClick = onNavigateToLogs,
                         )
                         SyncNavigationItem(
                             icon = Icons.Outlined.FileDownload,
-                            title = strings.exportData,
-                            subtitle = strings.exportBookmarksNotesProgress,
+                            title = strings.sync.exportData,
+                            subtitle = strings.sync.exportBookmarksNotesProgress,
                             onClick = onNavigateToExport,
                         )
                     }
@@ -160,12 +160,12 @@ private fun SyncSummaryCard(
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = strings.syncStatus,
+                        text = strings.sync.syncStatus,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = uiState.statusText.ifEmpty { strings.ready },
+                        text = uiState.statusText.ifEmpty { strings.sync.ready },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -174,7 +174,7 @@ private fun SyncSummaryCard(
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 } else {
                     androidx.compose.material3.TextButton(onClick = onSyncClick) {
-                        Text(strings.syncNow)
+                        Text(strings.sync.syncNow)
                     }
                 }
             }
@@ -204,11 +204,11 @@ private fun SyncErrorBanner(
 ) {
     val strings = LocalAppStrings.current
     val (message, color) = when (errorType) {
-        SyncErrorType.AUTH_FAILED -> strings.authFailedCheckCredentials to MaterialTheme.colorScheme.error
-        SyncErrorType.NETWORK_ERROR -> strings.networkConnectionFailed to MaterialTheme.colorScheme.error
-        SyncErrorType.RATE_LIMITED -> strings.rateLimitedRetryLater to MaterialTheme.colorScheme.tertiary
-        SyncErrorType.CRYPTO_LOCKED -> strings.cryptoLockedVerifyPassword to MaterialTheme.colorScheme.tertiary
-        SyncErrorType.UNKNOWN -> strings.unknownError to MaterialTheme.colorScheme.error
+        SyncErrorType.AUTH_FAILED -> strings.sync.authFailedCheckCredentials to MaterialTheme.colorScheme.error
+        SyncErrorType.NETWORK_ERROR -> strings.sync.networkConnectionFailed to MaterialTheme.colorScheme.error
+        SyncErrorType.RATE_LIMITED -> strings.sync.rateLimitedRetryLater to MaterialTheme.colorScheme.tertiary
+        SyncErrorType.CRYPTO_LOCKED -> strings.sync.cryptoLockedVerifyPassword to MaterialTheme.colorScheme.tertiary
+        SyncErrorType.UNKNOWN -> strings.sync.unknownError to MaterialTheme.colorScheme.error
         SyncErrorType.NONE -> return
     }
 

@@ -78,7 +78,7 @@ fun ExportBottomSheet(
                 .padding(bottom = 32.dp),
         ) {
             Text(
-                text = strings.exportData,
+                text = strings.sync.exportData,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
@@ -86,16 +86,16 @@ fun ExportBottomSheet(
 
             // 导出内容选择
             Text(
-                text = strings.selectExportContent,
+                text = strings.sync.selectExportContent,
                 style = MaterialTheme.typography.bodyMedium,
             )
             Spacer(Modifier.height(8.dp))
 
-            ExportOptionCheckbox(text = strings.bookFiles, checked = includeBookFiles, onCheckedChange = { includeBookFiles = it })
-            ExportOptionCheckbox(text = strings.bookmarks, checked = includeBookmarks, onCheckedChange = { includeBookmarks = it })
-            ExportOptionCheckbox(text = strings.notes, checked = includeNotes, onCheckedChange = { includeNotes = it })
-            ExportOptionCheckbox(text = strings.readingProgressExport, checked = includeProgress, onCheckedChange = { includeProgress = it })
-            ExportOptionCheckbox(text = strings.readerConfig, checked = includeConfig, onCheckedChange = { includeConfig = it })
+            ExportOptionCheckbox(text = strings.sync.bookFiles, checked = includeBookFiles, onCheckedChange = { includeBookFiles = it })
+            ExportOptionCheckbox(text = strings.sync.bookmarks, checked = includeBookmarks, onCheckedChange = { includeBookmarks = it })
+            ExportOptionCheckbox(text = strings.sync.notes, checked = includeNotes, onCheckedChange = { includeNotes = it })
+            ExportOptionCheckbox(text = strings.sync.readingProgressExport, checked = includeProgress, onCheckedChange = { includeProgress = it })
+            ExportOptionCheckbox(text = strings.sync.readerConfig, checked = includeConfig, onCheckedChange = { includeConfig = it })
 
             Spacer(Modifier.height(16.dp))
 
@@ -104,11 +104,11 @@ fun ExportBottomSheet(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
-                    Text(strings.estimatingSize, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(strings.sync.estimatingSize, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else if (estimatedSize != null) {
                 Text(
-                    text = strings.estimatedSize(estimatedSize),
+                    text = strings.sync.estimatedSize(estimatedSize),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -122,7 +122,7 @@ fun ExportBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    text = strings.encryptedExport,
+                    text = strings.sync.encryptedExport,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
@@ -151,7 +151,7 @@ fun ExportBottomSheet(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = strings.rememberExportPassword,
+                            text = strings.sync.rememberExportPassword,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
@@ -162,7 +162,7 @@ fun ExportBottomSheet(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text(strings.password) },
+                    label = { Text(strings.sync.password) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
@@ -171,7 +171,7 @@ fun ExportBottomSheet(
                 OutlinedTextField(
                     value = confirmPassword,
                     onValueChange = { confirmPassword = it },
-                    label = { Text(strings.passwordConfirm) },
+                    label = { Text(strings.sync.passwordConfirm) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     isError = useEncryption && password.isNotEmpty() && !passwordsMatch,
@@ -179,7 +179,7 @@ fun ExportBottomSheet(
                 )
                 if (useEncryption && password.isNotEmpty() && !passwordsMatch) {
                     Text(
-                        text = strings.passwordMismatch,
+                        text = strings.encryption.passwordMismatch,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(start = 16.dp, top = 4.dp),
@@ -205,7 +205,7 @@ fun ExportBottomSheet(
                 enabled = canExport,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(strings.export)
+                Text(strings.sync.export)
             }
         }
     }

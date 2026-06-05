@@ -69,10 +69,10 @@ fun EncryptionManagementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(strings.encryptionManagement, fontWeight = FontWeight.Bold) },
+                title = { Text(strings.encryption.encryptionManagement, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.common.backIconDesc)
                     }
                 },
             )
@@ -100,8 +100,8 @@ fun EncryptionManagementScreen(
                 // warn-card: 密码丢失提示
                 item {
                     WarnCard(
-                        title = strings.rememberEncryptionPassword,
-                        message = strings.rememberEncryptionPasswordDesc,
+                        title = strings.encryption.rememberEncryptionPassword,
+                        message = strings.encryption.rememberEncryptionPasswordDesc,
                     )
                 }
 
@@ -113,14 +113,14 @@ fun EncryptionManagementScreen(
                                 onClick = { showVerifyDialog = true },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text(strings.verifyPassword)
+                                Text(strings.encryption.verifyPassword)
                             }
                             Spacer(Modifier.height(8.dp))
                             OutlinedButton(
                                 onClick = { showChangePasswordDialog = true },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text(strings.changePassword)
+                                Text(strings.encryption.changePassword)
                             }
                         }
                     }
@@ -131,12 +131,12 @@ fun EncryptionManagementScreen(
                     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                text = strings.e2eeNotEnabled,
+                                text = strings.encryption.e2eeNotEnabled,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = strings.e2eeNotEnabledDesc,
+                                text = strings.encryption.e2eeNotEnabledDesc,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -145,7 +145,7 @@ fun EncryptionManagementScreen(
                                 onClick = { showChangePasswordDialog = true },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text(strings.enableEncryption)
+                                Text(strings.encryption.enableEncryption)
                             }
                         }
                     }
@@ -214,12 +214,12 @@ private fun EncryptionStatusCard(
             Spacer(Modifier.width(16.dp))
             Column {
                 Text(
-                    text = if (info.isEnabled) strings.encryptionEnabled else strings.encryptionDisabled,
+                    text = if (info.isEnabled) strings.encryption.encryptionEnabled else strings.encryption.encryptionDisabled,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = if (info.isEnabled) strings.e2eeProtectsSyncData else strings.dataSyncedInPlaintext,
+                    text = if (info.isEnabled) strings.encryption.e2eeProtectsSyncData else strings.encryption.dataSyncedInPlaintext,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -239,16 +239,16 @@ private fun AlgorithmDetailsCard(
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)), modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = strings.algorithmDetails,
+                text = strings.encryption.algorithmDetails,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
             Spacer(Modifier.height(12.dp))
-            DetailRow(label = strings.encryptionAlgorithm, value = info.algorithm.ifEmpty { "AES-256-GCM" })
-            DetailRow(label = strings.kdfIterations, value = info.kdfIterations.toString())
-            DetailRow(label = strings.keyVersion, value = info.keyVersion.toString())
+            DetailRow(label = strings.encryption.encryptionAlgorithm, value = info.algorithm.ifEmpty { "AES-256-GCM" })
+            DetailRow(label = strings.encryption.kdfIterations, value = info.kdfIterations.toString())
+            DetailRow(label = strings.encryption.keyVersion, value = info.keyVersion.toString())
             if (info.createdAt > 0) {
-                DetailRow(label = strings.createdAt, value = dateFormat.format(Date(info.createdAt)))
+                DetailRow(label = strings.encryption.createdAt, value = dateFormat.format(Date(info.createdAt)))
             }
         }
     }
@@ -321,15 +321,15 @@ private fun VerifyPasswordDialog(
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(strings.verifyPassword) },
+        title = { Text(strings.encryption.verifyPassword) },
         text = {
             Column {
-                Text(strings.inputPasswordToVerify, style = MaterialTheme.typography.bodyMedium)
+                Text(strings.encryption.inputPasswordToVerify, style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text(strings.encryptionPassword) },
+                    label = { Text(strings.encryption.encryptionPassword) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
@@ -337,10 +337,10 @@ private fun VerifyPasswordDialog(
                 if (verifyResult != null) {
                     Spacer(Modifier.height(8.dp))
                     val (text, color) = when (verifyResult) {
-                        PasswordVerifyResult.SUCCESS -> strings.verifySuccess to MaterialTheme.colorScheme.primary
-                        PasswordVerifyResult.WRONG_PASSWORD -> strings.passwordWrong to MaterialTheme.colorScheme.error
-                        PasswordVerifyResult.NO_ENCRYPTION -> strings.encryptionNotEnabled to MaterialTheme.colorScheme.onSurfaceVariant
-                        PasswordVerifyResult.ERROR -> strings.verifyError to MaterialTheme.colorScheme.error
+                        PasswordVerifyResult.SUCCESS -> strings.encryption.verifySuccess to MaterialTheme.colorScheme.primary
+                        PasswordVerifyResult.WRONG_PASSWORD -> strings.encryption.passwordWrong to MaterialTheme.colorScheme.error
+                        PasswordVerifyResult.NO_ENCRYPTION -> strings.encryption.encryptionNotEnabled to MaterialTheme.colorScheme.onSurfaceVariant
+                        PasswordVerifyResult.ERROR -> strings.encryption.verifyError to MaterialTheme.colorScheme.error
                     }
                     Text(text = text, style = MaterialTheme.typography.bodySmall, color = color)
                 }
@@ -354,12 +354,12 @@ private fun VerifyPasswordDialog(
                 },
                 enabled = password.isNotEmpty(),
             ) {
-                Text(strings.verify)
+                Text(strings.encryption.verify)
             }
         },
         dismissButton = {
             androidx.compose.material3.TextButton(onClick = onDismiss) {
-                Text(strings.cancel)
+                Text(strings.common.cancel)
             }
         },
     )
@@ -379,14 +379,14 @@ private fun ChangePasswordDialog(
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isEncryptionEnabled) strings.changePassword else strings.setEncryptionPassword) },
+        title = { Text(if (isEncryptionEnabled) strings.encryption.changePassword else strings.encryption.setEncryptionPassword) },
         text = {
             Column {
                 if (isEncryptionEnabled) {
                     OutlinedTextField(
                         value = oldPassword,
                         onValueChange = { oldPassword = it },
-                        label = { Text(strings.oldPassword) },
+                        label = { Text(strings.encryption.oldPassword) },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
@@ -396,7 +396,7 @@ private fun ChangePasswordDialog(
                 OutlinedTextField(
                     value = newPassword,
                     onValueChange = { newPassword = it },
-                    label = { Text(strings.newPassword) },
+                    label = { Text(strings.encryption.newPassword) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
@@ -405,7 +405,7 @@ private fun ChangePasswordDialog(
                 OutlinedTextField(
                     value = confirmPassword,
                     onValueChange = { confirmPassword = it },
-                    label = { Text(strings.confirmNewPassword) },
+                    label = { Text(strings.encryption.confirmNewPassword) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     isError = newPassword.isNotEmpty() && !passwordsMatch,
@@ -413,7 +413,7 @@ private fun ChangePasswordDialog(
                 )
                 if (newPassword.isNotEmpty() && !passwordsMatch) {
                     Text(
-                        text = strings.passwordMismatch,
+                        text = strings.encryption.passwordMismatch,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(start = 16.dp, top = 4.dp),
@@ -427,12 +427,12 @@ private fun ChangePasswordDialog(
                 enabled = newPassword.isNotEmpty() && passwordsMatch &&
                     (!isEncryptionEnabled || oldPassword.isNotEmpty()),
             ) {
-                Text(if (isEncryptionEnabled) strings.confirmChange else strings.confirmSet)
+                Text(if (isEncryptionEnabled) strings.encryption.confirmChange else strings.encryption.confirmSet)
             }
         },
         dismissButton = {
             androidx.compose.material3.TextButton(onClick = onDismiss) {
-                Text(strings.cancel)
+                Text(strings.common.cancel)
             }
         },
     )

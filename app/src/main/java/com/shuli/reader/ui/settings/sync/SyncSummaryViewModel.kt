@@ -31,28 +31,28 @@ class SyncSummaryViewModel(
         scope.launch {
             stateMachine.state.collect { state ->
                 _cloudSyncUiState.value = when (state) {
-                    SyncState.IDLE -> CloudSyncCardUiState(isLoading = false, statusText = strings.ready)
-                    SyncState.SCANNING -> CloudSyncCardUiState(isLoading = true, statusText = strings.scanningLocalChanges)
-                    SyncState.DOWNLOADING -> CloudSyncCardUiState(isLoading = true, statusText = strings.downloadingRemoteData)
-                    SyncState.MERGING -> CloudSyncCardUiState(isLoading = true, statusText = strings.mergingData)
-                    SyncState.UPLOADING -> CloudSyncCardUiState(isLoading = true, statusText = strings.uploadingBookmarksNotes)
-                    SyncState.SUCCESS -> CloudSyncCardUiState(isLoading = false, statusText = strings.syncComplete)
+                    SyncState.IDLE -> CloudSyncCardUiState(isLoading = false, statusText = strings.sync.ready)
+                    SyncState.SCANNING -> CloudSyncCardUiState(isLoading = true, statusText = strings.sync.scanningLocalChanges)
+                    SyncState.DOWNLOADING -> CloudSyncCardUiState(isLoading = true, statusText = strings.sync.downloadingRemoteData)
+                    SyncState.MERGING -> CloudSyncCardUiState(isLoading = true, statusText = strings.sync.mergingData)
+                    SyncState.UPLOADING -> CloudSyncCardUiState(isLoading = true, statusText = strings.sync.uploadingBookmarksNotes)
+                    SyncState.SUCCESS -> CloudSyncCardUiState(isLoading = false, statusText = strings.sync.syncComplete)
                     SyncState.FAILED -> CloudSyncCardUiState(
                         isLoading = false,
-                        statusText = strings.syncFailed,
+                        statusText = strings.sync.syncFailed,
                         errorType = SyncErrorType.AUTH_FAILED,
                     )
                     SyncState.RATE_LIMITED -> CloudSyncCardUiState(
                         isLoading = false,
-                        statusText = strings.rateLimitedWaitRetry,
+                        statusText = strings.sync.rateLimitedWaitRetry,
                         errorType = SyncErrorType.RATE_LIMITED,
                         rateLimitRetryAfterMs = 30000L,
                         showRateLimitLinks = true,
                     )
-                    SyncState.WAITING_RETRY -> CloudSyncCardUiState(isLoading = false, statusText = strings.waitingRetry)
+                    SyncState.WAITING_RETRY -> CloudSyncCardUiState(isLoading = false, statusText = strings.sync.waitingRetry)
                     SyncState.CRYPTO_LOCKED -> CloudSyncCardUiState(
                         isLoading = false,
-                        statusText = strings.cryptoLocked,
+                        statusText = strings.sync.cryptoLocked,
                         errorType = SyncErrorType.CRYPTO_LOCKED,
                         requiresPasswordInput = true,
                     )

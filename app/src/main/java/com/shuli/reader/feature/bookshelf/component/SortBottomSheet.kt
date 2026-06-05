@@ -56,7 +56,7 @@ fun SortBottomSheet(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = strings.sortTitle,
+                text = strings.bookshelf.sortTitle,
                 style = MaterialTheme.typography.titleMedium,
             )
 
@@ -67,7 +67,7 @@ fun SortBottomSheet(
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(2.dp)
             ) {
-                listOf(false to strings.sortDescending, true to strings.sortAscending).forEach { (asc, label) ->
+                listOf(false to strings.bookshelf.sortDescending, true to strings.bookshelf.sortAscending).forEach { (asc, label) ->
                     val isSelected = isAscending == asc
                     Box(
                         modifier = Modifier
@@ -89,11 +89,11 @@ fun SortBottomSheet(
         }
 
         val options = listOf(
-            SortOrder.LAST_READ to strings.sortLastRead,
-            SortOrder.ADD_TIME to strings.sortAddTime,
-            SortOrder.TITLE to strings.sortBookTitle,
-            SortOrder.FILE_SIZE to strings.sortReadingTime,
-            SortOrder.PROGRESS to strings.sortReadingProgress,
+            SortOrder.LAST_READ to strings.bookshelf.sortLastRead,
+            SortOrder.ADD_TIME to strings.bookshelf.sortAddTime,
+            SortOrder.TITLE to strings.bookshelf.sortBookTitle,
+            SortOrder.FILE_SIZE to strings.bookshelf.sortReadingTime,
+            SortOrder.PROGRESS to strings.bookshelf.sortReadingProgress,
         )
 
         LazyColumn(

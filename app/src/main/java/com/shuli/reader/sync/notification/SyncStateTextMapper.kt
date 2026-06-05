@@ -11,15 +11,15 @@ object SyncStateTextMapper {
     fun map(state: SyncState, strings: AppStrings): String {
         return when (state) {
             SyncState.IDLE -> ""
-            SyncState.SCANNING -> strings.scanningLocalChanges
-            SyncState.DOWNLOADING -> strings.downloadingRemoteData
-            SyncState.MERGING -> strings.mergingData
-            SyncState.UPLOADING -> strings.uploadingBookmarksNotes
-            SyncState.SUCCESS -> strings.syncComplete
-            SyncState.FAILED -> strings.syncFailed
-            SyncState.RATE_LIMITED -> strings.rateLimitedWaitRetry
-            SyncState.WAITING_RETRY -> strings.waitingRetry
-            SyncState.CRYPTO_LOCKED -> strings.cryptoLocked
+            SyncState.SCANNING -> strings.sync.scanningLocalChanges
+            SyncState.DOWNLOADING -> strings.sync.downloadingRemoteData
+            SyncState.MERGING -> strings.sync.mergingData
+            SyncState.UPLOADING -> strings.sync.uploadingBookmarksNotes
+            SyncState.SUCCESS -> strings.sync.syncComplete
+            SyncState.FAILED -> strings.sync.syncFailed
+            SyncState.RATE_LIMITED -> strings.sync.rateLimitedWaitRetry
+            SyncState.WAITING_RETRY -> strings.sync.waitingRetry
+            SyncState.CRYPTO_LOCKED -> strings.sync.cryptoLocked
         }
     }
 }

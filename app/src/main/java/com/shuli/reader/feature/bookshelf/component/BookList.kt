@@ -241,7 +241,7 @@ private fun BookListItem(
         if (book.coverUrl != null) {
             AsyncImage(
                 model = book.coverUrl,
-                contentDescription = strings.coverImageDesc,
+                contentDescription = strings.common.coverImageDesc,
                 modifier = Modifier
                     .width(48.dp)
                     .height(64.dp)
@@ -284,7 +284,7 @@ private fun BookListItem(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = if (book.readingProgress > 0f)
-                        strings.readProgress((book.readingProgress * 100).toInt()) else strings.notStartedLabel,
+                        strings.bookshelf.readProgress((book.readingProgress * 100).toInt()) else strings.bookshelf.notStartedLabel,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -301,7 +301,7 @@ private fun BookListItem(
         if (book.isFavorite) {
             Icon(
                 imageVector = Icons.Filled.Star,
-                contentDescription = strings.favoritedDesc,
+                contentDescription = strings.bookshelf.favoritedDesc,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(18.dp),
             )

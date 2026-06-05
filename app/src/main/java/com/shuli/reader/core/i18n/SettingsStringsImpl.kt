@@ -1,0 +1,88 @@
+package com.shuli.reader.core.i18n
+
+/** 简体中文 — 高级设置、关于、阅读统计字符串 */
+internal data object ZhHansSettings : SettingsStrings {
+    override val advancedSettings = "高级设置"
+    override val gpuAcceleration = "GPU 硬件加速"
+    override val loggingEnabled = "调试运行日志"
+    override val resetAllSettings = "重置所有设置"
+    override val resetAllSettingsDesc = "将应用设置项全部恢复为默认值"
+    override val settingsResetSuccess = "设置重置成功"
+    override val chapterFullText = "全文"
+    override val aboutLabel = "关于与版权"
+    override val versionLabel = "软件版本"
+    override val developerLabel = "开发者"
+    override val feedbackLabel = "反馈建议"
+    override val licenseLabel = "开源许可证 (AGPL-3.0)"
+    override val checkUpdate = "检查更新"
+    override val readingStats = "阅读统计"
+    override val statsEnable = "阅读时长统计"
+    override val statsEnableDesc = "开启记录每日/每周/每月阅读时长"
+    override val statsDailyTarget = "每日阅读目标"
+    override val resetStats = "重置统计数据"
+    override val resetStatsDesc = "清除本地所有阅读记录"
+    override val viewStatsReport = "查看详细阅读报告"
+    override val statsTitle = "阅读统计看板"
+    override val totalBooksCount = "藏书总数"
+    override val totalReadingTime = "累计阅读时长"
+    override val todayReadingProgress = "今日阅读进度"
+    override val readingTargetMinutes = { minutes: Int -> "$minutes 分钟" }
+}
+
+/** 繁体中文 — 高级设置、关于、阅读统计字符串 */
+internal data object ZhHantSettings : SettingsStrings {
+    override val advancedSettings = "高級設定"
+    override val gpuAcceleration = "GPU 硬體加速"
+    override val loggingEnabled = "調試運行日誌"
+    override val resetAllSettings = "重置所有設定"
+    override val resetAllSettingsDesc = "將應用程式設定全部恢復為預設值"
+    override val settingsResetSuccess = "設定重置成功"
+    override val chapterFullText = "全文"
+    override val aboutLabel = "關於與版權"
+    override val versionLabel = "軟體版本"
+    override val developerLabel = "開發者"
+    override val feedbackLabel = "反饋建議"
+    override val licenseLabel = "開源許可證 (AGPL-3.0)"
+    override val checkUpdate = "檢查更新"
+    override val readingStats = "閱讀統計"
+    override val statsEnable = "閱讀時長統計"
+    override val statsEnableDesc = "開啟記錄每日/每週/每月閱讀時長"
+    override val statsDailyTarget = "每日閱讀目標"
+    override val resetStats = "重置統計數據"
+    override val resetStatsDesc = "清除本地所有閱讀記錄"
+    override val viewStatsReport = "查看詳細閱讀報告"
+    override val statsTitle = "閱讀統計看板"
+    override val totalBooksCount = "藏書總數"
+    override val totalReadingTime = "累計閱讀時長"
+    override val todayReadingProgress = "今日閱讀進度"
+    override val readingTargetMinutes = { minutes: Int -> "$minutes 分鐘" }
+}
+
+/** English — Settings, about, reading stats strings */
+internal data object EnSettings : SettingsStrings {
+    override val advancedSettings = "Advanced"
+    override val gpuAcceleration = "GPU Hardware Acceleration"
+    override val loggingEnabled = "Debug Log Recording"
+    override val resetAllSettings = "Reset All Settings"
+    override val resetAllSettingsDesc = "Restore all settings to system default values"
+    override val settingsResetSuccess = "Settings reset successfully"
+    override val chapterFullText = "Full Text"
+    override val aboutLabel = "About & Copyright"
+    override val versionLabel = "Software Version"
+    override val developerLabel = "Developer"
+    override val feedbackLabel = "Feedback"
+    override val licenseLabel = "License (AGPL-3.0)"
+    override val checkUpdate = "Check for Update"
+    override val readingStats = "Reading Stats"
+    override val statsEnable = "Track Reading Time"
+    override val statsEnableDesc = "Record and analyze daily/weekly/monthly reading durations"
+    override val statsDailyTarget = "Daily Reading Goal"
+    override val resetStats = "Reset Statistics"
+    override val resetStatsDesc = "Clear all reading duration logs from this device"
+    override val viewStatsReport = "View Details"
+    override val statsTitle = "Reading Statistics"
+    override val totalBooksCount = "Total Books"
+    override val totalReadingTime = "Accumulated Time"
+    override val todayReadingProgress = "Today's Progress"
+    override val readingTargetMinutes = { minutes: Int -> "$minutes min" }
+}

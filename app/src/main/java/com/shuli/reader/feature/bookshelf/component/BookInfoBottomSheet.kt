@@ -38,20 +38,20 @@ fun BookInfoBottomSheet(
         ) {
             // 标题
             Text(
-                text = strings.bookInfo,
+                text = strings.bookshelf.bookInfo,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 16.dp),
             )
 
             // 信息列表
-            InfoItem(label = strings.bookTitleLabel, value = book.title)
-            InfoItem(label = strings.bookAuthorLabel, value = book.author ?: strings.unknownAuthor)
-            InfoItem(label = strings.bookFormatLabel, value = if (book.fileType == FileType.TXT) "TXT" else "EPUB")
-            InfoItem(label = strings.bookSizeLabel, value = book.fileSize)
-            InfoItem(label = strings.bookProgressLabel, value = "${(book.readingProgress * 100).toInt()}%")
-            InfoItem(label = strings.readingDurationLabel, value = book.readingDuration.ifEmpty { strings.notReadYet })
-            InfoItem(label = strings.filePathLabel, value = book.filePath)
+            InfoItem(label = strings.bookshelf.bookTitleLabel, value = book.title)
+            InfoItem(label = strings.bookshelf.bookAuthorLabel, value = book.author ?: strings.bookshelf.unknownAuthor)
+            InfoItem(label = strings.bookshelf.bookFormatLabel, value = if (book.fileType == FileType.TXT) "TXT" else "EPUB")
+            InfoItem(label = strings.bookshelf.bookSizeLabel, value = book.fileSize)
+            InfoItem(label = strings.bookshelf.bookProgressLabel, value = "${(book.readingProgress * 100).toInt()}%")
+            InfoItem(label = strings.bookshelf.readingDurationLabel, value = book.readingDuration.ifEmpty { strings.bookshelf.notReadYet })
+            InfoItem(label = strings.bookshelf.filePathLabel, value = book.filePath)
 
             // 底部间距
             Spacer(modifier = Modifier.height(16.dp))

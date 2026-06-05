@@ -53,37 +53,37 @@ fun ExportDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(strings.exportData) },
+        title = { Text(strings.sync.exportData) },
         text = {
             Column {
                 Text(
-                    text = strings.selectExportContent,
+                    text = strings.sync.selectExportContent,
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(8.dp))
 
                 ExportOptionCheckbox(
-                    text = strings.bookFiles,
+                    text = strings.sync.bookFiles,
                     checked = includeBookFiles,
                     onCheckedChange = { includeBookFiles = it },
                 )
                 ExportOptionCheckbox(
-                    text = strings.bookmarks,
+                    text = strings.sync.bookmarks,
                     checked = includeBookmarks,
                     onCheckedChange = { includeBookmarks = it },
                 )
                 ExportOptionCheckbox(
-                    text = strings.notes,
+                    text = strings.sync.notes,
                     checked = includeNotes,
                     onCheckedChange = { includeNotes = it },
                 )
                 ExportOptionCheckbox(
-                    text = strings.readingProgressExport,
+                    text = strings.sync.readingProgressExport,
                     checked = includeProgress,
                     onCheckedChange = { includeProgress = it },
                 )
                 ExportOptionCheckbox(
-                    text = strings.readerConfig,
+                    text = strings.sync.readerConfig,
                     checked = includeConfig,
                     onCheckedChange = { includeConfig = it },
                 )
@@ -96,7 +96,7 @@ fun ExportDialog(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
-                        text = strings.encryptedExport,
+                        text = strings.sync.encryptedExport,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f),
                     )
@@ -111,7 +111,7 @@ fun ExportDialog(
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text(strings.password) },
+                        label = { Text(strings.sync.password) },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
@@ -120,7 +120,7 @@ fun ExportDialog(
                     OutlinedTextField(
                         value = confirmPassword,
                         onValueChange = { confirmPassword = it },
-                        label = { Text(strings.passwordConfirm) },
+                        label = { Text(strings.sync.passwordConfirm) },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         isError = useEncryption && password.isNotEmpty() && !passwordsMatch,
@@ -128,7 +128,7 @@ fun ExportDialog(
                     )
                     if (useEncryption && password.isNotEmpty() && !passwordsMatch) {
                         Text(
-                            text = strings.passwordMismatch,
+                            text = strings.encryption.passwordMismatch,
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(start = 16.dp, top = 4.dp),
@@ -152,12 +152,12 @@ fun ExportDialog(
                 },
                 enabled = canExport,
             ) {
-                Text(strings.export)
+                Text(strings.sync.export)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(strings.cancel)
+                Text(strings.common.cancel)
             }
         },
         modifier = modifier,

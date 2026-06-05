@@ -66,7 +66,7 @@ fun SyncInProgressCard(
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = strings.syncing,
+                        text = strings.sync.syncing,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -104,14 +104,14 @@ fun SyncInProgressCard(
                 onClick = onCancel,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(strings.cancelSync)
+                Text(strings.sync.cancelSync)
             }
 
             Spacer(Modifier.height(8.dp))
 
             // 取消说明文案
             Text(
-                text = strings.cancelSyncExplanation,
+                text = strings.sync.cancelSyncExplanation,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -163,7 +163,7 @@ fun SyncCompletedCard(
                 }
             }
             OutlinedButton(onClick = onSyncAgain) {
-                Text(strings.syncAgain)
+                Text(strings.sync.syncAgain)
             }
         }
     }

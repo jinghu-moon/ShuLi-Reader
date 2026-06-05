@@ -250,7 +250,7 @@ private fun BookGridItem(
             if (book.coverUrl != null) {
                 AsyncImage(
                     model = book.coverUrl,
-                    contentDescription = strings.coverImageDesc,
+                    contentDescription = strings.common.coverImageDesc,
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(0.75f)

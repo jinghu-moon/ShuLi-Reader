@@ -52,7 +52,7 @@ fun CoverColorPickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(strings.customizeCover, style = MaterialTheme.typography.titleMedium) },
+        title = { Text(strings.reader.customizeCover, style = MaterialTheme.typography.titleMedium) },
         text = {
             Column {
                 Surface(
@@ -66,7 +66,7 @@ fun CoverColorPickerDialog(
                 ) {
                     Box(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                         Text(
-                            text = strings.resetCoverColor,
+                            text = strings.reader.resetCoverColor,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -117,7 +117,7 @@ fun CoverColorPickerDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(strings.cancel)
+                Text(strings.common.cancel)
             }
         },
     )

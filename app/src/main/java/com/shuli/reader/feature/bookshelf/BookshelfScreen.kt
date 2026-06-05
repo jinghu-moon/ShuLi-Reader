@@ -122,7 +122,7 @@ fun BookshelfScreen(
                     folderFilesToImport = files
                     showFolderImportDialog = true
                 } else {
-                    viewModel.showToastMessage(strings.noBooksFound)
+                    viewModel.showToastMessage(strings.common.noBooksFound)
                 }
             }
         }
@@ -210,7 +210,7 @@ fun BookshelfScreen(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ) {
-                    Icon(Icons.Filled.Add, contentDescription = strings.libraryImportSettings)
+                    Icon(Icons.Filled.Add, contentDescription = strings.bookshelf.libraryImportSettings)
                 }
             }
         },
@@ -258,7 +258,7 @@ fun BookshelfScreen(
                         onToggleSelection = viewModel::onToggleNodeSelection,
                         onLongPressToEdit = { nodeId -> viewModel.onToggleEditMode(nodeId) },
                         onDragToSlot = { nodeId, slot -> viewModel.pinNode(nodeId, slot) },
-                        onMerge = { sourceId, targetId -> viewModel.mergeNodes(sourceId, targetId, sourceIsFolder = false, targetIsFolder = false, defaultFolderName = strings.newFolder) },
+                        onMerge = { sourceId, targetId -> viewModel.mergeNodes(sourceId, targetId, sourceIsFolder = false, targetIsFolder = false, defaultFolderName = strings.bookshelf.newFolder) },
                     )
                 }
             }
@@ -336,19 +336,19 @@ fun BookshelfScreen(
         val count = uiState.selectedNodeIds.size
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text(strings.confirmDeleteTitle) },
-            text = { Text(strings.confirmDeleteSelected(count)) },
+            title = { Text(strings.bookshelf.confirmDeleteTitle) },
+            text = { Text(strings.bookshelf.confirmDeleteSelected(count)) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.deleteNodes(uiState.selectedNodeIds)
                     showDeleteConfirmDialog = false
                 }) {
-                    Text(strings.deleteAction, color = MaterialTheme.colorScheme.error)
+                    Text(strings.reader.deleteAction, color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                    Text(strings.cancelAction)
+                    Text(strings.reader.cancelAction)
                 }
             },
         )
@@ -509,7 +509,7 @@ private fun EmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = if (isSearching) strings.noBooksFound else strings.emptyBookshelf,
+            text = if (isSearching) strings.common.noBooksFound else strings.common.emptyBookshelf,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -531,13 +531,13 @@ private fun SearchGuideState(modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.height(12.dp))
         Text(
-            text = strings.searchIconDesc,
+            text = strings.common.searchIconDesc,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = strings.searchPlaceholder,
+            text = strings.common.searchPlaceholder,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
         )

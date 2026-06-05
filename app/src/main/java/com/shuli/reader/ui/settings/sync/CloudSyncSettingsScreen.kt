@@ -87,10 +87,10 @@ fun CloudSyncSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(strings.cloudSyncConfig, fontWeight = FontWeight.Bold) },
+                title = { Text(strings.sync.cloudSyncConfig, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.common.backIconDesc)
                     }
                 },
             )
@@ -109,7 +109,7 @@ fun CloudSyncSettingsScreen(
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = strings.webdavServer,
+                            text = strings.sync.webdavServer,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                         )
@@ -118,7 +118,7 @@ fun CloudSyncSettingsScreen(
                         OutlinedTextField(
                             value = url,
                             onValueChange = { url = it },
-                            label = { Text(strings.serverAddress) },
+                            label = { Text(strings.sync.serverAddress) },
                             placeholder = { Text("https://dav.example.com/dav/") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
@@ -127,7 +127,7 @@ fun CloudSyncSettingsScreen(
                         OutlinedTextField(
                             value = username,
                             onValueChange = { username = it },
-                            label = { Text(strings.webdavUser) },
+                            label = { Text(strings.sync.webdavUser) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -135,7 +135,7 @@ fun CloudSyncSettingsScreen(
                         OutlinedTextField(
                             value = password,
                             onValueChange = { password = it },
-                            label = { Text(strings.webdavPassword) },
+                            label = { Text(strings.sync.webdavPassword) },
                             singleLine = true,
                             visualTransformation = PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -162,7 +162,7 @@ fun CloudSyncSettingsScreen(
                                 if (isTesting) {
                                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                                 } else {
-                                    Text(strings.testConnection)
+                                    Text(strings.sync.testConnection)
                                 }
                             }
                             Button(
@@ -174,7 +174,7 @@ fun CloudSyncSettingsScreen(
                                 enabled = url.isNotBlank() && username.isNotBlank(),
                                 modifier = Modifier.weight(1f),
                             ) {
-                                Text(strings.save)
+                                Text(strings.common.save)
                             }
                         }
                     }
@@ -186,14 +186,14 @@ fun CloudSyncSettingsScreen(
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column {
                         Text(
-                            text = strings.syncContent,
+                            text = strings.sync.syncContent,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp),
                         )
-                        SettingsSwitchItem(title = strings.bookmarksTab, checked = syncBookmarks, onCheckedChange = { syncBookmarks = it })
-                        SettingsSwitchItem(title = strings.notesTab, checked = syncNotes, onCheckedChange = { syncNotes = it })
-                        SettingsSwitchItem(title = strings.sortReadingProgress, checked = syncProgress, onCheckedChange = { syncProgress = it })
+                        SettingsSwitchItem(title = strings.reader.bookmarksTab, checked = syncBookmarks, onCheckedChange = { syncBookmarks = it })
+                        SettingsSwitchItem(title = strings.reader.notesTab, checked = syncNotes, onCheckedChange = { syncNotes = it })
+                        SettingsSwitchItem(title = strings.bookshelf.sortReadingProgress, checked = syncProgress, onCheckedChange = { syncProgress = it })
                     }
                 }
             }
@@ -202,8 +202,8 @@ fun CloudSyncSettingsScreen(
             item {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column {
-                        SettingsSwitchItem(title = strings.wifiOnly, checked = wifiOnly, onCheckedChange = { wifiOnly = it })
-                        SettingsSwitchItem(title = strings.autoSync, checked = autoSync, onCheckedChange = { autoSync = it })
+                        SettingsSwitchItem(title = strings.sync.wifiOnly, checked = wifiOnly, onCheckedChange = { wifiOnly = it })
+                        SettingsSwitchItem(title = strings.sync.autoSync, checked = autoSync, onCheckedChange = { autoSync = it })
                     }
                 }
             }
@@ -213,18 +213,18 @@ fun CloudSyncSettingsScreen(
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column {
                         SettingsClickItem(
-                            title = strings.encryptionManagement,
-                            subtitle = strings.e2eeSettings,
+                            title = strings.encryption.encryptionManagement,
+                            subtitle = strings.sync.e2eeSettings,
                             onClick = onNavigateToEncryption,
                         )
                         SettingsClickItem(
-                            title = strings.syncedDevices,
-                            subtitle = strings.manageRegisteredDevices,
+                            title = strings.sync.syncedDevices,
+                            subtitle = strings.sync.manageRegisteredDevices,
                             onClick = onNavigateToDevices,
                         )
                         SettingsClickItem(
-                            title = strings.syncLog,
-                            subtitle = strings.viewSyncHistory,
+                            title = strings.sync.syncLog,
+                            subtitle = strings.sync.viewSyncHistory,
                             onClick = onNavigateToLogs,
                         )
                     }
@@ -243,10 +243,10 @@ private fun ConnectionTestResultBanner(
 ) {
     val strings = LocalAppStrings.current
     val (message, icon, color) = when (result) {
-        ConnectionTestResult.SUCCESS -> Triple(strings.connectionSuccess, Icons.Outlined.CheckCircle, MaterialTheme.colorScheme.primary)
-        ConnectionTestResult.AUTH_FAILED -> Triple(strings.authFailedCheckUserPassword, Icons.Outlined.Error, MaterialTheme.colorScheme.error)
-        ConnectionTestResult.NETWORK_ERROR -> Triple(strings.networkErrorCheckAddress, Icons.Outlined.Error, MaterialTheme.colorScheme.error)
-        ConnectionTestResult.UNKNOWN_ERROR -> Triple(strings.unknownErrorRetryLater, Icons.Outlined.Error, MaterialTheme.colorScheme.error)
+        ConnectionTestResult.SUCCESS -> Triple(strings.sync.connectionSuccess, Icons.Outlined.CheckCircle, MaterialTheme.colorScheme.primary)
+        ConnectionTestResult.AUTH_FAILED -> Triple(strings.sync.authFailedCheckUserPassword, Icons.Outlined.Error, MaterialTheme.colorScheme.error)
+        ConnectionTestResult.NETWORK_ERROR -> Triple(strings.sync.networkErrorCheckAddress, Icons.Outlined.Error, MaterialTheme.colorScheme.error)
+        ConnectionTestResult.UNKNOWN_ERROR -> Triple(strings.sync.unknownErrorRetryLater, Icons.Outlined.Error, MaterialTheme.colorScheme.error)
     }
 
     Card(

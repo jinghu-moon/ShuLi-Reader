@@ -87,7 +87,7 @@ fun DirectoryDialog(
     val strings = LocalAppStrings.current
     val readerColors = LocalReaderColorScheme.current
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf(strings.directoryTab, strings.bookmarksTab, strings.notesTab)
+    val tabs = listOf(strings.reader.directoryTab, strings.reader.bookmarksTab, strings.reader.notesTab)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -170,7 +170,7 @@ private fun ChapterList(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = strings.loading,
+                text = strings.common.loading,
                 style = MaterialTheme.typography.bodyMedium,
                 color = readerColors.textSecondary,
             )
@@ -201,7 +201,7 @@ private fun ChapterList(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = if (chapters[index] == "Full Text") strings.chapterFullText else chapters[index],
+                    text = if (chapters[index] == "Full Text") strings.settings.chapterFullText else chapters[index],
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = (MaterialTheme.typography.bodyLarge.fontSize.value - 2).sp,
                     ),
@@ -217,7 +217,7 @@ private fun ChapterList(
                 if (index == currentIndex) {
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = strings.currentChapterLabel,
+                        text = strings.reader.currentChapterLabel,
                         style = MaterialTheme.typography.labelSmall,
                         color = readerColors.accent,
                     )
@@ -269,7 +269,7 @@ private fun BookmarkList(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = strings.noBookmarks,
+                    text = strings.reader.noBookmarks,
                     style = MaterialTheme.typography.bodyMedium,
                     color = readerColors.textSecondary,
                 )
@@ -314,7 +314,7 @@ private fun BookmarkList(
                 IconButton(onClick = { bookmarkToDelete = bookmark }) {
                     Icon(
                         imageVector = Icons.Outlined.Delete,
-                        contentDescription = strings.deleteIconDesc,
+                        contentDescription = strings.common.deleteIconDesc,
                         tint = readerColors.textSecondary,
                         modifier = Modifier.size(20.dp),
                     )
@@ -331,18 +331,18 @@ private fun BookmarkList(
     bookmarkToDelete?.let { bookmark ->
         AlertDialog(
             onDismissRequest = { bookmarkToDelete = null },
-            title = { Text(strings.deleteBookmarkTitle) },
-            text = { Text(strings.deleteBookmarkConfirm) },
+            title = { Text(strings.reader.deleteBookmarkTitle) },
+            text = { Text(strings.reader.deleteBookmarkConfirm) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         onBookmarkDelete(bookmark)
                         bookmarkToDelete = null
                     },
-                ) { Text(strings.deleteAction) }
+                ) { Text(strings.reader.deleteAction) }
             },
             dismissButton = {
-                TextButton(onClick = { bookmarkToDelete = null }) { Text(strings.cancelAction) }
+                TextButton(onClick = { bookmarkToDelete = null }) { Text(strings.reader.cancelAction) }
             },
         )
     }
@@ -380,7 +380,7 @@ private fun NoteList(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = strings.noNotes,
+                    text = strings.reader.noNotes,
                     style = MaterialTheme.typography.bodyMedium,
                     color = readerColors.textSecondary,
                 )
@@ -422,7 +422,7 @@ private fun NoteList(
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = strings.notePosition(note.byteStart.toInt(), note.byteEnd.toInt(), dateFormat.format(Date(note.createdTime))),
+                        text = strings.reader.notePosition(note.byteStart.toInt(), note.byteEnd.toInt(), dateFormat.format(Date(note.createdTime))),
                         style = MaterialTheme.typography.labelSmall,
                         color = readerColors.textTertiary,
                     )
@@ -434,7 +434,7 @@ private fun NoteList(
                 }) {
                     Icon(
                         imageVector = Icons.Outlined.Edit,
-                        contentDescription = strings.editValue,
+                        contentDescription = strings.reader.editValue,
                         tint = readerColors.textSecondary,
                         modifier = Modifier.size(20.dp),
                     )
@@ -442,7 +442,7 @@ private fun NoteList(
                 IconButton(onClick = { noteToDelete = note }) {
                     Icon(
                         imageVector = Icons.Outlined.Delete,
-                        contentDescription = strings.deleteIconDesc,
+                        contentDescription = strings.common.deleteIconDesc,
                         tint = readerColors.textSecondary,
                         modifier = Modifier.size(20.dp),
                     )
@@ -459,7 +459,7 @@ private fun NoteList(
     noteToEdit?.let { note ->
         AlertDialog(
             onDismissRequest = { noteToEdit = null },
-            title = { Text(strings.editValue) },
+            title = { Text(strings.reader.editValue) },
             text = {
                 Column {
                     OutlinedTextField(
@@ -499,10 +499,10 @@ private fun NoteList(
                         onNoteEdit(note, editText, editColor)
                         noteToEdit = null
                     },
-                ) { Text(strings.saveAction) }
+                ) { Text(strings.reader.saveAction) }
             },
             dismissButton = {
-                TextButton(onClick = { noteToEdit = null }) { Text(strings.cancelAction) }
+                TextButton(onClick = { noteToEdit = null }) { Text(strings.reader.cancelAction) }
             },
         )
     }
@@ -511,18 +511,18 @@ private fun NoteList(
     noteToDelete?.let { note ->
         AlertDialog(
             onDismissRequest = { noteToDelete = null },
-            title = { Text(strings.deleteNoteTitle) },
-            text = { Text(strings.deleteNoteConfirm) },
+            title = { Text(strings.reader.deleteNoteTitle) },
+            text = { Text(strings.reader.deleteNoteConfirm) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         onNoteDelete(note)
                         noteToDelete = null
                     },
-                ) { Text(strings.deleteAction) }
+                ) { Text(strings.reader.deleteAction) }
             },
             dismissButton = {
-                TextButton(onClick = { noteToDelete = null }) { Text(strings.cancelAction) }
+                TextButton(onClick = { noteToDelete = null }) { Text(strings.reader.cancelAction) }
             },
         )
     }
@@ -530,8 +530,8 @@ private fun NoteList(
 
 private fun formatWordCount(count: Int, strings: com.shuli.reader.core.i18n.AppStrings): String {
     return when {
-        count >= 10000 -> strings.wordCountTenThousand(count / 10000.0f)
-        else -> strings.wordCountUnit(count)
+        count >= 10000 -> strings.reader.wordCountTenThousand(count / 10000.0f)
+        else -> strings.reader.wordCountUnit(count)
     }
 }
 

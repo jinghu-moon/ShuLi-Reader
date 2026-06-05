@@ -72,7 +72,7 @@ class BackupImporter(
 
             // 验证 manifest
             val manifestData = entries["manifest.json"]
-                ?: throw IllegalArgumentException(strings.backupMissingManifest)
+                ?: throw IllegalArgumentException(strings.sync.backupMissingManifest)
 
             val manifest = json.parseToJsonElement(manifestData).jsonObject
             val version = manifest["version"]?.jsonPrimitive?.int ?: 1
@@ -138,7 +138,7 @@ class BackupImporter(
     /** 读取加密 ZIP 条目：salt(16) + nonce(12) + CipherInputStream(ZIP) + tag(16) */
     private fun readEncryptedEntries(file: File, password: String): Map<String, String> {
         val fileBytes = file.readBytes()
-        require(fileBytes.size > 16 + 12 + 16) { strings.invalidEncryptedFileFormat }
+        require(fileBytes.size > 16 + 12 + 16) { strings.sync.invalidEncryptedFileFormat }
 
         val salt = fileBytes.copyOfRange(0, 16)
         val nonce = fileBytes.copyOfRange(16, 28)

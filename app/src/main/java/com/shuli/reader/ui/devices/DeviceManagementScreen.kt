@@ -62,10 +62,10 @@ fun DeviceManagementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(strings.syncedDevices, fontWeight = FontWeight.Bold) },
+                title = { Text(strings.sync.syncedDevices, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.common.backIconDesc)
                     }
                 },
             )
@@ -81,7 +81,7 @@ fun DeviceManagementScreen(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = strings.noSyncedDevices,
+                    text = strings.sync.noSyncedDevices,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -111,7 +111,7 @@ fun DeviceManagementScreen(
     // 移除确认弹窗
     showRemoveDialog?.let { device ->
         RemoveDeviceDialog(
-            deviceName = device.model.ifBlank { strings.deviceFallbackName(device.deviceId.take(6)) },
+            deviceName = device.model.ifBlank { strings.sync.deviceFallbackName(device.deviceId.take(6)) },
             onConfirm = {
                 viewModel.removeDevice(device.deviceId)
                 showRemoveDialog = null
@@ -149,7 +149,7 @@ private fun DeviceCard(
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = device.model.ifBlank { strings.unknownDevice },
+                        text = device.model.ifBlank { strings.sync.unknownDevice },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -157,7 +157,7 @@ private fun DeviceCard(
                         Spacer(Modifier.width(8.dp))
                         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))) {
                             Text(
-                                text = strings.thisDevice,
+                                text = strings.sync.thisDevice,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
@@ -173,13 +173,13 @@ private fun DeviceCard(
                     )
                 }
                 Text(
-                    text = "${strings.lastSyncLabel}: ${dateFormat.format(Date(device.lastSyncAt))}",
+                    text = "${strings.sync.lastSyncLabel}: ${dateFormat.format(Date(device.lastSyncAt))}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (device.appVersion.isNotBlank()) {
                     Text(
-                        text = "${strings.appVersionLabel}: ${device.appVersion}",
+                        text = "${strings.sync.appVersionLabel}: ${device.appVersion}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -190,7 +190,7 @@ private fun DeviceCard(
                 IconButton(onClick = onRemove) {
                     Icon(
                         Icons.Outlined.DeleteOutline,
-                        contentDescription = strings.removeDevice,
+                        contentDescription = strings.sync.removeDevice,
                         tint = MaterialTheme.colorScheme.error,
                     )
                 }
@@ -208,18 +208,18 @@ private fun RemoveDeviceDialog(
     val strings = LocalAppStrings.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(strings.removeDevice) },
+        title = { Text(strings.sync.removeDevice) },
         text = {
-            Text(strings.removeDeviceConfirm(deviceName))
+            Text(strings.sync.removeDeviceConfirm(deviceName))
         },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text(strings.remove, color = MaterialTheme.colorScheme.error)
+                Text(strings.sync.remove, color = MaterialTheme.colorScheme.error)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(strings.cancel)
+                Text(strings.common.cancel)
             }
         },
     )

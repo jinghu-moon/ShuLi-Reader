@@ -128,7 +128,7 @@ fun <T> PickerSheet(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Check,
-                            contentDescription = strings.selected,
+                            contentDescription = strings.common.selected,
                             tint = readerColors.accent,
                         )
                     }
@@ -164,7 +164,7 @@ fun <T> FontPickerSheet(
     val strings = LocalAppStrings.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    val testText = strings.fontTestText
+    val testText = strings.reader.fontTestText
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -286,7 +286,7 @@ fun <T> FontPickerSheet(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Check,
-                            contentDescription = strings.selected,
+                            contentDescription = strings.common.selected,
                             tint = readerColors.accent,
                             modifier = Modifier.padding(start = 8.dp),
                         )

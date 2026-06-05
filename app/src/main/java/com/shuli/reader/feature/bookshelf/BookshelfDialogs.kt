@@ -95,7 +95,7 @@ fun StatisticsBottomSheet(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = strings.statsTitle,
+                text = strings.settings.statsTitle,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(vertical = 12.dp),
@@ -119,7 +119,7 @@ fun StatisticsBottomSheet(
                         color = MaterialTheme.colorScheme.primary,
                     )
                     Text(
-                        text = strings.todayReadingProgress,
+                        text = strings.settings.todayReadingProgress,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -140,7 +140,7 @@ fun StatisticsBottomSheet(
                         modifier = Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(strings.totalBooksCount, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(strings.settings.totalBooksCount, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(4.dp))
                         Text("$booksCount", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     }
@@ -153,7 +153,7 @@ fun StatisticsBottomSheet(
                         modifier = Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(strings.totalReadingTime, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(strings.settings.totalReadingTime, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(4.dp))
                         Text(todayReadingTime, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     }
@@ -178,11 +178,11 @@ fun GroupPickerDialog(
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(strings.folderLabel) },
+        title = { Text(strings.bookshelf.folderLabel) },
         text = {
             Column {
                 if (folders.isNotEmpty()) {
-                    Text(strings.moveToExistingGroup, style = MaterialTheme.typography.bodySmall)
+                    Text(strings.bookshelf.moveToExistingGroup, style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(8.dp))
                     folders.forEach { folder ->
                         ListItem(
@@ -202,7 +202,7 @@ fun GroupPickerDialog(
                     OutlinedTextField(
                         value = newFolderName,
                         onValueChange = { newFolderName = it },
-                        label = { Text(strings.newGroupName) },
+                        label = { Text(strings.bookshelf.newGroupName) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -216,7 +216,7 @@ fun GroupPickerDialog(
                         enabled = newFolderName.isNotBlank(),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(strings.createAndMove)
+                        Text(strings.bookshelf.createAndMove)
                     }
                 } else {
                     TextButton(
@@ -225,7 +225,7 @@ fun GroupPickerDialog(
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text(strings.createNewGroup)
+                        Text(strings.bookshelf.createNewGroup)
                     }
                 }
 
@@ -235,14 +235,14 @@ fun GroupPickerDialog(
                     onClick = onRemoveFromFolder,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(strings.removeFromGroup)
+                    Text(strings.bookshelf.removeFromGroup)
                 }
             }
         },
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(strings.cancelAction)
+                Text(strings.reader.cancelAction)
             }
         },
     )
@@ -271,7 +271,7 @@ fun MoreActionsSheet(
             // 收藏/取消收藏
             ListItem(
                 headlineContent = {
-                    Text(if (hasUnfavorited) strings.addFavorite else strings.removeFavorite)
+                    Text(if (hasUnfavorited) strings.bookshelf.addFavorite else strings.bookshelf.removeFavorite)
                 },
                 leadingContent = {
                     Icon(
@@ -285,14 +285,14 @@ fun MoreActionsSheet(
             // 书籍信息（仅单选时显示）
             if (singleSelection) {
                 ListItem(
-                    headlineContent = { Text(strings.bookInfo) },
+                    headlineContent = { Text(strings.bookshelf.bookInfo) },
                     leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
                     colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable { onShowInfo() },
                 )
                 // 自定义封面
                 ListItem(
-                    headlineContent = { Text(strings.customizeCover) },
+                    headlineContent = { Text(strings.reader.customizeCover) },
                     leadingContent = { Icon(Icons.Default.Palette, contentDescription = null) },
                     colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable { onCustomizeCover() },
@@ -300,7 +300,7 @@ fun MoreActionsSheet(
             }
             // 从分组中移出
             ListItem(
-                headlineContent = { Text(strings.removeFromGroup) },
+                headlineContent = { Text(strings.bookshelf.removeFromGroup) },
                 leadingContent = { Icon(Icons.Default.Folder, contentDescription = null) },
                 colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
                 modifier = Modifier.clickable { onMoveOut() },
@@ -358,7 +358,7 @@ fun FolderDetailSheet(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = strings.folderEmpty,
+                            text = strings.bookshelf.folderEmpty,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -402,7 +402,7 @@ private fun FolderGridCover(
             if (book.coverUrl != null) {
                 AsyncImage(
                     model = book.coverUrl,
-                    contentDescription = strings.coverImageDesc,
+                    contentDescription = strings.common.coverImageDesc,
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(0.75f)

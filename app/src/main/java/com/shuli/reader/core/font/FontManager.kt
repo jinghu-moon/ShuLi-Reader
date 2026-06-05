@@ -99,7 +99,7 @@ class FontManager(val context: Context, val strings: AppStrings = AppStrings.ZhH
         }
         if (inputStream == null) {
             android.util.Log.e(TAG, "importFont: openInputStream 返回 null，无法读取 URI")
-            throw IllegalArgumentException(strings.cannotReadFontFile(uri.toString()))
+            throw IllegalArgumentException(strings.sync.cannotReadFontFile(uri.toString()))
         }
 
         inputStream.use { input ->
@@ -110,7 +110,7 @@ class FontManager(val context: Context, val strings: AppStrings = AppStrings.ZhH
         }
 
         if (!dest.exists() || dest.length() == 0L) {
-            throw IllegalArgumentException(strings.fontWriteFailedOrEmpty(dest.absolutePath))
+            throw IllegalArgumentException(strings.sync.fontWriteFailedOrEmpty(dest.absolutePath))
         }
 
         val id = dest.nameWithoutExtension

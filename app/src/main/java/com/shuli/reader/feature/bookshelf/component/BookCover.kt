@@ -164,7 +164,7 @@ fun DefaultBookCover(
             if (isFavorite) {
                 Icon(
                     imageVector = Icons.Filled.Favorite,
-                    contentDescription = strings.favorite,
+                    contentDescription = strings.common.favorite,
                     tint = Color(0xFFE53935),
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -185,7 +185,7 @@ fun DefaultBookCover(
             if (isFavorite) {
                 Icon(
                     imageVector = Icons.Filled.Favorite,
-                    contentDescription = strings.favorite,
+                    contentDescription = strings.common.favorite,
                     tint = Color(0xFFE53935),
                     modifier = Modifier
                         .align(Alignment.TopEnd)

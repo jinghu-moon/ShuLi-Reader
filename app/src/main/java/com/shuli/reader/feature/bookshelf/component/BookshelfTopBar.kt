@@ -65,7 +65,7 @@ fun BookshelfTopBar(
                 IconButton(onClick = { 
                     onSearchActiveChange(false)
                 }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.common.backIconDesc)
                 }
             },
             title = {
@@ -74,7 +74,7 @@ fun BookshelfTopBar(
                     onValueChange = onSearchQueryChange,
                     placeholder = { 
                         Text(
-                            text = strings.searchPlaceholder, 
+                            text = strings.common.searchPlaceholder, 
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         ) 
@@ -92,7 +92,7 @@ fun BookshelfTopBar(
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { onSearchQueryChange("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = strings.clearIconDesc)
+                                Icon(Icons.Default.Clear, contentDescription = strings.common.clearIconDesc)
                             }
                         }
                     }
@@ -112,7 +112,7 @@ fun BookshelfTopBar(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "${strings.todayReading} $todayReadingTime",
+                        text = "${strings.common.todayReading} $todayReadingTime",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -123,13 +123,13 @@ fun BookshelfTopBar(
                     onClick = { onSearchActiveChange(true) },
                     modifier = Modifier.testTag(UiTestTags.BOOKSHELF_SEARCH_BUTTON),
                 ) {
-                    Icon(Icons.Outlined.Search, contentDescription = strings.searchIconDesc)
+                    Icon(Icons.Outlined.Search, contentDescription = strings.common.searchIconDesc)
                 }
                 IconButton(
                     onClick = onSortClick,
                     modifier = Modifier.testTag(UiTestTags.BOOKSHELF_SORT_BUTTON),
                 ) {
-                    Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = strings.sortIconDesc)
+                    Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = strings.common.sortIconDesc)
                 }
                 var viewModeExpanded by remember { mutableStateOf(false) }
                 Box {
@@ -143,7 +143,7 @@ fun BookshelfTopBar(
                                 ViewMode.LIST -> Icons.AutoMirrored.Outlined.ViewList
                                 ViewMode.COMPACT_LIST -> Icons.Outlined.ViewHeadline
                             },
-                            contentDescription = strings.viewModeIconDesc,
+                            contentDescription = strings.common.viewModeIconDesc,
                         )
                     }
                     DropdownMenu(
@@ -156,9 +156,9 @@ fun BookshelfTopBar(
                             ViewMode.COMPACT_LIST to Icons.Outlined.ViewHeadline,
                         )
                         val labels = mapOf(
-                            ViewMode.GRID to strings.viewModeGrid,
-                            ViewMode.LIST to strings.viewModeList,
-                            ViewMode.COMPACT_LIST to strings.viewModeCompact,
+                            ViewMode.GRID to strings.common.viewModeGrid,
+                            ViewMode.LIST to strings.common.viewModeList,
+                            ViewMode.COMPACT_LIST to strings.common.viewModeCompact,
                         )
                         modes.forEach { (mode, icon) ->
                             val isSelected = viewMode == mode
@@ -191,14 +191,14 @@ fun BookshelfTopBar(
                         onClick = { menuExpanded = true },
                         modifier = Modifier.testTag(UiTestTags.BOOKSHELF_MORE_BUTTON),
                     ) {
-                        Icon(Icons.Default.MoreVert, contentDescription = strings.moreIconDesc)
+                        Icon(Icons.Default.MoreVert, contentDescription = strings.common.moreIconDesc)
                     }
                     DropdownMenu(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text(strings.readingStats) },
+                            text = { Text(strings.settings.readingStats) },
                             leadingIcon = { Icon(Icons.AutoMirrored.Outlined.ShowChart, contentDescription = null) },
                             onClick = {
                                 menuExpanded = false
@@ -206,7 +206,7 @@ fun BookshelfTopBar(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text(strings.settings) },
+                            text = { Text(strings.common.settings) },
                             leadingIcon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
                             onClick = {
                                 menuExpanded = false

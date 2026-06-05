@@ -94,7 +94,7 @@ fun ImportOptionBottomSheet(
                 .padding(bottom = 32.dp)
         ) {
             Text(
-                text = strings.libraryImportSettings,
+                text = strings.bookshelf.libraryImportSettings,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
             )
@@ -117,8 +117,8 @@ fun ImportOptionBottomSheet(
                 )
                 Spacer(Modifier.width(16.dp))
                 Column {
-                    Text(strings.importCopy, style = MaterialTheme.typography.bodyLarge)
-                    Text(strings.importCopyDesc, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                    Text(strings.bookshelf.importCopy, style = MaterialTheme.typography.bodyLarge)
+                    Text(strings.bookshelf.importCopyDesc, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
                 }
             }
 
@@ -140,8 +140,8 @@ fun ImportOptionBottomSheet(
                 )
                 Spacer(Modifier.width(16.dp))
                 Column {
-                    Text(strings.libraryImportSettings + " (Dir)", style = MaterialTheme.typography.bodyLarge)
-                    Text(strings.folderImportDesc, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                    Text(strings.bookshelf.libraryImportSettings + " (Dir)", style = MaterialTheme.typography.bodyLarge)
+                    Text(strings.bookshelf.folderImportDesc, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
                 }
             }
         }
@@ -183,7 +183,7 @@ fun FolderImportDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = strings.libraryImportSettings,
+                        text = strings.bookshelf.libraryImportSettings,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f)
@@ -195,7 +195,7 @@ fun FolderImportDialog(
                             files.forEach { selectedStates[it.first] = target }
                         }
                     ) {
-                        Text(if (isAllSelected) strings.deselectAll else strings.selectAll)
+                        Text(if (isAllSelected) strings.bookshelf.deselectAll else strings.bookshelf.selectAll)
                     }
                 }
 
@@ -251,7 +251,7 @@ fun FolderImportDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     androidx.compose.material3.TextButton(onClick = onDismiss) {
-                        Text(strings.backIconDesc)
+                        Text(strings.common.backIconDesc)
                     }
                     Spacer(Modifier.width(8.dp))
                     androidx.compose.material3.Button(
@@ -262,7 +262,7 @@ fun FolderImportDialog(
                         },
                         enabled = selectedCount > 0
                     ) {
-                        Text(strings.importSelected(selectedCount))
+                        Text(strings.bookshelf.importSelected(selectedCount))
                     }
                 }
             }

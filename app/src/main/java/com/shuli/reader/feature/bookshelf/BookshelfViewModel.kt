@@ -231,14 +231,14 @@ class BookshelfViewModel(
     fun onToggleFavorite(bookId: Long) {
         viewModelScope.launch {
             bookRepository.toggleFavorite(bookId)
-            _events.emit(BookshelfEvent.ShowMessage { it.favoriteToggled })
+            _events.emit(BookshelfEvent.ShowMessage { it.bookshelf.favoriteToggled })
         }
     }
 
     fun onDeleteBook(bookId: Long) {
         viewModelScope.launch {
             bookRepository.deleteBook(bookId)
-            _events.emit(BookshelfEvent.ShowMessage { it.bookDeleted })
+            _events.emit(BookshelfEvent.ShowMessage { it.bookshelf.bookDeleted })
         }
     }
 
@@ -283,7 +283,7 @@ class BookshelfViewModel(
         viewModelScope.launch {
             val folderId = bookRepository.createFolder(folderName)
             bookRepository.moveBooksToFolder(listOf(sourceNodeId, targetNodeId), folderId)
-            _events.emit(BookshelfEvent.ShowMessage { it.folderCreated })
+            _events.emit(BookshelfEvent.ShowMessage { it.bookshelf.folderCreated })
         }
     }
 
@@ -296,7 +296,7 @@ class BookshelfViewModel(
         viewModelScope.launch {
             if (bookIds.isNotEmpty()) bookRepository.moveBooksToFolder(bookIds, realFolderId)
             onToggleEditMode()
-            _events.emit(BookshelfEvent.ShowMessage { if (folderId == null) it.removedFromFolder else it.addedToFolder })
+            _events.emit(BookshelfEvent.ShowMessage { if (folderId == null) it.bookshelf.removedFromFolder else it.bookshelf.addedToFolder })
         }
     }
 
@@ -321,7 +321,7 @@ class BookshelfViewModel(
             val folderId = bookRepository.createFolder(folderName)
             if (bookIds.isNotEmpty()) bookRepository.moveBooksToFolder(bookIds, folderId)
             onToggleEditMode()
-            _events.emit(BookshelfEvent.ShowMessage { it.groupCreatedAndMoved })
+            _events.emit(BookshelfEvent.ShowMessage { it.bookshelf.groupCreatedAndMoved })
         }
     }
 
@@ -417,12 +417,12 @@ class BookshelfViewModel(
         viewModelScope.launch {
             try {
                 importSingleBook(context, uri)
-                _events.emit(BookshelfEvent.ShowMessage { it.importSuccess })
+                _events.emit(BookshelfEvent.ShowMessage { it.bookshelf.importSuccess })
             } catch (e: BookAlreadyExistsException) {
-                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.bookAlreadyInShelf })
+                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.bookshelf.bookAlreadyInShelf })
                 _events.emit(BookshelfEvent.HighlightBook(e.bookId))
             } catch (e: Exception) {
-                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.importFailed(e.toImportErrorMessage(strings)) })
+                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.bookshelf.importFailed(e.toImportErrorMessage(strings)) })
             }
         }
     }
@@ -455,7 +455,7 @@ class BookshelfViewModel(
                 )
                 showImportResult(result)
             } catch (e: Exception) {
-                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.importFailed(e.toImportErrorMessage(strings)) })
+                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.bookshelf.importFailed(e.toImportErrorMessage(strings)) })
             }
         }
     }
@@ -465,7 +465,7 @@ class BookshelfViewModel(
             try {
                 val folder = java.io.File(uri.path ?: throw InvalidFolderPathException())
                 if (!folder.isDirectory) {
-                    _events.emit(BookshelfEvent.ShowMessage { it.importFailed(it.invalidFolder) })
+                    _events.emit(BookshelfEvent.ShowMessage { it.bookshelf.importFailed(it.bookshelf.invalidFolder) })
                     return@launch
                 }
 
@@ -473,24 +473,24 @@ class BookshelfViewModel(
                 val files = bookRepository.scanFolderForBooks(folder, config)
 
                 if (files.isEmpty()) {
-                    _events.emit(BookshelfEvent.ShowMessage { it.importFailed(it.noImportableFiles) })
+                    _events.emit(BookshelfEvent.ShowMessage { it.bookshelf.importFailed(it.bookshelf.noImportableFiles) })
                     return@launch
                 }
 
                 val result = bookRepository.importBooks(files, config)
                 showImportResult(result)
             } catch (e: Exception) {
-                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.importFailed(e.toImportErrorMessage(strings)) })
+                _events.emit(BookshelfEvent.ShowMessage { strings -> strings.bookshelf.importFailed(e.toImportErrorMessage(strings)) })
             }
         }
     }
 
     private suspend fun showImportResult(result: ImportResult) {
         val message: (AppStrings) -> String = when {
-            result.isAllSuccess -> { strings -> strings.importSuccessCount(result.successCount) }
-            result.hasSkipped && !result.hasFailed -> { strings -> strings.importSuccessWithSkipped(result.successCount, result.skippedCount) }
-            result.hasFailed && !result.hasSkipped -> { strings -> strings.importSuccessWithFailed(result.successCount, result.failedCount) }
-            else -> { strings -> strings.importSuccessWithBoth(result.successCount, result.skippedCount, result.failedCount) }
+            result.isAllSuccess -> { strings -> strings.bookshelf.importSuccessCount(result.successCount) }
+            result.hasSkipped && !result.hasFailed -> { strings -> strings.bookshelf.importSuccessWithSkipped(result.successCount, result.skippedCount) }
+            result.hasFailed && !result.hasSkipped -> { strings -> strings.bookshelf.importSuccessWithFailed(result.successCount, result.failedCount) }
+            else -> { strings -> strings.bookshelf.importSuccessWithBoth(result.successCount, result.skippedCount, result.failedCount) }
         }
         _events.emit(BookshelfEvent.ShowMessage(message))
         result.firstDuplicateBookId?.let {
@@ -598,8 +598,8 @@ private class InvalidFolderPathException : IllegalArgumentException()
 
 private fun Throwable.toImportErrorMessage(strings: AppStrings): String {
     return when (this) {
-        is UnableToReadFileException -> strings.unableToReadFile
-        is InvalidFolderPathException -> strings.invalidFolderPath
+        is UnableToReadFileException -> strings.bookshelf.unableToReadFile
+        is InvalidFolderPathException -> strings.bookshelf.invalidFolderPath
         else -> message.orEmpty()
     }
 }

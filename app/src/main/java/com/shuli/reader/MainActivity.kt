@@ -144,7 +144,7 @@ class MainActivity : ComponentActivity() {
 
             // 同步 EpubParser 的图片占位符文本
             LaunchedEffect(currentStrings) {
-                appContainer.epubParser.imagePlaceholder = currentStrings.imagePlaceholder
+                appContainer.epubParser.imagePlaceholder = currentStrings.reader.imagePlaceholder
             }
 
             // 计算全局主题

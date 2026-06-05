@@ -108,10 +108,10 @@ fun LocalBackupScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(strings.syncMethodLocal, fontWeight = FontWeight.Bold) },
+                title = { Text(strings.sync.syncMethodLocal, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.backIconDesc)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.common.backIconDesc)
                     }
                 },
             )
@@ -140,7 +140,7 @@ fun LocalBackupScreen(
                         )
                         Spacer(Modifier.width(12.dp))
                         Text(
-                            text = strings.backupDescription,
+                            text = strings.sync.backupDescription,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -165,7 +165,7 @@ fun LocalBackupScreen(
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = strings.backupLocation,
+                                    text = strings.sync.backupLocation,
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold,
                                 )
@@ -174,7 +174,7 @@ fun LocalBackupScreen(
                                         // 从 URI 提取路径显示
                                         Uri.parse(backupLocation).lastPathSegment ?: backupLocation
                                     } else {
-                                        strings.defaultAppDirectory
+                                        strings.sync.defaultAppDirectory
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -183,20 +183,20 @@ fun LocalBackupScreen(
                                 )
                             }
                             OutlinedButton(onClick = { folderLauncher.launch(null) }) {
-                                Text(strings.select)
+                                Text(strings.sync.select)
                             }
                         }
                         if (backupLocation.isNotEmpty()) {
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = strings.customBackupDirSelected,
+                                text = strings.sync.customBackupDirSelected,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         } else {
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = strings.backupInPrivateDirWarning,
+                                text = strings.sync.backupInPrivateDirWarning,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -222,12 +222,12 @@ fun LocalBackupScreen(
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = strings.autoBackup,
+                                    text = strings.sync.autoBackup,
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold,
                                 )
                                 Text(
-                                    text = strings.autoBackupDesc,
+                                    text = strings.sync.autoBackupDesc,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -243,7 +243,7 @@ fun LocalBackupScreen(
 
                             // 定时间隔选择
                             Text(
-                                text = strings.backupFrequency,
+                                text = strings.sync.backupFrequency,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                             )
@@ -263,7 +263,7 @@ fun LocalBackupScreen(
                                     )
                                     Spacer(Modifier.width(8.dp))
                                     Text(
-                                        text = strings.backupEveryNHours(hours),
+                                        text = strings.sync.backupEveryNHours(hours),
                                         style = MaterialTheme.typography.bodyMedium,
                                     )
                                 }
@@ -275,23 +275,23 @@ fun LocalBackupScreen(
 
                             // 启动时备份
                             SettingsSwitchItem(
-                                title = strings.backupOnStart,
-                                subtitle = strings.backupOnStartDesc,
+                                title = strings.sync.backupOnStart,
+                                subtitle = strings.sync.backupOnStartDesc,
                                 checked = backupOnAppStart,
                                 onCheckedChange = onBackupOnAppStartChange,
                             )
 
                             // 关闭时备份
                             SettingsSwitchItem(
-                                title = strings.backupOnExit,
-                                subtitle = strings.backupOnExitDesc,
+                                title = strings.sync.backupOnExit,
+                                subtitle = strings.sync.backupOnExitDesc,
                                 checked = backupOnAppExit,
                                 onCheckedChange = onBackupOnAppExitChange,
                             )
 
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = strings.autoBackupNote,
+                                text = strings.sync.autoBackupNote,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -305,7 +305,7 @@ fun LocalBackupScreen(
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = strings.manualBackup,
+                            text = strings.sync.manualBackup,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                         )
@@ -314,9 +314,9 @@ fun LocalBackupScreen(
                         // 导出
                         BackupActionButton(
                             icon = Icons.Outlined.FileDownload,
-                            title = strings.exportBackup,
-                            subtitle = strings.exportBackupDesc,
-                            buttonText = strings.export,
+                            title = strings.sync.exportBackup,
+                            subtitle = strings.sync.exportBackupDesc,
+                            buttonText = strings.sync.export,
                             isLoading = isExporting,
                             resultText = exportResult,
                             onClick = { showExportSheet = true },
@@ -327,9 +327,9 @@ fun LocalBackupScreen(
                         // 导入
                         BackupActionButton(
                             icon = Icons.Outlined.FileUpload,
-                            title = strings.importBackup,
-                            subtitle = strings.importBackupDesc,
-                            buttonText = strings.selectFile,
+                            title = strings.sync.importBackup,
+                            subtitle = strings.sync.importBackupDesc,
+                            buttonText = strings.sync.selectFile,
                             isLoading = isImporting,
                             resultText = importResult,
                             onClick = { importLauncher.launch("application/zip") },
@@ -354,14 +354,14 @@ fun LocalBackupScreen(
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = strings.backupNotes,
+                                text = strings.sync.backupNotes,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = strings.backupNotesContent,
+                                text = strings.sync.backupNotesContent,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                             )
@@ -459,7 +459,7 @@ private fun BackupActionButton(
                 Text(
                     text = resultText,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (resultText.contains(strings.backupResultSuccess) || resultText.contains(strings.backupResultComplete))
+                    color = if (resultText.contains(strings.sync.backupResultSuccess) || resultText.contains(strings.sync.backupResultComplete))
                         MaterialTheme.colorScheme.primary
                     else
                         MaterialTheme.colorScheme.error,
