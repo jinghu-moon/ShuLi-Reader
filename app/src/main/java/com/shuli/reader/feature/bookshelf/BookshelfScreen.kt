@@ -6,18 +6,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
@@ -42,12 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.shuli.reader.core.i18n.LocalAppStrings
-import com.shuli.reader.feature.bookshelf.component.BookGrid
-import com.shuli.reader.feature.bookshelf.component.BookList
-import com.shuli.reader.feature.bookshelf.component.BookCompactList
-import com.shuli.reader.feature.bookshelf.model.ViewMode
 import com.shuli.reader.feature.bookshelf.component.BookInfoBottomSheet
-import com.shuli.reader.feature.bookshelf.component.BookList
 import com.shuli.reader.feature.bookshelf.component.BookshelfTopBar
 import com.shuli.reader.feature.bookshelf.component.FilterTabs
 import com.shuli.reader.feature.bookshelf.component.SortBottomSheet
@@ -419,127 +408,5 @@ fun BookshelfScreen(
                 onDismiss = viewModel::onFolderDismiss,
             )
         }
-    }
-}
-
-@Composable
-private fun BookContent(
-    books: List<BookshelfNode>,
-    viewMode: ViewMode,
-    gridState: LazyGridState,
-    listState: LazyListState,
-    highlightedBookId: Long?,
-    onBookClick: (Long) -> Unit,
-    onFolderClick: (Long) -> Unit = {},
-    onShowInfo: (Long) -> Unit,
-    searchQuery: String,
-    modifier: Modifier = Modifier,
-    unifiedCoverPaletteIndex: Int? = null,
-    onCustomizeCover: ((Long) -> Unit)? = null,
-    isEditMode: Boolean = false,
-    selectedNodeIds: Set<Long> = emptySet(),
-    onToggleSelection: (Long) -> Unit = {},
-    onLongPressToEdit: (Long) -> Unit = {},
-    onDragToSlot: (Long, Int) -> Unit = { _, _ -> },
-    onMerge: (Long, Long) -> Unit = { _, _ -> },
-) {
-    when (viewMode) {
-        ViewMode.GRID -> BookGrid(
-            books = books,
-            searchQuery = searchQuery,
-            highlightedBookId = highlightedBookId,
-            onBookClick = onBookClick,
-            onFolderClick = onFolderClick,
-            onShowInfo = onShowInfo,
-            modifier = modifier,
-            unifiedCoverPaletteIndex = unifiedCoverPaletteIndex,
-            onCustomizeCover = onCustomizeCover,
-            isEditMode = isEditMode,
-            selectedNodeIds = selectedNodeIds,
-            onToggleSelection = onToggleSelection,
-            onLongPressToEdit = onLongPressToEdit,
-            onDragToSlot = onDragToSlot,
-            onMerge = onMerge,
-        )
-        ViewMode.LIST -> BookList(
-            books = books,
-            searchQuery = searchQuery,
-            listState = listState,
-            highlightedBookId = highlightedBookId,
-            onBookClick = onBookClick,
-            onFolderClick = onFolderClick,
-            onShowInfo = onShowInfo,
-            modifier = modifier,
-            unifiedCoverPaletteIndex = unifiedCoverPaletteIndex,
-            onCustomizeCover = onCustomizeCover,
-            isEditMode = isEditMode,
-            selectedNodeIds = selectedNodeIds,
-            onToggleSelection = onToggleSelection,
-            onLongPressToEdit = onLongPressToEdit,
-            onDragToSlot = onDragToSlot,
-            onMerge = onMerge,
-        )
-        ViewMode.COMPACT_LIST -> BookCompactList(
-            books = books,
-            searchQuery = searchQuery,
-            listState = listState,
-            highlightedBookId = highlightedBookId,
-            onBookClick = onBookClick,
-            onFolderClick = onFolderClick,
-            onShowInfo = onShowInfo,
-            modifier = modifier,
-            isEditMode = isEditMode,
-            selectedNodeIds = selectedNodeIds,
-            onToggleSelection = onToggleSelection,
-            onLongPressToEdit = onLongPressToEdit,
-            onDragToSlot = onDragToSlot,
-            onMerge = onMerge,
-        )
-    }
-}
-
-@Composable
-private fun EmptyState(
-    isSearching: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val strings = LocalAppStrings.current
-    Column(
-        modifier = modifier.padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = if (isSearching) strings.noBooksFound else strings.emptyBookshelf,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun SearchGuideState(modifier: Modifier = Modifier) {
-    val strings = LocalAppStrings.current
-    Column(
-        modifier = modifier.padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.Search,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            modifier = Modifier.size(48.dp),
-        )
-        Spacer(Modifier.height(12.dp))
-        Text(
-            text = strings.searchIconDesc,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = strings.searchPlaceholder,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-        )
     }
 }
