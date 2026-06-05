@@ -7,45 +7,24 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.Note
-import androidx.compose.material.icons.outlined.Bookmark
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,6 +44,8 @@ import com.shuli.reader.feature.reader.effects.ReaderRuntimeEffects
 import com.shuli.reader.feature.reader.gestures.ReaderCanvasGestures
 import com.shuli.reader.feature.reader.overlays.ReaderBottomBar
 import com.shuli.reader.feature.reader.overlays.ReaderOverlayPanels
+import com.shuli.reader.feature.reader.overlays.ReaderSearchBar
+import com.shuli.reader.feature.reader.overlays.ReaderSelectionActionBar
 import com.shuli.reader.feature.reader.overlays.ReaderTopBar
 import com.shuli.reader.ui.testing.UiTestTags
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
@@ -314,139 +295,6 @@ fun ReaderScreen(
 
                 // ── 浮层面板 ──
                 ReaderOverlayPanels(uiState = uiState, viewModel = viewModel)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ReaderSelectionActionBar(
-    onCopy: () -> Unit,
-    onBookmark: () -> Unit,
-    onNote: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val strings = LocalAppStrings.current
-    val readerColors = LocalReaderColorScheme.current
-
-    val actionButtonColors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-        containerColor = readerColors.divider,
-        contentColor = readerColors.textPrimary,
-    )
-
-    Surface(
-        color = readerColors.surface,
-        contentColor = readerColors.textPrimary,
-        tonalElevation = ReaderDimens.ElevationMedium,
-        shadowElevation = ReaderDimens.ElevationMedium + 2.dp,
-        shape = MaterialTheme.shapes.small,
-        modifier = modifier
-            .wrapContentWidth()
-            .testTag(UiTestTags.READER_SELECTION_ACTION_BAR),
-    ) {
-        androidx.compose.foundation.layout.Row(
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(ReaderDimens.PaddingSmall),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = ReaderDimens.PaddingMedium - 4.dp, vertical = ReaderDimens.PaddingSmall),
-        ) {
-            FilledTonalButton(
-                onClick = onCopy,
-                colors = actionButtonColors,
-                modifier = Modifier.testTag(UiTestTags.READER_COPY_SELECTION_BUTTON),
-            ) {
-                Icon(Icons.Outlined.ContentCopy, contentDescription = null)
-                Text(strings.copySelection)
-            }
-            FilledTonalButton(
-                onClick = onBookmark,
-                colors = actionButtonColors,
-                modifier = Modifier.testTag(UiTestTags.READER_BOOKMARK_SELECTION_BUTTON),
-            ) {
-                Icon(Icons.Outlined.Bookmark, contentDescription = null)
-                Text(strings.addBookmarkAction)
-            }
-            FilledTonalButton(
-                onClick = onNote,
-                colors = actionButtonColors,
-                modifier = Modifier.testTag(UiTestTags.READER_NOTE_SELECTION_BUTTON),
-            ) {
-                Icon(Icons.AutoMirrored.Outlined.Note, contentDescription = null)
-                Text(strings.addNoteAction)
-            }
-        }
-    }
-}
-
-/**
- * 阅读器搜索输入栏
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ReaderSearchBar(
-    onSearch: (String) -> Unit,
-    onClose: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val strings = LocalAppStrings.current
-    val readerColors = LocalReaderColorScheme.current
-    var query by remember { mutableStateOf("") }
-    val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
-
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
-
-    Surface(
-        color = readerColors.surface.copy(alpha = 0.95f),
-        contentColor = readerColors.textPrimary,
-        tonalElevation = ReaderDimens.ElevationMedium,
-        modifier = modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-    ) {
-        androidx.compose.foundation.layout.Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            androidx.compose.material3.IconButton(onClick = onClose) {
-                Icon(
-                    imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = strings.backIconDesc,
-                    tint = readerColors.textPrimary,
-                )
-            }
-            androidx.compose.material3.OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = {
-                    Text(strings.search, color = readerColors.textTertiary)
-                },
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                    color = readerColors.textPrimary,
-                ),
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
-                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { onSearch(query) }),
-                trailingIcon = {
-                    if (query.isNotEmpty()) {
-                        androidx.compose.material3.IconButton(onClick = { query = "" }) {
-                            Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Outlined.Close,
-                                contentDescription = null,
-                                tint = readerColors.textTertiary,
-                            )
-                        }
-                    }
-                },
-                modifier = Modifier.weight(1f).focusRequester(focusRequester),
-            )
-            androidx.compose.material3.IconButton(onClick = { onSearch(query) }) {
-                Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Outlined.Search,
-                    contentDescription = strings.search,
-                    tint = readerColors.textPrimary,
-                )
             }
         }
     }
