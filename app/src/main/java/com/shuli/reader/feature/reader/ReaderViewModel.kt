@@ -49,6 +49,7 @@ import com.shuli.reader.core.repository.BookRepository
 import com.shuli.reader.core.repository.SearchResult
 import com.shuli.reader.feature.reader.book.BookSessionManager
 import com.shuli.reader.feature.reader.notes.BookmarkNotesManager
+import com.shuli.reader.feature.reader.navigation.ReaderNavigationCoordinator
 import com.shuli.reader.feature.reader.presets.ReaderPresetManager
 import com.shuli.reader.feature.reader.pagination.ChapterPaginationCoordinator
 import com.shuli.reader.feature.reader.tts.TtsPlaybackManager
@@ -64,7 +65,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -72,9 +72,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
@@ -198,7 +196,6 @@ class ReaderViewModel(
 ) : ViewModel() {
 
     companion object {
-        private const val TOOLBAR_AUTO_HIDE_DELAY_MS = 5000L
         private const val TAG = "ReaderPerf"
     }
 
@@ -233,7 +230,6 @@ class ReaderViewModel(
     }
 
     // 工具栏自动隐藏计时器
-    private var toolbarAutoHideJob: Job? = null
 
     // M1: 章节加载 Job（防止快速连续调用导致多个 openChapter 并发）
     private var chapterJob: Job? = null
@@ -273,6 +269,22 @@ class ReaderViewModel(
         scope = viewModelScope,
     ).apply {
         onApplyPreferences = { prefs -> applyAllPreferences(prefs) }
+    }
+
+    private val navigationCoordinator = ReaderNavigationCoordinator(
+        uiState = _uiState,
+        scope = viewModelScope,
+        appContext = appContext,
+        stringResolver = stringResolver,
+    ).apply {
+        onGetLoadedBookContent = { loadedBookContent }
+        onOpenChapter = { index, toLast, byteOffset -> openChapter(index, toLast, byteOffset) }
+        onSaveReadingProgress = { immediate -> saveReadingProgress(immediate) }
+        onByteToCharOffset = { this@ReaderViewModel.byteToCharOffset(it) }
+        onGetNormalizedChapterCount = {
+            val content = loadedBookContent
+            if (content != null) paginationCoordinator.run { content.normalizedChapters().size } else 0
+        }
     }
 
     init {
@@ -791,141 +803,15 @@ class ReaderViewModel(
         }
     }
 
-    /**
-     * 下一页
-     */
-    fun nextPage() {
-        val state = _uiState.value
-        val chapter = state.currentChapter ?: return
+    // ── 翻页与导航（委托 navigationCoordinator）────────────────
 
-        if (state.pageIndex < chapter.lastIndex) {
-            _uiState.value = state.copy(
-                pageIndex = state.pageIndex + 1,
-                currentPage = chapter.getPage(state.pageIndex + 1),
-            )
-            // R7: 翻页时防抖保存阅读进度
-            saveReadingProgress(immediate = false)
-        } else if (loadedBookContent != null && state.chapterIndex < paginationCoordinator.run { loadedBookContent!!.normalizedChapters() }.size - 1) {
-            // 跨章：打开下一章
-            openChapter(state.chapterIndex + 1)
-        } else {
-            // 已经是最后一章最后一页
-            appContext?.let {
-                android.widget.Toast.makeText(it, stringResolver().alreadyLastPage, android.widget.Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    /**
-     * 上一页
-     */
-    fun prevPage() {
-        val state = _uiState.value
-        val chapter = state.currentChapter ?: return
-
-        if (state.pageIndex > 0) {
-            _uiState.value = state.copy(
-                pageIndex = state.pageIndex - 1,
-                currentPage = chapter.getPage(state.pageIndex - 1),
-            )
-            // R7: 翻页时防抖保存阅读进度
-            saveReadingProgress(immediate = false)
-        } else if (state.chapterIndex > 0) {
-            // 跨章：打开上一章末页
-            openChapter(state.chapterIndex - 1, targetToLastPage = true)
-        } else {
-            // 已经是第一章第一页
-            appContext?.let {
-                android.widget.Toast.makeText(it, stringResolver().alreadyFirstPage, android.widget.Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    /**
-     * 跳转到指定页码
-     */
-    fun jumpToPage(pageIndex: Int) {
-        val chapter = _uiState.value.currentChapter ?: return
-        val safe = pageIndex.coerceIn(0, chapter.lastIndex)
-        if (safe == _uiState.value.pageIndex) return
-
-        _uiState.value = _uiState.value.copy(
-            pageIndex = safe,
-            currentPage = chapter.getPage(safe),
-            pageRenderMode = PageRenderMode.JUMP,
-            selectedRange = null,
-            ttsActiveRange = null,
-        )
-        saveReadingProgress(immediate = true)
-        // 一帧后回到 SEQUENTIAL，让 View 自然预热邻页
-        viewModelScope.launch {
-            delay(16)
-            _uiState.value = _uiState.value.copy(pageRenderMode = PageRenderMode.SEQUENTIAL)
-        }
-    }
-
-    /**
-     * 跳转到指定章节的字节偏移位置（v4：统一入口）。
-     * 同章跳转：用 utf16IndexToByte 映射转为 charOffset 后定位页码。
-     * 跨章跳转：openChapter 加载新章节后自动跳转。
-     */
-    fun jumpToChapterPosition(chapterIndex: Int, byteOffset: Long) {
-        val state = _uiState.value
-        val chapter = state.currentChapter
-        if (chapter?.chapterIndex == chapterIndex && chapter.pageSize > 0) {
-            // 同章：将绝对 byteOffset 转为章节内相对 byteOffset，再转为 charOffset
-            val chapters = loadedBookContent?.chapters
-            val chapterByteStart = chapters?.getOrNull(chapterIndex)?.byteStart ?: 0L
-            val relativeByte = (byteOffset - chapterByteStart).toInt().coerceAtLeast(0)
-            val charOffset = byteToCharOffset(relativeByte)
-            val pi = chapter.getPageIndexByCharIndex(charOffset)
-            jumpToPage(pi)
-        } else {
-            // 跨章：openChapter 加载新章节后查找 byteOffset 对应的页
-            openChapter(chapterIndex, targetByteOffset = byteOffset)
-        }
-    }
-
-    // ── 进度条 Scrub 接口 ──────────────────────────────────────
-
-    private val scrubChannel = Channel<Int>(Channel.CONFLATED)
-
-    init {
-        viewModelScope.launch {
-            scrubChannel.consumeAsFlow()
-                .sample(80.milliseconds)
-                .collect { pageIndex -> emitScrubFrame(pageIndex) }
-        }
-    }
-
-    fun startPageScrub() {
-        _uiState.value = _uiState.value.copy(pageRenderMode = PageRenderMode.SCRUBBING)
-    }
-
-    fun scrubToPage(pageIndex: Int) {
-        val chapter = _uiState.value.currentChapter ?: return
-        val safe = pageIndex.coerceIn(0, chapter.lastIndex)
-        // 立即更新 pageIndex（页脚数字跟手）
-        _uiState.value = _uiState.value.copy(pageIndex = safe)
-        // 把"换页"扔进节流 channel
-        scrubChannel.trySend(safe)
-    }
-
-    private fun emitScrubFrame(pageIndex: Int) {
-        val chapter = _uiState.value.currentChapter ?: return
-        _uiState.value = _uiState.value.copy(currentPage = chapter.getPage(pageIndex))
-    }
-
-    fun commitPageScrub() {
-        val state = _uiState.value
-        val pi = state.pageIndex
-        val chapter = state.currentChapter ?: return
-        _uiState.value = state.copy(
-            currentPage = chapter.getPage(pi),
-            pageRenderMode = PageRenderMode.SEQUENTIAL,
-        )
-        sessionManager.saveReadingProgress(immediate = true)
-    }
+    fun nextPage() = navigationCoordinator.nextPage()
+    fun prevPage() = navigationCoordinator.prevPage()
+    fun jumpToPage(pageIndex: Int) = navigationCoordinator.jumpToPage(pageIndex)
+    fun jumpToChapterPosition(chapterIndex: Int, byteOffset: Long) = navigationCoordinator.jumpToChapterPosition(chapterIndex, byteOffset)
+    fun startPageScrub() = navigationCoordinator.startPageScrub()
+    fun scrubToPage(pageIndex: Int) = navigationCoordinator.scrubToPage(pageIndex)
+    fun commitPageScrub() = navigationCoordinator.commitPageScrub()
 
     private fun saveReadingProgress(immediate: Boolean) = sessionManager.saveReadingProgress(immediate)
 
@@ -1357,59 +1243,22 @@ class ReaderViewModel(
     /**
      * 显示/隐藏工具栏
      */
-    fun toggleToolbar() {
-        toolbarAutoHideJob?.cancel()
-        val showing = !_uiState.value.showToolbar
-        _uiState.value = _uiState.value.copy(
-            showToolbar = showing,
-            overlayPanel = OverlayPanel.NONE,
-        )
-        if (showing) {
-            startToolbarAutoHide()
-        }
-    }
-
-    /**
-     * 启动工具栏自动隐藏计时器
-     */
-    private fun startToolbarAutoHide() {
-        toolbarAutoHideJob?.cancel()
-        toolbarAutoHideJob = viewModelScope.launch {
-            delay(TOOLBAR_AUTO_HIDE_DELAY_MS)
-            _uiState.value = _uiState.value.copy(showToolbar = false)
-        }
-    }
+    fun toggleToolbar() = navigationCoordinator.toggleToolbar()
 
     /**
      * 重置工具栏自动隐藏计时器（用户与工具栏 UI 交互时调用）
      */
-    fun resetToolbarAutoHide() {
-        if (_uiState.value.showToolbar) {
-            startToolbarAutoHide()
-        }
-    }
+    fun resetToolbarAutoHide() = navigationCoordinator.resetToolbarAutoHide()
 
     /**
      * 显示/隐藏目录
      */
-    fun toggleDirectory() {
-        toggleOverlay(OverlayPanel.DIRECTORY)
-    }
+    fun toggleDirectory() = navigationCoordinator.toggleDirectory()
 
     /**
      * 显示/隐藏快速设置
      */
-    fun toggleQuickSettings() {
-        toggleOverlay(OverlayPanel.QUICK_SETTINGS)
-    }
-
-    private fun toggleOverlay(panel: OverlayPanel) {
-        resetToolbarAutoHide()
-        val current = _uiState.value.overlayPanel
-        _uiState.value = _uiState.value.copy(
-            overlayPanel = if (current == panel) OverlayPanel.NONE else panel
-        )
-    }
+    fun toggleQuickSettings() = navigationCoordinator.toggleQuickSettings()
 
     /**
      * 显示/隐藏菜单
@@ -1496,8 +1345,7 @@ class ReaderViewModel(
         chapterProvider.cancel()
         // 缓存保留在 BookCacheStore 中，短时间返回可复用
 
-        toolbarAutoHideJob?.cancel()
-        toolbarAutoHideJob = null
+        navigationCoordinator.release()
         ttsManager.release()
         notesManager.release()
         presetManager.release()
