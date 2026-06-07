@@ -45,8 +45,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import com.shuli.reader.feature.settings.SettingsClickItem
-import com.shuli.reader.feature.settings.SettingsSwitchItem
+import com.shuli.reader.feature.settings.components.SettingsClickItem
+import com.shuli.reader.feature.settings.components.SettingsSwitchItem
 import com.shuli.reader.core.i18n.LocalAppStrings
 
 /**

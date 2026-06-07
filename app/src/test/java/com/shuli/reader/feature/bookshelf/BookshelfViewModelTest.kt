@@ -2,7 +2,10 @@ package com.shuli.reader.feature.bookshelf
 
 import com.shuli.reader.MainDispatcherRule
 import com.shuli.reader.core.repository.BookAlreadyExistsException
-import com.shuli.reader.core.repository.BookRepository
+import com.shuli.reader.core.repository.BookQueryRepository
+import com.shuli.reader.core.repository.BookImportRepository
+import com.shuli.reader.core.repository.FolderRepository
+import com.shuli.reader.core.repository.ReadingProgressRepository
 import com.shuli.reader.core.repository.ImportConfig
 import com.shuli.reader.core.repository.ImportResult
 import com.shuli.reader.feature.bookshelf.model.FilterType
@@ -29,18 +32,25 @@ class BookshelfViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private lateinit var bookRepository: BookRepository
+    private lateinit var bookQueryRepository: BookQueryRepository
+    private lateinit var readingProgressRepository: ReadingProgressRepository
     private lateinit var viewModel: BookshelfViewModel
 
     @Before
     fun setup() {
-        bookRepository = mockk(relaxed = true)
-        every { bookRepository.getAllBooks() } returns flowOf(emptyList())
-        every { bookRepository.getBookshelfPage(any(), any()) } returns flowOf(emptyList())
-        every { bookRepository.searchBooksPage(any(), any(), any()) } returns flowOf(emptyList())
-        every { bookRepository.getReadingDurations() } returns flowOf(emptyMap())
-        every { bookRepository.getTodayReadingTime() } returns flowOf(0L)
-        viewModel = BookshelfViewModel(bookRepository)
+        bookQueryRepository = mockk(relaxed = true)
+        readingProgressRepository = mockk(relaxed = true)
+        every { bookQueryRepository.getAllBooks() } returns flowOf(emptyList())
+        every { bookQueryRepository.getBookshelfPage(any(), any()) } returns flowOf(emptyList())
+        every { bookQueryRepository.searchBooksPage(any(), any(), any()) } returns flowOf(emptyList())
+        every { readingProgressRepository.getReadingDurations() } returns flowOf(emptyMap())
+        every { readingProgressRepository.getTodayReadingTime() } returns flowOf(0L)
+        viewModel = BookshelfViewModel(
+            bookQueryRepository = bookQueryRepository,
+            folderRepository = mockk(relaxed = true),
+            readingProgressRepository = readingProgressRepository,
+            bookImportRepository = mockk(relaxed = true),
+        )
     }
 
     @Test
@@ -104,7 +114,7 @@ class BookshelfViewModelTest {
 
         advanceUntilIdle()
 
-        verify { bookRepository.getBookshelfPage(BookshelfViewModel.INITIAL_PAGE_SIZE, 0) }
+        verify { bookQueryRepository.getBookshelfPage(BookshelfViewModel.INITIAL_PAGE_SIZE, 0) }
         collection.cancel()
     }
 
@@ -118,7 +128,7 @@ class BookshelfViewModelTest {
         viewModel.onSearchQueryChanged("测试")
         advanceUntilIdle()
 
-        verify { bookRepository.searchBooksPage("测试", BookshelfViewModel.INITIAL_PAGE_SIZE, 0) }
+        verify { bookQueryRepository.searchBooksPage("测试", BookshelfViewModel.INITIAL_PAGE_SIZE, 0) }
         collection.cancel()
     }
 }

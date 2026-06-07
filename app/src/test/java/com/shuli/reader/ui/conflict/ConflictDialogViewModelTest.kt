@@ -24,12 +24,12 @@ class ConflictDialogViewModelTest {
     @Test
     fun `getDeviceDisplayName returns fallback when model is blank`() {
         val info = DeviceInfo(deviceId = "f47ac10b-58cc", model = "", lastSyncAt = 0)
-        assertEquals(strings.deviceFallbackName("f47ac1"), ConflictDialogViewModel.getDeviceDisplayName(info, strings))
+        assertEquals(strings.sync.deviceFallbackName("f47ac1"), ConflictDialogViewModel.getDeviceDisplayName(info, strings))
     }
 
     @Test
     fun `getDeviceDisplayName returns fallback when deviceInfo is null`() {
-        assertEquals(strings.otherDevice, ConflictDialogViewModel.getDeviceDisplayName(null, strings))
+        assertEquals(strings.sync.otherDevice, ConflictDialogViewModel.getDeviceDisplayName(null, strings))
     }
 
     @Test

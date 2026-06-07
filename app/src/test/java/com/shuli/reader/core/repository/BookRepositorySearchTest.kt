@@ -2,10 +2,10 @@ package com.shuli.reader.core.repository
 
 import com.shuli.reader.core.database.dao.BookChapterDao
 import com.shuli.reader.core.database.dao.BookDao
-import com.shuli.reader.core.database.dao.ReadingProgressDao
 import com.shuli.reader.core.database.entity.BookChapterEntity
 import com.shuli.reader.core.database.entity.BookContentIndexEntity
 import com.shuli.reader.core.database.entity.BookEntity
+import com.shuli.reader.core.parser.ByteWindowReader
 import com.shuli.reader.core.parser.EpubParser
 import com.shuli.reader.core.parser.TxtParser
 import io.mockk.coEvery
@@ -42,8 +42,6 @@ class BookRepositorySearchTest {
         coEvery { bookDao.countBookContentIndex(1L) } returns 0
         coEvery { bookDao.replaceBookContentIndex(eq(1L), any()) } just runs
         val bookChapterDao = mockk<BookChapterDao>()
-        // trimIndent 后的内容："第一章 开始\n星海…\n第二章 归途\n…星海…"
-        // 第一章结束于 "远方。\n" 末尾（46 字节处）
         val chapterEnd = 46L
         coEvery { bookChapterDao.getChapters(1L) } returns listOf(
             BookChapterEntity(
@@ -55,7 +53,7 @@ class BookRepositorySearchTest {
                 byteStart = chapterEnd, byteEnd = file.length(),
             ),
         )
-        val repository = repository(bookDao, bookChapterDao)
+        val repository = searchIndexRepository(bookDao, bookChapterDao)
 
         val results = repository.searchInBook(1L, "星海")
 
@@ -70,7 +68,7 @@ class BookRepositorySearchTest {
     @Test
     fun searchInBook_withBlankQuery_doesNotReadDatabase() = runTest {
         val bookDao = mockk<BookDao>(relaxed = true)
-        val repository = repository(bookDao)
+        val repository = searchIndexRepository(bookDao)
 
         val results = repository.searchInBook(1L, "   ")
 
@@ -92,13 +90,12 @@ class BookRepositorySearchTest {
                 content = "远方的星海正在发亮。",
             ),
         )
-        val repository = repository(bookDao)
+        val repository = searchIndexRepository(bookDao)
 
         val results = repository.searchInBook(1L, "星海")
 
         assertEquals(1, results.size)
         assertEquals(2, results.first().chapterIndex)
-        // "远方的" UTF-8 = 9 字节，byteStart(100) + 9 = 109
         assertEquals(109L, results.first().byteOffset)
         verify(exactly = 0) { bookDao.getBookById(any()) }
     }
@@ -106,7 +103,7 @@ class BookRepositorySearchTest {
     @Test
     fun deleteBook_removesContentIndexBeforeBookRow() = runTest {
         val bookDao = mockk<BookDao>(relaxed = true)
-        val repository = repository(bookDao)
+        val repository = bookQueryRepository(bookDao)
 
         repository.deleteBook(1L)
 
@@ -114,18 +111,24 @@ class BookRepositorySearchTest {
         coVerify { bookDao.deleteBookById(1L) }
     }
 
-    private fun repository(
+    private fun searchIndexRepository(
         bookDao: BookDao,
         bookChapterDao: BookChapterDao = mockk(relaxed = true),
-    ): BookRepository {
-        return BookRepository(
+    ): SearchIndexRepository {
+        return SearchIndexRepository(
             bookDao = bookDao,
             bookChapterDao = bookChapterDao,
-            readingProgressDao = mockk<ReadingProgressDao>(relaxed = true),
             txtParser = TxtParser(),
             epubParser = EpubParser(),
-            byteWindowReader = com.shuli.reader.core.parser.ByteWindowReader(),
-            booksDir = File(requireNotNull(System.getProperty("java.io.tmpdir"))),
+            byteWindowReader = ByteWindowReader(),
+        )
+    }
+
+    private fun bookQueryRepository(
+        bookDao: BookDao,
+    ): BookQueryRepository {
+        return BookQueryRepository(
+            bookDao = bookDao,
         )
     }
 

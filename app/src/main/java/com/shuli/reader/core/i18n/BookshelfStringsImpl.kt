@@ -74,6 +74,63 @@ internal data object ZhHansBookshelf : BookshelfStrings {
     override val invalidFolderPath = "无效的文件夹路径"
     override val invalidFolder = "不是有效的文件夹"
     override val noImportableFiles = "未找到可导入的文件"
+
+    // ── 阅读状态（P0）──
+    override val statusWantToRead = "想读"
+    override val statusReading = "在读"
+    override val statusPaused = "暂停"
+    override val statusFinished = "已读完"
+    override val statusAbandoned = "弃读"
+    override val rereadCountLabel = { count: Int -> "第 $count 次阅读" }
+    override val continueReading = "继续阅读"
+    override val startReading = "开始阅读"
+    override val rereadBook = "重新阅读"
+    override val restartBook = "重新开始"
+    override val exportNotes = "导出笔记"
+    override val statusChanged = "阅读状态已更新"
+    override val batchStatusChange = "批量改状态"
+
+    // ── 标签（P1）──
+    override val addTag = "添加标签"
+    override val removeTag = "移除标签"
+    override val tags = "标签"
+    override val tagCountLabel = { count: Int -> "$count 本书使用" }
+    override val searchTagHint = "搜索或输入标签名"
+    override val noTags = "暂无标签"
+    override val clearFilter = "清除筛选"
+    override val sortReadingStatus = "阅读状态"
+    override val sortReadCount = "阅读次数"
+
+    // ── 标签管理（P2）──
+    override val tagManagement = "标签管理"
+    override val tagTotalCount = { count: Int -> "共 $count 个" }
+    override val renameTag = "重命名标签"
+    override val deleteTag = "删除标签"
+    override val mergeTag = "合并标签"
+    override val confirmDeleteTag = { name: String, count: Int -> "确定要删除标签「$name」吗？该标签已被 $count 本书使用。" }
+    override val confirmMergeTag = { source: String, target: String -> "确定要将标签「$source」合并到「$target」吗？合并后「$source」将被删除。" }
+
+    // ── 阅读数据（P2）──
+    override val readingData = "阅读数据"
+    override val totalDuration = "总时长"
+    override val readingDays = "已读天数"
+    override val daysUnit = "天"
+
+    // ── 书签与笔记（P2）──
+    override val bookmarksAndNotes = "书签与笔记"
+    override val viewAll = "查看全部 ›"
+    override val bookmarkNoteCount = { bookmarks: Int, notes: Int -> "$bookmarks 个书签 · $notes 条笔记" }
+
+    // ── 标签建议（P3）──
+    override val tagSuggestions = "标签建议"
+    override val acceptAllSuggestions = "全部接受"
+    override val noSuggestions = "暂无建议"
+    override val acceptSuggestion = "接受"
+    override val rejectSuggestion = "拒绝"
+
+    // ── 预设标签包（P3）──
+    override val presetTagPacks = "预设标签包"
+    override val importPresetTags = "导入"
 }
 
 /** 繁体中文 — 书架、导入、书籍操作、编辑模式字符串 */
@@ -150,6 +207,63 @@ internal data object ZhHantBookshelf : BookshelfStrings {
     override val invalidFolderPath = "無效的資料夾路徑"
     override val invalidFolder = "不是有效的資料夾"
     override val noImportableFiles = "未找到可匯入的檔案"
+
+    // ── 閱讀狀態（P0）──
+    override val statusWantToRead = "想讀"
+    override val statusReading = "在讀"
+    override val statusPaused = "暫停"
+    override val statusFinished = "已讀完"
+    override val statusAbandoned = "棄讀"
+    override val rereadCountLabel = { count: Int -> "第 $count 次閱讀" }
+    override val continueReading = "繼續閱讀"
+    override val startReading = "開始閱讀"
+    override val rereadBook = "重新閱讀"
+    override val restartBook = "重新開始"
+    override val exportNotes = "匯出筆記"
+    override val statusChanged = "閱讀狀態已更新"
+    override val batchStatusChange = "批次改狀態"
+
+    // ── 標籤（P1）──
+    override val addTag = "新增標籤"
+    override val removeTag = "移除標籤"
+    override val tags = "標籤"
+    override val tagCountLabel = { count: Int -> "$count 本書使用" }
+    override val searchTagHint = "搜尋或輸入標籤名"
+    override val noTags = "暫無標籤"
+    override val clearFilter = "清除篩選"
+    override val sortReadingStatus = "閱讀狀態"
+    override val sortReadCount = "閱讀次數"
+
+    // ── 標籤管理（P2）──
+    override val tagManagement = "標籤管理"
+    override val tagTotalCount = { count: Int -> "共 $count 個" }
+    override val renameTag = "重新命名標籤"
+    override val deleteTag = "刪除標籤"
+    override val mergeTag = "合併標籤"
+    override val confirmDeleteTag = { name: String, count: Int -> "確定要刪除標籤「$name」嗎？該標籤已被 $count 本書使用。" }
+    override val confirmMergeTag = { source: String, target: String -> "確定要將標籤「$source」合併到「$target」嗎？合併後「$source」將被刪除。" }
+
+    // ── 閱讀數據（P2）──
+    override val readingData = "閱讀數據"
+    override val totalDuration = "總時長"
+    override val readingDays = "已讀天數"
+    override val daysUnit = "天"
+
+    // ── 書簽與筆記（P2）──
+    override val bookmarksAndNotes = "書籤與筆記"
+    override val viewAll = "查看全部 ›"
+    override val bookmarkNoteCount = { bookmarks: Int, notes: Int -> "$bookmarks 個書籤 · $notes 條筆記" }
+
+    // ── 標籤建議（P3）──
+    override val tagSuggestions = "標籤建議"
+    override val acceptAllSuggestions = "全部接受"
+    override val noSuggestions = "暫無建議"
+    override val acceptSuggestion = "接受"
+    override val rejectSuggestion = "拒絕"
+
+    // ── 預設標籤包（P3）──
+    override val presetTagPacks = "預設標籤包"
+    override val importPresetTags = "匯入"
 }
 
 /** English — Bookshelf, import, book operations, edit mode strings */
@@ -226,4 +340,61 @@ internal data object EnBookshelf : BookshelfStrings {
     override val invalidFolderPath = "Invalid folder path"
     override val invalidFolder = "Invalid folder"
     override val noImportableFiles = "No importable files found"
+
+    // ── Reading status (P0) ──
+    override val statusWantToRead = "Want to read"
+    override val statusReading = "Reading"
+    override val statusPaused = "Paused"
+    override val statusFinished = "Finished"
+    override val statusAbandoned = "Abandoned"
+    override val rereadCountLabel = { count: Int -> "Read $count times" }
+    override val continueReading = "Continue reading"
+    override val startReading = "Start reading"
+    override val rereadBook = "Read again"
+    override val restartBook = "Restart"
+    override val exportNotes = "Export notes"
+    override val statusChanged = "Reading status updated"
+    override val batchStatusChange = "Batch change status"
+
+    // ── Tags (P1) ──
+    override val addTag = "Add tag"
+    override val removeTag = "Remove tag"
+    override val tags = "Tags"
+    override val tagCountLabel = { count: Int -> "Used by $count books" }
+    override val searchTagHint = "Search or enter tag name"
+    override val noTags = "No tags"
+    override val clearFilter = "Clear filter"
+    override val sortReadingStatus = "Reading status"
+    override val sortReadCount = "Read count"
+
+    // ── Tag management (P2) ──
+    override val tagManagement = "Tag management"
+    override val tagTotalCount = { count: Int -> "$count total" }
+    override val renameTag = "Rename tag"
+    override val deleteTag = "Delete tag"
+    override val mergeTag = "Merge tag"
+    override val confirmDeleteTag = { name: String, count: Int -> "Delete tag \"$name\"? It is used by $count books." }
+    override val confirmMergeTag = { source: String, target: String -> "Merge tag \"$source\" into \"$target\"? \"$source\" will be deleted." }
+
+    // ── Reading data (P2) ──
+    override val readingData = "Reading data"
+    override val totalDuration = "Total time"
+    override val readingDays = "Reading days"
+    override val daysUnit = "d"
+
+    // ── Bookmarks & notes (P2) ──
+    override val bookmarksAndNotes = "Bookmarks & notes"
+    override val viewAll = "View all ›"
+    override val bookmarkNoteCount = { bookmarks: Int, notes: Int -> "$bookmarks bookmarks · $notes notes" }
+
+    // ── Tag suggestions (P3) ──
+    override val tagSuggestions = "Tag suggestions"
+    override val acceptAllSuggestions = "Accept all"
+    override val noSuggestions = "No suggestions"
+    override val acceptSuggestion = "Accept"
+    override val rejectSuggestion = "Reject"
+
+    // ── Preset tag packs (P3) ──
+    override val presetTagPacks = "Preset tag packs"
+    override val importPresetTags = "Import"
 }

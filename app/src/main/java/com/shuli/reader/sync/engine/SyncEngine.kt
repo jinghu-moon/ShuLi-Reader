@@ -59,6 +59,9 @@ data class SyncBookState(
     val version: Int = 1,
     val updatedAt: Long = 0L,
     val deviceId: String = "",
+    val readingStatus: String = "WANT_TO_READ",
+    val readCount: Int = 1,
+    val tags: List<String> = emptyList(),
 )
 
 /**
@@ -342,6 +345,9 @@ class SyncEngine(
         chapterIndex = chapterIndex,
         chapterPos = chapterPos,
         totalSize = fileSize,
+        readingStatus = readingStatus,
+        readCount = readCount,
+        tags = tags,
     )
 
     private fun BookState.toSyncBookState(bookKey: String) = SyncBookState(
@@ -353,6 +359,9 @@ class SyncEngine(
         version = version,
         updatedAt = updatedAt,
         deviceId = deviceId,
+        readingStatus = readingStatus,
+        readCount = readCount,
+        tags = tags,
     )
 
     @Serializable

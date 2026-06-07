@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>章节时间轴视图 - ShuLi Reader 原型</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #1a1a1a;
+    --surface: #252525;
+    --surface-2: #2f2f2f;
+    --border: #3a3a3a;
+    --text: #e8e8e8;
+    --text-dim: #8a8a8a;
+    --text-faint: #555;
+    --accent: #4fc3f7;
+    --accent-dim: rgba(79, 195, 247, 0.2);
+    --read: #4a4a4a;
+    --unread: #2a2a2a;
+    --current: #4fc3f7;
+    --bookmark: #ffb74d;
+    --note: #81c784;
+    --highlight: #ef5350;
+    --shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  body {
+    font-family: -apple-system, "Segoe UI", "Noto Sans SC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+  .app {
+    display: grid;
+    grid-template-columns: 360px 1fr 320px;
+    height: 100vh;
+  }
+
+  /* ============ 左侧：目录面板 ============ */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .book-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, var(--surface-2), var(--surface));
+  }
+  .book-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+  }
+  .book-meta {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .progress-bar {
+    margin-top: 12px;
+    height: 4px;
+    background: var(--surface-2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .stats {
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .stat { display: flex; flex-direction: column; gap: 2px; }
+  .stat-value { font-size: 14px; color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .tab {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text-dim);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .search-bar {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .search-input {
+    flex: 1;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .filter-chips {
+    display: flex;
+    gap: 6px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .chip {
+    padding: 4px 10px;
+    background: var(--surface-2);
+    border-radius: 12px;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .chip.active { background: var(--accent-dim); color: var(--accent); }
+
+  .list-view {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+  .chapter-row {
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+  }
+  .chapter-row:hover { background: var(--surface-2); }
+  .chapter-row.read { opacity: 0.65; }
+  .chapter-row.current {
+    background: var(--accent-dim);
+    border-left-color: var(--accent);
+  }
+  .chapter-row.current .chapter-index { color: var(--accent); }
+  .chapter-index {
+    font-size: 11px;
+    color: var(--text-faint);
+    min-width: 38px;
+    font-variant-numeric: tabular-nums;
+  }
+  .chapter-name {
+    flex: 1;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chapter-markers {
+    display: flex;
+    gap: 3px;
+  }
+  .marker {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+  .marker.bookmark { background: var(--bookmark); }
+  .marker.note { background: var(--note); }
+
+  /* ============ 中间：时间轴 ============ */
+  .timeline-area {
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(79, 195, 247, 0.04), transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(255, 183, 77, 0.03), transparent 50%),
+      var(--bg);
+  }
+  .timeline-header {
+    position: absolute;
+    top: 16px;
+    left: 24px;
+    right: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .timeline-header > * { pointer-events: auto; }
+  .timeline-title {
+    font-size: 13px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .legend {
+    display: flex;
+    gap: 14px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .legend-bar { width: 14px; height: 3px; border-radius: 2px; }
+
+  .zoom-controls {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  .zoom-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: background 0.15s;
+  }
+  .zoom-btn:hover { background: var(--surface-2); }
+  .zoom-label {
+    padding: 0 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .timeline-scroll {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    padding: 70px 60px 60px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .timeline-scroll::-webkit-scrollbar { width: 6px; }
+  .timeline-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .timeline-container {
+    position: relative;
+    margin: 0 auto;
+    max-width: 480px;
+    transition: all 0.3s;
+  }
+  .timeline-axis {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, transparent, var(--border) 5%, var(--border) 95%, transparent);
+    transform: translateX(-50%);
+  }
+  .chapter-node {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .chapter-node:hover { z-index: 5; }
+  .chapter-node:hover .chapter-block { transform: scale(1.04); box-shadow: 0 0 0 2px var(--accent); }
+
+  .chapter-block {
+    position: relative;
+    background: var(--unread);
+    border-radius: 3px;
+    transition: all 0.2s;
+    overflow: hidden;
+  }
+  .chapter-block.read { background: var(--read); }
+  .chapter-block.current {
+    background: linear-gradient(90deg, var(--accent), #29b6f6);
+    box-shadow: 0 0 12px rgba(79, 195, 247, 0.5);
+    animation: pulse 2.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 12px rgba(79, 195, 247, 0.4); }
+    50% { box-shadow: 0 0 20px rgba(79, 195, 247, 0.8); }
+  }
+  .chapter-block .progress-overlay {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    background: linear-gradient(90deg, rgba(79, 195, 247, 0.4), rgba(79, 195, 247, 0.2));
+  }
+  .chapter-marker {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--bookmark);
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 0 1px var(--bookmark);
+    z-index: 2;
+    transition: transform 0.15s;
+  }
+  .chapter-marker.note { background: var(--note); box-shadow: 0 0 0 1px var(--note); }
+  .chapter-node:hover .chapter-marker { transform: scale(1.3); }
+
+  .chapter-label {
+    position: absolute;
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    padding: 3px 8px;
+    background: var(--surface);
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chapter-node:hover .chapter-label { opacity: 1; }
+  .chapter-label.left { right: calc(100% + 12px); }
+  .chapter-label.right { left: calc(100% + 12px); }
+
+  .volume-marker {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    padding: 2px 12px;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    z-index: 3;
+  }
+
+  /* ============ 右侧：详情面板 ============ */
+  .detail-panel {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .detail-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+    line-height: 1.6;
+  }
+  .detail-content { padding: 20px; display: none; }
+  .detail-content.visible { display: block; }
+
+  .detail-chapter-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    line-height: 1.4;
+  }
+  .detail-chapter-index {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+  }
+  .detail-section {
+    padding: 14px 0;
+    border-top: 1px solid var(--border);
+  }
+  .detail-section:first-of-type { border-top: none; }
+  .detail-section-title {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 13px;
+  }
+  .detail-row-label { color: var(--text-dim); }
+  .detail-row-value { font-variant-numeric: tabular-nums; }
+  .detail-row-value.status-read { color: #81c784; }
+  .detail-row-value.status-current { color: var(--accent); }
+  .detail-row-value.status-unread { color: var(--text-faint); }
+
+  .detail-summary {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border-radius: 6px;
+    border-left: 3px solid var(--accent);
+  }
+
+  .annotation-list { display: flex; flex-direction: column; gap: 10px; }
+  .annotation {
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    border-left: 3px solid var(--bookmark);
+  }
+  .annotation.note { border-left-color: var(--note); }
+  .annotation-text { color: var(--text); margin-bottom: 4px; }
+  .annotation-meta { color: var(--text-faint); font-size: 10px; }
+
+  .action-btn {
+    width: 100%;
+    padding: 11px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 16px;
+    transition: all 0.15s;
+  }
+  .action-btn:hover { background: #29b6f6; transform: translateY(-1px); }
+  .action-btn.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    margin-top: 8px;
+  }
+  .action-btn.secondary:hover { background: var(--surface-2); transform: none; }
+
+  /* ============ 右下角：跳转到当前 ============ */
+  .fab {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    width: 52px;
+    height: 52px;
+    background: var(--accent);
+    color: #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(79, 195, 247, 0.4);
+    transition: all 0.2s;
+    z-index: 10;
+    border: none;
+    font-size: 20px;
+  }
+  .fab:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(79, 195, 247, 0.6); }
+  .fab:active { transform: scale(0.95); }
+
+  /* ============ tooltip ============ */
+  .tooltip {
+    position: fixed;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    pointer-events: none;
+    box-shadow: var(--shadow);
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.15s;
+    max-width: 260px;
+  }
+  .tooltip.visible { opacity: 1; }
+  .tooltip-title { font-weight: 500; margin-bottom: 3px; }
+  .tooltip-meta { color: var(--text-dim); font-size: 11px; }
+
+  /* ============ 顶部提示 ============ */
+  .hint-banner {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface);
+    border: 1px solid var(--accent-dim);
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--text-dim);
+    z-index: 10;
+    opacity: 0;
+    animation: fadeIn 0.6s ease 0.5s forwards;
+  }
+  @keyframes fadeIn { to { opacity: 1; } }
+  .hint-banner strong { color: var(--accent); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ============ 左侧：目录面板 ============ -->
+  <div class="sidebar">
+    <div class="book-header">
+      <div class="book-title">《诡秘之主》</div>
+      <div class="book-meta">爱潜水的乌贼 · 1420 章 · 412.8 万字</div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="stats">
+        <div class="stat"><div class="stat-value" id="statRead">743</div><div>已读章节</div></div>
+        <div class="stat"><div class="stat-value" id="statWords">216.4万</div><div>已读字数</div></div>
+        <div class="stat"><div class="stat-value" id="statPercent">52.3%</div><div>全书进度</div></div>
+        <div class="stat"><div class="stat-value" id="statMarks">23</div><div>书签/笔记</div></div>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab" data-tab="list">列表</div>
+      <div class="tab active" data-tab="timeline">时间轴</div>
+      <div class="tab" data-tab="heatmap">热力图</div>
+    </div>
+    <div class="search-bar">
+      <input class="search-input" placeholder="搜索章节名..." id="searchInput">
+    </div>
+    <div class="filter-chips">
+      <div class="chip active" data-filter="all">全部</div>
+      <div class="chip" data-filter="unread">未读</div>
+      <div class="chip" data-filter="bookmarked">已书签</div>
+      <div class="chip" data-filter="noted">有笔记</div>
+      <div class="chip" data-filter="long">长篇（>3000字）</div>
+    </div>
+    <div class="list-view" id="listView"></div>
+  </div>
+
+  <!-- ============ 中间：时间轴 ============ -->
+  <div class="timeline-area">
+    <div class="timeline-header">
+      <div class="timeline-title">
+        <span>📖 章节时间轴</span>
+        <span style="color:var(--text-faint)">·</span>
+        <span id="viewInfo">每像素 ≈ 500 字</span>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-bar" style="background:var(--read)"></div><span>已读</span></div>
+        <div class="legend-item"><div class="legend-bar" style="background:var(--unread)"></div><span>未读</span></div>
+        <div class="legend-item"><div class="legend-bar" style="background:var(--current)"></div><span>当前</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--bookmark)"></div><span>书签</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--note)"></div><span>笔记</span></div>
+      </div>
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="zoomOut">−</button>
+        <div class="zoom-label" id="zoomLabel">100%</div>
+        <button class="zoom-btn" id="zoomIn">+</button>
+        <button class="zoom-btn" id="zoomFit" title="适配屏幕">⛶</button>
+      </div>
+    </div>
+
+    <div class="hint-banner">
+      💡 试试：<strong>点击任意章节</strong>查看详情，<strong>滚轮缩放</strong>，<strong>右下角按钮</strong>跳转到当前阅读位置
+    </div>
+
+    <div class="timeline-scroll" id="timelineScroll">
+      <div class="timeline-container" id="timelineContainer">
+        <div class="timeline-axis"></div>
+      </div>
+    </div>
+
+    <button class="fab" id="fabJump" title="跳转到当前阅读位置">📍</button>
+  </div>
+
+  <!-- ============ 右侧：详情面板 ============ -->
+  <div class="detail-panel">
+    <div class="detail-empty" id="detailEmpty">
+      👆 点击时间轴上的任意章节<br>查看详细信息
+    </div>
+    <div class="detail-content" id="detailContent">
+      <div class="detail-chapter-title" id="detailTitle"></div>
+      <div class="detail-chapter-index" id="detailIndex"></div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">阅读信息</div>
+        <div class="detail-row"><span class="detail-row-label">状态</span><span class="detail-row-value" id="detailStatus"></span></div>
+        <div class="detail-row"><span class="detail-row-label">字数</span><span class="detail-row-value" id="detailWords"></span></div>
+        <div class="detail-row"><span class="detail-row-label">预计时长</span><span class="detail-row-value" id="detailTime"></span></div>
+        <div class="detail-row"><span class="detail-row-label">阅读进度</span><span class="detail-row-value" id="detailProgress"></span></div>
+        <div class="detail-row"><span class="detail-row-label">全书位置</span><span class="detail-row-value" id="detailPosition"></span></div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">AI 摘要</div>
+        <div class="detail-summary" id="detailSummary"></div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">书签与笔记</div>
+        <div class="annotation-list" id="detailAnnotations"></div>
+      </div>
+
+      <button class="action-btn" id="btnJumpTo">跳转到此章节</button>
+      <button class="action-btn secondary" id="btnAddBookmark">添加书签</button>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-title" id="tooltipTitle"></div>
+  <div class="tooltip-meta" id="tooltipMeta"></div>
+</div>
+
+<script>
+/* ================================================================
+   模拟数据
+================================================================ */
+const VOLUMES = [
+  { name: '第一卷 · 小丑', startChapter: 1, endChapter: 213 },
+  { name: '第二卷 · 魔术师', startChapter: 214, endChapter: 406 },
+  { name: '第三卷 · 死亡', startChapter: 407, endChapter: 605 },
+  { name: '第四卷 · 不死者', startChapter: 606, endChapter: 818 },
+  { name: '第五卷 · 红祭司', startChapter: 819, endChapter: 1034 },
+  { name: '第六卷 · 逐光者', startChapter: 1035, endChapter: 1241 },
+  { name: '第七卷 · 倒吊人', startChapter: 1242, endChapter: 1420 },
+];
+
+const CHAPTER_TITLES = [
+  '第一章 绯红', '第二章 情况', '第三章 笔记', '第四章 占卜', '第五章 魔药',
+  '第六章 仪式', '第七章 值夜者', '第八章 教唆者', '第九章 魔药配方', '第十章 聚会',
+  '第十一章 窥视', '第十二章 交易', '第十三章 失控', '第十四章 命运', '第十五章 扮演',
+  '第十六章 塔罗会', '第十七章 罗塞尔日记', '第十八章 猎人', '第十九章 刺客', '第二十章 魔女',
+  '第二十一章 幽灵', '第二十二章 代罚者', '第二十三章 探索', '第二十四章 黑夜', '第二十五章 梦境',
+];
+
+function seededRandom(seed) {
+  let x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+const chapters = [];
+const CURRENT_CHAPTER = 743;
+const TOTAL_CHAPTERS = 1420;
+for (let i = 1; i <= TOTAL_CHAPTERS; i++) {
+  const vol = VOLUMES.find(v => i >= v.startChapter && i <= v.endChapter);
+  const titleIdx = Math.floor(seededRandom(i * 13) * CHAPTER_TITLES.length);
+  const titleBase = CHAPTER_TITLES[titleIdx];
+  const words = 2000 + Math.floor(seededRandom(i * 31) * 3000);
+  chapters.push({
+    index: i,
+    title: `第${i}章 ${titleBase.replace(/第.+章 /, '')}（${vol.name.split(' · ')[1]}）`,
+    volume: vol.name,
+    words: words,
+    status: i < CURRENT_CHAPTER ? 'read' : (i === CURRENT_CHAPTER ? 'current' : 'unread'),
+    readProgress: i < CURRENT_CHAPTER ? 100 : (i === CURRENT_CHAPTER ? 63 : 0),
+    hasBookmark: seededRandom(i * 7) > 0.92,
+    hasNote: seededRandom(i * 11) > 0.95,
+  });
+}
+
+/* ================================================================
+   渲染时间轴
+================================================================ */
+let zoom = 1.0;
+const PIXELS_PER_1K_WORDS = 1.2; // 每1000字对应的像素高度
+let selectedChapter = null;
+let activeFilter = 'all';
+let searchQuery = '';
+
+function getFilteredChapters() {
+  return chapters.filter(c => {
+    if (activeFilter === 'unread' && c.status !== 'unread') return false;
+    if (activeFilter === 'bookmarked' && !c.hasBookmark) return false;
+    if (activeFilter === 'noted' && !c.hasNote) return false;
+    if (activeFilter === 'long' && c.words < 3000) return false;
+    if (searchQuery && !c.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
+}
+
+function renderTimeline() {
+  const container = document.getElementById('timelineContainer');
+  // 清空（保留轴线）
+  [...container.querySelectorAll('.chapter-node, .volume-marker')].forEach(n => n.remove());
+
+  const filtered = getFilteredChapters();
+  // 计算每章的累计 Y 偏移（按字数比例）
+  let yOffset = 0;
+  const positions = [];
+  const totalWords = chapters.reduce((s, c) => s + c.words, 0);
+
+  for (let i = 0; i < chapters.length; i++) {
+    const c = chapters[i];
+    const height = Math.max(3, (c.words / 1000) * PIXELS_PER_1K_WORDS * zoom);
+    positions.push({ y: yOffset, h: height, chapter: c });
+    yOffset += height + 1;
+  }
+
+  const totalHeight = yOffset;
+  container.style.height = totalHeight + 'px';
+
+  // 渲染卷标
+  VOLUMES.forEach(v => {
+    const firstChapterIdx = chapters.findIndex(c => c.index === v.startChapter);
+    if (firstChapterIdx < 0) return;
+    const y = positions[firstChapterIdx].y;
+    const marker = document.createElement('div');
+    marker.className = 'volume-marker';
+    marker.style.top = y + 'px';
+    marker.textContent = v.name;
+    container.appendChild(marker);
+  });
+
+  // 渲染章节节点
+  const filteredIdxSet = new Set(filtered.map(c => c.index));
+  positions.forEach((p, i) => {
+    if (!filteredIdxSet.has(p.chapter.index)) return;
+    const c = p.chapter;
+    const node = document.createElement('div');
+    node.className = 'chapter-node';
+    node.style.top = p.y + 'px';
+
+    // 区块宽度：根据卷位置交替左右
+    const blockWidth = Math.min(280, 140 + (c.words / 100) * zoom);
+    const block = document.createElement('div');
+    block.className = 'chapter-block ' + c.status;
+    block.style.width = blockWidth + 'px';
+    block.style.height = p.h + 'px';
+
+    if (c.status === 'current' && c.readProgress > 0) {
+      const overlay = document.createElement('div');
+      overlay.className = 'progress-overlay';
+      overlay.style.width = c.readProgress + '%';
+      block.appendChild(overlay);
+    }
+
+    // 书签/笔记标记
+    if (c.hasBookmark) {
+      const m = document.createElement('div');
+      m.className = 'chapter-marker';
+      m.style.top = '50%';
+      m.style.right = '-4px';
+      m.style.transform = 'translate(0, -50%)';
+      block.appendChild(m);
+    }
+    if (c.hasNote) {
+      const m = document.createElement('div');
+      m.className = 'chapter-marker note';
+      m.style.top = '50%';
+      m.style.left = '-4px';
+      m.style.transform = 'translate(0, -50%)';
+      block.appendChild(m);
+    }
+
+    // 标签（仅显示在部分章节上，避免拥挤）
+    if (c.status === 'current' || c.index % 50 === 0 || c.index === 1 || c.index === TOTAL_CHAPTERS || c.hasBookmark) {
+      const label = document.createElement('div');
+      label.className = 'chapter-label ' + (i % 2 === 0 ? 'right' : 'left');
+      label.style.top = '50%';
+      label.style.transform = 'translateY(-50%)';
+      label.textContent = `${c.index}. ${c.title.replace(/第\d+章 /, '').substring(0, 12)}`;
+      block.appendChild(label);
+    }
+
+    node.appendChild(block);
+    node.addEventListener('click', () => selectChapter(c.index));
+    node.addEventListener('mouseenter', e => showTooltip(e, c));
+    node.addEventListener('mousemove', moveTooltip);
+    node.addEventListener('mouseleave', hideTooltip);
+    container.appendChild(node);
+
+    p.node = node;
+  });
+
+  // 存储位置信息供滚动定位使用
+  window._positions = positions;
+
+  // 更新缩放标签
+  document.getElementById('zoomLabel').textContent = Math.round(zoom * 100) + '%';
+  const wordsPerPixel = 1000 / (PIXELS_PER_1K_WORDS * zoom);
+  document.getElementById('viewInfo').textContent = `每像素 ≈ ${Math.round(wordsPerPixel)} 字 · 总长 ${Math.round(totalHeight)}px`;
+}
+
+/* ================================================================
+   渲染列表视图
+================================================================ */
+function renderListView() {
+  const listView = document.getElementById('listView');
+  listView.innerHTML = '';
+  const filtered = getFilteredChapters();
+  // 虚拟滚动：仅渲染可视范围（简单实现：渲染前 500 条）
+  filtered.slice(0, 500).forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'chapter-row ' + c.status;
+    row.innerHTML = `
+      <span class="chapter-index">${String(c.index).padStart(4, '0')}</span>
+      <span class="chapter-name">${c.title}</span>
+      <span class="chapter-markers">
+        ${c.hasBookmark ? '<span class="marker bookmark"></span>' : ''}
+        ${c.hasNote ? '<span class="marker note"></span>' : ''}
+      </span>
+    `;
+    row.addEventListener('click', () => selectChapter(c.index));
+    listView.appendChild(row);
+  });
+  if (filtered.length > 500) {
+    const more = document.createElement('div');
+    more.style.cssText = 'padding:12px 16px;font-size:11px;color:var(--text-faint);text-align:center';
+    more.textContent = `还有 ${filtered.length - 500} 个章节...（使用时间轴浏览全部）`;
+    listView.appendChild(more);
+  }
+}
+
+/* ================================================================
+   选择章节
+================================================================ */
+function selectChapter(index) {
+  selectedChapter = index;
+  const c = chapters[index - 1];
+
+  document.getElementById('detailEmpty').style.display = 'none';
+  document.getElementById('detailContent').classList.add('visible');
+
+  document.getElementById('detailTitle').textContent = c.title;
+  document.getElementById('detailIndex').textContent = `${c.volume} · 第 ${c.index} / ${TOTAL_CHAPTERS} 章`;
+
+  const statusEl = document.getElementById('detailStatus');
+  if (c.status === 'read') { statusEl.textContent = '✓ 已读'; statusEl.className = 'detail-row-value status-read'; }
+  else if (c.status === 'current') { statusEl.textContent = `● 在读（${c.readProgress}%）`; statusEl.className = 'detail-row-value status-current'; }
+  else { statusEl.textContent = '○ 未读'; statusEl.className = 'detail-row-value status-unread'; }
+
+  document.getElementById('detailWords').textContent = c.words.toLocaleString() + ' 字';
+  document.getElementById('detailTime').textContent = `约 ${Math.ceil(c.words / 500)} 分钟`;
+  document.getElementById('detailProgress').textContent = c.status === 'current' ? c.readProgress + '%' : (c.status === 'read' ? '100%' : '0%');
+
+  const cumulativeWords = chapters.slice(0, index).reduce((s, ch) => s + ch.words, 0);
+  const totalWords = chapters.reduce((s, ch) => s + ch.words, 0);
+  document.getElementById('detailPosition').textContent = `${(cumulativeWords / 10000).toFixed(1)}万 / ${(totalWords / 10000).toFixed(1)}万字`;
+
+  const summaries = [
+    `本章克莱恩通过塔罗会与"正义"奥黛丽交换情报，得知了贝克兰德最近的异常事件。他在灰雾之上进行占卜，锁定了一个与"真实造物主"相关的隐秘组织。`,
+    `克莱恩在黑夜教会档案室翻阅古老卷宗，发现了一桩与阿蒙家族有关的百年悬案。他通过"扮演"能力伪装身份，潜入下城区调查。`,
+    `本章揭示了"倒吊人"阿尔杰的过去与他在风暴教会的秘密任务。克莱恩决定暂时观察，不介入塔罗会成员的现实纷争。`,
+    `克莱恩在廷根市的街头偶遇一位神秘的占卜师，对方似乎看穿了他的真实身份。一场关于命运与选择的对话由此展开。`,
+  ];
+  document.getElementById('detailSummary').textContent = summaries[index % summaries.length];
+
+  const annoList = document.getElementById('detailAnnotations');
+  annoList.innerHTML = '';
+  if (c.hasBookmark) {
+    const a = document.createElement('div');
+    a.className = 'annotation';
+    a.innerHTML = `
+      <div class="annotation-text">"命运是条河流，我们都是其中的落叶。但偶尔，也会有鱼逆流而上。"</div>
+      <div class="annotation-meta">📖 书签 · 本章 38% 位置 · 2 天前添加</div>
+    `;
+    annoList.appendChild(a);
+  }
+  if (c.hasNote) {
+    const a = document.createElement('div');
+    a.className = 'annotation note';
+    a.innerHTML = `
+      <div class="annotation-text">这里暗示了克莱恩的真实身份，需要回头重读第二卷的伏笔。</div>
+      <div class="annotation-meta">📝 笔记 · 本章 72% 位置 · 1 周前</div>
+    `;
+    annoList.appendChild(a);
+  }
+  if (!c.hasBookmark && !c.hasNote) {
+    annoList.innerHTML = '<div style="color:var(--text-faint);font-size:12px;padding:8px 0">本章暂无书签或笔记</div>';
+  }
+
+  // 高亮时间轴上的选中节点
+  document.querySelectorAll('.chapter-node').forEach(n => n.style.outline = 'none');
+  const selectedPos = window._positions?.[index - 1];
+  if (selectedPos?.node) {
+    selectedPos.node.style.outline = '2px solid var(--accent)';
+    selectedPos.node.style.outlineOffset = '2px';
+    selectedPos.node.style.borderRadius = '4px';
+  }
+
+  // 平滑滚动时间轴到选中位置
+  const scroll = document.getElementById('timelineScroll');
+  const targetY = selectedPos ? selectedPos.y - scroll.clientHeight / 2 : 0;
+  scroll.scrollTo({ top: targetY, behavior: 'smooth' });
+}
+
+/* ================================================================
+   Tooltip
+================================================================ */
+const tooltip = document.getElementById('tooltip');
+function showTooltip(e, c) {
+  document.getElementById('tooltipTitle').textContent = c.title;
+  const statusText = c.status === 'read' ? '已读' : (c.status === 'current' ? `在读 ${c.readProgress}%` : '未读');
+  const marks = (c.hasBookmark ? ' 📌' : '') + (c.hasNote ? ' 📝' : '');
+  document.getElementById('tooltipMeta').textContent = `${c.words} 字 · ${statusText}${marks}`;
+  tooltip.classList.add('visible');
+  moveTooltip(e);
+}
+function moveTooltip(e) {
+  const x = Math.min(e.clientX + 14, window.innerWidth - 280);
+  const y = Math.min(e.clientY + 14, window.innerHeight - 60);
+  tooltip.style.left = x + 'px';
+  tooltip.style.top = y + 'px';
+}
+function hideTooltip() { tooltip.classList.remove('visible'); }
+
+/* ================================================================
+   缩放
+================================================================ */
+function setZoom(newZoom) {
+  zoom = Math.max(0.25, Math.min(4, newZoom));
+  renderTimeline();
+  if (selectedChapter) {
+    const p = window._positions[selectedChapter - 1];
+    if (p) {
+      const scroll = document.getElementById('timelineScroll');
+      scroll.scrollTop = p.y - scroll.clientHeight / 2;
+    }
+  }
+}
+
+document.getElementById('zoomIn').addEventListener('click', () => setZoom(zoom * 1.3));
+document.getElementById('zoomOut').addEventListener('click', () => setZoom(zoom / 1.3));
+document.getElementById('zoomFit').addEventListener('click', () => {
+  const scroll = document.getElementById('timelineScroll');
+  const totalWords = chapters.reduce((s, c) => s + c.words, 0);
+  const targetHeight = scroll.clientHeight - 140;
+  const newZoom = targetHeight / ((totalWords / 1000) * PIXELS_PER_1K_WORDS);
+  setZoom(newZoom);
+});
+
+document.getElementById('timelineScroll').addEventListener('wheel', e => {
+  if (e.ctrlKey || e.metaKey) {
+    e.preventDefault();
+    setZoom(zoom * (e.deltaY > 0 ? 0.9 : 1.1));
+  }
+}, { passive: false });
+
+/* ================================================================
+   跳转到当前
+================================================================ */
+document.getElementById('fabJump').addEventListener('click', () => {
+  selectChapter(CURRENT_CHAPTER);
+});
+
+/* ================================================================
+   过滤器
+================================================================ */
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeFilter = chip.dataset.filter;
+    renderTimeline();
+    renderListView();
+  });
+});
+
+document.getElementById('searchInput').addEventListener('input', e => {
+  searchQuery = e.target.value;
+  renderTimeline();
+  renderListView();
+});
+
+/* ================================================================
+   按钮动作
+================================================================ */
+document.getElementById('btnJumpTo').addEventListener('click', () => {
+  if (selectedChapter) alert(`🚀 跳转到第 ${selectedChapter} 章（模拟）`);
+});
+document.getElementById('btnAddBookmark').addEventListener('click', () => {
+  if (selectedChapter) {
+    chapters[selectedChapter - 1].hasBookmark = true;
+    renderTimeline();
+    renderListView();
+    selectChapter(selectedChapter);
+  }
+});
+
+/* ================================================================
+   更新统计
+================================================================ */
+function updateStats() {
+  const readCount = chapters.filter(c => c.status === 'read').length;
+  const readWords = chapters.filter(c => c.status === 'read').reduce((s, c) => s + c.words, 0);
+  const totalWords = chapters.reduce((s, c) => s + c.words, 0);
+  const marks = chapters.filter(c => c.hasBookmark || c.hasNote).length;
+
+  document.getElementById('statRead').textContent = readCount;
+  document.getElementById('statWords').textContent = (readWords / 10000).toFixed(1) + '万';
+  document.getElementById('statPercent').textContent = ((readWords / totalWords) * 100).toFixed(1) + '%';
+  document.getElementById('statMarks').textContent = marks;
+  document.getElementById('progressFill').style.width = ((readWords / totalWords) * 100) + '%';
+}
+
+/* ================================================================
+   初始化
+================================================================ */
+renderTimeline();
+renderListView();
+updateStats();
+// 默认选中当前章节
+setTimeout(() => selectChapter(CURRENT_CHAPTER), 600);
+</script>
+</body>
+</html>

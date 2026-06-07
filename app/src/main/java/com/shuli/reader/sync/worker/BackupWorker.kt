@@ -50,6 +50,12 @@ class BackupWorker(
                 override suspend fun getAllProgress(): List<ReadingProgressEntity> {
                     return database.readingProgressDao().queryAllActive()
                 }
+                override suspend fun getAllTags(): List<com.shuli.reader.core.database.entity.TagEntity> {
+                    return database.tagDao().getAllTagsSync()
+                }
+                override suspend fun getAllBookTagCrossRefs(): List<com.shuli.reader.core.database.entity.BookTagCrossRef> {
+                    return database.tagDao().getAllBookTagCrossRefs()
+                }
             }
 
             val exporter = BackupExporter(exportDb, applicationContext)

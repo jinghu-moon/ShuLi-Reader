@@ -94,6 +94,8 @@ fun SortBottomSheet(
             SortOrder.TITLE to strings.bookshelf.sortBookTitle,
             SortOrder.FILE_SIZE to strings.bookshelf.sortReadingTime,
             SortOrder.PROGRESS to strings.bookshelf.sortReadingProgress,
+            SortOrder.READING_STATUS to strings.bookshelf.sortReadingStatus,
+            SortOrder.READ_COUNT to strings.bookshelf.sortReadCount,
         )
 
         LazyColumn(

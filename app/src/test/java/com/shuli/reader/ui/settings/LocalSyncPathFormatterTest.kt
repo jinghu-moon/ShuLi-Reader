@@ -31,6 +31,6 @@ class LocalSyncPathFormatterTest {
         val uri = "content://com.android.externalstorage.documents/tree/primary%3ADocuments%2FShuLiReader"
         val formatted = LocalSyncPathFormatter.format(uri, strings)
         assertEquals("Documents / ShuLiReader", formatted.displayPath)
-        assertEquals(strings.internalStorage, formatted.storageLabel)
+        assertEquals(strings.sync.internalStorage, formatted.storageLabel)
     }
 }

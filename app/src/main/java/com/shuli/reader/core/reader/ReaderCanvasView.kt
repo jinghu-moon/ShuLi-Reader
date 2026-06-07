@@ -7,35 +7,33 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.RectF
-import android.graphics.Typeface
-import android.view.GestureDetector
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewConfiguration
 import android.view.animation.DecelerateInterpolator
-import androidx.core.content.res.ResourcesCompat
-import com.shuli.reader.R
-import com.shuli.reader.core.font.FontManager
 import com.shuli.reader.core.data.ReaderTheme
 import com.shuli.reader.core.data.ThemeColors
+import com.shuli.reader.core.font.FontManager
 import com.shuli.reader.core.reader.animation.PageDelegate
+import com.shuli.reader.core.reader.canvas.CanvasTextSelection
+import com.shuli.reader.core.reader.canvas.CanvasTouchHandler
+import com.shuli.reader.core.reader.canvas.PageBitmapCache
 import com.shuli.reader.core.reader.model.PageRenderMode
 import com.shuli.reader.core.reader.model.SelectionRange
 import com.shuli.reader.core.reader.model.TextPage
-import com.shuli.reader.core.canvasrecorder.CanvasRecorder
-import com.shuli.reader.core.canvasrecorder.recordIfNeeded
 import com.shuli.reader.ui.theme.toCanvasThemeColors
 import com.shuli.reader.ui.theme.toReaderColorScheme
-import java.util.concurrent.Executors
 
 /**
  * 阅读器 Canvas 视图
  *
  * 渲染架构：每页持有独立的 CanvasRecorder（RenderNode/Picture），
- * 选区/TTS 高亮变化仅 invalidate recorder 而非重绘 Bitmap，
- * 内存从 ~30 MB 降至 < 1 MB。
+ * 选区/TTS 高亮变化仅 invalidate recorder 而非重绘 Bitmap。
+ *
+ * SRP 拆分后职责：字段声明、生命周期、onDraw 编排。
+ * 视觉参数委托给 [CanvasVisualParamsManager]，
+ * 触摸手势委托给 [CanvasTouchHandler]，
+ * 文本选区委托给 [CanvasTextSelection]。
  */
 class ReaderCanvasView @JvmOverloads constructor(
     context: Context,
@@ -95,7 +93,7 @@ class ReaderCanvasView @JvmOverloads constructor(
     private var nextPage: TextPage? = null
     private var prevPage: TextPage? = null
 
-    // 章节文本（所有 TextLine 的 startCharOffset/endCharOffset 均相对于此）
+    // 章节文本
     private var chapterContent: CharSequence = ""
 
     // 排版变化 crossfade 动画
@@ -103,31 +101,71 @@ class ReaderCanvasView @JvmOverloads constructor(
     private var crossfadeAnimator: ValueAnimator? = null
     private var crossfadeAlpha: Float = 0f
 
-    // 渲染参数（recordPage 闭包上下文）
+    // 渲染参数
     private val renderContext = RenderContext()
 
-    private inner class RenderContext {
-        var headerText: String = ""
-        var footerText: String = ""
-        var headerSlots: SlotResolution = SlotResolution()
-        var footerSlots: SlotResolution = SlotResolution()
-        var showProgress: Boolean = true
-        var headerAlpha: Float = 0.4f
-        var footerAlpha: Float = 0.4f
-        var batteryLevel: Int = 100
-        var ttsActiveRange: SelectionRange? = null
-        var selectedRange: SelectionRange? = null
-        var noteRanges: List<Pair<SelectionRange, Paint>> = emptyList()
-        var showHeaderLine: Boolean = false
-        var showFooterLine: Boolean = false
+    private val pageRenderer = ReaderPageRenderer(textPaint, headerPaint, footerPaint, progressPaint)
+
+    // ── 拆分委托 ──────────────────────────────────────────────
+
+    private val pageBitmapCache = PageBitmapCache(pageRenderer)
+
+    private val textSelection = CanvasTextSelection()
+
+    /** 视觉参数管理器（从 ReaderCanvasView 拆出，SRP） */
+    private val visualParams = CanvasVisualParamsManager(
+        textPaint = textPaint,
+        headerPaint = headerPaint,
+        footerPaint = footerPaint,
+        backgroundPaint = backgroundPaint,
+        progressPaint = progressPaint,
+        selectionPaint = selectionPaint,
+        ttsHighlightPaint = ttsHighlightPaint,
+        renderContext = renderContext,
+        pageRenderer = pageRenderer,
+        fontManager = fontManager,
+        onInvalidate = { invalidate() },
+        onSubmitRenderTask = { submitRenderTask() },
+        onPagesInvalidate = {
+            currentPage?.invalidate()
+            nextPage?.invalidate()
+            prevPage?.invalidate()
+        },
+    )
+
+    private val touchHandler: CanvasTouchHandler = CanvasTouchHandler(context).apply {
+        callbacks = object : CanvasTouchHandler.Callbacks {
+            override fun getWidth() = this@ReaderCanvasView.width.toFloat()
+            override fun getHeight() = this@ReaderCanvasView.height.toFloat()
+            override fun getPageDelegate() = pageDelegate
+            override fun isEdgeTurnPageEnabled() = visualParams.isEdgeTurnPageEnabled()
+            override fun getEdgeWidthPercent() = visualParams.getEdgeWidthPercent()
+            override fun onPageChanged(direction: PageDelegate.Direction) {
+                this@ReaderCanvasView.onPageChanged?.invoke(direction)
+            }
+            override fun onCenterClicked() {
+                this@ReaderCanvasView.onCenterClicked?.invoke()
+            }
+            override fun onLongPress(x: Float, y: Float) {
+                pageDelegate?.abort()
+                val page = currentPage ?: return
+                val range = textSelection.selectLineAt(x, y, page, chapterContent, width.toFloat())
+                if (range != null) {
+                    renderContext.selectedRange = range
+                    beginTextSelection()
+                    page.invalidate()
+                    invalidate()
+                    onTextSelected?.invoke(range)
+                }
+            }
+        }
     }
 
-    private val pageRenderer = ReaderPageRenderer(textPaint, headerPaint, footerPaint, progressPaint)
+    // ── 回调 ──────────────────────────────────────────────────
 
     fun setBatteryLevel(level: Int) {
         if (renderContext.batteryLevel == level) return
         renderContext.batteryLevel = level
-        // 电池仅影响壳层，不需要重录内容
         currentPage?.invalidateShell()
         nextPage?.invalidateShell()
         prevPage?.invalidateShell()
@@ -141,10 +179,10 @@ class ReaderCanvasView @JvmOverloads constructor(
     // 翻页回调
     var onPageChanged: ((PageDelegate.Direction) -> Unit)? = null
 
-    // 翻页后立即获取新页眉页脚槽位（同步更新，避免页码延迟）
+    // 翻页后立即获取新页眉页脚槽位
     var onPageChangedSlots: (() -> Pair<SlotResolution, SlotResolution>)? = null
 
-    // 边界检测回调（用于拦截无效的翻页动画）
+    // 边界检测回调
     var canTurnPrev: (() -> Boolean)? = null
     var canTurnNext: (() -> Boolean)? = null
 
@@ -154,113 +192,27 @@ class ReaderCanvasView @JvmOverloads constructor(
     // 中心区域点击回调
     var onCenterClicked: (() -> Unit)? = null
 
-    private var isTextSelectionGesture = false
+    // ── 页面录制委托 ──────────────────────────────────────────
 
-    /** 录制页面的公共实现。壳层和内容分别录制，返回 true 表示实际产生了录制。 */
-    private fun doRecordPage(page: TextPage, w: Int, h: Int): Boolean {
-        val shellDirty = page.shellRecorder.recordIfNeeded(w, h) {
-            pageRenderer.renderShell(
-                canvas = this,
-                page = page,
-                headerSlots = renderContext.headerSlots,
-                footerSlots = renderContext.footerSlots,
-                showProgress = renderContext.showProgress,
-                headerAlpha = renderContext.headerAlpha,
-                footerAlpha = renderContext.footerAlpha,
-                batteryLevel = renderContext.batteryLevel,
-                backgroundPaint = backgroundPaint,
-                showHeaderLine = renderContext.showHeaderLine,
-                showFooterLine = renderContext.showFooterLine,
-            )
-        }
-        val contentDirty = page.canvasRecorder.recordIfNeeded(w, h) {
-            val ctx = PageRenderContext(
-                content = chapterContent,
-                page = page,
-                textPaint = textPaint,
-                letterSpacingPx = textPaint.letterSpacing * textPaint.textSize,
-                availableWidth = page.pageSize.width - page.marginHorizontal * 2,
-            )
-            pageRenderer.renderContent(
-                canvas = this,
-                ctx = ctx,
-                ttsActiveRange = renderContext.ttsActiveRange,
-                selectedRange = renderContext.selectedRange,
-                ttsHighlightPaint = ttsHighlightPaint,
-                selectionPaint = selectionPaint,
-                noteRanges = renderContext.noteRanges,
-            )
-        }
-        return shellDirty || contentDirty
-    }
-
-    /** 主线程同步录制单页（兜底用）。 */
-    private fun recordPage(page: TextPage) {
-        val w = width
-        val h = height
-        if (w <= 0 || h <= 0) return
-        doRecordPage(page, w, h)
-    }
-
-    /**
-     * 后台线程录制页面。CanvasRecorderLocked 内部 ReentrantLock 保证线程安全。
-     * 返回 true 表示实际产生了录制（即 recorder 之前是脏的）。
-     */
-    private fun recordPageOffMain(page: TextPage, w: Int, h: Int): Boolean {
-        return doRecordPage(page, w, h)
-    }
-
-    /** 提交后台预渲染任务：录制 current/next/prev 三页，完成后触发重绘。 */
     private fun submitRenderTask() {
-        val w = width
-        val h = height
-        if (w <= 0 || h <= 0) return
-        renderThread.execute {
-            val cur = currentPage
-            val nxt = nextPage
-            val prv = prevPage
-            var dirty = false
-            cur?.let { if (recordPageOffMain(it, w, h)) dirty = true }
-            nxt?.let { if (recordPageOffMain(it, w, h)) dirty = true }
-            prv?.let { if (recordPageOffMain(it, w, h)) dirty = true }
-            if (dirty) postInvalidate()
-        }
+        pageBitmapCache.submitRenderTask(
+            width = width,
+            height = height,
+            currentPage = currentPage,
+            nextPage = nextPage,
+            prevPage = prevPage,
+            content = chapterContent,
+            renderContext = renderContext,
+            backgroundPaint = backgroundPaint,
+            textPaint = textPaint,
+            ttsHighlightPaint = ttsHighlightPaint,
+            selectionPaint = selectionPaint,
+            postInvalidate = { postInvalidate() },
+        )
     }
 
-    private val gestureDetector = GestureDetector(
-        context,
-        object : GestureDetector.SimpleOnGestureListener() {
-            override fun onDown(event: MotionEvent): Boolean = true
+    // ── 页面设置 ──────────────────────────────────────────────
 
-            override fun onLongPress(event: MotionEvent) {
-                pageDelegate?.abort()
-                selectLineAt(event.x, event.y)
-            }
-
-            override fun onSingleTapUp(event: MotionEvent): Boolean {
-                val x = event.x
-                val y = event.y
-                val w = width.toFloat()
-                val h = height.toFloat()
-
-                // 仅处理中心区域点击（边缘点击在 onTouchEvent 中手动处理）
-                val isCenter = x > w * edgeWidthPercent && x < w * (1f - edgeWidthPercent) && y > h / 3f && y < h * 2f / 3f
-                if (isCenter) {
-                    onCenterClicked?.invoke()
-                    return true
-                }
-                return false
-            }
-        },
-    )
-
-    /**
-     * 设置页面内容。
-     * CanvasRecorder 自带缓存，仅在 invalidate 后下次绘制时重录。
-     * @param content 章节原始文本，所有 TextLine 的偏移均相对于此
-     * @param mode 渲染模式：SEQUENTIAL 预热邻页，JUMP/SCRUBBING 仅当前页
-     * @param isLayoutChange 是否为排版参数变化导致的页面重建（触发 crossfade 过渡）
-     */
     fun setPage(
         page: TextPage,
         next: TextPage? = null,
@@ -271,7 +223,6 @@ class ReaderCanvasView @JvmOverloads constructor(
     ) {
         val changed = currentPage !== page || nextPage !== next || prevPage !== prev
 
-        // 排版变化 crossfade：必须在回收旧资源和更新引用之前捕获旧页面快照
         if (isLayoutChange && changed) {
             startLayoutCrossfade()
         }
@@ -303,11 +254,10 @@ class ReaderCanvasView @JvmOverloads constructor(
             PageRenderMode.JUMP, PageRenderMode.SCRUBBING -> {
                 nextPage = null
                 prevPage = null
-                pageDelegate?.abort() // 取消进行中的动画
+                pageDelegate?.abort()
             }
         }
 
-        // 页面引用已切换，结束 SETTLING 状态，恢复正常 IDLE 渲染
         pageDelegate?.confirmPageSettled()
 
         if (changed) {
@@ -317,7 +267,8 @@ class ReaderCanvasView @JvmOverloads constructor(
         }
     }
 
-    /** 缓存动画禁用检测结果，避免每次 setPageDelegate 查询 ContentProvider */
+    // ── 翻页动画委托 ──────────────────────────────────────────
+
     private var animationDisabledCache: Boolean? = null
 
     private fun isAnimationDisabled(): Boolean {
@@ -326,7 +277,7 @@ class ReaderCanvasView @JvmOverloads constructor(
                 android.provider.Settings.Global.getFloat(
                     context.contentResolver,
                     android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
-                    1.0f
+                    1.0f,
                 ) == 0f
             } catch (e: Exception) {
                 false
@@ -338,12 +289,9 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        animationDisabledCache = null // 重新检测
+        animationDisabledCache = null
     }
 
-    /**
-     * 设置翻页动画委托
-     */
     fun setPageDelegate(delegate: PageDelegate?) {
         val actualDelegate = if (isAnimationDisabled() && delegate != null && delegate !is com.shuli.reader.core.reader.animation.NoAnimPageDelegate) {
             com.shuli.reader.core.reader.animation.NoAnimPageDelegate()
@@ -354,17 +302,12 @@ class ReaderCanvasView @JvmOverloads constructor(
         pageDelegate = actualDelegate
         actualDelegate?.setCallback(object : PageDelegate.Callback {
             override fun onPageChanged(direction: PageDelegate.Direction) {
-                // 同步旋转页面引用（如 Legado 的 fillPage），
-                // 确保后续手势立即操作新页面，不等 Compose recomposition
                 fillPage(direction)
-                // 触发 ViewModel 更新 pageIndex
                 onPageChanged?.invoke(direction)
-                // 再获取新页眉页脚槽位（此时 pageIndex 已更新）
                 onPageChangedSlots?.invoke()?.let { (h, f) ->
                     if (renderContext.headerSlots != h || renderContext.footerSlots != f) {
                         renderContext.headerSlots = h
                         renderContext.footerSlots = f
-                        // 页眉页脚属于壳层，只失效 shellRecorder
                         currentPage?.invalidateShell()
                         nextPage?.invalidateShell()
                         prevPage?.invalidateShell()
@@ -378,48 +321,13 @@ class ReaderCanvasView @JvmOverloads constructor(
         })
     }
 
-    /**
-     * 设置页眉文本（壳层）
-     */
-    fun setHeaderText(text: String) {
-        if (renderContext.headerText == text) return
-        renderContext.headerText = text
-        currentPage?.invalidateShell()
-        invalidate()
-    }
+    // ── 视觉参数委托（CanvasVisualParamsManager） ────────────
 
-    /**
-     * 设置页脚文本（壳层）
-     */
-    fun setFooterText(text: String) {
-        if (renderContext.footerText == text) return
-        renderContext.footerText = text
-        currentPage?.invalidateShell()
-        invalidate()
-    }
+    fun setHeaderText(text: String) = visualParams.setHeaderText(text)
+    fun setFooterText(text: String) = visualParams.setFooterText(text)
+    fun setHeaderSlots(slots: SlotResolution) = visualParams.setHeaderSlots(slots)
+    fun setFooterSlots(slots: SlotResolution) = visualParams.setFooterSlots(slots)
 
-    /**
-     * 设置页眉多槽位内容
-     */
-    fun setHeaderSlots(slots: SlotResolution) {
-        updateRenderProperty(renderContext.headerSlots != slots) {
-            renderContext.headerSlots = slots
-        }
-    }
-
-    /**
-     * 设置页脚多槽位内容
-     */
-    fun setFooterSlots(slots: SlotResolution) {
-        updateRenderProperty(renderContext.footerSlots != slots) {
-            renderContext.footerSlots = slots
-        }
-    }
-
-    /**
-     * 批量更新页眉页脚相关参数（仅触发一次重绘）
-     * 页眉页脚属于壳层，只失效 shellRecorder
-     */
     fun updateHeaderFooter(
         headerSlots: SlotResolution,
         footerSlots: SlotResolution,
@@ -427,132 +335,17 @@ class ReaderCanvasView @JvmOverloads constructor(
         showProgress: Boolean,
         showHeaderLine: Boolean = false,
         showFooterLine: Boolean = false,
-    ) {
-        val changed = renderContext.headerSlots != headerSlots
-                || renderContext.footerSlots != footerSlots
-                || renderContext.headerAlpha != alpha
-                || renderContext.footerAlpha != alpha
-                || renderContext.showProgress != showProgress
-                || renderContext.showHeaderLine != showHeaderLine
-                || renderContext.showFooterLine != showFooterLine
-        if (!changed) return
+    ) = visualParams.updateHeaderFooter(headerSlots, footerSlots, alpha, showProgress, showHeaderLine, showFooterLine)
 
-        renderContext.headerSlots = headerSlots
-        renderContext.footerSlots = footerSlots
-        renderContext.headerAlpha = alpha
-        renderContext.footerAlpha = alpha
-        renderContext.showProgress = showProgress
-        renderContext.showHeaderLine = showHeaderLine
-        renderContext.showFooterLine = showFooterLine
-        // 页眉页脚属于壳层，只失效 shellRecorder，不重录内容
-        currentPage?.invalidateShell()
-        nextPage?.invalidateShell()
-        prevPage?.invalidateShell()
-        submitRenderTask()
-        invalidate()
-    }
+    fun setShowProgress(show: Boolean) = visualParams.setShowProgress(show)
+    fun setHeaderFooterAlpha(alpha: Float) = visualParams.setHeaderFooterAlpha(alpha)
+    fun setTextSizePx(textSize: Float) = visualParams.setTextSizePx(textSize)
+    fun setLetterSpacing(emSpacing: Float) = visualParams.setLetterSpacing(emSpacing)
+    fun setFakeBoldText(fakeBold: Boolean) = visualParams.setFakeBoldText(fakeBold)
+    fun setTextAlign(align: com.shuli.reader.core.data.ReaderTextAlign) = visualParams.setTextAlign(align)
+    fun setTitleStyle(style: TitleStyleConfig) = visualParams.setTitleStyle(style)
+    fun setFontFamily(fontKey: String) = visualParams.setFontFamily(fontKey)
 
-    /**
-     * 设置是否显示进度条
-     */
-    fun setShowProgress(show: Boolean) {
-        if (renderContext.showProgress == show) return
-        renderContext.showProgress = show
-    }
-
-    /**
-     * 设置页眉页脚透明度
-     */
-    fun setHeaderFooterAlpha(alpha: Float) {
-        if (renderContext.headerAlpha == alpha && renderContext.footerAlpha == alpha) return
-        renderContext.headerAlpha = alpha
-        renderContext.footerAlpha = alpha
-    }
-
-    fun setTextSizePx(textSize: Float) {
-        updateRenderProperty(textPaint.textSize != textSize) {
-            textPaint.textSize = textSize
-            headerPaint.textSize = textSize * headerTextRatio
-            footerPaint.textSize = textSize * footerTextRatio
-        }
-    }
-
-    /**
-     * 设置字距（em 单位，Paint.letterSpacing 接受 em）
-     */
-    fun setLetterSpacing(emSpacing: Float) {
-        updateRenderProperty(textPaint.letterSpacing != emSpacing) {
-            textPaint.letterSpacing = emSpacing
-        }
-    }
-
-    /**
-     * 设置字重（FakeBold 模式）
-     */
-    fun setFakeBoldText(fakeBold: Boolean) {
-        updateRenderProperty(textPaint.isFakeBoldText != fakeBold) {
-            textPaint.isFakeBoldText = fakeBold
-        }
-    }
-
-    /**
-     * 设置文本对齐方式（仅影响内容层）
-     */
-    fun setTextAlign(align: com.shuli.reader.core.data.ReaderTextAlign) {
-        pageRenderer.setTextAlign(align)
-        // 文本对齐只影响内容，不需要重录壳层
-        currentPage?.invalidate()
-        nextPage?.invalidate()
-        prevPage?.invalidate()
-        submitRenderTask()
-        invalidate()
-    }
-
-    /**
-     * 设置标题样式
-     */
-    fun setTitleStyle(style: com.shuli.reader.core.reader.TitleStyleConfig) {
-        pageRenderer.setTitleStyle(style)
-    }
-
-    /** 缓存当前 fontKey，避免重复加载字体。空串表示尚未设置，首次调用必定执行 */
-    private var currentFontKey: String = ""
-
-    /**
-     * 设置阅读字体
-     * - "system" = 系统默认
-     * - "harmony" = 鸿蒙黑体（内置）
-     * - "custom:{id}" = 用户导入的字体
-     */
-    fun setFontFamily(fontKey: String) {
-        if (fontKey == currentFontKey) return
-        currentFontKey = fontKey
-        val typeface = when {
-            fontKey == FontManager.KEY_SYSTEM -> Typeface.DEFAULT
-            fontKey == FontManager.KEY_HARMONY -> try {
-                ResourcesCompat.getFont(context, R.font.harmonyos_sanssc_regular)
-            } catch (_: Exception) {
-                Typeface.DEFAULT
-            }
-            FontManager.isCustomFont(fontKey) -> fontManager.loadTypeface(fontKey) ?: Typeface.DEFAULT
-            else -> Typeface.DEFAULT
-        }
-        if (textPaint.typeface == typeface) return
-        textPaint.typeface = typeface
-        // 字体只影响内容，不需要重录壳层
-        currentPage?.invalidate()
-        nextPage?.invalidate()
-        prevPage?.invalidate()
-        submitRenderTask()
-        invalidate()
-    }
-
-    /**
-     * 更新 Paint 属性，可选择是否失效内容 recorder。
-     *
-     * @param invalidateContent true 时失效内容 recorder 并触发重录（排版参数变化时使用），
-     *                          false 时仅更新 Paint 不触发重录（默认）
-     */
     fun updatePaintSnapshot(
         textSize: Float? = null,
         letterSpacing: Float? = null,
@@ -560,95 +353,12 @@ class ReaderCanvasView @JvmOverloads constructor(
         fontKey: String? = null,
         textAlign: com.shuli.reader.core.data.ReaderTextAlign? = null,
         invalidateContent: Boolean = false,
-    ) {
-        var paintChanged = false
-        textSize?.let {
-            if (textPaint.textSize != it) {
-                textPaint.textSize = it
-                headerPaint.textSize = it * headerTextRatio
-                footerPaint.textSize = it * footerTextRatio
-                paintChanged = true
-            }
-        }
-        letterSpacing?.let {
-            if (textPaint.letterSpacing != it) {
-                textPaint.letterSpacing = it
-                paintChanged = true
-            }
-        }
-        fakeBold?.let {
-            if (textPaint.isFakeBoldText != it) {
-                textPaint.isFakeBoldText = it
-                paintChanged = true
-            }
-        }
-        fontKey?.let { key ->
-            if (key != currentFontKey) {
-                currentFontKey = key
-                val typeface = when {
-                    key == FontManager.KEY_SYSTEM -> Typeface.DEFAULT
-                    key == FontManager.KEY_HARMONY -> try {
-                        ResourcesCompat.getFont(context, R.font.harmonyos_sanssc_regular)
-                    } catch (_: Exception) { Typeface.DEFAULT }
-                    FontManager.isCustomFont(key) -> fontManager.loadTypeface(key) ?: Typeface.DEFAULT
-                    else -> Typeface.DEFAULT
-                }
-                textPaint.typeface = typeface
-                paintChanged = true
-            }
-        }
-        textAlign?.let {
-            pageRenderer.setTextAlign(it)
-            paintChanged = true
-        }
-        // 排版参数变化时，失效内容 recorder 并触发重录
-        if (invalidateContent && paintChanged) {
-            currentPage?.invalidate()
-            nextPage?.invalidate()
-            prevPage?.invalidate()
-            submitRenderTask()
-            invalidate()
-        }
-    }
+    ) = visualParams.updatePaintSnapshot(textSize, letterSpacing, fakeBold, fontKey, textAlign, invalidateContent)
 
-    fun clearSelection() {
-        if (renderContext.selectedRange == null) return
-        renderContext.selectedRange = null
-        currentPage?.invalidate()
-        invalidate()
-    }
+    fun clearSelection() = visualParams.clearSelection()
+    fun setTtsActiveRange(range: SelectionRange?) = visualParams.setTtsActiveRange(range)
+    fun setNoteRanges(ranges: List<Pair<SelectionRange, String?>>) = visualParams.setNoteRanges(ranges)
 
-    fun setTtsActiveRange(range: SelectionRange?) {
-        if (renderContext.ttsActiveRange == range) return
-        renderContext.ttsActiveRange = range
-        currentPage?.invalidate()
-        invalidate()
-    }
-
-    private val notePaintCache = mutableMapOf<String, Paint>()
-
-    fun setNoteRanges(ranges: List<Pair<SelectionRange, String?>>) {
-        val pairs = ranges.mapNotNull { (range, colorHex) ->
-            if (colorHex.isNullOrBlank()) return@mapNotNull null
-            val paint = notePaintCache.getOrPut(colorHex) {
-                val colorInt = runCatching { android.graphics.Color.parseColor(colorHex) }.getOrDefault(android.graphics.Color.YELLOW)
-                Paint().apply {
-                    color = colorInt
-                    alpha = 0x33
-                    style = Paint.Style.FILL
-                    isAntiAlias = true
-                }
-            }
-            range to paint
-        }
-        renderContext.noteRanges = pairs
-        currentPage?.invalidate()
-        invalidate()
-    }
-
-    /**
-     * 设置主题
-     */
     fun setTheme(
         backgroundColor: Int,
         textColor: Int,
@@ -656,78 +366,19 @@ class ReaderCanvasView @JvmOverloads constructor(
         footerColor: Int,
         progressColor: Int,
     ) {
-        if (
-            backgroundPaint.color == backgroundColor &&
-            textPaint.color == textColor &&
-            headerPaint.color == headerColor &&
-            footerPaint.color == footerColor &&
-            progressPaint.color == progressColor
-        ) {
-            return
-        }
-        backgroundPaint.color = backgroundColor
-        textPaint.color = textColor
-        headerPaint.color = headerColor
-        footerPaint.color = footerColor
-        progressPaint.color = progressColor
-        selectionPaint.color = progressColor.withAlpha(SELECTION_ALPHA)
-        ttsHighlightPaint.color = progressColor.withAlpha(TTS_HIGHLIGHT_ALPHA)
-        invalidateAllRecorders()
-        submitRenderTask()
-        invalidate()
+        visualParams.setTheme(backgroundColor, textColor, headerColor, footerColor, progressColor)
+        pageBitmapCache.invalidateAllRecorders(currentPage, nextPage, prevPage)
     }
 
-    /**
-     * 通过 ThemeColors 统一设置主题
-     */
-    fun setThemeColors(colors: ThemeColors) {
-        setTheme(
-            backgroundColor = colors.backgroundColor,
-            textColor = colors.textColor,
-            headerColor = colors.headerColor,
-            footerColor = colors.footerColor,
-            progressColor = colors.progressColor,
-        )
-    }
+    fun setThemeColors(colors: ThemeColors) = visualParams.setThemeColors(colors)
 
-    /** 边缘翻页开关 */
-    private var edgeTurnPageEnabled = true
+    fun setEdgeTurnPageEnabled(enabled: Boolean) = visualParams.setEdgeTurnPageEnabled(enabled)
+    fun setEdgeWidthPercent(percent: Float) = visualParams.setEdgeWidthPercent(percent)
+    fun setHeaderTextRatio(ratio: Float) = visualParams.setHeaderTextRatio(ratio)
+    fun setFooterTextRatio(ratio: Float) = visualParams.setFooterTextRatio(ratio)
 
-    /** 边缘触摸宽度百分比（0.1~0.5） */
-    private var edgeWidthPercent = 0.33f
+    // ── 页面旋转 / crossfade ──────────────────────────────────
 
-    /** 页眉字号比例（相对正文） */
-    private var headerTextRatio = 0.75f
-
-    /** 页脚字号比例（相对正文） */
-    private var footerTextRatio = 0.75f
-
-    /** 设置边缘翻页是否启用 */
-    fun setEdgeTurnPageEnabled(enabled: Boolean) {
-        edgeTurnPageEnabled = enabled
-    }
-
-    /** 设置边缘触摸宽度百分比 */
-    fun setEdgeWidthPercent(percent: Float) {
-        edgeWidthPercent = percent.coerceIn(0.1f, 0.5f)
-    }
-
-    /** 设置页眉字号比例 */
-    fun setHeaderTextRatio(ratio: Float) {
-        headerTextRatio = ratio.coerceIn(0.5f, 1.5f)
-        headerPaint.textSize = textPaint.textSize * headerTextRatio
-    }
-
-    /** 设置页脚字号比例 */
-    fun setFooterTextRatio(ratio: Float) {
-        footerTextRatio = ratio.coerceIn(0.5f, 1.5f)
-        footerPaint.textSize = textPaint.textSize * footerTextRatio
-    }
-
-    /**
-     * 同步旋转页面引用（如 Legado 的 fillPage）。
-     * 在动画完成/中断提交后调用，确保后续绘制和手势操作正确的页面。
-     */
     private fun fillPage(direction: PageDelegate.Direction) {
         when (direction) {
             PageDelegate.Direction.NEXT -> {
@@ -744,29 +395,16 @@ class ReaderCanvasView @JvmOverloads constructor(
         }
     }
 
-    /** 使所有页面 recorder 失效（字体/主题/尺寸等全局变化时使用） */
-    private fun invalidateAllRecorders() {
-        currentPage?.invalidateAll()
-        nextPage?.invalidateAll()
-        prevPage?.invalidateAll()
-    }
-
-    /**
-     * 排版变化 crossfade：将当前页面快照为 Bitmap，启动 alpha 过渡动画。
-     * 旧页面从 alpha 1→0 淡出，新页面从底层显示。
-     */
     private fun startLayoutCrossfade() {
         val w = width
         val h = height
         val cur = currentPage
         if (w <= 0 || h <= 0 || cur == null) return
 
-        // 捕获旧页面为 Bitmap
         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val captureCanvas = Canvas(bitmap)
         cur.canvasRecorder.draw(captureCanvas)
 
-        // 清理旧资源
         crossfadeAnimator?.cancel()
         oldPageBitmap?.recycle()
 
@@ -791,130 +429,18 @@ class ReaderCanvasView @JvmOverloads constructor(
         }
     }
 
-    /**
-     * 更新渲染属性的公共模板
-     *
-     * 消除 setTextSizePx / setLetterSpacing / setFakeBoldText 等 setter 中
-     * "if (same) return → update → invalidate → submitRenderTask → invalidate" 样板代码。
-     *
-     * @param changed 值是否发生变化（调用方负责比较）
-     * @param apply 实际更新属性的 lambda
-     */
-    private inline fun updateRenderProperty(changed: Boolean, apply: () -> Unit) {
-        if (!changed) return
-        apply()
-        // 排版属性只影响内容，不需要重录壳层
-        currentPage?.invalidate()
-        nextPage?.invalidate()
-        prevPage?.invalidate()
-        submitRenderTask()
-        invalidate()
-    }
-
-    // --- 触摸状态 ---
-    private var touchDownX: Float = 0f
-    private var touchDownY: Float = 0f
-    private var touchMoved: Boolean = false  // 是否超过 slop 阈值
-    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
-    private val slopSquare = touchSlop * touchSlop
+    // ── 触摸事件委托 ──────────────────────────────────────────
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (isTextSelectionGesture) {
-            if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
-                isTextSelectionGesture = false
-            }
-            return true
-        }
-
-        val w = width.toFloat()
-        val h = height.toFloat()
-        val delegate = pageDelegate
-
-        when (event.action) {
-            MotionEvent.ACTION_DOWN -> {
-                touchDownX = event.x
-                touchDownY = event.y
-                touchMoved = false
-
-                // 边缘区域：直接交给 delegate 开始拖拽
-                val isEdge = event.x <= w * edgeWidthPercent || event.x >= w * (1f - edgeWidthPercent)
-                if (isEdge && delegate != null) {
-                    delegate.onTouch(event)
-                    return true
-                }
-                // 中心区域：让 gestureDetector 初始化（后续判断 tap/longPress）
-                gestureDetector.onTouchEvent(event)
-                return true
-            }
-
-            MotionEvent.ACTION_MOVE -> {
-                if (!touchMoved) {
-                    val dx = event.x - touchDownX
-                    val dy = event.y - touchDownY
-                    val distSq = dx * dx + dy * dy
-                    if (distSq > slopSquare) {
-                        touchMoved = true
-                    }
-                }
-
-                // 超过 slop 且从边缘开始：交给 delegate 处理拖拽
-                if (touchMoved) {
-                    val isEdgeStart = touchDownX <= w * edgeWidthPercent || touchDownX >= w * (1f - edgeWidthPercent)
-                    if (isEdgeStart && delegate != null) {
-                        delegate.onTouch(event)
-                        return true
-                    }
-                }
-                // 未超过 slop 或从中心开始：交给 gestureDetector
-                gestureDetector.onTouchEvent(event)
-                return true
-            }
-
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                val isEdgeStart = touchDownX <= w * edgeWidthPercent || touchDownX >= w * (1f - edgeWidthPercent)
-                val wasMoved = touchMoved
-                touchMoved = false
-
-                if (wasMoved && isEdgeStart && delegate != null) {
-                    // 边缘拖拽结束：delegate 处理翻页动画
-                    delegate.onTouch(event)
-                    return true
-                }
-
-                // 未移动或从中心开始：交给 gestureDetector 判断 tap
-                gestureDetector.onTouchEvent(event)
-
-                // 手动处理边缘点击翻页（gestureDetector 仅处理中心区域）
-                if (!wasMoved && isEdgeStart && edgeTurnPageEnabled) {
-                    val isCenter = touchDownX > w * edgeWidthPercent && touchDownX < w * (1f - edgeWidthPercent) &&
-                        touchDownY > h / 3f && touchDownY < h * 2f / 3f
-                    if (!isCenter) {
-                        if (touchDownX <= w * edgeWidthPercent) {
-                            if (canTurnPrev?.invoke() == false) {
-                                onPageChanged?.invoke(PageDelegate.Direction.PREV)
-                            } else {
-                                delegate?.startPrev() ?: onPageChanged?.invoke(PageDelegate.Direction.PREV)
-                            }
-                        } else {
-                            if (canTurnNext?.invoke() == false) {
-                                onPageChanged?.invoke(PageDelegate.Direction.NEXT)
-                            } else {
-                                delegate?.startNext() ?: onPageChanged?.invoke(PageDelegate.Direction.NEXT)
-                            }
-                        }
-                        return true
-                    }
-                }
-                return true
-            }
-        }
-        return super.onTouchEvent(event)
+        return touchHandler.onTouchEvent(event) || super.onTouchEvent(event)
     }
+
+    // ── 生命周期 / 绘制 ──────────────────────────────────────
 
     override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
         super.onSizeChanged(width, height, oldWidth, oldHeight)
         if (width != oldWidth || height != oldHeight) {
-            invalidateAllRecorders()
+            pageBitmapCache.invalidateAllRecorders(currentPage, nextPage, prevPage)
             submitRenderTask()
         }
     }
@@ -933,15 +459,15 @@ class ReaderCanvasView @JvmOverloads constructor(
         super.onDraw(canvas)
         val current = currentPage ?: return
 
-        // 兜底：若后台尚未录制完成（首帧），主线程同步录制
         if (current.canvasRecorder.needRecord() || current.shellRecorder.needRecord()) {
-            recordPage(current)
+            pageBitmapCache.recordPage(
+                current, width, height, chapterContent, renderContext,
+                backgroundPaint, textPaint, ttsHighlightPaint, selectionPaint,
+            )
         }
 
         val delegate = pageDelegate
         if (delegate != null && delegate.state != PageDelegate.State.IDLE) {
-            // 动画状态：使用合并 recorder，delegate 只调用一次
-            // 避免壳层/内容层分离绘制导致的文字溢出和阴影叠加
             val isPrevDirection = when (delegate.state) {
                 PageDelegate.State.DRAGGING -> delegate.isDraggingBackward()
                 PageDelegate.State.ANIMATING -> delegate.direction == PageDelegate.Direction.PREV
@@ -950,7 +476,12 @@ class ReaderCanvasView @JvmOverloads constructor(
             }
             val target = if (isPrevDirection) prevPage else nextPage
             target?.let {
-                if (it.canvasRecorder.needRecord() || it.shellRecorder.needRecord()) recordPage(it)
+                if (it.canvasRecorder.needRecord() || it.shellRecorder.needRecord()) {
+                    pageBitmapCache.recordPage(
+                        it, width, height, chapterContent, renderContext,
+                        backgroundPaint, textPaint, ttsHighlightPaint, selectionPaint,
+                    )
+                }
                 it.recordComposite(width, height)
             }
             current.recordComposite(width, height)
@@ -960,12 +491,10 @@ class ReaderCanvasView @JvmOverloads constructor(
                 target?.compositeRecorder ?: current.compositeRecorder,
             )
         } else {
-            // 静止状态：先画壳层，再画内容（双层分离，细粒度失效）
             current.shellRecorder.draw(canvas)
             current.canvasRecorder.draw(canvas)
         }
 
-        // 排版变化 crossfade：叠加旧页面快照（alpha 从 1→0）
         oldPageBitmap?.let { bitmap ->
             if (crossfadeAlpha > 0f) {
                 crossfadePaint.alpha = (crossfadeAlpha * 255).toInt()
@@ -974,62 +503,12 @@ class ReaderCanvasView @JvmOverloads constructor(
         }
     }
 
-    private fun selectLineAt(x: Float, y: Float) {
-        val page = currentPage ?: return
-        val line = page.lines.firstOrNullIndexed { index, line ->
-            val bounds = lineBounds(index)
-            x >= 0f && x <= width.toFloat() && y >= bounds.top && y <= bounds.bottom
-        } ?: return
-
-        val selectedText = chapterContent.substring(line.startCharOffset, line.endCharOffset)
-        val range = SelectionRange(
-            chapterIndex = page.chapterIndex,
-            startPos = line.startCharOffset,
-            endPos = line.endCharOffset,
-            selectedText = selectedText,
-        )
-        renderContext.selectedRange = range
-        isTextSelectionGesture = true
-        page.invalidate()
-        invalidate()
-        onTextSelected?.invoke(range)
-    }
-
-    private fun lineBounds(index: Int): RectF {
-        val page = currentPage ?: return RectF()
-        val line = page.lines.getOrNull(index) ?: return RectF()
-        val startX = page.marginHorizontal + line.startXOffset
-        val right = (startX + line.measuredWidth).coerceAtMost(width.toFloat() - TEXT_END_PADDING)
-        return RectF(startX - SELECTION_HORIZONTAL_PADDING, line.top, right + SELECTION_HORIZONTAL_PADDING, line.bottom)
-    }
-
-    private inline fun <T> List<T>.firstOrNullIndexed(predicate: (Int, T) -> Boolean): T? {
-        for (index in indices) {
-            val item = this[index]
-            if (predicate(index, item)) return item
-        }
-        return null
-    }
-
     private fun Int.withAlpha(alpha: Int): Int {
-        return (this and RGB_MASK) or (alpha shl ALPHA_SHIFT)
+        return (this and 0x00FFFFFF) or (alpha shl 24)
     }
 
     private companion object {
-        /** 后台预渲染线程，单线程，优先级略低于主线程 */
-        private val renderThread by lazy {
-            Executors.newSingleThreadExecutor { r ->
-                Thread(r, "ShuLi-PageRender").apply { priority = Thread.NORM_PRIORITY - 1 }
-            }
-        }
-
-        private const val TEXT_END_PADDING = 20f
-        private const val HEADER_TEXT_RATIO = 0.75f
-        private const val FOOTER_TEXT_RATIO = 0.75f
         private const val SELECTION_ALPHA = 0x33
         private const val TTS_HIGHLIGHT_ALPHA = 0x24
-        private const val SELECTION_HORIZONTAL_PADDING = 6f
-        private const val RGB_MASK = 0x00FFFFFF
-        private const val ALPHA_SHIFT = 24
     }
 }

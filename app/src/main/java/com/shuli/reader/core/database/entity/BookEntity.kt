@@ -42,6 +42,11 @@ data class BookEntity(
     val durByteOffset: Long = 0L,
     /** 章节扫描完成后回填，UI 进度估算用 */
     val estimatedTotalChars: Long = 0L,
+    // === 阅读状态（P0）===
+    /** 阅读状态枚举名（存 String，业务层用 ReadingStatus.fromDb()） */
+    val readingStatus: String = "WANT_TO_READ",
+    /** 阅读次数（默认 1；FINISHED→READING/WANT_TO_READ 时递增） */
+    val readCount: Int = 1,
     // === 同步字段（T-01）===
     /** 远端唯一标识，UUID v4 格式 */
     val bookKey: String = "",

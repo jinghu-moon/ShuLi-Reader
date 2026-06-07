@@ -2,10 +2,11 @@ package com.shuli.reader.feature.bookshelf.model
 
 import com.shuli.reader.core.database.entity.BookEntity
 import com.shuli.reader.core.database.entity.BookShelfRow
+import com.shuli.reader.core.reading.ReadingStatus
 
 enum class ViewMode { GRID, LIST, COMPACT_LIST }
-enum class SortOrder { LAST_READ, ADD_TIME, TITLE, FILE_SIZE, PROGRESS }
-enum class FilterType { ALL, FINISHED, FAVORITE }
+enum class SortOrder { LAST_READ, ADD_TIME, TITLE, FILE_SIZE, PROGRESS, READING_STATUS, READ_COUNT }
+enum class FilterType { ALL, WANT_TO_READ, READING, PAUSED, FINISHED, ABANDONED, FAVORITE }
 enum class FileType { TXT, EPUB }
 
 sealed interface BookshelfNode {
@@ -37,6 +38,8 @@ data class BookItem(
     val lastReadTime: Long?,
     val isFavorite: Boolean,
     val customCoverPaletteIndex: Int? = null,
+    val readingStatus: ReadingStatus = ReadingStatus.WANT_TO_READ,
+    val readCount: Int = 1,
 ) : BookshelfNode
 
 data class BookshelfUiState(
@@ -55,6 +58,8 @@ data class BookshelfUiState(
     val selectedNodeIds: Set<Long> = emptySet(),
     /** 全局统一封面色盘索引；null/-1 表示走自动散列（每本独立色盘）。 */
     val unifiedCoverPaletteIndex: Int? = null,
+    /** P1: 当前激活的标签筛选（null 表示未筛选） */
+    val activeTagFilter: String? = null,
 )
 
 fun Long.toReadableDuration(): String {
@@ -91,6 +96,8 @@ fun BookEntity.toBookItem(readingDurationMinutes: Long = 0): BookItem {
         customCoverPaletteIndex = customCoverPaletteIndex,
         folderId = folderId,
         pinnedSlot = pinnedSlot,
+        readingStatus = readingStatus,
+        readCount = readCount,
     )
 }
 
@@ -109,6 +116,8 @@ fun BookShelfRow.toBookItem(readingDurationMinutes: Long = 0): BookItem {
         customCoverPaletteIndex = customCoverPaletteIndex,
         folderId = folderId,
         pinnedSlot = pinnedSlot,
+        readingStatus = readingStatus,
+        readCount = readCount,
     )
 }
 
@@ -126,6 +135,8 @@ private fun toBookItem(
     customCoverPaletteIndex: Int?,
     folderId: Long?,
     pinnedSlot: Int?,
+    readingStatus: String,
+    readCount: Int,
 ): BookItem {
     val type = when {
         rawFileType.equals("EPUB", ignoreCase = true) -> FileType.EPUB
@@ -151,5 +162,7 @@ private fun toBookItem(
         customCoverPaletteIndex = customCoverPaletteIndex,
         folderId = folderId,
         pinnedSlot = pinnedSlot,
+        readingStatus = ReadingStatus.fromDb(readingStatus),
+        readCount = readCount,
     )
 }

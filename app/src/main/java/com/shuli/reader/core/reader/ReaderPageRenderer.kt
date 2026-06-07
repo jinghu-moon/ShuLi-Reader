@@ -52,6 +52,7 @@ class ReaderPageRenderer(
      * 更新对齐方式
      */
     fun setTextAlign(align: ReaderTextAlign) {
+        if (textAlign == align) return
         textAlign = align
     }
 

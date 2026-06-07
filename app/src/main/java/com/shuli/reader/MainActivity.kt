@@ -82,7 +82,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val appContainer = (application as ShuLiApplication).appContainer
-        val bookshelfViewModel = BookshelfViewModel(appContainer.bookRepository, appContainer.userPreferences)
+        val bookshelfViewModel = BookshelfViewModel(
+            bookQueryRepository = appContainer.bookQueryRepository,
+            folderRepository = appContainer.folderRepository,
+            readingProgressRepository = appContainer.readingProgressRepository,
+            bookImportRepository = appContainer.bookImportRepository,
+            tagRepository = appContainer.tagRepository,
+            userPreferences = appContainer.userPreferences,
+        )
         val settingsViewModel = SettingsViewModel(appContainer.userPreferences)
 
         // Macrobenchmark 测试钩子：仅在 debug 构建生效，release 包不暴露入口，
@@ -103,7 +110,7 @@ class MainActivity : ComponentActivity() {
                 if (!testFilePath.isNullOrEmpty()) {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                         try {
-                            appContainer.bookRepository.importBook(java.io.File(testFilePath))
+                            appContainer.bookImportRepository.importBook(java.io.File(testFilePath))
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
@@ -194,8 +201,13 @@ class MainActivity : ComponentActivity() {
                                 val context = LocalContext.current
                                 val readerViewModel = remember(screen.bookId) {
                                     ReaderViewModel(
+                                        bookId = screen.bookId,
                                         userPreferences = appContainer.userPreferences,
-                                        bookRepository = appContainer.bookRepository,
+                                        bookContentRepository = appContainer.bookContentRepository,
+                                        bookQueryRepository = appContainer.bookQueryRepository,
+                                        readingProgressRepository = appContainer.readingProgressRepository,
+                                        searchIndexRepository = appContainer.searchIndexRepository,
+                                        tagRepository = appContainer.tagRepository,
                                         bookmarkDao = appContainer.database.bookmarkDao(),
                                         noteDao = appContainer.database.noteDao(),
                                         presetDao = appContainer.database.readerPresetDao(),

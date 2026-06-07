@@ -45,6 +45,7 @@ internal data object ZhHansCommon : CommonStrings {
     override val languageEn = "English"
     override val favorite = "收藏"
     override val cancel = "取消"
+    override val confirm = "确认"
     override val save = "保存"
     override val deleteFont = "删除字体"
 }
@@ -94,6 +95,7 @@ internal data object ZhHantCommon : CommonStrings {
     override val languageEn = "English"
     override val favorite = "收藏"
     override val cancel = "取消"
+    override val confirm = "確認"
     override val save = "儲存"
     override val deleteFont = "刪除字型"
 }
@@ -143,6 +145,7 @@ internal data object EnCommon : CommonStrings {
     override val languageEn = "English"
     override val favorite = "Favorite"
     override val cancel = "Cancel"
+    override val confirm = "Confirm"
     override val save = "Save"
     override val deleteFont = "Delete Font"
 }

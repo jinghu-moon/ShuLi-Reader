@@ -30,4 +30,7 @@ interface CanvasRecorder {
 
     fun needRecord(): Boolean
 
+    /** recycle() 后为 true，recordIfNeeded 据此短路避免在已回收的 delegate 上操作。 */
+    fun isRecycled(): Boolean = false
+
 }

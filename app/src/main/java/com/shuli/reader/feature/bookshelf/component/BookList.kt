@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
@@ -96,6 +97,8 @@ fun BookList(
     var hasDraggedSwap by remember { mutableStateOf(false) }
     var lastSwapTime by remember { mutableStateOf(0L) }
     var lastSwapTarget by remember { mutableStateOf<Any?>(null) }
+    var isLongPressActive by remember { mutableStateOf(false) }
+    var suppressClickUntilMillis by remember { mutableStateOf(0L) }
 
     val reorderableLazyListState = rememberReorderableLazyListState(listState) { from, to ->
         val fromIndex = from.index
@@ -150,8 +153,10 @@ fun BookList(
                             onDragStarted = {
                                 isDragging = true
                                 hasDraggedSwap = false
+                                isLongPressActive = true
                             },
                             onDragStopped = {
+                                suppressClickUntilMillis = nextPostLongPressClickDeadline()
                                 draggingNodeKey = null
                                 lastSwapTarget = null
                                 if (!hasDraggedSwap) {
@@ -167,6 +172,7 @@ fun BookList(
                                         isDragging = false
                                     }
                                 }
+                                isLongPressActive = false
                             }
                         )
                 ) {
@@ -176,6 +182,7 @@ fun BookList(
                             searchQuery = searchQuery,
                             isHighlighted = node.id == highlightedBookId,
                             onClick = {
+                                if (shouldSuppressPostLongPressClick(isLongPressActive, suppressClickUntilMillis)) return@BookListItem
                                 if (isEditMode) onToggleSelection(node.id) else onBookClick(node.id)
                             },
                             onLongClick = { onToggleSelection(node.id) },
@@ -187,7 +194,10 @@ fun BookList(
                         FolderListItem(
                             folder = node,
                             isHighlighted = false,
-                            onClick = { if (isEditMode) onToggleSelection(node.id) else onFolderClick(node.id) },
+                            onClick = {
+                                if (shouldSuppressPostLongPressClick(isLongPressActive, suppressClickUntilMillis)) return@FolderListItem
+                                if (isEditMode) onToggleSelection(node.id) else onFolderClick(node.id)
+                            },
                             onLongClick = { onToggleSelection(node.id) },
                             isEditMode = isEditMode,
                             isSelected = selectedNodeIds.contains(node.id),
@@ -282,6 +292,33 @@ private fun BookListItem(
             )
             Spacer(Modifier.height(2.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(
+                            readingStatusColor(book.readingStatus),
+                            CircleShape,
+                        ),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = readingStatusLabel(book.readingStatus),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = readingStatusColor(book.readingStatus),
+                )
+                if (book.readCount > 1) {
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = "${book.readCount}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text(
+                    text = " · ",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
                 Text(
                     text = if (book.readingProgress > 0f)
                         strings.bookshelf.readProgress((book.readingProgress * 100).toInt()) else strings.bookshelf.notStartedLabel,

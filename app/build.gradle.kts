@@ -76,6 +76,12 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        unitTests.all {
+            it.maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
+            it.forkEvery = 50
+            it.minHeapSize = "512m"
+            it.maxHeapSize = "1536m"
+        }
     }
 
     buildFeatures {

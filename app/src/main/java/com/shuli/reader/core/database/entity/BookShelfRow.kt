@@ -14,4 +14,6 @@ data class BookShelfRow(
     val customCoverPaletteIndex: Int?,
     val folderId: Long?,
     val pinnedSlot: Int?,
+    val readingStatus: String,
+    val readCount: Int,
 )

@@ -52,11 +52,13 @@ class BackupExporter(
             val bookmarks = db.getAllBookmarks()
             val notes = db.getAllNotes()
             val progress = db.getAllProgress()
+            val tags = db.getAllTags()
+            val bookTagCrossRefs = db.getAllBookTagCrossRefs()
 
             if (options.encryptionPassword != null) {
-                exportEncrypted(outputFile, options, books, bookmarks, notes, progress)
+                exportEncrypted(outputFile, options, books, bookmarks, notes, progress, tags, bookTagCrossRefs)
             } else {
-                exportPlain(outputFile, options, books, bookmarks, notes, progress)
+                exportPlain(outputFile, options, books, bookmarks, notes, progress, tags, bookTagCrossRefs)
             }
         }
 
@@ -68,9 +70,11 @@ class BackupExporter(
         bookmarks: List<com.shuli.reader.core.database.entity.BookmarkEntity>,
         notes: List<com.shuli.reader.core.database.entity.NoteEntity>,
         progress: List<com.shuli.reader.core.database.entity.ReadingProgressEntity>,
+        tags: List<com.shuli.reader.core.database.entity.TagEntity>,
+        bookTagCrossRefs: List<com.shuli.reader.core.database.entity.BookTagCrossRef>,
     ) {
         FileOutputStream(outputFile).use { fos ->
-            writeZipEntries(fos, options, books, bookmarks, notes, progress)
+            writeZipEntries(fos, options, books, bookmarks, notes, progress, tags, bookTagCrossRefs)
         }
     }
 
@@ -82,6 +86,8 @@ class BackupExporter(
         bookmarks: List<com.shuli.reader.core.database.entity.BookmarkEntity>,
         notes: List<com.shuli.reader.core.database.entity.NoteEntity>,
         progress: List<com.shuli.reader.core.database.entity.ReadingProgressEntity>,
+        tags: List<com.shuli.reader.core.database.entity.TagEntity>,
+        bookTagCrossRefs: List<com.shuli.reader.core.database.entity.BookTagCrossRef>,
     ) {
         val salt = ByteArray(16)
         SecureRandom().nextBytes(salt)
@@ -105,7 +111,7 @@ class BackupExporter(
             fos.write(salt)
             fos.write(nonce)
             CipherOutputStream(fos, cipher).use { cos ->
-                writeZipEntries(cos, options, books, bookmarks, notes, progress)
+                writeZipEntries(cos, options, books, bookmarks, notes, progress, tags, bookTagCrossRefs)
             }
         }
     }
@@ -118,12 +124,15 @@ class BackupExporter(
         bookmarks: List<com.shuli.reader.core.database.entity.BookmarkEntity>,
         notes: List<com.shuli.reader.core.database.entity.NoteEntity>,
         progress: List<com.shuli.reader.core.database.entity.ReadingProgressEntity>,
+        tags: List<com.shuli.reader.core.database.entity.TagEntity>,
+        bookTagCrossRefs: List<com.shuli.reader.core.database.entity.BookTagCrossRef>,
     ) {
         ZipOutputStream(outputStream).use { zip ->
             zip.setLevel(Deflater.NO_COMPRESSION)
 
             writeManifest(zip)
             writeBooks(zip, books)
+            writeTags(zip, tags, bookTagCrossRefs)
 
             if (options.includeBookFiles) {
                 writeBookFiles(zip, books)
@@ -181,10 +190,43 @@ class BackupExporter(
                     put("totalChapterNum", book.totalChapterNum)
                     put("durByteOffset", book.durByteOffset)
                     put("durChapterTitle", book.durChapterTitle ?: "")
+                    put("readingStatus", book.readingStatus)
+                    put("readCount", book.readCount)
                 })
             }
         }
         writeZstdEntry(zip, "books.json", json.encodeToString(JsonElement.serializer(), booksArray).toByteArray())
+    }
+
+    private fun writeTags(
+        zip: ZipOutputStream,
+        tags: List<com.shuli.reader.core.database.entity.TagEntity>,
+        bookTagCrossRefs: List<com.shuli.reader.core.database.entity.BookTagCrossRef>,
+    ) {
+        if (tags.isEmpty()) return
+
+        val tagsArray = buildJsonArray {
+            for (tag in tags) {
+                add(buildJsonObject {
+                    put("id", tag.id)
+                    put("name", tag.name)
+                    put("colorIndex", tag.colorIndex)
+                    put("createdAt", tag.createdAt)
+                })
+            }
+        }
+        writeZstdEntry(zip, "tags.json", json.encodeToString(JsonElement.serializer(), tagsArray).toByteArray())
+
+        val crossRefsArray = buildJsonArray {
+            for (ref in bookTagCrossRefs) {
+                add(buildJsonObject {
+                    put("bookId", ref.bookId)
+                    put("tagId", ref.tagId)
+                    put("addedAt", ref.addedAt)
+                })
+            }
+        }
+        writeZstdEntry(zip, "book_tags.json", json.encodeToString(JsonElement.serializer(), crossRefsArray).toByteArray())
     }
 
     private fun writeBookFiles(

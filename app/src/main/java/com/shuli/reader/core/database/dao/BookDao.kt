@@ -42,7 +42,9 @@ interface BookDao {
             isFavorite,
             customCoverPaletteIndex,
             folderId,
-            pinnedSlot
+            pinnedSlot,
+            readingStatus,
+            readCount
         FROM books
         ORDER BY COALESCE(lastReadTime, addedTime) DESC
         LIMIT :limit OFFSET :offset
@@ -51,6 +53,9 @@ interface BookDao {
 
     @Query("SELECT * FROM books WHERE id = :id")
     fun getBookById(id: Long): Flow<BookEntity?>
+
+    @Query("SELECT * FROM books WHERE id = :id LIMIT 1")
+    suspend fun getBookByIdSync(id: Long): BookEntity?
 
     @Query("SELECT * FROM books WHERE filePath = :filePath LIMIT 1")
     suspend fun getBookByFilePath(filePath: String): BookEntity?
@@ -95,7 +100,9 @@ interface BookDao {
             books.isFavorite,
             books.customCoverPaletteIndex,
             books.folderId,
-            books.pinnedSlot
+            books.pinnedSlot,
+            books.readingStatus,
+            books.readCount
         FROM books
         JOIN books_fts ON books.id = books_fts.rowid
         WHERE books_fts MATCH :query
@@ -103,6 +110,32 @@ interface BookDao {
         LIMIT :limit OFFSET :offset
     """)
     fun searchBookRowsFtsPage(query: String, limit: Int, offset: Int): Flow<List<BookShelfRow>>
+
+    @Query("""
+        SELECT
+            books.id,
+            books.title,
+            books.author,
+            books.filePath,
+            books.fileType,
+            books.fileSize,
+            books.coverPath,
+            books.lastReadTime,
+            books.readingProgress,
+            books.isFavorite,
+            books.customCoverPaletteIndex,
+            books.folderId,
+            books.pinnedSlot,
+            books.readingStatus,
+            books.readCount
+        FROM books
+        INNER JOIN book_tag_cross_ref r ON books.id = r.book_id
+        INNER JOIN tags t ON r.tag_id = t.id
+        WHERE t.name = :tagName
+        ORDER BY COALESCE(books.lastReadTime, books.addedTime) DESC
+        LIMIT :limit OFFSET :offset
+    """)
+    fun getBookRowsByTagPage(tagName: String, limit: Int, offset: Int): Flow<List<BookShelfRow>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBook(book: BookEntity): Long

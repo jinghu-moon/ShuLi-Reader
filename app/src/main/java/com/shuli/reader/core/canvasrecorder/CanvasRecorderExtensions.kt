@@ -15,12 +15,14 @@ inline fun CanvasRecorder.recordIfNeeded(
     height: Int,
     block: Canvas.() -> Unit
 ): Boolean {
+    if (isRecycled()) return false
     if (!needRecord()) return false
     record(width, height, block)
     return true
 }
 
 fun CanvasRecorder.recordIfNeeded(view: View): Boolean {
+    if (isRecycled()) return false
     if (!needRecord()) return false
     record(view.width, view.height) {
         view.draw(this)

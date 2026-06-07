@@ -2,12 +2,13 @@ package com.shuli.reader.core.repository
 
 import com.shuli.reader.core.database.dao.BookChapterDao
 import com.shuli.reader.core.database.dao.BookDao
-import com.shuli.reader.core.database.dao.ReadingProgressDao
 import com.shuli.reader.core.database.entity.BookEntity
 import com.shuli.reader.core.parser.ByteWindowReader
 import com.shuli.reader.core.parser.EpubParser
 import com.shuli.reader.core.parser.TxtParser
 import io.mockk.*
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -24,31 +25,32 @@ class BookRepositoryBookKeyTest {
     val tempFolder = TemporaryFolder()
 
     private lateinit var bookDao: BookDao
-    private lateinit var bookChapterDao: BookChapterDao
-    private lateinit var readingProgressDao: ReadingProgressDao
-    private lateinit var repository: BookRepository
+    private lateinit var repository: BookImportRepository
 
     @Before
     fun setup() {
         bookDao = mockk(relaxed = true)
-        bookChapterDao = mockk(relaxed = true)
-        readingProgressDao = mockk(relaxed = true)
+        val bookChapterDao = mockk<BookChapterDao>(relaxed = true)
 
-        // Mock insertBook to return a bookId
         coEvery { bookDao.insertBook(any()) } returns 1L
-
-        // Mock duplicate checker methods to return no duplicates
         coEvery { bookDao.getBookByFilePath(any()) } returns null
         coEvery { bookDao.getBooksByFileNameAndSize(any(), any()) } returns emptyList()
 
-        repository = BookRepository(
+        val searchIndexRepository = SearchIndexRepository(
             bookDao = bookDao,
             bookChapterDao = bookChapterDao,
-            readingProgressDao = readingProgressDao,
             txtParser = TxtParser(),
             epubParser = EpubParser(),
             byteWindowReader = ByteWindowReader(),
+        )
+
+        repository = BookImportRepository(
+            bookDao = bookDao,
+            txtParser = TxtParser(),
+            epubParser = EpubParser(),
             booksDir = tempFolder.newFolder("books"),
+            searchIndexRepository = searchIndexRepository,
+            applicationScope = TestScope(StandardTestDispatcher()),
         )
     }
 

@@ -14,17 +14,17 @@ class SyncNotifierTest {
 
     @Test
     fun `SyncStateTextMapper maps SCANNING correctly`() {
-        assertEquals(strings.scanningLocalChanges, SyncStateTextMapper.map(SyncState.SCANNING, strings))
+        assertEquals(strings.sync.scanningLocalChanges, SyncStateTextMapper.map(SyncState.SCANNING, strings))
     }
 
     @Test
     fun `SyncStateTextMapper maps UPLOADING correctly`() {
-        assertEquals(strings.uploadingBookmarksNotes, SyncStateTextMapper.map(SyncState.UPLOADING, strings))
+        assertEquals(strings.sync.uploadingBookmarksNotes, SyncStateTextMapper.map(SyncState.UPLOADING, strings))
     }
 
     @Test
     fun `SyncStateTextMapper maps SUCCESS correctly`() {
-        assertEquals(strings.syncComplete, SyncStateTextMapper.map(SyncState.SUCCESS, strings))
+        assertEquals(strings.sync.syncComplete, SyncStateTextMapper.map(SyncState.SUCCESS, strings))
     }
 }
 

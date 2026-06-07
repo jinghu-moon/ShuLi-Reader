@@ -2,9 +2,11 @@
 package com.shuli.reader.sync.export
 
 import com.shuli.reader.core.database.entity.BookEntity
+import com.shuli.reader.core.database.entity.BookTagCrossRef
 import com.shuli.reader.core.database.entity.BookmarkEntity
 import com.shuli.reader.core.database.entity.NoteEntity
 import com.shuli.reader.core.database.entity.ReadingProgressEntity
+import com.shuli.reader.core.database.entity.TagEntity
 
 /**
  * 导出用数据库抽象接口。
@@ -15,4 +17,6 @@ interface ExportDatabase {
     suspend fun getAllBookmarks(): List<BookmarkEntity>
     suspend fun getAllNotes(): List<NoteEntity>
     suspend fun getAllProgress(): List<ReadingProgressEntity>
+    suspend fun getAllTags(): List<TagEntity>
+    suspend fun getAllBookTagCrossRefs(): List<BookTagCrossRef>
 }

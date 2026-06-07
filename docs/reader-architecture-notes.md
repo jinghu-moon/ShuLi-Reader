@@ -326,3 +326,190 @@ UI 侧：`ReaderSearchControls` 在 TopAppBar 的 `actions` 槽内渲染，**仅
 | 缓存（未接） | `@app/src/main/java/com/shuli/reader/core/reader/cache/CacheManager.kt`、`LruCache.kt` |
 | 章节预加载（未接） | `@app/src/main/java/com/shuli/reader/core/reader/ChapterProvider.kt` |
 | 进度+时长（未接） | `@app/src/main/java/com/shuli/reader/core/reader/ReadingStateManager.kt` |
+
+---
+
+## 13. ReaderViewModel 模块化拆分（2026-06-04 起）
+
+`ReaderViewModel.kt` 在多个迭代中累积至 2808 行，承载 7 类不同职责。按"单一职责 + 可独立测试"原则拆出子模块。
+
+### 13.1 已完成模块
+
+| 模块 | 文件 | 行数 | 职责 |
+|---|---|---|---|
+| `TextSearchManager` | `feature/reader/search/TextSearchManager.kt` | 91 | 查询发起、结果列表、结果间跳转 |
+| `ReadingProgressTracker` | `feature/reader/progress/ReadingProgressTracker.kt` | 227 | 全书进度计算、页眉/页脚槽位解析、页数持久化、布局哈希 |
+| `LayoutConfigBuilder` | `feature/reader/progress/LayoutConfigBuilder.kt` | 36 | `ReaderPreferences → ReaderLayoutConfig` 共享工具 |
+| `NormalizedChapters` | `feature/reader/progress/NormalizedChapters.kt` | 21 | `BookContent` 规范化为章节列表的共享扩展 |
+| `ReaderPreferencesBridge` | `feature/reader/prefs/ReaderPreferencesBridge.kt` | 349 | 40+ 偏好 setter + `updatePrefs` 辅助 + 主题切换 + 字体操作 |
+
+拆分后 `ReaderViewModel` 约 2336 行，剩余职责：UI state、章节导航、TTS、书签/笔记、工具栏、分页。
+
+### 13.2 依赖注入模式
+
+所有子模块使用**构造器注入 + 回调**，避免对 ViewModel 的反向依赖：
+
+```kotlin
+class TextSearchManager(
+    private val bookRepository: BookRepository?,
+    private val uiState: MutableStateFlow<ReaderUiState>,
+    private val scope: CoroutineScope,
+    private val jumpTo: (chapterIndex: Int, byteOffset: Long) -> Unit,
+)
+```
+
+**公共 API 保持不变**：ViewModel 保留同名公共方法作为 delegation，UI 调用方无需修改。
+
+### 13.3 待拆分模块
+
+| 模块 | 预估行数 | 暂缓理由 |
+|---|---|---|
+| `ChapterPaginationCoordinator` | ~450 | `paginateChapterStreaming` 有 3 层嵌套回调，与 ViewModel state 紧耦合 |
+| `AppStrings.kt` 拆分为 7 子接口 | ~2077 → 7 文件 | 700 词条 × 3 实现，机械搬运；call sites 可用 delegation 兼容 |
+| `QuickSettingsSheet.kt` 拆分为 5 面板 | ~1160 → 6 文件 | 面板间独立，低风险，但非紧迫 |
+| `ReaderScreen.kt` 拆分为 4 UI 区域 | ~918 → 5 文件 | 手势处理与 ViewModel 耦合较深 |
+
+### 13.4 拆分原则
+
+1. **单文件 > 500 行** 才考虑拆；< 300 行不拆
+2. 按"可独立测试的职责单元"拆，不按"行数平均"拆
+3. 子模块通过 `MutableStateFlow<UiState>` 或回调注入，**不复制 state**
+4. ViewModel 保留同名公共方法作为 delegation，避免破坏 call sites
+5. 拆分完成后**必须编译通过**并**跑相关单测**
+
+---
+
+## 14. SRP 大文件拆分完成总览（2026-06-06）
+
+按 `docs/23-large-file-split-refactor.md` 方案，对 11 个 >500 行文件实施 SRP 拆分。
+全部旧"上帝类"已消除；无 facade / `@Deprecated` / delegation 兼容层残留（pre-release 允许破坏性改动）。
+
+### 14.1 现状行数对照
+
+| 文件 | 原始 | 现状 | 子模块数 | 评估 |
+|---|--:|--:|--:|:---:|
+| `core/repository/BookRepository.kt` | 662 | **已删除** | 6 领域 repo | ✅ |
+| `core/i18n/AppStrings.kt` | 2077 | 45 | 7 子接口 | ✅ |
+| `feature/settings/SettingsScreen.kt` | 1104 | 176 | 8 Section | ✅ |
+| `feature/reader/component/QuickSettingsSheet.kt` | 1118 | 191 | 5 文件 | ✅ |
+| `feature/reader/component/DirectoryDialog.kt` | 522 | 124 | 3 列表 | ✅ |
+| `core/parser/EpubParser.kt` | 599 | 112 | 3 子模块 | ✅ |
+| `feature/bookshelf/BookshelfScreen.kt` | 523 | 171 | 7 子模块 | ✅ |
+| `core/reader/ReaderCanvasView.kt` | 929 | 514 | 4 子模块 | ⚠️ |
+| `feature/reader/ReaderViewModel.kt` | 2541 | 558 | 11 子模块 | ⚠️ |
+| `feature/reader/ReaderScreen.kt` | 873 | 379 | 4 子模块 | ⚠️ |
+| `feature/bookshelf/BookshelfViewModel.kt` | 536 | 307 | 2 Manager | ⚠️ |
+
+⚠️ 项为含不可再拆的核心协调/View 生命周期代码。
+
+### 14.2 子模块拓扑
+
+```
+feature/reader/
+├── ReaderViewModel.kt (558)          ← 聚合入口
+├── BookSessionManager.kt (449)       ← 开书/章节切换/会话生命周期
+├── ChapterPaginationCoordinator.kt (351) ← 分页/reflow/预加载
+├── ReaderSettingsManager.kt (325)    ← 偏好读写
+├── TtsPlaybackManager.kt (293)       ← TTS 朗读
+├── ReaderPreferenceMonitor.kt (265)  ← 偏好变化监听
+├── ReaderNavigationCoordinator.kt (223) ← 翻页/工具栏/目录
+├── BookmarkNotesManager.kt (197)     ← 书签/笔记 CRUD
+├── ReaderProgressResolver.kt (122)   ← 进度/页眉页脚解析
+├── ReaderSearchManager.kt (87)       ← 正文搜索
+├── ReaderPresetManager.kt (81)       ← 预设管理
+├── FontImportManager.kt (71)         ← 字体导入
+├── ReaderUiState.kt (72)             ← UI 状态数据类
+├── component/quicksettings/
+│   ├── QuickSettingsSheet.kt (191)   ← Sheet 容器/Tab 切换
+│   ├── SettingsPanel.kt (405)        ← 设置面板
+│   ├── HeaderFooterCustomizationPanel.kt (184) ← 页眉页脚定制
+│   ├── SharedComponents.kt (239)     ← 通用控件
+│   ├── StylePanel.kt (181)           ← 样式面板
+│   └── LayoutPanel.kt (80)           ← 排版面板
+├── component/directory/
+│   ├── DirectoryDialog.kt (124)      ← 对话框容器
+│   ├── NoteList.kt (229)             ← 笔记列表
+│   ├── BookmarkList.kt (149)         ← 书签列表
+│   └── ChapterList.kt (126)          ← 章节列表
+├── effects/ReaderCanvasEffects.kt (204) ← 画布 effects
+└── overlays/
+    ├── ReaderBottomBar.kt (196)      ← 底部工具栏
+    ├── ReaderTopBar.kt (148)         ← 顶部工具栏
+    └── ReaderOverlayPanels.kt (130)  ← 浮层面板
+
+core/repository/
+├── SearchIndexRepository.kt (291)    ← 全文搜索索引
+├── BookImportRepository.kt (214)     ← 书籍导入/去重
+├── BookContentRepository.kt (134)    ← EPUB/TXT 内容读取
+├── ReadingProgressRepository.kt (93) ← 阅读进度统计
+├── DuplicateChecker.kt (88)          ← 重复检查
+├── BookQueryRepository.kt (66)       ← 书籍查询
+└── FolderRepository.kt (31)          ← 文件夹管理
+
+core/parser/
+├── epub/EpubStructureParser.kt (273) ← OPF/NCX/NAV/Spine 解析
+├── html/HtmlTextExtractor.kt (144)   ← HTML 文本提取
+└── epub/EpubChapterExtractor.kt (84) ← 章节 HTML 提取
+
+core/reader/
+├── ReaderCanvasView.kt (514)         ← View 生命周期 + onDraw 编排
+├── CanvasVisualParamsManager.kt (325) ← 排版参数/主题颜色聚合
+├── canvas/CanvasTouchHandler.kt (156) ← 触摸事件处理
+├── canvas/PageBitmapCache.kt (150)   ← 页面 bitmap 缓存
+└── canvas/CanvasTextSelection.kt (75) ← 文本选区
+
+feature/bookshelf/
+├── BookshelfViewModel.kt (307)       ← UI state + 基本回调
+├── BookshelfDialogs.kt (472)         ← 对话框组（删除/合并/移动确认）
+├── ImportDialogs.kt (271)            ← 导入对话框
+├── BookshelfOverlays.kt (218)        ← 覆盖层
+├── BookshelfEditManager.kt (170)     ← 编辑模式管理
+├── BookshelfContentArea.kt (158)     ← 内容区域
+├── BookImportManager.kt (141)        ← 书籍导入管理
+├── EditModeUI.kt (97)                ← 编辑模式 UI
+├── BookshelfSorting.kt (79)          ← 排序逻辑
+└── BookshelfEvent.kt (24)            ← 事件定义
+
+feature/settings/
+├── SettingsScreen.kt (176)           ← 顶层 Scaffold
+├── sections/ReaderPrefsSection.kt (168)
+├── sections/AppearanceSection.kt (101)
+├── sections/LibrarySection.kt (83)
+├── sections/TtsSection.kt (80)
+├── sections/AboutSection.kt (76)
+├── sections/StatsSection.kt (61)
+├── sections/SyncSection.kt (54)
+├── sections/AdvancedSection.kt (46)
+└── components/SettingsItems.kt (105)
+
+core/i18n/
+├── AppStrings.kt (45)                ← 聚合接口
+├── ReaderStrings.kt (166) + ReaderStringsImpl.kt (457)
+├── SyncStrings.kt (168) + SyncStringsImpl.kt (445)
+├── BookshelfStrings.kt (79) + BookshelfStringsImpl.kt (229)
+├── CommonStrings.kt (52) + CommonStringsImpl.kt (148)
+├── EncryptionStrings.kt (38) + EncryptionStringsImpl.kt (106)
+├── SettingsStrings.kt (32) + SettingsStringsImpl.kt (88)
+└── TtsStrings.kt (19) + TtsStringsImpl.kt (49)
+```
+
+### 14.3 DI 注入（ShuLiAppContainer）
+
+`BookRepository` 已删除，`ShuLiAppContainer` 改为按需注入 6 个领域 repo：
+
+```kotlin
+val bookQueryRepository: BookQueryRepository by lazy { ... }
+val folderRepository: FolderRepository by lazy { ... }
+val readingProgressRepository: ReadingProgressRepository by lazy { ... }
+val searchIndexRepository: SearchIndexRepository by lazy { ... }
+val bookContentRepository: BookContentRepository by lazy { ... }
+val bookImportRepository: BookImportRepository by lazy { ... }
+```
+
+调用方按需依赖所需 repo，不再注入整个 `BookRepository`。
+
+### 14.4 后续可优化项（P2）
+
+- `BookSessionManager.kt` (449 行)：可考虑将"章节切换"与"会话生命周期"分离
+- `ChapterPaginationCoordinator.kt` (351 行)：reflow 与预加载可进一步解耦
+- `CanvasVisualParamsManager.kt` (325 行)：排版参数与主题颜色可拆为两个 Manager

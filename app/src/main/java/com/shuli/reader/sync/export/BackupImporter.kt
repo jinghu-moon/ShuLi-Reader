@@ -82,6 +82,8 @@ class BackupImporter(
             val importBookmarks = parseBookmarks(entries)
             val importNotes = parseNotes(entries)
             val importProgress = parseProgress(entries)
+            val importTags = parseTags(entries)
+            val importCrossRefs = parseBookTagCrossRefs(entries)
 
             // 在 DB 事务内执行导入（失败自动回滚）
             db.runInTransaction {
@@ -95,12 +97,14 @@ class BackupImporter(
                         for (bookmark in importBookmarks) { db.upsertBookmark(bookmark) }
                         for (note in importNotes) { db.upsertNote(note) }
                         for (prog in importProgress) { db.upsertProgress(prog) }
+                        importTagsAndCrossRefs(importTags, importCrossRefs)
                     }
                     ImportStrategy.MERGE -> {
                         for (book in importBooks) { db.upsertBook(book) }
                         for (bookmark in importBookmarks) { db.upsertBookmark(bookmark) }
                         for (note in importNotes) { db.upsertNote(note) }
                         for (prog in importProgress) { db.upsertProgress(prog) }
+                        importTagsAndCrossRefs(importTags, importCrossRefs)
                     }
                     ImportStrategy.IMPORT_ONLY_NEW -> {
                         val existingBookIds = db.getExistingBookIds()
@@ -119,6 +123,7 @@ class BackupImporter(
                         for (prog in importProgress) {
                             if (prog.bookId !in existingProgressBookIds) db.upsertProgress(prog)
                         }
+                        importTagsAndCrossRefs(importTags, importCrossRefs)
                     }
                 }
             }
@@ -250,6 +255,8 @@ class BackupImporter(
                     totalChapterNum = obj["totalChapterNum"].safeInt() ?: 0,
                     durByteOffset = obj["durByteOffset"].safeLong() ?: 0L,
                     durChapterTitle = obj["durChapterTitle"].safeContent()?.ifBlank { null },
+                    readingStatus = obj["readingStatus"].safeContent() ?: "WANT_TO_READ",
+                    readCount = obj["readCount"].safeInt() ?: 1,
                 ),
             )
         }
@@ -334,5 +341,65 @@ class BackupImporter(
             }
         }
         return progressList
+    }
+
+    private fun parseTags(entries: Map<String, String>): List<com.shuli.reader.core.database.entity.TagEntity> {
+        val data = entries["tags.json"] ?: return emptyList()
+        val tags = mutableListOf<com.shuli.reader.core.database.entity.TagEntity>()
+        for (element in json.parseToJsonElement(data).jsonArray) {
+            val obj = element.jsonObject
+            tags.add(
+                com.shuli.reader.core.database.entity.TagEntity(
+                    id = obj["id"].safeLong() ?: 0L,
+                    name = obj["name"].safeContent() ?: continue,
+                    colorIndex = obj["colorIndex"].safeInt() ?: 0,
+                    createdAt = obj["createdAt"].safeLong() ?: 0L,
+                ),
+            )
+        }
+        return tags
+    }
+
+    private fun parseBookTagCrossRefs(entries: Map<String, String>): List<com.shuli.reader.core.database.entity.BookTagCrossRef> {
+        val data = entries["book_tags.json"] ?: return emptyList()
+        val refs = mutableListOf<com.shuli.reader.core.database.entity.BookTagCrossRef>()
+        for (element in json.parseToJsonElement(data).jsonArray) {
+            val obj = element.jsonObject
+            refs.add(
+                com.shuli.reader.core.database.entity.BookTagCrossRef(
+                    bookId = obj["bookId"].safeLong() ?: continue,
+                    tagId = obj["tagId"].safeLong() ?: continue,
+                    addedAt = obj["addedAt"].safeLong() ?: 0L,
+                ),
+            )
+        }
+        return refs
+    }
+
+    private suspend fun importTagsAndCrossRefs(
+        tags: List<com.shuli.reader.core.database.entity.TagEntity>,
+        crossRefs: List<com.shuli.reader.core.database.entity.BookTagCrossRef>,
+    ) {
+        val oldToNewTagId = mutableMapOf<Long, Long>()
+        for (tag in tags) {
+            val newId = db.insertTag(
+                com.shuli.reader.core.database.entity.TagEntity(
+                    name = tag.name,
+                    colorIndex = tag.colorIndex,
+                    createdAt = tag.createdAt,
+                ),
+            )
+            oldToNewTagId[tag.id] = newId
+        }
+        for (ref in crossRefs) {
+            val newTagId = oldToNewTagId[ref.tagId] ?: continue
+            db.addTagToBook(
+                com.shuli.reader.core.database.entity.BookTagCrossRef(
+                    bookId = ref.bookId,
+                    tagId = newTagId,
+                    addedAt = ref.addedAt,
+                ),
+            )
+        }
     }
 }

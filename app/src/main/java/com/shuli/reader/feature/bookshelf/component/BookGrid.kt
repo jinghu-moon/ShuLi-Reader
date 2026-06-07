@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -55,6 +56,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.CircleShape
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
 import androidx.compose.runtime.toMutableStateList
@@ -103,6 +105,8 @@ fun BookGrid(
     // 最近一次 swap 的时间戳，用于推断悬停
     var lastSwapTime by remember { mutableStateOf(0L) }
     var lastSwapTarget by remember { mutableStateOf<Any?>(null) }
+    var isLongPressActive by remember { mutableStateOf(false) }
+    var suppressClickUntilMillis by remember { mutableStateOf(0L) }
 
     val reorderableLazyGridState = rememberReorderableLazyGridState(lazyGridState) { from, to ->
         val fromIndex = from.index
@@ -164,8 +168,10 @@ fun BookGrid(
                             onDragStarted = {
                                 isDragging = true
                                 hasDraggedSwap = false
+                                isLongPressActive = true
                             },
                             onDragStopped = {
+                                suppressClickUntilMillis = nextPostLongPressClickDeadline()
                                 draggingNodeKey = null
                                 lastSwapTarget = null
                                 if (!hasDraggedSwap) {
@@ -181,6 +187,7 @@ fun BookGrid(
                                         isDragging = false
                                     }
                                 }
+                                isLongPressActive = false
                             }
                         )
                 ) {
@@ -190,6 +197,7 @@ fun BookGrid(
                             searchQuery = searchQuery,
                             isHighlighted = node.id == highlightedBookId,
                             onClick = {
+                                if (shouldSuppressPostLongPressClick(isLongPressActive, suppressClickUntilMillis)) return@BookGridItem
                                 if (isEditMode) onToggleSelection(node.id) else onBookClick(node.id)
                             },
                             onLongClick = { onToggleSelection(node.id) },
@@ -201,7 +209,10 @@ fun BookGrid(
                         FolderGridItem(
                             folder = node,
                             isHighlighted = false,
-                            onClick = { if (isEditMode) onToggleSelection(node.id) else onFolderClick(node.id) },
+                            onClick = {
+                                if (shouldSuppressPostLongPressClick(isLongPressActive, suppressClickUntilMillis)) return@FolderGridItem
+                                if (isEditMode) onToggleSelection(node.id) else onFolderClick(node.id)
+                            },
                             onLongClick = { onToggleSelection(node.id) },
                             isEditMode = isEditMode,
                             isSelected = selectedNodeIds.contains(node.id),
@@ -282,6 +293,34 @@ private fun BookGridItem(
                         .clip(RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp)),
                     trackColor = Color.Transparent,
                     drawStopIndicator = {},
+                )
+            }
+
+            // 阅读状态点（左上角）
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .background(
+                        readingStatusColor(book.readingStatus),
+                        CircleShape,
+                    )
+                    .align(Alignment.TopStart)
+                    .padding(0.dp),
+            )
+
+            // 重读次数徽章（右上角，仅 readCount > 1 时显示）
+            if (book.readCount > 1) {
+                Text(
+                    text = "${book.readCount}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .background(
+                            readingStatusColor(book.readingStatus).copy(alpha = 0.85f),
+                            RoundedCornerShape(4.dp),
+                        )
+                        .padding(horizontal = 4.dp, vertical = 1.dp),
                 )
             }
         }

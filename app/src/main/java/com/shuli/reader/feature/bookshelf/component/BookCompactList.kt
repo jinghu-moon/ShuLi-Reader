@@ -55,6 +55,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shuli.reader.core.i18n.LocalAppStrings
+import com.shuli.reader.core.reading.ReadingStatus
 import com.shuli.reader.feature.bookshelf.model.BookItem
 import com.shuli.reader.feature.bookshelf.model.BookshelfNode
 import com.shuli.reader.feature.bookshelf.model.FileType
@@ -99,6 +100,8 @@ fun BookCompactList(
     var hasDraggedSwap by remember { mutableStateOf(false) }
     var lastSwapTime by remember { mutableLongStateOf(0L) }
     var lastSwapTarget by remember { mutableStateOf<Any?>(null) }
+    var isLongPressActive by remember { mutableStateOf(false) }
+    var suppressClickUntilMillis by remember { mutableLongStateOf(0L) }
 
     val reorderableLazyListState = rememberReorderableLazyListState(listState) { from, to ->
         val fromIndex = from.index
@@ -142,8 +145,10 @@ fun BookCompactList(
                             onDragStarted = {
                                 isDragging = true
                                 hasDraggedSwap = false
+                                isLongPressActive = true
                             },
                             onDragStopped = {
+                                suppressClickUntilMillis = nextPostLongPressClickDeadline()
                                 draggingNodeKey = null
                                 lastSwapTarget = null
                                 if (!hasDraggedSwap) {
@@ -157,6 +162,7 @@ fun BookCompactList(
                                         isDragging = false
                                     }
                                 }
+                                isLongPressActive = false
                             }
                         )
                 ) {
@@ -166,6 +172,7 @@ fun BookCompactList(
                             searchQuery = searchQuery,
                             isHighlighted = node.id == highlightedBookId,
                             onClick = {
+                                if (shouldSuppressPostLongPressClick(isLongPressActive, suppressClickUntilMillis)) return@BookCompactListItem
                                 if (isEditMode) onToggleSelection(node.id) else onBookClick(node.id)
                             },
                             onLongClick = { onToggleSelection(node.id) },
@@ -178,6 +185,7 @@ fun BookCompactList(
                             searchQuery = searchQuery,
                             isHighlighted = false,
                             onClick = {
+                                if (shouldSuppressPostLongPressClick(isLongPressActive, suppressClickUntilMillis)) return@FolderCompactListItem
                                 if (isEditMode) onToggleSelection(node.id) else onFolderClick(node.id)
                             },
                             onLongClick = { onToggleSelection(node.id) },
@@ -231,18 +239,23 @@ private fun BookCompactListItem(
                 .padding(horizontal = 16.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 左侧状态小圆点
-            val dotColor = when {
-                book.isFavorite -> MaterialTheme.colorScheme.primary
-                book.fileType == FileType.EPUB -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.45f)
-                else -> MaterialTheme.colorScheme.outlineVariant
-            }
+            // 左侧阅读状态小圆点
+            val dotColor = readingStatusColor(book.readingStatus)
 
             Box(
                 modifier = Modifier
                     .size(10.dp)
                     .background(dotColor, CircleShape)
             )
+
+            if (book.readCount > 1) {
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "${book.readCount}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             Spacer(Modifier.width(16.dp))
 

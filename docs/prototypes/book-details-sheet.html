@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>书籍详情页 · ShuLi Reader</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --ink-50: #F6F4F0; --ink-100: #EAE5DC; --ink-200: #D4CCC0;
+    --ink-300: #B9AFA0; --ink-400: #9C9082; --ink-500: #7D7162;
+    --ink-600: #5E5346; --ink-700: #453B2E; --ink-800: #2C231A;
+    --ink-900: #1A130B; --ink-950: #0C0804;
+    
+    --surface: var(--ink-50);
+    --surface-var: var(--ink-100);
+    --surface-elev: #FFFFFF;
+    --primary: var(--ink-700);
+    --on-primary: #FFFFFF;
+    --on-surface: var(--ink-900);
+    --on-surface-var: var(--ink-600);
+    --on-surface-faint: var(--ink-400);
+    --outline: var(--ink-300);
+    --outline-var: var(--ink-200);
+    --accent: #8B5E3C;
+    --accent-soft: #F1E6D9;
+    
+    --status-want: #9C9082;
+    --status-reading: #8B5E3C;
+    --status-paused: #9A6500;
+    --status-finished: #2D7A52;
+    --status-abandoned: #9B3525;
+    
+    --shadow-sm: 0 1px 2px rgba(44, 35, 26, 0.04), 0 1px 3px rgba(44, 35, 26, 0.06);
+    --shadow-lg: 0 -4px 20px rgba(0, 0, 0, 0.15);
+    
+    --radius-sm: 4px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-pill: 999px;
+    
+    --font-sans: -apple-system, "PingFang SC", "Noto Sans SC", sans-serif;
+    --font-serif: "Source Han Serif SC", "Noto Serif SC", serif;
+  }
+
+  :root[data-theme="dark"] {
+    --surface: var(--ink-950);
+    --surface-var: var(--ink-900);
+    --surface-elev: var(--ink-800);
+    --primary: var(--ink-200);
+    --on-primary: var(--ink-950);
+    --on-surface: var(--ink-100);
+    --on-surface-var: var(--ink-400);
+    --on-surface-faint: var(--ink-600);
+    --outline: var(--ink-700);
+    --outline-var: var(--ink-800);
+    --accent: #E5B07A;
+    --accent-soft: #3A2A18;
+    
+    --status-want: #9C9082;
+    --status-reading: #E5B07A;
+    --status-paused: #E0A020;
+    --status-finished: #5DBE8A;
+    --status-abandoned: #D46050;
+    
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 -4px 20px rgba(0, 0, 0, 0.5);
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--surface);
+    color: var(--on-surface);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .device {
+    max-width: 420px;
+    margin: 0 auto;
+    height: 100vh;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  @media (min-width: 480px) {
+    body { background: #2C231A; padding: 20px 0; }
+    .device { height: calc(100vh - 40px); border-radius: 24px; border: 8px solid #1A130B; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  }
+
+  /* ===== 背景书架（模糊） ===== */
+  .bookshelf-bg {
+    flex: 1;
+    padding: 16px;
+    opacity: 0.3;
+    filter: blur(2px);
+    pointer-events: none;
+  }
+  .bookshelf-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .book-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .book-cover {
+    width: 100%;
+    aspect-ratio: 2/3;
+    background: var(--ink-700);
+    border-radius: 4px;
+  }
+  .book-title-small {
+    font-size: 11px;
+    color: var(--on-surface);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ===== 遮罩层 ===== */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* ===== 底部弹窗 ===== */
+  .bottom-sheet {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--surface-elev);
+    border-radius: 16px 16px 0 0;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    max-height: 95vh;
+    overflow-y: auto;
+  }
+  .bottom-sheet.visible {
+    transform: translateY(0);
+  }
+  .bottom-sheet::-webkit-scrollbar { display: none; }
+
+  .sheet-handle {
+    width: 40px;
+    height: 4px;
+    background: var(--outline);
+    border-radius: 2px;
+    margin: 8px auto 0;
+  }
+
+  .sheet-content {
+    padding: 16px 24px 24px;
+  }
+
+  /* ===== 顶部信息卡 ===== */
+  .info-card {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .cover-large {
+    width: 80px;
+    height: 120px;
+    background: linear-gradient(135deg, #EAE5DC, #D4CCC0);
+    border-radius: 4px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(180, 175, 160, 0.6);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 6px;
+  }
+  .cover-title {
+    font-size: 8px;
+    font-family: var(--font-serif);
+    color: var(--ink-800);
+    line-height: 1.2;
+    font-weight: 500;
+    max-height: 32px;
+    overflow: hidden;
+    position: relative;
+    z-index: 2;
+  }
+  .cover-first-char {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -60%);
+    font-size: 56px;
+    font-family: var(--font-serif);
+    color: rgba(255, 255, 255, 0.35);
+    font-weight: 700;
+    line-height: 1;
+    z-index: 1;
+  }
+  .cover-band {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(44, 35, 26, 0.75);
+    color: #F6F4F0;
+    font-size: 7px;
+    padding: 3px 6px;
+    font-family: var(--font-serif);
+    line-height: 1.2;
+    backdrop-filter: blur(2px);
+    z-index: 2;
+  }
+  .cover-format-tag {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(255, 255, 255, 0.4);
+    color: var(--ink-700);
+    font-size: 7px;
+    font-weight: 800;
+    padding: 1px 3px;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+    border: 1px solid rgba(69, 59, 46, 0.2);
+    z-index: 3;
+  }
+  .info-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .book-title {
+    font-size: 18px;
+    font-weight: 600;
+    font-family: var(--font-serif);
+    color: var(--on-surface);
+    line-height: 1.3;
+  }
+  .book-author {
+    font-size: 12px;
+    color: var(--on-surface-var);
+  }
+
+  /* ===== 状态徽章 ===== */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--surface-var);
+    border: 1px solid var(--outline-var);
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--on-surface);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+    align-self: flex-start;
+  }
+  .status-badge:hover {
+    background: var(--outline-var);
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .status-dot.want { background: var(--status-want); }
+  .status-dot.reading { background: var(--status-reading); }
+  .status-dot.paused { background: var(--status-paused); }
+  .status-dot.finished { background: var(--status-finished); }
+  .status-dot.abandoned { background: var(--status-abandoned); }
+
+  .reread-tag {
+    font-size: 11px;
+    color: var(--on-surface-faint);
+    margin-left: 4px;
+  }
+
+  /* ===== 状态下拉菜单 ===== */
+  .status-dropdown {
+    position: absolute;
+    top: 220px;
+    left: 24px;
+    background: var(--surface-elev);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    min-width: 180px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-10px);
+    transition: all 0.2s;
+    z-index: 100;
+  }
+  .status-dropdown.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+  .status-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .status-option:hover {
+    background: var(--surface-var);
+  }
+  .status-option:first-child { border-radius: 10px 10px 0 0; }
+  .status-option:last-child { border-radius: 0 0 10px 10px; }
+  .status-option-text {
+    flex: 1;
+    font-size: 13px;
+    color: var(--on-surface);
+  }
+  .status-option-check {
+    color: var(--accent);
+    font-size: 16px;
+  }
+
+  /* ===== 分割线 ===== */
+  .divider {
+    height: 1px;
+    background: var(--outline-var);
+    margin: 16px 0;
+  }
+
+  /* ===== 继续阅读按钮 ===== */
+  .continue-btn {
+    width: 100%;
+    height: 48px;
+    background: var(--primary);
+    color: var(--on-primary);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 16px;
+  }
+  .continue-btn:hover {
+    filter: brightness(1.1);
+  }
+  .continue-btn:active {
+    transform: scale(0.98);
+  }
+
+  /* ===== 标签流 ===== */
+  .tag-section {
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--on-surface-var);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .tag-flow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tag-chip:hover {
+    filter: brightness(0.95);
+  }
+  .tag-remove {
+    font-size: 14px;
+    line-height: 1;
+    opacity: 0.7;
+  }
+  .tag-add {
+    padding: 4px 10px;
+    background: var(--surface-var);
+    color: var(--on-surface-var);
+    border: 1px dashed var(--outline);
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tag-add:hover {
+    background: var(--outline-var);
+  }
+
+  /* ===== 阅读数据网格 ===== */
+  .data-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .data-card {
+    background: var(--surface-var);
+    border-radius: var(--radius-md);
+    padding: 10px 8px;
+    text-align: center;
+  }
+  .data-value {
+    font-size: 16px;
+    font-weight: 700;
+    font-family: var(--font-serif);
+    color: var(--accent);
+    margin-bottom: 2px;
+  }
+  .data-label {
+    font-size: 10px;
+    color: var(--on-surface-var);
+  }
+
+  /* ===== 书签笔记预览 ===== */
+  .preview-card {
+    background: var(--surface-var);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    margin-bottom: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .preview-card:hover {
+    filter: brightness(0.98);
+  }
+  .preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .preview-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--on-surface);
+  }
+  .preview-link {
+    font-size: 11px;
+    color: var(--accent);
+  }
+  .preview-stats {
+    font-size: 11px;
+    color: var(--on-surface-var);
+    margin-bottom: 4px;
+  }
+  .preview-latest {
+    font-size: 11px;
+    color: var(--on-surface-faint);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ===== 信息列表 ===== */
+  .info-list {
+    margin-bottom: 16px;
+  }
+  .info-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--outline-var);
+  }
+  .info-item:last-child {
+    border-bottom: none;
+  }
+  .info-label {
+    font-size: 12px;
+    color: var(--on-surface-var);
+  }
+  .info-value {
+    font-size: 12px;
+    color: var(--on-surface);
+    text-align: right;
+    max-width: 60%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ===== 操作按钮 ===== */
+  .action-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  .action-btn {
+    flex: 1;
+    height: 40px;
+    background: var(--surface-var);
+    color: var(--on-surface);
+    border: 1px solid var(--outline-var);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .action-btn:hover {
+    background: var(--outline-var);
+  }
+  .action-btn.danger {
+    color: var(--status-abandoned);
+  }
+
+  /* ===== 触发按钮（书架页） ===== */
+  .trigger-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    background: var(--primary);
+    color: var(--on-primary);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    z-index: 10;
+  }
+  .trigger-btn:hover {
+    filter: brightness(1.1);
+  }
+
+  /* ===== 主题切换 ===== */
+  .theme-toggle {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 40px;
+    height: 40px;
+    background: var(--surface-elev);
+    border: 1px solid var(--outline-var);
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-sm);
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+
+<div class="device">
+  <!-- 主题切换 -->
+  <button class="theme-toggle" id="themeToggle">☾</button>
+  
+  <!-- 触发按钮 -->
+  <button class="trigger-btn" id="openSheet">打开详情页</button>
+
+  <!-- 背景书架（模糊） -->
+  <div class="bookshelf-bg">
+    <div class="bookshelf-grid">
+      <div class="book-card"><div class="book-cover"></div><div class="book-title-small">诡秘之主</div></div>
+      <div class="book-card"><div class="book-cover"></div><div class="book-title-small">大奉打更人</div></div>
+      <div class="book-card"><div class="book-cover"></div><div class="book-title-small">夜的命名术</div></div>
+      <div class="book-card"><div class="book-cover"></div><div class="book-title-small">全职高手</div></div>
+      <div class="book-card"><div class="book-cover"></div><div class="book-title-small">雪中悍刀行</div></div>
+      <div class="book-card"><div class="book-cover"></div><div class="book-title-small">星域四万里</div></div>
+    </div>
+  </div>
+
+  <!-- 遮罩层 -->
+  <div class="overlay" id="overlay"></div>
+
+  <!-- 状态下拉菜单 -->
+  <div class="status-dropdown" id="statusDropdown">
+    <div class="status-option" data-status="want">
+      <div class="status-dot want"></div>
+      <div class="status-option-text">想读</div>
+    </div>
+    <div class="status-option" data-status="reading">
+      <div class="status-dot reading"></div>
+      <div class="status-option-text">在读</div>
+      <div class="status-option-check">✓</div>
+    </div>
+    <div class="status-option" data-status="paused">
+      <div class="status-dot paused"></div>
+      <div class="status-option-text">暂停</div>
+    </div>
+    <div class="status-option" data-status="finished">
+      <div class="status-dot finished"></div>
+      <div class="status-option-text">已读完</div>
+    </div>
+    <div class="status-option" data-status="abandoned">
+      <div class="status-dot abandoned"></div>
+      <div class="status-option-text">弃读</div>
+    </div>
+  </div>
+
+  <!-- 底部弹窗 -->
+  <div class="bottom-sheet" id="bottomSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-content">
+      <!-- 顶部信息卡 -->
+      <div class="info-card">
+        <div class="cover-large">
+          <div class="cover-title">诡秘之主</div>
+          <div class="cover-first-char">诡</div>
+          <div class="cover-band">爱潜水的乌贼 · 玄幻</div>
+          <div class="cover-format-tag">EPUB</div>
+        </div>
+        <div class="info-text">
+          <div class="book-title">诡秘之主</div>
+          <div class="book-author">爱潜水的乌贼</div>
+          <div class="status-badge" id="statusBadge">
+            <div class="status-dot reading"></div>
+            <span>在读</span>
+            <span class="reread-tag">· 第 2 次阅读</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 继续阅读按钮 -->
+      <button class="continue-btn">继续阅读 第739章</button>
+
+      <!-- 标签流 -->
+      <div class="tag-section">
+        <div class="section-title">标签</div>
+        <div class="tag-flow">
+          <div class="tag-chip">
+            <span>玄幻</span>
+            <span class="tag-remove">×</span>
+          </div>
+          <div class="tag-chip">
+            <span>蒸汽朋克</span>
+            <span class="tag-remove">×</span>
+          </div>
+          <div class="tag-chip">
+            <span>神作</span>
+            <span class="tag-remove">×</span>
+          </div>
+          <div class="tag-add">+ 添加</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- 阅读数据网格 -->
+      <div class="section-title">阅读数据</div>
+      <div class="data-grid">
+        <div class="data-card">
+          <div class="data-value">182h</div>
+          <div class="data-label">总时长</div>
+        </div>
+        <div class="data-card">
+          <div class="data-value">214天</div>
+          <div class="data-label">已读天数</div>
+        </div>
+        <div class="data-card">
+          <div class="data-value">57%</div>
+          <div class="data-label">阅读进度</div>
+        </div>
+      </div>
+
+      <!-- 书签笔记预览 -->
+      <div class="preview-card">
+        <div class="preview-header">
+          <div class="preview-title">书签与笔记</div>
+          <div class="preview-link">查看全部 ›</div>
+        </div>
+        <div class="preview-stats">🔖 47 个书签 · 📝 23 条笔记</div>
+        <div class="preview-latest">最新：第738章 "命运终将回归..."</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- 信息列表 -->
+      <div class="section-title">书籍信息</div>
+      <div class="info-list">
+        <div class="info-item">
+          <span class="info-label">格式</span>
+          <span class="info-value">EPUB</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">大小</span>
+          <span class="info-value">3.2 MB</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">进度</span>
+          <span class="info-value">57%（第738/1420章）</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">时长</span>
+          <span class="info-value">182h</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">文件路径</span>
+          <span class="info-value">/storage/emulated/0/Books/诡秘之主.epub</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- 操作按钮 -->
+      <div class="action-buttons">
+        <button class="action-btn">📤 导出笔记</button>
+        <button class="action-btn danger">🗑 删除书籍</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 元素引用 =====
+const openSheetBtn = document.getElementById('openSheet');
+const bottomSheet = document.getElementById('bottomSheet');
+const overlay = document.getElementById('overlay');
+const statusBadge = document.getElementById('statusBadge');
+const statusDropdown = document.getElementById('statusDropdown');
+const themeToggle = document.getElementById('themeToggle');
+
+// ===== 打开/关闭弹窗 =====
+function openSheet() {
+  bottomSheet.classList.add('visible');
+  overlay.classList.add('visible');
+}
+
+function closeSheet() {
+  bottomSheet.classList.remove('visible');
+  overlay.classList.remove('visible');
+  statusDropdown.classList.remove('visible');
+}
+
+openSheetBtn.addEventListener('click', openSheet);
+overlay.addEventListener('click', closeSheet);
+
+// ===== 状态徽章交互 =====
+statusBadge.addEventListener('click', (e) => {
+  e.stopPropagation();
+  statusDropdown.classList.toggle('visible');
+});
+
+// 点击其他地方关闭下拉菜单
+document.addEventListener('click', (e) => {
+  if (!statusDropdown.contains(e.target) && !statusBadge.contains(e.target)) {
+    statusDropdown.classList.remove('visible');
+  }
+});
+
+// ===== 状态选项交互 =====
+const statusOptions = document.querySelectorAll('.status-option');
+const statusTexts = {
+  want: '想读',
+  reading: '在读',
+  paused: '暂停',
+  finished: '已读完',
+  abandoned: '弃读'
+};
+
+statusOptions.forEach(option => {
+  option.addEventListener('click', () => {
+    const status = option.dataset.status;
+    const statusText = statusTexts[status];
+    
+    // 更新徽章文本
+    statusBadge.innerHTML = `
+      <div class="status-dot ${status}"></div>
+      <span>${statusText}</span>
+      ${status === 'reading' ? '<span class="reread-tag">· 第 2 次阅读</span>' : ''}
+    `;
+    
+    // 更新勾选状态
+    statusOptions.forEach(opt => {
+      const check = opt.querySelector('.status-option-check');
+      if (check) check.remove();
+    });
+    
+    const checkMark = document.createElement('div');
+    checkMark.className = 'status-option-check';
+    checkMark.textContent = '✓';
+    option.appendChild(checkMark);
+    
+    // 关闭下拉菜单
+    statusDropdown.classList.remove('visible');
+    
+    // 模拟 Toast
+    console.log(`状态已更新为：${statusText}`);
+  });
+});
+
+// ===== 标签删除交互 =====
+document.querySelectorAll('.tag-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    if (confirm(`删除标签"${chip.querySelector('span').textContent}"？`)) {
+      chip.remove();
+    }
+  });
+});
+
+// ===== 标签添加交互 =====
+document.querySelector('.tag-add').addEventListener('click', () => {
+  const tagName = prompt('输入标签名称：');
+  if (tagName && tagName.trim()) {
+    const newChip = document.createElement('div');
+    newChip.className = 'tag-chip';
+    newChip.innerHTML = `
+      <span>${tagName.trim()}</span>
+      <span class="tag-remove">×</span>
+    `;
+    newChip.addEventListener('click', () => {
+      if (confirm(`删除标签"${tagName.trim()}"？`)) {
+        newChip.remove();
+      }
+    });
+    
+    const tagFlow = document.querySelector('.tag-flow');
+    tagFlow.insertBefore(newChip, tagFlow.lastElementChild);
+  }
+});
+
+// ===== 主题切换 =====
+themeToggle.addEventListener('click', () => {
+  const root = document.documentElement;
+  const isDark = root.getAttribute('data-theme') === 'dark';
+  
+  if (isDark) {
+    root.removeAttribute('data-theme');
+    themeToggle.textContent = '☾';
+  } else {
+    root.setAttribute('data-theme', 'dark');
+    themeToggle.textContent = '☀';
+  }
+});
+
+// ===== 继续阅读按钮 =====
+document.querySelector('.continue-btn').addEventListener('click', () => {
+  alert('跳转到阅读页，定位到第739章');
+  closeSheet();
+});
+
+// ===== 书签笔记预览 =====
+document.querySelector('.preview-card').addEventListener('click', () => {
+  alert('跳转到书签与笔记列表');
+});
+
+// ===== 操作按钮 =====
+document.querySelectorAll('.action-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.classList.contains('danger')) {
+      if (confirm('确认删除此书？此操作不可撤销。')) {
+        alert('书籍已删除');
+        closeSheet();
+      }
+    } else {
+      alert('导出笔记为 Markdown');
+    }
+  });
+});
+
+// ===== 默认打开弹窗（演示用） =====
+setTimeout(openSheet, 500);
+</script>
+
+</body>
+</html>

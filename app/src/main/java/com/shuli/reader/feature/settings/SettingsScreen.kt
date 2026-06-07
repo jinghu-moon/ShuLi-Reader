@@ -1,58 +1,17 @@
 package com.shuli.reader.feature.settings
 
 import android.widget.Toast
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
-import androidx.compose.material.icons.automirrored.outlined.ShowChart
-import androidx.compose.material.icons.automirrored.outlined.VolumeUp
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.ColorLens
-import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.outlined.FontDownload
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Sync
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -61,64 +20,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.shuli.reader.core.ShuLiAppContainer
-import com.shuli.reader.core.data.PageAnimConst
-import com.shuli.reader.core.data.PageTurnDirConst
-import com.shuli.reader.core.data.SyncMethodConst
 import com.shuli.reader.core.i18n.LocalAppStrings
-import com.shuli.reader.sync.export.BackupExporter
-import com.shuli.reader.sync.export.BackupImporter
-import com.shuli.reader.sync.export.ExportDatabase
-import com.shuli.reader.sync.export.ImportDatabase
-import com.shuli.reader.sync.export.ImportStrategy
-import androidx.room.withTransaction
-import com.shuli.reader.core.database.entity.BookEntity
-import com.shuli.reader.core.database.entity.BookmarkEntity
-import com.shuli.reader.core.database.entity.NoteEntity
-import com.shuli.reader.core.database.entity.ReadingProgressEntity
-import android.net.Uri
-import androidx.documentfile.provider.DocumentFile
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import com.shuli.reader.ui.theme.AppBackground
-import com.shuli.reader.ui.theme.AppDarkBackground
-import com.shuli.reader.ui.theme.AppDarkPrimary
-import com.shuli.reader.ui.theme.AppDarkTextPrimary
-import com.shuli.reader.ui.theme.AppPrimary
-import com.shuli.reader.ui.settings.sync.SyncSettingsScreen
-import com.shuli.reader.ui.settings.sync.SyncSummaryViewModel
-import com.shuli.reader.ui.settings.sync.CloudSyncSettingsScreen
-import com.shuli.reader.ui.settings.sync.CloudSyncSettingsViewModel
-import com.shuli.reader.ui.settings.crypto.EncryptionManagementScreen
-import com.shuli.reader.ui.settings.crypto.EncryptionManagementViewModel
-import com.shuli.reader.ui.devices.DeviceManagementScreen
-import com.shuli.reader.ui.devices.DeviceManagementViewModel
-import com.shuli.reader.ui.log.SyncLogScreen
-import com.shuli.reader.ui.log.SyncLogViewModel
-import com.shuli.reader.ui.export.ExportBottomSheet
-import com.shuli.reader.ui.export.LocalBackupScreen
-import com.shuli.reader.ui.theme.AppTextPrimary
-import com.shuli.reader.ui.theme.ReaderPaperColorScheme
+import com.shuli.reader.feature.settings.sections.AboutSection
+import com.shuli.reader.feature.settings.sections.AdvancedSection
+import com.shuli.reader.feature.settings.sections.AppearanceSection
+import com.shuli.reader.feature.settings.sections.LibrarySection
+import com.shuli.reader.feature.settings.sections.ReaderPrefsSection
+import com.shuli.reader.feature.settings.sections.StatsSection
+import com.shuli.reader.feature.settings.sections.SyncSection
+import com.shuli.reader.feature.settings.sections.TtsSection
 import com.shuli.reader.ui.testing.UiTestTags
 
-private sealed class SettingsSubScreen {
+// ================= 子页面导航路由 =================
+
+internal sealed class SettingsSubScreen {
     data object Sync : SettingsSubScreen()
     data object CloudSync : SettingsSubScreen()
     data object Encryption : SettingsSubScreen()
@@ -127,6 +48,8 @@ private sealed class SettingsSubScreen {
     data object Export : SettingsSubScreen()
     data object LocalBackup : SettingsSubScreen()
 }
+
+// ================= 主屏幕（薄容器） =================
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -139,12 +62,8 @@ fun SettingsScreen(
     val context = LocalContext.current
     val strings = LocalAppStrings.current
     val uiState by viewModel.uiState.collectAsState()
-    val uriHandler = LocalUriHandler.current
 
-    // 子页面导航状态
     var currentSubScreen by remember { mutableStateOf<SettingsSubScreen?>(null) }
-
-    // 各种弹窗控制状态
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showFontDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
@@ -154,7 +73,6 @@ fun SettingsScreen(
     var showResetDialog by remember { mutableStateOf(false) }
     var showLicenseDialog by remember { mutableStateOf(false) }
 
-    // 监听 ViewModel 异步事件
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
@@ -189,969 +107,70 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ================= 外观设置 (Appearance) =================
             item {
-                SettingsSectionHeader(title = strings.common.appearance, icon = Icons.Outlined.ColorLens)
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
-                    Column {
-                        // 界面语言
-                        val currentLangText = when (uiState.language) {
-                            "zh-TW" -> strings.common.languageTw
-                            "en" -> strings.common.languageEn
-                            else -> strings.common.languageCn
-                        }
-                        SettingsClickItem(
-                            title = strings.common.languageLabel,
-                            subtitle = currentLangText,
-                            onClick = { showLanguageDialog = true }
-                        )
-
-                        // 界面字体
-                        val currentFontText = when (uiState.appFont) {
-                            "system" -> strings.common.appFontSystem
-                            else -> strings.common.appFontHarmony
-                        }
-                        SettingsClickItem(
-                            title = strings.common.appFontLabel,
-                            subtitle = currentFontText,
-                            onClick = { showFontDialog = true }
-                        )
-
-                        // 深浅主题 (带色块预览)
-                        val currentThemeText = when (uiState.themeMode) {
-                            "light" -> strings.common.themeLight
-                            "dark" -> strings.common.themeDark
-                            "paper" -> strings.common.themePaper
-                            else -> strings.common.themeSystem
-                        }
-                        ListItem(
-                            headlineContent = { Text(strings.common.themeModeLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) },
-                            supportingContent = { Text(currentThemeText, style = MaterialTheme.typography.bodySmall) },
-                            trailingContent = {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // 显示当前选中主题 of 3 点调色盘预览
-                                    when (uiState.themeMode) {
-                                        "light" -> ThemePreviewDots(primary = AppPrimary, background = AppBackground, text = AppTextPrimary)
-                                        "dark" -> ThemePreviewDots(primary = AppDarkPrimary, background = AppDarkBackground, text = AppDarkTextPrimary)
-                                        "paper" -> ThemePreviewDots(
-                                            primary = ReaderPaperColorScheme.accent,
-                                            background = ReaderPaperColorScheme.background,
-                                            text = ReaderPaperColorScheme.textPrimary,
-                                        )
-                                        else -> {
-                                            // 跟随系统，并排渲染亮和暗的小色盘
-                                            ThemePreviewDots(primary = AppPrimary, background = AppBackground, text = AppTextPrimary)
-                                        }
-                                    }
-                                }
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            modifier = Modifier.clickable { showThemeDialog = true }
-                        )
-                    }
-                }
-            }
-
-            // ================= 阅读器显示偏好 =================
-            item {
-                SettingsSectionHeader(title = strings.reader.readerPreferences, icon = Icons.Outlined.Palette)
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
-                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                        // 默认字号缩放
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(strings.reader.defaultFontSize, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                Text("${uiState.defaultFontSize.toInt()} sp", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-                            }
-                            Slider(
-                                value = uiState.defaultFontSize,
-                                onValueChange = { viewModel.updateDefaultFontSize(it) },
-                                valueRange = 12f..24f,
-                                steps = 11
-                            )
-                        }
-
-                        // 默认行距
-                        val lineSpacingText = when (uiState.defaultLineSpacing) {
-                            1.2f -> strings.reader.lineSpacingCompact
-                            1.8f -> strings.reader.lineSpacingWide
-                            else -> strings.reader.lineSpacingMedium
-                        }
-                        SettingsClickItem(
-                            title = strings.reader.defaultLineSpacing,
-                            subtitle = lineSpacingText,
-                            onClick = { showLineSpacingDialog = true }
-                        )
-
-                        // 默认翻页动画
-                        val pageAnimText = when (uiState.defaultPageAnim) {
-                            PageAnimConst.OVERLAY -> strings.reader.pageAnimOverlay
-                            PageAnimConst.SLIDE -> strings.reader.pageAnimSlide
-                            PageAnimConst.SIMULATION -> strings.reader.pageAnimSimulation
-                            PageAnimConst.FADE -> strings.reader.pageAnimFade
-                            PageAnimConst.NONE -> strings.reader.pageAnimNone
-                            else -> uiState.defaultPageAnim
-                        }
-                        SettingsClickItem(
-                            title = strings.reader.defaultPageAnim,
-                            subtitle = pageAnimText,
-                            onClick = { showPageAnimDialog = true }
-                        )
-
-                        // 段间距
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(strings.reader.paragraphSpacing, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                Text(String.format("%.1f em", uiState.defaultParagraphSpacing), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-                            }
-                            Slider(
-                                value = uiState.defaultParagraphSpacing,
-                                onValueChange = { viewModel.updateDefaultParagraphSpacing(it) },
-                                valueRange = 0.5f..3.0f,
-                                steps = 24
-                            )
-                        }
-
-                        // 首行缩进
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(strings.reader.firstLineIndent, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                Text(String.format("%.1f em", uiState.defaultIndent), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-                            }
-                            Slider(
-                                value = uiState.defaultIndent,
-                                onValueChange = { viewModel.updateDefaultIndent(it) },
-                                valueRange = 0f..4f,
-                                steps = 31
-                            )
-                        }
-
-                        // 翻页方向
-                        val pageTurnDirText = when (uiState.pageTurnDir) {
-                            PageTurnDirConst.HORIZONTAL -> strings.reader.pageTurnHorizontal
-                            PageTurnDirConst.VERTICAL -> strings.reader.pageTurnVertical
-                            else -> uiState.pageTurnDir
-                        }
-                        SettingsClickItem(
-                            title = strings.reader.pageTurnDirection,
-                            subtitle = pageTurnDirText,
-                            onClick = { showPageDirDialog = true }
-                        )
-
-                        // 全屏模式
-                        SettingsSwitchItem(
-                            title = strings.reader.fullScreenMode,
-                            checked = uiState.fullScreen,
-                            onCheckedChange = { viewModel.updateFullScreen(it) }
-                        )
-
-                        // 屏幕常亮
-                        SettingsSwitchItem(
-                            title = strings.reader.keepScreenOn,
-                            checked = uiState.keepScreenOn,
-                            onCheckedChange = { viewModel.updateKeepScreenOn(it) }
-                        )
-
-                        // 亮度调节
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(strings.reader.brightness, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    if (uiState.brightness < 0) strings.reader.brightnessFollowSystem
-                                    else "${(uiState.brightness * 100).toInt()}%",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            Slider(
-                                value = if (uiState.brightness < 0) 0.5f else uiState.brightness,
-                                onValueChange = { viewModel.updateBrightness(it) },
-                                valueRange = 0f..1f,
-                                steps = 19
-                            )
-                        }
-                    }
-                }
-            }
-
-            // ================= 书库与导入设置 =================
-            item {
-                SettingsSectionHeader(title = strings.bookshelf.libraryImportSettings, icon = Icons.AutoMirrored.Outlined.LibraryBooks)
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
-                    Column {
-                        SettingsSwitchItem(
-                            title = strings.bookshelf.duplicateCheck,
-                            subtitle = strings.bookshelf.duplicateCheckDesc,
-                            checked = uiState.duplicateCheckEnabled,
-                            onCheckedChange = { viewModel.updateDuplicateCheckEnabled(it) }
-                        )
-                        SettingsSwitchItem(
-                            title = strings.bookshelf.importCopy,
-                            subtitle = strings.bookshelf.importCopyDesc,
-                            checked = uiState.importCopyFile,
-                            onCheckedChange = { viewModel.updateImportCopyFile(it) }
-                        )
-                        val unifiedPalette by viewModel.unifiedCoverPaletteFlow
-                            .collectAsState(initial = com.shuli.reader.core.data.COVER_PALETTE_AUTO)
-                        val currentPaletteIndex = if (unifiedPalette == com.shuli.reader.core.data.COVER_PALETTE_AUTO) null
-                            else unifiedPalette.toIntOrNull()?.takeIf { it in 0..19 }
-                        var showCoverPaletteDialog by remember { mutableStateOf(false) }
-                        SettingsClickItem(
-                            title = strings.reader.unifiedCoverColor,
-                            subtitle = if (currentPaletteIndex == null) strings.reader.unifiedCoverColorAuto
-                                else strings.reader.unifiedCoverColorActive(currentPaletteIndex + 1),
-                            onClick = { showCoverPaletteDialog = true }
-                        )
-                        if (showCoverPaletteDialog) {
-                            com.shuli.reader.feature.bookshelf.component.CoverColorPickerDialog(
-                                currentIndex = currentPaletteIndex,
-                                onSelected = { idx ->
-                                    viewModel.setUnifiedCoverPalette(
-                                        idx?.toString() ?: com.shuli.reader.core.data.COVER_PALETTE_AUTO
-                                    )
-                                    showCoverPaletteDialog = false
-                                },
-                                onDismiss = { showCoverPaletteDialog = false }
-                            )
-                        }
-                        SettingsButtonItem(
-                            title = strings.bookshelf.clearTempCache,
-                            subtitle = strings.bookshelf.clearTempCacheDesc,
-                            buttonText = strings.bookshelf.clearTempCache,
-                            onClick = {
-                                Toast.makeText(context, strings.bookshelf.clearCacheSuccess, Toast.LENGTH_SHORT).show()
-                            }
-                        )
-                    }
-                }
-            }
-
-            // ================= 阅读统计 =================
-            item {
-                SettingsSectionHeader(title = strings.settings.readingStats, icon = Icons.AutoMirrored.Outlined.ShowChart)
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
-                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                        SettingsSwitchItem(
-                            title = strings.settings.statsEnable,
-                            subtitle = strings.settings.statsEnableDesc,
-                            checked = uiState.readingTimeEnabled,
-                            onCheckedChange = { viewModel.updateReadingTimeEnabled(it) }
-                        )
-
-                        if (uiState.readingTimeEnabled) {
-                            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(strings.settings.statsDailyTarget, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                    Text(strings.settings.readingTargetMinutes(uiState.readingDailyTarget), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-                                }
-                                Slider(
-                                    value = uiState.readingDailyTarget.toFloat(),
-                                    onValueChange = { viewModel.updateReadingDailyTarget(it.toInt()) },
-                                    valueRange = 10f..180f,
-                                    steps = 17
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ================= 同步设置 =================
-            item {
-                SettingsSectionHeader(title = strings.sync.syncSettings, icon = Icons.Outlined.Sync)
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
-                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                        val syncMethodText = when (uiState.syncMethod) {
-                            SyncMethodConst.LOCAL -> strings.sync.syncMethodLocal
-                            SyncMethodConst.WEBDAV -> strings.sync.syncMethodWebdav
-                            else -> uiState.syncMethod
-                        }
-                        SettingsClickItem(
-                            title = strings.sync.syncMethod,
-                            subtitle = syncMethodText,
-                            onClick = { currentSubScreen = SettingsSubScreen.Sync }
-                        )
-                        if (uiState.syncMethod == SyncMethodConst.WEBDAV) {
-                            SettingsClickItem(
-                                title = strings.sync.syncAndBackup,
-                                subtitle = strings.sync.syncAndBackupDesc,
-                                onClick = { currentSubScreen = SettingsSubScreen.Sync }
-                            )
-                        }
-                        SettingsClickItem(
-                            title = strings.sync.syncMethodLocal,
-                            subtitle = strings.sync.localBackupDesc,
-                            onClick = { currentSubScreen = SettingsSubScreen.LocalBackup }
-                        )
-                    }
-                }
-            }
-
-            // ================= 朗读设置 =================
-            item {
-                SettingsSectionHeader(title = strings.tts.ttsSettings, icon = Icons.AutoMirrored.Outlined.VolumeUp)
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
-                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(strings.tts.ttsSpeed, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                Text(String.format("%.1fx", uiState.ttsSpeed), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-                            }
-                            Slider(
-                                value = uiState.ttsSpeed,
-                                onValueChange = { viewModel.updateTtsSpeed(it) },
-                                valueRange = 0.5f..3.0f,
-                                steps = 25
-                            )
-                        }
-
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(strings.tts.ttsPitch, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                Text(String.format("%.1f", uiState.ttsPitch), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-                            }
-                            Slider(
-                                value = uiState.ttsPitch,
-                                onValueChange = { viewModel.updateTtsPitch(it) },
-                                valueRange = 0.5f..2.0f,
-                                steps = 15
-                            )
-                        }
-
-                        SettingsSwitchItem(
-                            title = strings.tts.ttsAutoPage,
-                            checked = uiState.ttsAutoPage,
-                            onCheckedChange = { viewModel.updateTtsAutoPage(it) }
-                        )
-
-                        SettingsSwitchItem(
-                            title = strings.tts.ttsHighlightSentence,
-                            checked = uiState.ttsHighlightSentence,
-                            onCheckedChange = { viewModel.updateTtsHighlightSentence(it) }
-                        )
-                    }
-                }
-            }
-
-            // ================= 高级设置 =================
-            item {
-                SettingsSectionHeader(title = strings.settings.advancedSettings, icon = Icons.Outlined.Settings)
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
-                    Column {
-                        SettingsSwitchItem(
-                            title = strings.settings.gpuAcceleration,
-                            checked = uiState.gpuAcceleration,
-                            onCheckedChange = { viewModel.updateGpuAcceleration(it) }
-                        )
-                        SettingsSwitchItem(
-                            title = strings.settings.loggingEnabled,
-                            checked = uiState.loggingEnabled,
-                            onCheckedChange = { viewModel.updateLoggingEnabled(it) }
-                        )
-                        SettingsButtonItem(
-                            title = strings.settings.resetAllSettings,
-                            subtitle = strings.settings.resetAllSettingsDesc,
-                            buttonText = strings.settings.resetAllSettings,
-                            onClick = { showResetDialog = true }
-                        )
-                    }
-                }
-            }
-
-            // ================= 关于与版权 =================
-            item {
-                SettingsSectionHeader(title = strings.settings.aboutLabel, icon = Icons.Outlined.Info)
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                    modifier = Modifier.padding(bottom = 24.dp)
-                ) {
-                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                        // 开发者卡片
-                        ListItem(
-                            headlineContent = { Text(strings.settings.developerLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) },
-                            supportingContent = { Text("jinghu-moon", style = MaterialTheme.typography.bodySmall) },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                        )
-
-                        // 版本号
-                        ListItem(
-                            headlineContent = { Text(strings.settings.versionLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) },
-                            supportingContent = { Text("v1.0.0 (Build 20260523)", style = MaterialTheme.typography.bodySmall) },
-                            trailingContent = {
-                                OutlinedButton(onClick = {
-                                    Toast.makeText(context, strings.reader.alreadyLatestVersion, Toast.LENGTH_SHORT).show()
-                                }) {
-                                    Text(strings.settings.checkUpdate, style = MaterialTheme.typography.labelMedium)
-                                }
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                        )
-
-                        // 项目地址
-                        SettingsClickItem(
-                            title = "GitHub",
-                            subtitle = "https://github.com/jinghu-moon/ShuLi-Reader",
-                            onClick = { uriHandler.openUri("https://github.com/jinghu-moon/ShuLi-Reader") }
-                        )
-
-                        // 开源许可证 (AGPL-3.0)
-                        SettingsClickItem(
-                            title = strings.settings.licenseLabel,
-                            subtitle = "AGPL-3.0 License",
-                            onClick = { showLicenseDialog = true }
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    // ================= 子页面导航 =================
-    when (currentSubScreen) {
-        is SettingsSubScreen.Sync -> {
-            val syncSummaryViewModel = remember {
-                SyncSummaryViewModel(stateMachine = com.shuli.reader.sync.state.SyncStateMachine())
-            }
-            SyncSettingsScreen(
-                viewModel = syncSummaryViewModel,
-                onBackClick = { currentSubScreen = null },
-                onNavigateToCloudSync = { currentSubScreen = SettingsSubScreen.CloudSync },
-                onNavigateToEncryption = { currentSubScreen = SettingsSubScreen.Encryption },
-                onNavigateToDevices = { currentSubScreen = SettingsSubScreen.Devices },
-                onNavigateToLogs = { currentSubScreen = SettingsSubScreen.Logs },
-                onNavigateToExport = { currentSubScreen = SettingsSubScreen.Export },
-            )
-        }
-        is SettingsSubScreen.CloudSync -> {
-            val cloudSyncViewModel = remember {
-                CloudSyncSettingsViewModel(userPreferences = appContainer?.userPreferences)
-            }
-            CloudSyncSettingsScreen(
-                viewModel = cloudSyncViewModel,
-                onBackClick = { currentSubScreen = SettingsSubScreen.Sync },
-                onNavigateToEncryption = { currentSubScreen = SettingsSubScreen.Encryption },
-                onNavigateToDevices = { currentSubScreen = SettingsSubScreen.Devices },
-                onNavigateToLogs = { currentSubScreen = SettingsSubScreen.Logs },
-            )
-        }
-        is SettingsSubScreen.Encryption -> {
-            val encryptionViewModel = remember { EncryptionManagementViewModel() }
-            EncryptionManagementScreen(
-                viewModel = encryptionViewModel,
-                onBackClick = { currentSubScreen = SettingsSubScreen.Sync },
-            )
-        }
-        is SettingsSubScreen.Devices -> {
-            val devicesViewModel = remember { DeviceManagementViewModel() }
-            DeviceManagementScreen(
-                viewModel = devicesViewModel,
-                onBackClick = { currentSubScreen = SettingsSubScreen.Sync },
-            )
-        }
-        is SettingsSubScreen.Logs -> {
-            val logsViewModel = remember { SyncLogViewModel() }
-            SyncLogScreen(
-                viewModel = logsViewModel,
-                onBackClick = { currentSubScreen = SettingsSubScreen.Sync },
-            )
-        }
-        is SettingsSubScreen.Export -> {
-            var showExportSheet by remember { mutableStateOf(true) }
-            if (showExportSheet) {
-                ExportBottomSheet(
-                    onDismiss = {
-                        showExportSheet = false
-                        currentSubScreen = SettingsSubScreen.Sync
-                    },
-                    onExport = { options ->
-                        // TODO: 触发导出操作
-                        showExportSheet = false
-                        currentSubScreen = SettingsSubScreen.Sync
-                    },
+                AppearanceSection(
+                    uiState = uiState,
+                    onShowLanguageDialog = { showLanguageDialog = true },
+                    onShowFontDialog = { showFontDialog = true },
+                    onShowThemeDialog = { showThemeDialog = true },
                 )
             }
+            item {
+                ReaderPrefsSection(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    onShowLineSpacingDialog = { showLineSpacingDialog = true },
+                    onShowPageAnimDialog = { showPageAnimDialog = true },
+                    onShowPageDirDialog = { showPageDirDialog = true },
+                )
+            }
+            item { LibrarySection(uiState = uiState, viewModel = viewModel) }
+            item { StatsSection(uiState = uiState, viewModel = viewModel) }
+            item {
+                SyncSection(
+                    uiState = uiState,
+                    onNavigateToSync = { currentSubScreen = SettingsSubScreen.Sync },
+                    onNavigateToLocalBackup = { currentSubScreen = SettingsSubScreen.LocalBackup },
+                )
+            }
+            item { TtsSection(uiState = uiState, viewModel = viewModel) }
+            item {
+                AdvancedSection(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    onShowResetDialog = { showResetDialog = true },
+                )
+            }
+            item { AboutSection(onShowLicenseDialog = { showLicenseDialog = true }) }
         }
-        is SettingsSubScreen.LocalBackup -> {
-            val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
-            var isExporting by remember { mutableStateOf(false) }
-            var isImporting by remember { mutableStateOf(false) }
-            var exportResult by remember { mutableStateOf<String?>(null) }
-            var importResult by remember { mutableStateOf<String?>(null) }
-
-            LocalBackupScreen(
-                onBackClick = { currentSubScreen = null },
-                onExport = { options ->
-                    if (!isExporting && appContainer != null) {
-                        coroutineScope.launch {
-                            isExporting = true
-                            exportResult = null
-                            try {
-                                val database = appContainer.database
-                                val exportDb = object : ExportDatabase {
-                                    override suspend fun getAllBooks(): List<BookEntity> = database.bookDao().getAllBooksSync()
-                                    override suspend fun getAllBookmarks(): List<BookmarkEntity> = database.bookmarkDao().queryAllActive()
-                                    override suspend fun getAllNotes(): List<NoteEntity> = database.noteDao().queryAllActive()
-                                    override suspend fun getAllProgress(): List<ReadingProgressEntity> = database.readingProgressDao().queryAllActive()
-                                }
-                                val exporter = BackupExporter(exportDb, context)
-                                val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-                                val fileName = "shuli_backup_${dateFormat.format(Date())}.zip"
-
-                                // 导出到临时文件
-                                val tempFile = withContext(Dispatchers.IO) {
-                                    File.createTempFile("shuli_export_", ".zip", context.cacheDir).also {
-                                        exporter.export(it, options)
-                                    }
-                                }
-
-                                val customDir = uiState.backupLocation
-                                if (customDir.isNotEmpty()) {
-                                    // 自定义目录：使用 DocumentFile 拷贝到 SAF 目录
-                                    val treeUri = Uri.parse(customDir)
-                                    val docDir = DocumentFile.fromTreeUri(context, treeUri)
-                                    if (docDir != null && docDir.canWrite()) {
-                                        val targetFile = docDir.createFile("application/zip", fileName)
-                                        if (targetFile != null) {
-                                            withContext(Dispatchers.IO) {
-                                                context.contentResolver.openOutputStream(targetFile.uri)?.use { out ->
-                                                    tempFile.inputStream().use { inp ->
-                                                        inp.copyTo(out)
-                                                    }
-                                                } ?: throw IllegalStateException(strings.sync.backupExportFailedWriteDir)
-                                            }
-                                            exportResult = strings.sync.backupExportSuccessCustom
-                                        } else {
-                                            exportResult = strings.sync.backupExportFailedCreateFile
-                                        }
-                                    } else {
-                                        exportResult = strings.sync.backupExportFailedPermission
-                                    }
-                                } else {
-                                    // 默认目录：应用私有目录
-                                    val backupDir = File(context.getExternalFilesDir(null), "backups").apply { mkdirs() }
-                                    val outputFile = File(backupDir, fileName)
-                                    withContext(Dispatchers.IO) {
-                                        tempFile.copyTo(outputFile, overwrite = true)
-                                    }
-                                    exportResult = strings.sync.backupExportSuccess(outputFile.parent ?: "")
-                                }
-
-                                // 清理临时文件
-                                withContext(Dispatchers.IO) { tempFile.delete() }
-                            } catch (e: Exception) {
-                                exportResult = strings.sync.backupExportFailed(e.message ?: "")
-                            } finally {
-                                isExporting = false
-                            }
-                        }
-                    }
-                },
-                onImport = { uri ->
-                    if (!isImporting && appContainer != null) {
-                        coroutineScope.launch {
-                            isImporting = true
-                            importResult = null
-                            try {
-                                val database = appContainer.database
-                                val importDb = object : ImportDatabase {
-                                    override suspend fun getAllBooks(): List<BookEntity> = database.bookDao().getAllBooksSync()
-                                    override suspend fun getAllBookmarks(): List<BookmarkEntity> = database.bookmarkDao().queryAllActive()
-                                    override suspend fun getAllNotes(): List<NoteEntity> = database.noteDao().queryAllActive()
-                                    override suspend fun getAllProgress(): List<ReadingProgressEntity> = database.readingProgressDao().queryAllActive()
-                                    override suspend fun upsertBook(book: BookEntity) = database.bookDao().upsertBook(book)
-                                    override suspend fun clearBooks() = database.bookDao().deleteAllBooks()
-                                    override suspend fun upsertBookmark(bookmark: BookmarkEntity) = database.bookmarkDao().upsertBookmark(bookmark)
-                                    override suspend fun clearBookmarks() = database.bookmarkDao().deleteAllBookmarks()
-                                    override suspend fun upsertNote(note: NoteEntity) = database.noteDao().upsertNote(note)
-                                    override suspend fun clearNotes() = database.noteDao().deleteAllNotes()
-                                    override suspend fun upsertProgress(progress: ReadingProgressEntity) = database.readingProgressDao().upsertProgress(progress)
-                                    override suspend fun clearProgress() = database.readingProgressDao().deleteAllProgress()
-                                    override suspend fun getExistingBookIds(): Set<Long> = database.bookDao().getAllBooksSync().map { it.id }.toSet()
-                                    override suspend fun getExistingBookmarkIds(): Set<Long> = database.bookmarkDao().queryAllActive().map { it.id }.toSet()
-                                    override suspend fun getExistingNoteIds(): Set<Long> = database.noteDao().queryAllActive().map { it.id }.toSet()
-                                    override suspend fun getExistingProgressBookIds(): Set<Long> = database.readingProgressDao().queryAllActive().map { it.bookId }.toSet()
-                                    override suspend fun runInTransaction(block: suspend () -> Unit) {
-                                        database.withTransaction { block() }
-                                    }
-                                }
-                                val importer = BackupImporter(db = importDb, strings = strings)
-
-                                // 从 SAF URI 复制到临时文件再导入
-                                val tempFile = withContext(Dispatchers.IO) {
-                                    File.createTempFile("shuli_import_", ".zip", context.cacheDir).also { file ->
-                                        context.contentResolver.openInputStream(uri)?.use { input ->
-                                            file.outputStream().use { output -> input.copyTo(output) }
-                                        } ?: throw IllegalStateException(strings.sync.backupImportFailedRead)
-                                    }
-                                }
-
-                                try {
-                                    importer.import(tempFile, strategy = ImportStrategy.MERGE)
-                                    importResult = strings.sync.backupImportSuccess
-                                } finally {
-                                    withContext(Dispatchers.IO) { tempFile.delete() }
-                                }
-                            } catch (e: Exception) {
-                                importResult = strings.sync.backupImportFailed(e.message ?: "")
-                            } finally {
-                                isImporting = false
-                            }
-                        }
-                    }
-                },
-                isExporting = isExporting,
-                isImporting = isImporting,
-                exportResult = exportResult,
-                importResult = importResult,
-                autoBackupEnabled = uiState.autoBackupEnabled,
-                backupOnAppStart = uiState.backupOnAppStart,
-                backupOnAppExit = uiState.backupOnAppExit,
-                backupIntervalHours = uiState.backupIntervalHours,
-                backupLocation = uiState.backupLocation,
-                onAutoBackupEnabledChange = { viewModel.updateAutoBackupEnabled(it) },
-                onBackupOnAppStartChange = { viewModel.updateBackupOnAppStart(it) },
-                onBackupOnAppExitChange = { viewModel.updateBackupOnAppExit(it) },
-                onBackupIntervalChange = { viewModel.updateBackupIntervalHours(it) },
-                onBackupLocationChange = { viewModel.updateBackupLocation(it) },
-            )
-        }
-        null -> {}
     }
 
-    // ================= 以下为弹窗 Dialog 组 =================
-
-    // 1. 语言切换
-    if (showLanguageDialog) {
-        val options = listOf("zh-CN", "zh-TW", "en")
-        val optionLabels = listOf(strings.common.languageCn, strings.common.languageTw, strings.common.languageEn)
-        AlertDialog(
-            onDismissRequest = { showLanguageDialog = false },
-            title = { Text(strings.common.languageLabel) },
-            text = {
-                Column {
-                    options.forEachIndexed { index, code ->
-                        ListItem(
-                            headlineContent = { Text(optionLabels[index]) },
-                            trailingContent = {
-                                if (uiState.language == code) {
-                                    Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                }
-                            },
-                            modifier = Modifier.clickable {
-                                viewModel.updateLanguage(code)
-                                showLanguageDialog = false
-                            }
-                        )
-                    }
-                }
-            },
-            confirmButton = {}
-        )
-    }
-
-    // 2. 界面字体
-    if (showFontDialog) {
-        val options = listOf("harmony", "system")
-        val optionLabels = listOf(strings.common.appFontHarmony, strings.common.appFontSystem)
-        AlertDialog(
-            onDismissRequest = { showFontDialog = false },
-            title = { Text(strings.common.appFontLabel) },
-            text = {
-                Column {
-                    options.forEachIndexed { index, code ->
-                        ListItem(
-                            headlineContent = { Text(optionLabels[index]) },
-                            trailingContent = {
-                                if (uiState.appFont == code) {
-                                    Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                }
-                            },
-                            modifier = Modifier.clickable {
-                                viewModel.updateAppFont(code)
-                                showFontDialog = false
-                            }
-                        )
-                    }
-                }
-            },
-            confirmButton = {}
-        )
-    }
-
-    // 3. 主题选择
-    if (showThemeDialog) {
-        val options = listOf("system", "light", "dark", "paper")
-        val optionLabels = listOf(strings.common.themeSystem, strings.common.themeLight, strings.common.themeDark, strings.common.themePaper)
-        AlertDialog(
-            onDismissRequest = { showThemeDialog = false },
-            title = { Text(strings.common.themeModeLabel) },
-            text = {
-                Column {
-                    options.forEachIndexed { index, code ->
-                        ListItem(
-                            headlineContent = { Text(optionLabels[index]) },
-                            trailingContent = {
-                                if (uiState.themeMode == code) {
-                                    Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                }
-                            },
-                            modifier = Modifier.clickable {
-                                viewModel.updateThemeMode(code)
-                                showThemeDialog = false
-                            }
-                        )
-                    }
-                }
-            },
-            confirmButton = {}
-        )
-    }
-
-    // 4. 行距选择
-    if (showLineSpacingDialog) {
-        val options = listOf(1.2f, 1.5f, 1.8f)
-        val optionLabels = listOf(strings.reader.lineSpacingCompact, strings.reader.lineSpacingMedium, strings.reader.lineSpacingWide)
-        AlertDialog(
-            onDismissRequest = { showLineSpacingDialog = false },
-            title = { Text(strings.reader.defaultLineSpacing) },
-            text = {
-                Column {
-                    options.forEachIndexed { index, size ->
-                        ListItem(
-                            headlineContent = { Text(optionLabels[index]) },
-                            trailingContent = {
-                                if (uiState.defaultLineSpacing == size) {
-                                    Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                }
-                            },
-                            modifier = Modifier.clickable {
-                                viewModel.updateDefaultLineSpacing(size)
-                                showLineSpacingDialog = false
-                            }
-                        )
-                    }
-                }
-            },
-            confirmButton = {}
-        )
-    }
-
-    // 5. 翻页动画
-    if (showPageAnimDialog) {
-        val options = listOf(
-            PageAnimConst.OVERLAY,
-            PageAnimConst.SLIDE,
-            PageAnimConst.SIMULATION,
-            PageAnimConst.FADE,
-            PageAnimConst.NONE
-        )
-        val optionLabels = listOf(
-            strings.reader.pageAnimOverlay,
-            strings.reader.pageAnimSlide,
-            strings.reader.pageAnimSimulation,
-            strings.reader.pageAnimFade,
-            strings.reader.pageAnimNone
-        )
-        AlertDialog(
-            onDismissRequest = { showPageAnimDialog = false },
-            title = { Text(strings.reader.defaultPageAnim) },
-            text = {
-                Column {
-                    options.forEachIndexed { index, code ->
-                        ListItem(
-                            headlineContent = { Text(optionLabels[index]) },
-                            trailingContent = {
-                                if (uiState.defaultPageAnim == code) {
-                                    Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                }
-                            },
-                            modifier = Modifier.clickable {
-                                viewModel.updateDefaultPageAnim(code)
-                                showPageAnimDialog = false
-                            }
-                        )
-                    }
-                }
-            },
-            confirmButton = {}
-        )
-    }
-
-    // 6. 翻页方向
-    if (showPageDirDialog) {
-        val options = listOf(
-            PageTurnDirConst.HORIZONTAL,
-            PageTurnDirConst.VERTICAL
-        )
-        val optionLabels = listOf(
-            strings.reader.pageTurnHorizontal,
-            strings.reader.pageTurnVertical
-        )
-        AlertDialog(
-            onDismissRequest = { showPageDirDialog = false },
-            title = { Text(strings.reader.pageTurnDirection) },
-            text = {
-                Column {
-                    options.forEachIndexed { index, code ->
-                        ListItem(
-                            headlineContent = { Text(optionLabels[index]) },
-                            trailingContent = {
-                                if (uiState.pageTurnDir == code) {
-                                    Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                }
-                            },
-                            modifier = Modifier.clickable {
-                                viewModel.updatePageTurnDir(code)
-                                showPageDirDialog = false
-                            }
-                        )
-                    }
-                }
-            },
-            confirmButton = {}
-        )
-    }
-
-    // 7. 重置设置确认
-    if (showResetDialog) {
-        AlertDialog(
-            onDismissRequest = { showResetDialog = false },
-            title = { Text(strings.settings.resetAllSettings) },
-            text = { Text(strings.settings.resetAllSettingsDesc) },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.resetAllSettings()
-                    showResetDialog = false
-                }) {
-                    Text(strings.settings.resetAllSettings, color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) {
-                    Text(strings.common.backIconDesc)
-                }
-            }
-        )
-    }
-
-    // 8. 许可证说明
-    if (showLicenseDialog) {
-        AlertDialog(
-            onDismissRequest = { showLicenseDialog = false },
-            title = { Text(strings.settings.licenseLabel) },
-            text = {
-                Column {
-                    Text("ShuLi Reader is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).", style = MaterialTheme.typography.bodyMedium)
-                    Spacer(Modifier.height(8.dp))
-                    Text("This ensures open-source distribution, modification, and network interaction transparency.", style = MaterialTheme.typography.bodySmall)
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showLicenseDialog = false }) {
-                    Text(strings.common.backIconDesc)
-                }
-            }
-        )
-    }
-}
-
-// ================= 以下为辅助子项 UI 组件 =================
-
-@Composable
-fun SettingsSectionHeader(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(8.dp))
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-    }
-}
-
-@Composable
-fun SettingsClickItem(title: String, subtitle: String, onClick: () -> Unit) {
-    ListItem(
-        headlineContent = { Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) },
-        supportingContent = { Text(subtitle, style = MaterialTheme.typography.bodySmall) },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.clickable { onClick() }
+    SubScreenNavigation(
+        currentSubScreen = currentSubScreen,
+        onSubScreenChange = { currentSubScreen = it },
+        appContainer = appContainer,
+        uiState = uiState,
+        viewModel = viewModel,
     )
-}
 
-@Composable
-fun SettingsSwitchItem(title: String, subtitle: String? = null, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    ListItem(
-        headlineContent = { Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) },
-        supportingContent = subtitle?.let { { Text(it, style = MaterialTheme.typography.bodySmall) } },
-        trailingContent = {
-            Switch(checked = checked, onCheckedChange = onCheckedChange)
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    SettingsDialogs(
+        uiState = uiState,
+        viewModel = viewModel,
+        showLanguageDialog = showLanguageDialog,
+        onLanguageDialogChange = { showLanguageDialog = it },
+        showFontDialog = showFontDialog,
+        onFontDialogChange = { showFontDialog = it },
+        showThemeDialog = showThemeDialog,
+        onThemeDialogChange = { showThemeDialog = it },
+        showLineSpacingDialog = showLineSpacingDialog,
+        onLineSpacingDialogChange = { showLineSpacingDialog = it },
+        showPageAnimDialog = showPageAnimDialog,
+        onPageAnimDialogChange = { showPageAnimDialog = it },
+        showPageDirDialog = showPageDirDialog,
+        onPageDirDialogChange = { showPageDirDialog = it },
+        showResetDialog = showResetDialog,
+        onResetDialogChange = { showResetDialog = it },
+        showLicenseDialog = showLicenseDialog,
+        onLicenseDialogChange = { showLicenseDialog = it },
     )
-}
-
-@Composable
-fun SettingsButtonItem(title: String, subtitle: String, buttonText: String, onClick: () -> Unit) {
-    ListItem(
-        headlineContent = { Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) },
-        supportingContent = { Text(subtitle, style = MaterialTheme.typography.bodySmall) },
-        trailingContent = {
-            OutlinedButton(onClick = onClick) {
-                Text(buttonText, style = MaterialTheme.typography.labelMedium)
-            }
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
-}
-
-@Composable
-fun ThemePreviewDots(primary: Color, background: Color, text: Color) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(14.dp)
-                .background(background, CircleShape)
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-        )
-        Box(
-            modifier = Modifier
-                .size(14.dp)
-                .background(primary, CircleShape)
-        )
-        Box(
-            modifier = Modifier
-                .size(14.dp)
-                .background(text, CircleShape)
-        )
-    }
 }

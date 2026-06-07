@@ -11,7 +11,9 @@ import com.shuli.reader.core.reader.Paginator
 import com.shuli.reader.core.reader.TextMeasurer
 import com.shuli.reader.core.reader.animation.PageDelegateFactory
 import com.shuli.reader.core.reader.model.SelectionRange
-import com.shuli.reader.core.repository.BookRepository
+import com.shuli.reader.core.repository.BookContentRepository
+import com.shuli.reader.core.repository.BookQueryRepository
+import com.shuli.reader.core.repository.ReadingProgressRepository
 import com.shuli.reader.core.repository.SearchResult
 import com.shuli.reader.core.tts.TtsConfig
 import com.shuli.reader.core.tts.TtsEngine
@@ -79,22 +81,22 @@ class ReaderViewModelTest {
 
     @Test
     fun toggleToolbar_updatesVisibility() = runTest {
-        viewModel.toggleToolbar()
+        viewModel.navigationCoordinator.toggleToolbar()
         val state = viewModel.uiState.first { it.showToolbar }
         assertEquals("工具栏应显示", true, state.showToolbar)
 
-        viewModel.toggleToolbar()
+        viewModel.navigationCoordinator.toggleToolbar()
         val state2 = viewModel.uiState.first { !it.showToolbar }
         assertEquals("工具栏应隐藏", false, state2.showToolbar)
     }
 
     @Test
     fun toggleDirectory_updatesVisibility() = runTest {
-        viewModel.toggleDirectory()
+        viewModel.navigationCoordinator.toggleDirectory()
         val state = viewModel.uiState.first { it.showDirectory }
         assertEquals("目录应显示", true, state.showDirectory)
 
-        viewModel.toggleDirectory()
+        viewModel.navigationCoordinator.toggleDirectory()
         val state2 = viewModel.uiState.first { !it.showDirectory }
         assertEquals("目录应隐藏", false, state2.showDirectory)
     }
@@ -113,43 +115,43 @@ class ReaderViewModelTest {
 
     @Test
     fun setFontSize_updatesReaderPreferences() = runTest {
-        viewModel.setFontSize(20f)
+        viewModel.readerSettingsManager.setFontSize(20f)
         val state = viewModel.uiState.value
         assertEquals(20f, state.readerPreferences.fontSize, 0.01f)
     }
 
     @Test
     fun setLineSpacing_updatesReaderPreferences() = runTest {
-        viewModel.setLineSpacing(2.0f)
+        viewModel.readerSettingsManager.setLineSpacing(2.0f)
         val state = viewModel.uiState.value
         assertEquals(2.0f, state.readerPreferences.lineSpacing, 0.01f)
     }
 
     @Test
     fun setReaderTheme_updatesBackgroundTheme() = runTest {
-        viewModel.setReaderTheme(ReaderTheme.DARK)
+        viewModel.readerSettingsManager.setReaderTheme(ReaderTheme.DARK)
         val state = viewModel.uiState.value
         assertEquals(ReaderTheme.DARK, state.readerPreferences.backgroundColor)
     }
 
     @Test
     fun setReaderTheme_canSwitchBackToLight() = runTest {
-        viewModel.setReaderTheme(ReaderTheme.DARK)
-        viewModel.setReaderTheme(ReaderTheme.LIGHT)
+        viewModel.readerSettingsManager.setReaderTheme(ReaderTheme.DARK)
+        viewModel.readerSettingsManager.setReaderTheme(ReaderTheme.LIGHT)
         val state = viewModel.uiState.value
         assertEquals(ReaderTheme.LIGHT, state.readerPreferences.backgroundColor)
     }
 
     @Test
     fun setPageAnimType_updatesState() = runTest {
-        viewModel.setPageAnimType(PageDelegateFactory.PageAnimType.SIMULATION)
+        viewModel.navigationCoordinator.setPageAnimType(PageDelegateFactory.PageAnimType.SIMULATION) { viewModel.pageDelegate = it }
         val state = viewModel.uiState.value
         assertEquals(PageDelegateFactory.PageAnimType.SIMULATION, state.pageAnimType)
     }
 
     @Test
     fun setPageAnimType_updatesPageDelegate() = runTest {
-        viewModel.setPageAnimType(PageDelegateFactory.PageAnimType.COVER)
+        viewModel.navigationCoordinator.setPageAnimType(PageDelegateFactory.PageAnimType.COVER) { viewModel.pageDelegate = it }
         assertNotNull(viewModel.pageDelegate)
     }
 
@@ -167,11 +169,11 @@ class ReaderViewModelTest {
 
     @Test
     fun toggleQuickSettings_updatesVisibility() = runTest {
-        viewModel.toggleQuickSettings()
+        viewModel.navigationCoordinator.toggleQuickSettings()
         val state = viewModel.uiState.first { it.showQuickSettings }
         assertEquals(true, state.showQuickSettings)
 
-        viewModel.toggleQuickSettings()
+        viewModel.navigationCoordinator.toggleQuickSettings()
         val state2 = viewModel.uiState.first { !it.showQuickSettings }
         assertEquals(false, state2.showQuickSettings)
     }
@@ -189,7 +191,7 @@ class ReaderViewModelTest {
 
     @Test
     fun setReaderTheme_updatesThemeColors() = runTest {
-        viewModel.setReaderTheme(ReaderTheme.DARK)
+        viewModel.readerSettingsManager.setReaderTheme(ReaderTheme.DARK)
         val colors = viewModel.uiState.value.themeColors
         assertEquals(0xFF1A130B.toInt(), colors.backgroundColor)
         assertEquals(0xFFEAE5DC.toInt(), colors.textColor)
@@ -197,37 +199,37 @@ class ReaderViewModelTest {
 
     @Test
     fun cycleTheme_switchesFromLightToDark() = runTest {
-        viewModel.setReaderTheme(ReaderTheme.LIGHT)
-        viewModel.cycleTheme()
+        viewModel.readerSettingsManager.setReaderTheme(ReaderTheme.LIGHT)
+        viewModel.readerSettingsManager.cycleTheme()
         assertEquals(ReaderTheme.DARK, viewModel.uiState.value.readerPreferences.backgroundColor)
     }
 
     @Test
     fun cycleTheme_switchesFromDarkToPaper() = runTest {
-        viewModel.setReaderTheme(ReaderTheme.DARK)
-        viewModel.cycleTheme()
+        viewModel.readerSettingsManager.setReaderTheme(ReaderTheme.DARK)
+        viewModel.readerSettingsManager.cycleTheme()
         assertEquals(ReaderTheme.PAPER, viewModel.uiState.value.readerPreferences.backgroundColor)
     }
 
     @Test
     fun cycleTheme_switchesFromPaperToLight() = runTest {
-        viewModel.setReaderTheme(ReaderTheme.PAPER)
-        viewModel.cycleTheme()
+        viewModel.readerSettingsManager.setReaderTheme(ReaderTheme.PAPER)
+        viewModel.readerSettingsManager.cycleTheme()
         assertEquals(ReaderTheme.LIGHT, viewModel.uiState.value.readerPreferences.backgroundColor)
     }
 
     @Test
     fun cycleTheme_threeTimes_returnsToOriginalTheme() = runTest {
         val original = viewModel.uiState.value.readerPreferences.backgroundColor
-        viewModel.cycleTheme()
-        viewModel.cycleTheme()
-        viewModel.cycleTheme()
+        viewModel.readerSettingsManager.cycleTheme()
+        viewModel.readerSettingsManager.cycleTheme()
+        viewModel.readerSettingsManager.cycleTheme()
         assertEquals(original, viewModel.uiState.value.readerPreferences.backgroundColor)
     }
 
     @Test
     fun paperThemeColors_areCorrect() = runTest {
-        viewModel.setReaderTheme(ReaderTheme.PAPER)
+        viewModel.readerSettingsManager.setReaderTheme(ReaderTheme.PAPER)
         val colors = viewModel.uiState.value.themeColors
         assertEquals(0xFFEAE5DC.toInt(), colors.backgroundColor)
         assertEquals(0xFF2C231A.toInt(), colors.textColor)
@@ -243,7 +245,7 @@ class ReaderViewModelTest {
         Dispatchers.setMain(dispatcher)
         try {
             val vm = ReaderViewModel()
-            vm.toggleToolbar()
+            vm.navigationCoordinator.toggleToolbar()
             assertTrue("工具栏应显示", vm.uiState.value.showToolbar)
 
             dispatcher.scheduler.advanceTimeBy(5000L)
@@ -261,7 +263,7 @@ class ReaderViewModelTest {
         Dispatchers.setMain(dispatcher)
         try {
             val vm = ReaderViewModel()
-            vm.toggleToolbar()
+            vm.navigationCoordinator.toggleToolbar()
 
             dispatcher.scheduler.advanceTimeBy(4000L)
             dispatcher.scheduler.runCurrent()
@@ -278,13 +280,13 @@ class ReaderViewModelTest {
         Dispatchers.setMain(dispatcher)
         try {
             val vm = ReaderViewModel()
-            vm.toggleToolbar()
+            vm.navigationCoordinator.toggleToolbar()
 
             // 3 秒后再次触发（模拟用户操作）
             dispatcher.scheduler.advanceTimeBy(3000L)
             dispatcher.scheduler.runCurrent()
-            vm.toggleToolbar() // 隐藏
-            vm.toggleToolbar() // 再次显示，重置计时器
+            vm.navigationCoordinator.toggleToolbar() // 隐藏
+            vm.navigationCoordinator.toggleToolbar() // 再次显示，重置计时器
 
             // 再过 4 秒（重置后 4 秒）
             dispatcher.scheduler.advanceTimeBy(4000L)
@@ -308,11 +310,11 @@ class ReaderViewModelTest {
         Dispatchers.setMain(dispatcher)
         try {
             val vm = ReaderViewModel()
-            vm.toggleToolbar() // 显示
+            vm.navigationCoordinator.toggleToolbar() // 显示
 
             dispatcher.scheduler.advanceTimeBy(2000L)
             dispatcher.scheduler.runCurrent()
-            vm.toggleToolbar() // 手动隐藏
+            vm.navigationCoordinator.toggleToolbar() // 手动隐藏
 
             dispatcher.scheduler.advanceTimeBy(6000L)
             dispatcher.scheduler.runCurrent()
@@ -335,7 +337,7 @@ class ReaderViewModelTest {
     @Test
     fun addBookmark_withoutDao_doesNotCrash() = runTest {
         viewModel.openBook(1L)
-        viewModel.addBookmark("选中文本")
+        viewModel.bookmarkNotesManager.addBookmark("选中文本")
         // 不应抛出异常
         assertTrue(true)
     }
@@ -344,14 +346,14 @@ class ReaderViewModelTest {
     fun deleteBookmark_withoutDao_doesNotCrash() = runTest {
         viewModel.openBook(1L)
         // 传入一个模拟的 BookmarkEntity 不实际需要，只需验证 null DAO 安全
-        viewModel.loadBookmarks()
+        viewModel.bookmarkNotesManager.loadBookmarks()
         assertTrue(true)
     }
 
     @Test
     fun addNote_withoutDao_doesNotCrash() = runTest {
         viewModel.openBook(1L)
-        viewModel.addNote(0, 10, "笔记内容")
+        viewModel.bookmarkNotesManager.addNote(0, 10, "笔记内容")
         assertTrue(true)
     }
 
@@ -359,7 +361,7 @@ class ReaderViewModelTest {
     fun loadBookmarks_withoutDao_doesNotModifyState() = runTest {
         viewModel.openBook(1L)
         val before = viewModel.uiState.value.bookmarks
-        viewModel.loadBookmarks()
+        viewModel.bookmarkNotesManager.loadBookmarks()
         val after = viewModel.uiState.value.bookmarks
         assertEquals(before, after)
     }
@@ -368,7 +370,7 @@ class ReaderViewModelTest {
     fun loadNotes_withoutDao_doesNotModifyState() = runTest {
         viewModel.openBook(1L)
         val before = viewModel.uiState.value.notes
-        viewModel.loadNotes()
+        viewModel.bookmarkNotesManager.loadNotes()
         val after = viewModel.uiState.value.notes
         assertEquals(before, after)
     }
@@ -382,7 +384,7 @@ class ReaderViewModelTest {
             searchResult(chapterIndex = 1, charOffset = 20),
         )
 
-        viewModel.setSearchResults("星海", results)
+        viewModel.readerSearchManager.setSearchResults("星海", results)
 
         val state = viewModel.uiState.value
         assertEquals("星海", state.searchQuery)
@@ -392,7 +394,7 @@ class ReaderViewModelTest {
 
     @Test
     fun goToNextSearchResult_cyclesToNextResult() = runTest {
-        viewModel.setSearchResults(
+        viewModel.readerSearchManager.setSearchResults(
             "星海",
             listOf(
                 searchResult(chapterIndex = 0, charOffset = 10),
@@ -400,16 +402,16 @@ class ReaderViewModelTest {
             ),
         )
 
-        viewModel.goToNextSearchResult()
+        viewModel.readerSearchManager.goToNextSearchResult()
         assertEquals(1, viewModel.uiState.value.currentSearchResultIndex)
 
-        viewModel.goToNextSearchResult()
+        viewModel.readerSearchManager.goToNextSearchResult()
         assertEquals(0, viewModel.uiState.value.currentSearchResultIndex)
     }
 
     @Test
     fun goToPreviousSearchResult_cyclesToPreviousResult() = runTest {
-        viewModel.setSearchResults(
+        viewModel.readerSearchManager.setSearchResults(
             "星海",
             listOf(
                 searchResult(chapterIndex = 0, charOffset = 10),
@@ -417,15 +419,15 @@ class ReaderViewModelTest {
             ),
         )
 
-        viewModel.goToPreviousSearchResult()
+        viewModel.readerSearchManager.goToPreviousSearchResult()
         assertEquals(1, viewModel.uiState.value.currentSearchResultIndex)
     }
 
     @Test
     fun searchInCurrentBook_withBlankQuery_clearsSearchState() = runTest {
-        viewModel.setSearchResults("星海", listOf(searchResult(chapterIndex = 0, charOffset = 10)))
+        viewModel.readerSearchManager.setSearchResults("星海", listOf(searchResult(chapterIndex = 0, charOffset = 10)))
 
-        viewModel.searchInCurrentBook("   ")
+        viewModel.readerSearchManager.searchInCurrentBook("   ")
 
         val state = viewModel.uiState.value
         assertEquals("   ", state.searchQuery)
@@ -437,23 +439,23 @@ class ReaderViewModelTest {
     fun selectText_updatesSelectedRange() = runTest {
         val range = SelectionRange(chapterIndex = 0, startPos = 1, endPos = 5, selectedText = "text")
 
-        viewModel.selectText(range)
+        viewModel.navigationCoordinator.selectText(range)
 
         assertEquals(range, viewModel.uiState.value.selectedRange)
     }
 
     @Test
     fun clearTextSelection_removesSelectedRange() = runTest {
-        viewModel.selectText(SelectionRange(chapterIndex = 0, startPos = 1, endPos = 5, selectedText = "text"))
+        viewModel.navigationCoordinator.selectText(SelectionRange(chapterIndex = 0, startPos = 1, endPos = 5, selectedText = "text"))
 
-        viewModel.clearTextSelection()
+        viewModel.navigationCoordinator.clearTextSelection()
 
         assertNull(viewModel.uiState.value.selectedRange)
     }
 
     @Test
     fun addBookmarkFromSelection_clearsSelection() = runTest {
-        viewModel.selectText(SelectionRange(chapterIndex = 0, startPos = 1, endPos = 5, selectedText = "text"))
+        viewModel.navigationCoordinator.selectText(SelectionRange(chapterIndex = 0, startPos = 1, endPos = 5, selectedText = "text"))
 
         viewModel.addBookmarkFromSelection()
 
@@ -462,7 +464,7 @@ class ReaderViewModelTest {
 
     @Test
     fun addNoteFromSelection_clearsSelection() = runTest {
-        viewModel.selectText(SelectionRange(chapterIndex = 0, startPos = 1, endPos = 5, selectedText = "text"))
+        viewModel.navigationCoordinator.selectText(SelectionRange(chapterIndex = 0, startPos = 1, endPos = 5, selectedText = "text"))
 
         viewModel.addNoteFromSelection()
 
@@ -477,7 +479,7 @@ class ReaderViewModelTest {
             engine = engine,
         )
 
-        vm.startTts(TtsConfig(highlightSentence = true))
+        vm.ttsPlaybackManager.startTts(TtsConfig(highlightSentence = true))
 
         assertEquals(TtsState.PLAYING, vm.uiState.value.ttsState)
         assertEquals("First sentence.", engine.spokenText)
@@ -492,7 +494,7 @@ class ReaderViewModelTest {
             engine = engine,
         )
 
-        vm.startTts(TtsConfig(highlightSentence = true))
+        vm.ttsPlaybackManager.startTts(TtsConfig(highlightSentence = true))
         engine.completeUtterance()
 
         assertEquals(TtsState.PLAYING, vm.uiState.value.ttsState)
@@ -509,7 +511,7 @@ class ReaderViewModelTest {
             paginator = Paginator(oneLinePerPageTextMeasurer()),
         )
 
-        vm.startTts(TtsConfig(autoPage = true, highlightSentence = true))
+        vm.ttsPlaybackManager.startTts(TtsConfig(autoPage = true, highlightSentence = true))
         engine.completeUtterance()
 
         assertEquals(1, vm.uiState.value.pageIndex)
@@ -525,8 +527,8 @@ class ReaderViewModelTest {
             engine = engine,
         )
 
-        vm.startTts(TtsConfig(highlightSentence = true))
-        vm.pauseTtsOnBackground()
+        vm.ttsPlaybackManager.startTts(TtsConfig(highlightSentence = true))
+        vm.ttsPlaybackManager.pauseTtsOnBackground()
 
         assertEquals(TtsState.PAUSED, vm.uiState.value.ttsState)
         assertEquals(1, engine.stopCalls)
@@ -540,7 +542,7 @@ class ReaderViewModelTest {
             engine = engine,
         )
 
-        vm.startTts(TtsConfig(highlightSentence = true))
+        vm.ttsPlaybackManager.startTts(TtsConfig(highlightSentence = true))
         vm.releaseReaderResources()
 
         assertEquals(TtsState.IDLE, vm.uiState.value.ttsState)
@@ -564,7 +566,9 @@ class ReaderViewModelTest {
         engine: FakeTtsEngine,
         paginator: Paginator = Paginator(com.shuli.reader.core.reader.SimpleTextMeasurer()),
     ): ReaderViewModel {
-        val repository = mockk<BookRepository>()
+        val bookContentRepository = mockk<BookContentRepository>()
+        val bookQueryRepository = mockk<BookQueryRepository>()
+        val readingProgressRepository = mockk<ReadingProgressRepository>()
         val book = BookEntity(
             id = 1L,
             title = "Test Book",
@@ -576,8 +580,8 @@ class ReaderViewModelTest {
             lastReadTime = null,
             addedTime = 1L,
         )
-        every { repository.getBookById(1L) } returns flowOf(book)
-        coEvery { repository.parseBookContent(any()) } returns BookContent(
+        every { bookQueryRepository.getBookById(1L) } returns flowOf(book)
+        coEvery { bookContentRepository.parseBookContent(any()) } returns BookContent(
             title = "Test Book",
             author = null,
             encoding = "UTF-8",
@@ -585,7 +589,7 @@ class ReaderViewModelTest {
             chapters = listOf(Chapter(title = "Chapter 1", byteStart = 0, byteEnd = content.length.toLong())),
             content = content,
         )
-        coEvery { repository.getChapterText(any<java.io.File>(), any<Int>(), any<BookContent>()) } coAnswers {
+        coEvery { bookContentRepository.getChapterText(any<java.io.File>(), any<Int>(), any<BookContent>()) } coAnswers {
             val indexArg = secondArg<Int>()
             val contentArg = thirdArg<BookContent>()
             val chapter = contentArg.chapters.getOrNull(indexArg)
@@ -597,7 +601,7 @@ class ReaderViewModelTest {
                 ""
             }
         }
-        coEvery { repository.updateLastReadTime(1L) } just runs
+        coEvery { readingProgressRepository.updateLastReadTime(1L) } just runs
 
         val userPrefs = mockk<UserPreferences>()
         every { userPrefs.defaultFontSize } returns flowOf(16f)
@@ -615,7 +619,9 @@ class ReaderViewModelTest {
 
         val vm = ReaderViewModel(
             userPreferences = userPrefs,
-            bookRepository = repository,
+            bookContentRepository = bookContentRepository,
+            bookQueryRepository = bookQueryRepository,
+            readingProgressRepository = readingProgressRepository,
             paginator = paginator,
             ttsEngine = engine,
         )

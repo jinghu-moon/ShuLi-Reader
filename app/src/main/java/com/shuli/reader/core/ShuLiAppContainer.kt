@@ -11,7 +11,13 @@ import com.shuli.reader.core.parser.ByteWindowReader
 import com.shuli.reader.core.parser.EpubParser
 import com.shuli.reader.core.parser.StreamDecoder
 import com.shuli.reader.core.parser.TxtParser
-import com.shuli.reader.core.repository.BookRepository
+import com.shuli.reader.core.repository.BookContentRepository
+import com.shuli.reader.core.repository.BookImportRepository
+import com.shuli.reader.core.repository.BookQueryRepository
+import com.shuli.reader.core.repository.FolderRepository
+import com.shuli.reader.core.repository.ReadingProgressRepository
+import com.shuli.reader.core.repository.SearchIndexRepository
+import com.shuli.reader.core.repository.TagRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -54,6 +60,7 @@ class ShuLiAppContainer(
             ShuLiDatabase::class.java,
             ShuLiDatabase.DATABASE_NAME,
         )
+            .addMigrations(*ShuLiDatabase.ALL_MIGRATIONS)
             .fallbackToDestructiveMigration()
             .build()
     }
@@ -66,21 +73,59 @@ class ShuLiAppContainer(
         EpubParser()
     }
 
-    val bookRepository: BookRepository by lazy {
-        BookRepository(
+    val bookQueryRepository: BookQueryRepository by lazy {
+        BookQueryRepository(bookDao = database.bookDao())
+    }
+
+    val folderRepository: FolderRepository by lazy {
+        FolderRepository(bookDao = database.bookDao())
+    }
+
+    val readingProgressRepository: ReadingProgressRepository by lazy {
+        ReadingProgressRepository(
+            bookDao = database.bookDao(),
+            readingProgressDao = database.readingProgressDao(),
+            readingHistoryDao = database.readingHistoryDao(),
+        )
+    }
+
+    val tagRepository: TagRepository by lazy {
+        TagRepository(tagDao = database.tagDao(), bookDao = database.bookDao())
+    }
+
+    val searchIndexRepository: SearchIndexRepository by lazy {
+        SearchIndexRepository(
             bookDao = database.bookDao(),
             bookChapterDao = database.bookChapterDao(),
-            readingProgressDao = database.readingProgressDao(),
             txtParser = TxtParser(),
             epubParser = epubParser,
             byteWindowReader = byteWindowReader,
+        )
+    }
+
+    val bookContentRepository: BookContentRepository by lazy {
+        BookContentRepository(
+            bookDao = database.bookDao(),
+            bookChapterDao = database.bookChapterDao(),
+            txtParser = TxtParser(),
+            epubParser = epubParser,
+            byteWindowReader = byteWindowReader,
+        )
+    }
+
+    val bookImportRepository: BookImportRepository by lazy {
+        BookImportRepository(
+            bookDao = database.bookDao(),
+            txtParser = TxtParser(),
+            epubParser = epubParser,
             booksDir = java.io.File(appContext.filesDir, "books"),
+            searchIndexRepository = searchIndexRepository,
             applicationScope = applicationScope,
         )
     }
 
     val coverPrewarmer: com.shuli.reader.core.cover.CoverPrewarmer by lazy {
-        com.shuli.reader.core.cover.CoverPrewarmer(bookRepository, appContext)
+        com.shuli.reader.core.cover.CoverPrewarmer(bookQueryRepository, appContext)
     }
 
     val syncManager: com.shuli.reader.core.sync.WebDavSyncManager by lazy {

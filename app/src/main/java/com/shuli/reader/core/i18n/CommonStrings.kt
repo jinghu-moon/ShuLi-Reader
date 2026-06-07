@@ -47,6 +47,7 @@ interface CommonStrings {
     val languageEn: String
     val favorite: String
     val cancel: String
+    val confirm: String
     val save: String
     val deleteFont: String
 }

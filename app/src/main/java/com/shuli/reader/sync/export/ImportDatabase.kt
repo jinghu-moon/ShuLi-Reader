@@ -2,9 +2,11 @@
 package com.shuli.reader.sync.export
 
 import com.shuli.reader.core.database.entity.BookEntity
+import com.shuli.reader.core.database.entity.BookTagCrossRef
 import com.shuli.reader.core.database.entity.BookmarkEntity
 import com.shuli.reader.core.database.entity.NoteEntity
 import com.shuli.reader.core.database.entity.ReadingProgressEntity
+import com.shuli.reader.core.database.entity.TagEntity
 
 /**
  * 导入用数据库抽象接口。
@@ -31,6 +33,10 @@ interface ImportDatabase : ExportDatabase {
     suspend fun upsertProgress(progress: ReadingProgressEntity)
     suspend fun clearProgress()
     suspend fun getExistingProgressBookIds(): Set<Long>
+
+    // --- Tags (P1) ---
+    suspend fun insertTag(tag: TagEntity): Long
+    suspend fun addTagToBook(crossRef: BookTagCrossRef)
 
     // --- Transaction ---
     /** 在数据库事务内执行 [block]，失败时自动回滚 */

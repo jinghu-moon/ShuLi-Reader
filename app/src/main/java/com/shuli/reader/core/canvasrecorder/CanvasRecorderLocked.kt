@@ -14,6 +14,10 @@ class CanvasRecorderLocked(private val delegate: CanvasRecorder) :
 
     var lock: ReentrantLock? = ReentrantLock()
 
+    /** recycle() 后置位，后续 beginRecording/recordIfNeeded 直接短路，避免在已回收的 delegate 上操作。 */
+    @Volatile
+    private var recycled: Boolean = false
+
     private fun initLock() {
         if (lock == null) {
             synchronized(this) {
@@ -31,43 +35,44 @@ class CanvasRecorderLocked(private val delegate: CanvasRecorder) :
     }
 
     override fun endRecording() {
+        val l = lock ?: return
         try {
-            delegate.endRecording()
+            if (!recycled) delegate.endRecording()
         } finally {
-            lock!!.unlock()
+            if (l.isHeldByCurrentThread) l.unlock()
         }
     }
 
     override fun draw(canvas: Canvas) {
-        if (lock == null) {
-            return
-        }
-        lock!!.lock()
+        if (recycled) return
+        val l = lock ?: return
+        l.lock()
         try {
-            delegate.draw(canvas)
+            if (!recycled) delegate.draw(canvas)
         } finally {
-            lock!!.unlock()
+            if (l.isHeldByCurrentThread) l.unlock()
         }
     }
 
     override fun isLocked(): Boolean {
-        if (lock == null) {
-            return false
-        }
-        return lock!!.isLocked
+        val l = lock ?: return false
+        return l.isLocked
     }
 
+    override fun isRecycled(): Boolean = recycled
+
     override fun recycle() {
-        if (lock == null) {
-            return
-        }
-        lock!!.lock()
+        val l = lock ?: return
+        l.lock()
         try {
-            delegate.recycle()
+            if (!recycled) {
+                recycled = true
+                delegate.recycle()
+            }
         } finally {
-            lock!!.unlock()
+            if (l.isHeldByCurrentThread) l.unlock()
         }
-        lock = null
+        // 不再置 lock = null：后续录制调用仍需锁来序列化，否则会和 render 线程竞速。
     }
 
 }

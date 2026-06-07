@@ -13,4 +13,7 @@ data class BookState(
     val chapterPos: Int = 0,
     val fileType: String = "",
     val totalSize: Long = 0L,
+    val readingStatus: String = "WANT_TO_READ",
+    val readCount: Int = 1,
+    val tags: List<String> = emptyList(),
 )

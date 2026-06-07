@@ -1,0 +1,2040 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>阅读统计 · 热力图版 · ShuLi Reader</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --ink-50:  #F6F4F0; --ink-100: #EAE5DC; --ink-200: #D4CCC0;
+    --ink-300: #B9AFA0; --ink-400: #9C9082; --ink-500: #7D7162;
+    --ink-600: #5E5346; --ink-700: #453B2E; --ink-800: #2C231A;
+    --ink-900: #1A130B; --ink-950: #0C0804;
+
+    --surface: var(--ink-50);
+    --surface-var: var(--ink-100);
+    --surface-container: #F0EBE1;
+    --surface-elev: #FFFFFF;
+    --primary: var(--ink-700);
+    --on-primary: #FFFFFF;
+    --on-surface: var(--ink-900);
+    --on-surface-var: var(--ink-600);
+    --on-surface-faint: var(--ink-400);
+    --outline: var(--ink-300);
+    --outline-var: var(--ink-200);
+    --accent: #8B5E3C;
+    --accent-soft: #F1E6D9;
+    --success: #2D7A52;
+    --success-bg: #E8F4EE;
+    --error: #9B3525;
+    --error-bg: #F5E5E2;
+    --shadow-sm: 0 1px 2px rgba(44, 35, 26, 0.04), 0 1px 3px rgba(44, 35, 26, 0.06);
+    --shadow-md: 0 4px 12px rgba(44, 35, 26, 0.06), 0 1px 3px rgba(44, 35, 26, 0.08);
+
+    --radius-sm: 4px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-pill: 999px;
+    --font-sans: -apple-system, "PingFang SC", "Noto Sans SC", sans-serif;
+    --font-mono: "SF Mono", Menlo, monospace;
+    --font-display: "Source Han Serif SC", "Noto Serif SC", serif;
+  }
+
+  :root[data-theme="dark"] {
+    --surface: var(--ink-950);
+    --surface-var: var(--ink-900);
+    --surface-container: #161008;
+    --surface-elev: var(--ink-800);
+    --primary: var(--ink-200);
+    --on-primary: var(--ink-950);
+    --on-surface: var(--ink-100);
+    --on-surface-var: var(--ink-400);
+    --on-surface-faint: var(--ink-600);
+    --outline: var(--ink-700);
+    --outline-var: var(--ink-800);
+    --accent: #E5B07A;
+    --accent-soft: #3A2A18;
+    --success: #5DBE8A;
+    --success-bg: #0E2A1E;
+    --error: #D46050;
+    --error-bg: #2A0E0A;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5);
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--surface);
+    color: var(--on-surface);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .device {
+    max-width: 420px;
+    margin: 0 auto;
+    height: 100vh;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  @media (min-width: 480px) {
+    body { background: #2C231A; padding: 20px 0; }
+    .device { height: calc(100vh - 40px); border-radius: 24px; border: 8px solid #1A130B; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  }
+
+  /* ===== 导航 ===== */
+  .nav {
+    display: flex; align-items: center;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--outline-var);
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .nav-back { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: var(--on-surface); font-size: 18px; }
+  .nav-title { font-size: 15px; font-weight: 500; flex: 1; }
+  .nav-theme { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--on-surface-var); font-size: 16px; }
+
+  /* ===== 粒度切换（Pill + Sliding Indicator） ===== */
+  .granularity {
+    padding: 10px 16px 8px;
+    background: var(--surface);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .gran-track {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--surface-var);
+    border: 0.5px solid var(--outline-var);
+    border-radius: var(--radius-pill);
+    padding: 3px;
+    gap: 0;
+  }
+  .gran-indicator {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    width: calc(25% - 3px);
+    background: var(--primary);
+    border-radius: var(--radius-pill);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-sm);
+    z-index: 1;
+  }
+  .gran-btn {
+    position: relative;
+    z-index: 2;
+    padding: 7px 4px;
+    border: none;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--on-surface-var);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: color 0.2s;
+  }
+  .gran-btn.active { color: var(--on-primary); }
+  .gran-sub {
+    font-size: 10px;
+    font-weight: 400;
+    opacity: 0.75;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ===== 日期导航 ===== */
+  .date-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px 12px;
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--outline-var);
+    flex-shrink: 0;
+  }
+  .date-nav-arrow {
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--on-surface-var);
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 50%;
+  }
+  .date-nav-arrow:hover { background: var(--surface-var); }
+  .date-nav-arrow.disabled { opacity: 0.3; pointer-events: none; }
+  .date-nav-center {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--on-surface);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .today-tag {
+    font-size: 10px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-weight: 500;
+  }
+
+  .scroll { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+  .scroll::-webkit-scrollbar { display: none; }
+
+  /* ===== Hero Section（数据组 + 权重差异） ===== */
+  .hero {
+    padding: 20px 16px 16px;
+    background: linear-gradient(180deg, var(--surface-var), var(--surface));
+  }
+  .hero-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .hero-label {
+    font-size: 11px;
+    color: var(--on-surface-var);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .hero-sublabel {
+    font-size: 10px;
+    color: var(--on-surface-faint);
+  }
+  .hero-main-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+  .hero-num {
+    font-family: var(--font-display);
+    font-size: 52px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--on-surface);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    display: inline-flex;
+    align-items: baseline;
+    overflow: hidden;
+  }
+  .hero-num .digit {
+    display: inline-block;
+    transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+  }
+  .hero-unit {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    color: var(--on-surface-var);
+    font-weight: 400;
+    margin-right: 4px;
+  }
+  .hero-delta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .hero-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    background: var(--success-bg);
+    color: var(--success);
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-delta.down { background: var(--error-bg); color: var(--error); }
+  .hero-delta-context {
+    font-size: 10px;
+    color: var(--on-surface-faint);
+  }
+
+  /* 副指标：主次权重差异 */
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 0;
+    background: var(--surface-elev);
+    border: 0.5px solid var(--outline-var);
+    border-radius: var(--radius-md);
+    padding: 10px 0;
+    box-shadow: var(--shadow-sm);
+  }
+  .hero-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 10px;
+    border-right: 0.5px solid var(--outline-var);
+  }
+  .hero-stat:last-child { border-right: none; }
+  .hero-stat.primary .hero-stat-value {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--on-surface);
+  }
+  .hero-stat.secondary .hero-stat-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--on-surface-var);
+  }
+  .hero-stat-value { font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .hero-stat-label { font-size: 9px; color: var(--on-surface-faint); letter-spacing: 0.05em; }
+
+  /* 目标进度（环 + 文本） */
+  .hero-goal {
+    margin-top: 10px;
+    background: var(--surface-elev);
+    border: 0.5px solid var(--outline-var);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    box-shadow: var(--shadow-sm);
+  }
+  .goal-ring {
+    position: relative;
+    width: 48px;
+    height: 48px;
+  }
+  .goal-ring svg { transform: rotate(-90deg); }
+  .goal-ring-bg {
+    fill: none;
+    stroke: var(--surface-var);
+    stroke-width: 4;
+  }
+  .goal-ring-fg {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 4;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .goal-ring-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--on-surface);
+    font-variant-numeric: tabular-nums;
+  }
+  .goal-info { display: flex; flex-direction: column; gap: 2px; }
+  .goal-title { font-size: 12px; font-weight: 500; color: var(--on-surface); }
+  .goal-sub { font-size: 10px; color: var(--on-surface-var); font-variant-numeric: tabular-nums; }
+  .goal-edit {
+    font-size: 10px;
+    color: var(--on-surface-faint);
+    cursor: pointer;
+    padding: 4px 8px;
+    border: 0.5px solid var(--outline-var);
+    border-radius: 12px;
+  }
+
+  /* ===== 24 小时热力条（GitHub 风格 · 三行八列） ===== */
+  .hourly-heatmap {
+    padding: 4px 0 0;
+  }
+  .hourly-grid {
+    display: grid;
+    grid-template-columns: 36px repeat(8, 1fr);
+    grid-template-rows: repeat(3, 34px);
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+  .hourly-row-label {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 6px;
+    font-size: 9px;
+    color: var(--on-surface-faint);
+    letter-spacing: 0.03em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    text-align: right;
+  }
+  .hourly-row-label strong {
+    display: block;
+    font-size: 10px;
+    color: var(--on-surface-var);
+    font-weight: 500;
+    margin-bottom: 1px;
+  }
+  .hourly-cell {
+    border-radius: 4px;
+    background: var(--surface-var);
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.12s;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--on-surface-faint);
+  }
+  .hourly-cell[data-active="true"] {
+    color: var(--on-surface-var);
+  }
+  .hourly-cell[data-hot="true"] {
+    color: var(--on-primary);
+  }
+  .hourly-cell:hover {
+    transform: scale(1.08);
+    z-index: 5;
+    box-shadow: 0 0 0 1.5px var(--primary);
+  }
+  .hourly-cell.peak {
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .hourly-cell.now {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  /* 复用热力图色阶 */
+  .hourly-cell.l0 { background: var(--surface-var); }
+  .hourly-cell.l1 { background: #E8DCC8; }
+  .hourly-cell.l2 { background: #D4BC94; }
+  .hourly-cell.l3 { background: #B89568; }
+  .hourly-cell.l4 { background: #9C6E42; }
+  .hourly-cell.l5 { background: var(--accent); }
+  :root[data-theme="dark"] .hourly-cell.l0 { background: var(--surface-var); }
+  :root[data-theme="dark"] .hourly-cell.l1 { background: #332819; }
+  :root[data-theme="dark"] .hourly-cell.l2 { background: #4E3A22; }
+  :root[data-theme="dark"] .hourly-cell.l3 { background: #70532E; }
+  :root[data-theme="dark"] .hourly-cell.l4 { background: #946D3B; }
+  :root[data-theme="dark"] .hourly-cell.l5 { background: var(--accent); }
+
+  .hourly-labels {
+    display: grid;
+    grid-template-columns: 36px repeat(8, 1fr);
+    gap: 4px;
+    margin-top: 2px;
+    font-size: 8px;
+    color: var(--on-surface-faint);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+  .hourly-label { text-align: center; }
+  .hourly-label.skip { visibility: hidden; }
+  .hourly-label.gutter { visibility: hidden; }
+
+  .hourly-peak-callout {
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: var(--accent-soft);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+  }
+  .hourly-peak-icon {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--on-primary);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  .hourly-peak-text { display: flex; flex-direction: column; gap: 1px; }
+  .hourly-peak-title { color: var(--on-surface); font-weight: 500; }
+  .hourly-peak-sub { color: var(--on-surface-var); font-size: 10px; font-variant-numeric: tabular-nums; }
+
+  .hourly-scale {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 10px;
+    font-size: 9px;
+    color: var(--on-surface-faint);
+    justify-content: flex-end;
+  }
+  .hourly-scale-cell {
+    width: 11px; height: 11px; border-radius: 2px;
+  }
+
+  /* ===== 图表模块（带阴影，呼吸感） ===== */
+  .section {
+    padding: 16px;
+  }
+  .card {
+    background: var(--surface-elev);
+    border: 0.5px solid var(--outline-var);
+    border-radius: var(--radius-lg);
+    padding: 14px 12px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+  }
+  .card + .card { margin-top: 10px; }
+  .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .card-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--on-surface);
+    letter-spacing: 0.02em;
+  }
+  .card-sub {
+    font-size: 10px;
+    color: var(--on-surface-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ===== 热力图（GitHub 风格） ===== */
+  .heatmap-wrap { padding: 2px 0; }
+  .heatmap-months {
+    display: flex;
+    padding-left: 26px;
+    margin-bottom: 4px;
+    position: relative;
+    height: 14px;
+  }
+  .heatmap-month {
+    position: absolute;
+    font-size: 9px;
+    color: var(--on-surface-faint);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.05em;
+  }
+  .heatmap-grid-wrap {
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 4px;
+  }
+  .heatmap-weekdays {
+    display: grid;
+    grid-template-rows: repeat(7, 11px);
+    gap: 3px;
+    padding-top: 1px;
+  }
+  .heatmap-weekday {
+    font-size: 8px;
+    color: var(--on-surface-faint);
+    display: flex;
+    align-items: center;
+    height: 11px;
+  }
+  .heatmap-weekday.skip { visibility: hidden; }
+  .heatmap-grid {
+    display: grid;
+    grid-template-rows: repeat(7, 11px);
+    grid-auto-flow: column;
+    grid-auto-columns: 11px;
+    gap: 3px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    padding: 1px 0;
+  }
+  .heatmap-grid::-webkit-scrollbar { display: none; }
+  .heatmap-cell {
+    width: 11px;
+    height: 11px;
+    border-radius: 2px;
+    background: var(--surface-var);
+    cursor: pointer;
+    transition: transform 0.1s;
+    position: relative;
+  }
+  .heatmap-cell:hover {
+    transform: scale(1.4);
+    z-index: 5;
+    box-shadow: 0 0 0 1px var(--primary);
+  }
+  .heatmap-cell.today {
+    box-shadow: 0 0 0 1.5px var(--accent);
+    transform: scale(1.1);
+  }
+  .heatmap-cell.future { opacity: 0.3; pointer-events: none; }
+  .heatmap-cell.empty-date { background: transparent; pointer-events: none; }
+
+  /* 热力图色阶（亮色） */
+  .heatmap-cell.l0 { background: var(--surface-var); }
+  .heatmap-cell.l1 { background: #E8DCC8; }
+  .heatmap-cell.l2 { background: #D4BC94; }
+  .heatmap-cell.l3 { background: #B89568; }
+  .heatmap-cell.l4 { background: #9C6E42; }
+  .heatmap-cell.l5 { background: var(--accent); }
+  /* 热力图色阶（暗色） */
+  :root[data-theme="dark"] .heatmap-cell.l0 { background: var(--surface-var); }
+  :root[data-theme="dark"] .heatmap-cell.l1 { background: #332819; }
+  :root[data-theme="dark"] .heatmap-cell.l2 { background: #4E3A22; }
+  :root[data-theme="dark"] .heatmap-cell.l3 { background: #70532E; }
+  :root[data-theme="dark"] .heatmap-cell.l4 { background: #946D3B; }
+  :root[data-theme="dark"] .heatmap-cell.l5 { background: var(--accent); }
+
+  .heatmap-scale {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 10px;
+    font-size: 9px;
+    color: var(--on-surface-faint);
+    justify-content: flex-end;
+  }
+  .heatmap-scale-cell {
+    width: 11px;
+    height: 11px;
+    border-radius: 2px;
+  }
+
+  /* 热力图统计汇总 */
+  .heatmap-summary {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 0.5px solid var(--outline-var);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+  }
+  .hs-stat { display: flex; flex-direction: column; gap: 1px; }
+  .hs-value { font-size: 13px; font-weight: 500; color: var(--on-surface); font-variant-numeric: tabular-nums; }
+  .hs-label { font-size: 9px; color: var(--on-surface-var); }
+
+  /* ===== 周统计柱状图（保留） ===== */
+  .weekly-bars {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    align-items: end;
+    height: 140px;
+    padding: 0 4px;
+    position: relative;
+  }
+  .weekly-bars::before, .weekly-bars::after {
+    content: '';
+    position: absolute; left: 0; right: 0;
+    border-top: 0.5px dashed var(--outline);
+  }
+  .weekly-bars::before { top: 33%; }
+  .weekly-bars::after { top: 66%; }
+  .week-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+    z-index: 2;
+    cursor: pointer;
+  }
+  .week-value { font-size: 9px; color: var(--on-surface-var); font-variant-numeric: tabular-nums; min-height: 12px; }
+  .week-bar-wrap {
+    width: 100%;
+    display: flex;
+    gap: 2px;
+    justify-content: center;
+    align-items: end;
+    min-height: 80px;
+  }
+  .week-bar {
+    width: 11px;
+    background: var(--outline);
+    opacity: 0.45;
+    border-radius: 2px 2px 1px 1px;
+    transition: height 0.4s;
+  }
+  .week-bar.current {
+    background: var(--primary);
+    opacity: 1;
+  }
+  .week-bar.today {
+    background: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+    opacity: 1;
+  }
+  .week-bar.empty { height: 3px !important; background: var(--outline-var); opacity: 1; }
+  .week-day { font-size: 10px; color: var(--on-surface-var); padding-top: 2px; }
+  .week-day.today { color: var(--accent); font-weight: 500; }
+
+  .week-compare {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 0.5px solid var(--outline-var);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .wc-stat { display: flex; flex-direction: column; gap: 1px; }
+  .wc-value { font-size: 13px; font-weight: 500; color: var(--on-surface); font-variant-numeric: tabular-nums; }
+  .wc-label { font-size: 9px; color: var(--on-surface-var); }
+  .wc-delta { font-size: 10px; }
+  .wc-delta.up { color: var(--success); }
+
+  /* ===== 维度分布（SegControl + 环形图 + Legend） ===== */
+  .dim-seg {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--surface-var);
+    border: 0.5px solid var(--outline-var);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 0;
+    margin-bottom: 14px;
+    position: relative;
+  }
+  .dim-seg-indicator {
+    position: absolute;
+    top: 2px; bottom: 2px; left: 2px;
+    width: calc(25% - 2px);
+    background: var(--surface-elev);
+    border: 0.5px solid var(--outline-var);
+    border-radius: 6px;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-sm);
+    z-index: 1;
+  }
+  .dim-seg-btn {
+    position: relative;
+    z-index: 2;
+    padding: 6px 4px;
+    border: none;
+    background: transparent;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--on-surface-var);
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  .dim-seg-btn.active { color: var(--on-surface); }
+
+  .dist-body {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 14px;
+    align-items: center;
+  }
+  .dist-ring-wrap {
+    position: relative;
+    width: 100px; height: 100px;
+  }
+  .dist-ring-label {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+  .dist-ring-num {
+    font-size: 18px; font-weight: 600;
+    color: var(--on-surface);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .dist-ring-sub {
+    font-size: 9px;
+    color: var(--on-surface-faint);
+    margin-top: 2px;
+  }
+  .dist-legend {
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .dist-row {
+    display: grid;
+    grid-template-columns: 10px 1fr auto;
+    gap: 6px;
+    align-items: center;
+    font-size: 11px;
+  }
+  .dist-dot { width: 10px; height: 10px; border-radius: 2px; }
+  .dist-name {
+    color: var(--on-surface);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .dist-pct {
+    color: var(--on-surface-var);
+    font-variant-numeric: tabular-nums;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  /* ===== Top N 榜单 ===== */
+  .topn-seg {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--surface-var);
+    border: 0.5px solid var(--outline-var);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 0;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .topn-seg-indicator {
+    position: absolute;
+    top: 2px; bottom: 2px; left: 2px;
+    width: calc(25% - 2px);
+    background: var(--surface-elev);
+    border: 0.5px solid var(--outline-var);
+    border-radius: 6px;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-sm);
+    z-index: 1;
+  }
+  .topn-seg-btn {
+    position: relative;
+    z-index: 2;
+    padding: 6px 4px;
+    border: none;
+    background: transparent;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--on-surface-var);
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  .topn-seg-btn.active { color: var(--on-surface); }
+
+  .topn-list {
+    display: flex; flex-direction: column;
+  }
+  .topn-row {
+    display: grid;
+    grid-template-columns: 22px 1fr auto;
+    gap: 8px;
+    align-items: center;
+    padding: 7px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    border-bottom: 0.5px solid var(--outline-var);
+  }
+  .topn-row:last-child { border-bottom: none; }
+  .topn-row:hover { background: var(--surface-var); }
+  .topn-rank {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--on-surface-faint);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+  .topn-row.top3 .topn-rank { color: var(--accent); }
+  .topn-info { min-width: 0; }
+  .topn-title {
+    font-size: 12px; font-weight: 500;
+    color: var(--on-surface);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .topn-meta {
+    font-size: 10px;
+    color: var(--on-surface-var);
+    font-variant-numeric: tabular-nums;
+    margin-top: 1px;
+  }
+  .topn-value {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--on-surface);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  /* ===== 阅读状态分布 ===== */
+  .status-list {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .status-row {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    gap: 10px;
+    align-items: center;
+  }
+  .status-label {
+    font-size: 11px;
+    color: var(--on-surface);
+    font-weight: 500;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .status-bar-wrap {
+    height: 6px;
+    background: var(--surface-var);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .status-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .status-count {
+    font-size: 11px;
+    color: var(--on-surface-var);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    min-width: 58px;
+    text-align: right;
+  }
+
+  /* ===== 竖向时间轴 ===== */
+  .timeline {
+    position: relative;
+    padding-left: 22px;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 6px; top: 4px; bottom: 4px;
+    width: 1px;
+    background: linear-gradient(180deg, transparent, var(--outline) 8%, var(--outline) 92%, transparent);
+  }
+  .tl-day { position: relative; margin-bottom: 14px; }
+  .tl-day:last-child { margin-bottom: 0; }
+  .tl-dot {
+    position: absolute;
+    left: -19px; top: 3px;
+    width: 11px; height: 11px;
+    border-radius: 50%;
+    background: var(--surface-elev);
+    border: 2px solid var(--primary);
+    z-index: 2;
+  }
+  .tl-day.today .tl-dot {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .tl-day.empty .tl-dot { border-color: var(--outline); background: var(--surface-var); }
+  .tl-head {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .tl-date { font-size: 12px; font-weight: 500; color: var(--on-surface); font-variant-numeric: tabular-nums; }
+  .tl-weekday { font-size: 10px; color: var(--on-surface-var); }
+  .tl-summary { font-size: 10px; color: var(--on-surface-faint); font-variant-numeric: tabular-nums; margin-left: auto; }
+  .tl-sessions { display: flex; flex-direction: column; gap: 4px; }
+  .tl-session {
+    background: var(--surface-elev);
+    border: 0.5px solid var(--outline-var);
+    border-radius: var(--radius-md);
+    padding: 6px 8px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .tl-cover {
+    width: 26px; height: 36px;
+    border-radius: 2px;
+    background: var(--primary);
+    color: var(--on-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .tl-cover.v2 { background: #5E5346; }
+  .tl-cover.v3 { background: #7D7162; }
+  .tl-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .tl-book { font-size: 12px; font-weight: 500; color: var(--on-surface); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tl-chapters { font-size: 10px; color: var(--on-surface-var); }
+  .tl-meta { font-size: 9px; color: var(--on-surface-faint); display: flex; gap: 6px; font-variant-numeric: tabular-nums; }
+  .tl-marks { display: flex; gap: 2px; }
+  .tl-mark { font-size: 8px; color: var(--accent); background: var(--accent-soft); padding: 1px 4px; border-radius: 3px; }
+
+  .foot { padding: 20px 16px 28px; text-align: center; font-size: 10px; color: var(--on-surface-faint); }
+
+  /* ===== Tooltip（浮动） ===== */
+  .tip {
+    position: fixed;
+    background: var(--ink-900);
+    color: var(--ink-100);
+    border-radius: 6px;
+    padding: 6px 9px;
+    font-size: 11px;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.15s;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+    line-height: 1.4;
+    max-width: 200px;
+    font-variant-numeric: tabular-nums;
+  }
+  :root[data-theme="dark"] .tip { background: var(--ink-100); color: var(--ink-900); }
+  .tip.visible { opacity: 1; }
+  .tip-date { font-weight: 500; margin-bottom: 2px; }
+  .tip-row { display: flex; justify-content: space-between; gap: 12px; font-size: 10px; opacity: 0.8; }
+  .tip-arrow {
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 8px; height: 8px;
+    background: var(--ink-900);
+  }
+  :root[data-theme="dark"] .tip-arrow { background: var(--ink-100); }
+</style>
+</head>
+<body>
+
+<div class="device">
+  <div class="nav">
+    <div class="nav-back">‹</div>
+    <div class="nav-title">阅读统计</div>
+    <div class="nav-theme" id="themeBtn">☾</div>
+  </div>
+
+  <!-- 粒度切换 -->
+  <div class="granularity">
+    <div class="gran-track">
+      <div class="gran-indicator" id="granIndicator"></div>
+      <button class="gran-btn" data-gran="day">日 <span class="gran-sub">今天</span></button>
+      <button class="gran-btn" data-gran="week">周 <span class="gran-sub">本周</span></button>
+      <button class="gran-btn" data-gran="month">月 <span class="gran-sub">8月</span></button>
+      <button class="gran-btn active" data-gran="year">年 <span class="gran-sub">2024</span></button>
+    </div>
+  </div>
+
+  <!-- 日期导航 -->
+  <div class="date-nav">
+    <div class="date-nav-arrow" id="prevBtn">‹</div>
+    <div class="date-nav-center">
+      <span id="dateText">2024 年</span>
+      <span class="today-tag" id="todayTag">今年</span>
+    </div>
+    <div class="date-nav-arrow disabled" id="nextBtn">›</div>
+  </div>
+
+  <div class="scroll">
+    <!-- ===== Hero ===== -->
+    <div class="hero">
+      <div class="hero-head">
+        <span class="hero-label" id="heroLabel">今年累计</span>
+        <span class="hero-sublabel" id="heroSub">vs 2023</span>
+      </div>
+      <div class="hero-main-row">
+        <div class="hero-num" id="heroMain"></div>
+        <div class="hero-delta-row">
+          <div class="hero-delta" id="heroDelta">↑ 14%</div>
+          <div class="hero-delta-context" id="heroDeltaCtx">同比</div>
+        </div>
+      </div>
+      <div class="hero-grid" id="heroGrid">
+        <div class="hero-stat primary"><div class="hero-stat-value">1184万</div><div class="hero-stat-label">字数</div></div>
+        <div class="hero-stat secondary"><div class="hero-stat-value">3842</div><div class="hero-stat-label">章节</div></div>
+        <div class="hero-stat secondary"><div class="hero-stat-value">405</div><div class="hero-stat-label">字/分</div></div>
+        <div class="hero-stat primary"><div class="hero-stat-value">218<span style="font-size:10px;color:var(--on-surface-faint)">/366</span></div><div class="hero-stat-label">活跃天</div></div>
+      </div>
+      <div class="hero-goal" id="heroGoal">
+        <div class="goal-ring">
+          <svg width="48" height="48" viewBox="0 0 48 48">
+            <circle class="goal-ring-bg" cx="24" cy="24" r="20"/>
+            <circle class="goal-ring-fg" id="goalRingFg" cx="24" cy="24" r="20"
+              stroke-dasharray="125.66" stroke-dashoffset="28"/>
+          </svg>
+          <div class="goal-ring-label" id="goalPct">78%</div>
+        </div>
+        <div class="goal-info">
+          <div class="goal-title" id="goalTitle">2024 年度目标 · 500 小时</div>
+          <div class="goal-sub" id="goalSub">已读 382h · 剩余 118h · 还有 149 天</div>
+        </div>
+        <div class="goal-edit">调整</div>
+      </div>
+    </div>
+
+    <!-- ===== 视图容器（按粒度切换） ===== -->
+
+    <!-- 日视图 -->
+    <div class="section view" id="view-day" style="display:none">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">今日 · 24 小时热力条</div>
+          <div class="card-sub" id="hourlyCardSub">峰值 —</div>
+        </div>
+        <div id="hourlyChart"></div>
+      </div>
+    </div>
+
+    <!-- 周视图 -->
+    <div class="section view" id="view-week" style="display:none">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">本周每日阅读</div>
+          <div class="card-sub">灰色 = 上周同日</div>
+        </div>
+        <div class="weekly-bars" id="weeklyBars"></div>
+        <div class="week-compare">
+          <div class="wc-stat"><div class="wc-value">11<span style="font-size:10px;color:var(--on-surface-var)">h</span>23<span style="font-size:10px;color:var(--on-surface-var)">m</span></div><div class="wc-label">本周</div></div>
+          <div class="wc-stat"><div class="wc-value">10<span style="font-size:10px;color:var(--on-surface-var)">h</span>18<span style="font-size:10px;color:var(--on-surface-var)">m</span></div><div class="wc-label">上周</div></div>
+          <div class="wc-stat"><div class="wc-value wc-delta up">+10.5%</div><div class="wc-label">环比</div></div>
+          <div class="wc-stat"><div class="wc-value">2<span style="font-size:10px;color:var(--on-surface-var)">h</span>41<span style="font-size:10px;color:var(--on-surface-var)">m</span></div><div class="wc-label">峰值日</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 月视图 -->
+    <div class="section view" id="view-month" style="display:none">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">2024 年 8 月 · 日历</div>
+          <div class="card-sub" id="heatmapMonthSub">21/31 天活跃</div>
+        </div>
+        <div class="heatmap-wrap" id="monthHeatmap"></div>
+      </div>
+    </div>
+
+    <!-- 年视图（默认） -->
+    <div class="section view" id="view-year">
+      <!-- 全年热力图 -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">2024 年 · 阅读热力图</div>
+          <div class="card-sub" id="heatmapYearSub">218 天活跃 · 累计 382h</div>
+        </div>
+        <div class="heatmap-wrap" id="yearHeatmap"></div>
+        <div class="heatmap-scale">
+          <span>少</span>
+          <div class="heatmap-scale-cell heatmap-cell l0"></div>
+          <div class="heatmap-scale-cell heatmap-cell l1"></div>
+          <div class="heatmap-scale-cell heatmap-cell l2"></div>
+          <div class="heatmap-scale-cell heatmap-cell l3"></div>
+          <div class="heatmap-scale-cell heatmap-cell l4"></div>
+          <div class="heatmap-scale-cell heatmap-cell l5"></div>
+          <span>多</span>
+        </div>
+        <div class="heatmap-summary">
+          <div class="hs-stat"><div class="hs-value">382<span style="font-size:10px;color:var(--on-surface-var)">h</span></div><div class="hs-label">累计时长</div></div>
+          <div class="hs-stat"><div class="hs-value">218</div><div class="hs-label">活跃天数</div></div>
+          <div class="hs-stat"><div class="hs-value">42</div><div class="hs-label">最长连读</div></div>
+          <div class="hs-stat"><div class="hs-value">1<span style="font-size:10px;color:var(--on-surface-var)">h</span>45<span style="font-size:10px;color:var(--on-surface-var)">m</span></div><div class="hs-label">日均</div></div>
+        </div>
+      </div>
+
+      <!-- 维度分布（按作者/分组/格式/字数 切换） -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">阅读分布</div>
+          <div class="card-sub" id="distCardSub">按作者 · 阅读时长</div>
+        </div>
+        <div class="dim-seg" id="dimSeg">
+          <div class="dim-seg-indicator" id="dimIndicator"></div>
+          <button class="dim-seg-btn active" data-dim="author">按作者</button>
+          <button class="dim-seg-btn" data-dim="group">按分组</button>
+          <button class="dim-seg-btn" data-dim="format">按格式</button>
+          <button class="dim-seg-btn" data-dim="words">按字数</button>
+        </div>
+        <div class="dist-body">
+          <div class="dist-ring-wrap">
+            <svg width="100" height="100" viewBox="0 0 100 100">
+              <g id="distRing" transform="rotate(-90 50 50)"></g>
+            </svg>
+            <div class="dist-ring-label">
+              <div class="dist-ring-num" id="distRingNum">14</div>
+              <div class="dist-ring-sub" id="distRingSub">本书</div>
+            </div>
+          </div>
+          <div class="dist-legend" id="distLegend"></div>
+        </div>
+      </div>
+
+      <!-- Top 5 榜单（按时长/书签/笔记/速度 切换） -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">榜单</div>
+          <div class="card-sub" id="topnCardSub">Top 5 · 按阅读时长</div>
+        </div>
+        <div class="topn-seg" id="topnSeg">
+          <div class="topn-seg-indicator" id="topnIndicator"></div>
+          <button class="topn-seg-btn active" data-sort="duration">时长</button>
+          <button class="topn-seg-btn" data-sort="bookmarks">书签</button>
+          <button class="topn-seg-btn" data-sort="notes">笔记</button>
+          <button class="topn-seg-btn" data-sort="speed">速度</button>
+        </div>
+        <div class="topn-list" id="topnList"></div>
+      </div>
+
+      <!-- 阅读状态分布 -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">阅读状态</div>
+          <div class="card-sub">14 本书</div>
+        </div>
+        <div class="status-list" id="statusList"></div>
+      </div>
+    </div>
+
+    <!-- ===== 时间轴（日/周显示） ===== -->
+    <div class="section" id="timelineModule" style="display:none">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title" id="timelineTitle">阅读时间轴</div>
+          <div class="card-sub">查看全部 ›</div>
+        </div>
+        <div class="timeline" id="timeline"></div>
+      </div>
+    </div>
+
+    <div class="foot">数据全部本地存储 · 可选 WebDAV 同步</div>
+  </div>
+</div>
+
+<div class="tip" id="tip">
+  <div class="tip-date" id="tipDate"></div>
+  <div class="tip-row"><span>时长</span><span id="tipDuration"></span></div>
+  <div class="tip-row"><span>字数</span><span id="tipWords"></span></div>
+  <div class="tip-arrow"></div>
+</div>
+
+<script>
+/* ============================================================
+   数据
+============================================================ */
+const WEEK_DATA = {
+  days: ['一','二','三','四','五','六','日'],
+  thisWeek: [52, 135, 0, 83, 135, 157, 107],
+  lastWeek: [45, 98, 72, 60, 125, 140, 78],
+};
+
+// 模拟全年数据：从 2024-01-01（周一）到 2024-08-04（今天）
+function generateYearData() {
+  const data = [];
+  const today = new Date(2024, 7, 4); // 8 月 4 日
+  const start = new Date(2024, 0, 1); // 1 月 1 日
+  const diff = Math.floor((today - start) / (1000 * 60 * 60 * 24)); // 已过天数
+
+  // 伪随机：基于日期生成分钟数
+  for (let i = 0; i < 366; i++) {
+    const d = new Date(2024, 0, 1 + i);
+    const dayOfYear = i + 1;
+    const isFuture = d > today;
+    const weekday = d.getDay(); // 0=Sun
+    const isWeekend = weekday === 0 || weekday === 6;
+
+    if (isFuture) {
+      data.push({ date: d, min: 0, future: true });
+      continue;
+    }
+
+    // 基础分钟：工作日 30-90，周末 60-180
+    const base = isWeekend ? 60 : 30;
+    const range = isWeekend ? 120 : 60;
+    // 简单伪随机
+    const seed = (dayOfYear * 13 + 7) % 97;
+    const rand = seed / 97;
+    let min = Math.floor(base + rand * range);
+
+    // 约 10% 概率未阅读
+    if (seed % 10 === 3) min = 0;
+    // 约 5% 概率大爆发（>180min）
+    if (seed % 20 === 7) min = 180 + Math.floor(rand * 60);
+
+    data.push({ date: d, min, future: false });
+  }
+  return data;
+}
+const YEAR_DATA = generateYearData();
+
+// 8 月数据
+const MONTH_DATA = YEAR_DATA.filter(d => d.date.getMonth() === 7);
+
+// 维度分布数据（4 个维度：作者 / 分组 / 格式 / 字数）
+const DIST_COLORS = ['#8B5E3C', '#5E5346', '#B89568', '#D4CCC0', '#9C9082', '#7D7162'];
+const DIM_DATA = {
+  author: {
+    sub: '按作者 · 阅读时长',
+    centerNum: '14',
+    centerSub: '本书',
+    items: [
+      { name: '爱潜水的乌贼', value: 182, unit: 'h' },
+      { name: '烽火戏诸侯', value: 92, unit: 'h' },
+      { name: '卖报小郎君', value: 68, unit: 'h' },
+      { name: '蝴蝶蓝', value: 24, unit: 'h' },
+      { name: '其他作者', value: 16, unit: 'h' },
+    ],
+  },
+  group: {
+    sub: '按分组 · 阅读时长',
+    centerNum: '5',
+    centerSub: '个分组',
+    items: [
+      { name: '正在追更', value: 182, unit: 'h' },
+      { name: '经典完本小说', value: 92, unit: 'h' },
+      { name: '轻松休闲读', value: 68, unit: 'h' },
+      { name: '待读清单', value: 30, unit: 'h' },
+      { name: '未分组', value: 10, unit: 'h' },
+    ],
+  },
+  format: {
+    sub: '按格式 · 阅读时长',
+    centerNum: '2',
+    centerSub: '种格式',
+    items: [
+      { name: 'EPUB', value: 268, unit: 'h' },
+      { name: 'TXT', value: 114, unit: 'h' },
+    ],
+  },
+  words: {
+    sub: '按字数 · 阅读时长',
+    centerNum: '4',
+    centerSub: '个区间',
+    items: [
+      { name: '> 300万字', value: 182, unit: 'h' },
+      { name: '100-300万', value: 128, unit: 'h' },
+      { name: '50-100万', value: 52, unit: 'h' },
+      { name: '< 50万字', value: 20, unit: 'h' },
+    ],
+  },
+};
+
+// Top N 榜单数据（5 本书，每本书含 4 种排序指标）
+const TOPN_BOOKS = [
+  { title: '诡秘之主', author: '爱潜水的乌贼', duration: 182, bookmarks: 47, notes: 23, speed: 421, words: '214万' },
+  { title: '雪中悍刀行', author: '烽火戏诸侯', duration: 92, bookmarks: 31, notes: 15, speed: 398, words: '108万' },
+  { title: '大奉打更人', author: '卖报小郎君', duration: 68, bookmarks: 22, notes: 11, speed: 412, words: '82万' },
+  { title: '全职高手', author: '蝴蝶蓝', duration: 24, bookmarks: 8, notes: 4, speed: 387, words: '53万' },
+  { title: '夜的命名术', author: '会说话的肘子', duration: 16, bookmarks: 12, notes: 7, speed: 445, words: '41万' },
+];
+const TOPN_META = {
+  duration: { sub: 'Top 5 · 按阅读时长', format: v => `${v}h`, label: '时长' },
+  bookmarks: { sub: 'Top 5 · 按书签数', format: v => `${v} 个`, label: '书签' },
+  notes: { sub: 'Top 5 · 按笔记数', format: v => `${v} 条`, label: '笔记' },
+  speed: { sub: 'Top 5 · 按阅读速度', format: v => `${v}字/分`, label: '速度' },
+};
+
+// 阅读状态分布
+const STATUS_DATA = [
+  { label: '在读', count: 8, total: 14, color: '#8B5E3C' },
+  { label: '已读完', count: 4, total: 14, color: '#2D7A52' },
+  { label: '暂停', count: 1, total: 14, color: '#9A6500' },
+  { label: '未读', count: 1, total: 14, color: '#9C9082' },
+];
+
+const TIMELINE_DAY = [
+  { date: '22:15', weekday: '夜晚', today: false, summary: '23分 · 3章',
+    sessions: [{ book: 'gmsz', title: '诡秘之主', chapters: '第736-738章', duration: '23m', words: '9,430', marks: '', color: '' }]},
+  { date: '20:05', weekday: '晚间', today: false, summary: '1小时25分 · 6章',
+    sessions: [{ book: 'gmsz', title: '诡秘之主', chapters: '第730-735章', duration: '1h25m', words: '34,850', marks: '🔖2 ✎1', color: '' }]},
+  { date: '18:30', weekday: '傍晚', today: false, summary: '42分 · 3章',
+    sessions: [{ book: 'dfdg', title: '大奉打更人', chapters: '第890-892章', duration: '42m', words: '17,220', marks: '🔖1', color: 'v2' }]},
+  { date: '12:15', weekday: '午间', today: false, summary: '15分 · 1章',
+    sessions: [{ book: 'ydmm', title: '夜的命名术', chapters: '第1204章', duration: '15m', words: '6,150', marks: '', color: 'v3' }]},
+  { date: '08:45', weekday: '清晨', today: false, summary: '22分 · 1章',
+    sessions: [{ book: 'gmsz', title: '诡秘之主', chapters: '第729章', duration: '22m', words: '8,900', marks: '', color: '' }]},
+];
+
+const TIMELINE_WEEK = [
+  { date: '08-04', weekday: '日', today: true, summary: '1h47m · 14章',
+    sessions: [
+      { book: 'gmsz', title: '诡秘之主', chapters: '第732-738章', duration: '1h02m', words: '24,312', marks: '🔖2 ✎1', color: '' },
+      { book: 'dfdg', title: '大奉打更人', chapters: '第891-892章', duration: '28m', words: '9,841', marks: '', color: 'v2' },
+    ]},
+  { date: '08-03', weekday: '六', summary: '2h37m · 21章',
+    sessions: [
+      { book: 'gmsz', title: '诡秘之主', chapters: '第720-731章', duration: '1h48m', words: '42,110', marks: '🔖3', color: '' },
+    ]},
+  { date: '08-02', weekday: '五', summary: '2h15m · 18章',
+    sessions: [
+      { book: 'dfdg', title: '大奉打更人', chapters: '第873-890章', duration: '1h35m', words: '32,410', marks: '', color: 'v2' },
+    ]},
+  { date: '08-01', weekday: '四', empty: true, summary: '未阅读' },
+  { date: '07-31', weekday: '三', summary: '1h23m · 11章',
+    sessions: [
+      { book: 'ydmm', title: '夜的命名术', chapters: '第862-872章', duration: '1h23m', words: '28,340', marks: '✎2', color: 'v3' },
+    ]},
+];
+
+/* ============================================================
+   Hero 数字滚动
+============================================================ */
+function setHeroMain(html) {
+  const el = document.getElementById('heroMain');
+  const old = el.innerHTML;
+  // 简单判断：如果内容变化，触发滚动动画
+  el.innerHTML = html;
+  const digits = el.querySelectorAll('.digit');
+  digits.forEach((d, i) => {
+    d.style.transform = 'translateY(12px)';
+    d.style.opacity = '0';
+    setTimeout(() => {
+      d.style.transform = 'translateY(0)';
+      d.style.opacity = '1';
+    }, 50 + i * 30);
+  });
+}
+
+// 将数字字符串转换为滚动 HTML
+function digitize(str) {
+  // 例如 "382小时" → "<span class='digit'>3</span><span class='digit'>8</span><span class='digit'>2</span><span class='hero-unit'>小时</span>"
+  return str.replace(/(\d)/g, '<span class="digit">$1</span>')
+            .replace(/(小时|分钟|分|月|年|%)/g, '<span class="hero-unit">$1</span>');
+}
+
+/* ============================================================
+   热力图渲染（GitHub 风格）
+============================================================ */
+function renderHeatmap(container, data, isMonth) {
+  const c = document.getElementById(container);
+  c.innerHTML = '';
+
+  if (isMonth) {
+    // 月视图：7 列（每周一列）× N 行
+    const firstDay = data[0].date;
+    const firstWeekday = (firstDay.getDay() + 6) % 7; // 转成 0=Mon
+    const daysInMonth = data.length;
+
+    // 周标签（不需要）
+    // 星期标签
+    const weekdaysWrap = document.createElement('div');
+    weekdaysWrap.style.cssText = 'display:grid;grid-template-columns:22px 1fr;gap:4px;';
+
+    const weekdays = document.createElement('div');
+    weekdays.className = 'heatmap-weekdays';
+    ['一','二','三','四','五','六','日'].forEach((w, i) => {
+      const d = document.createElement('div');
+      d.className = 'heatmap-weekday' + (i % 2 === 0 ? '' : ' skip');
+      d.textContent = w;
+      weekdays.appendChild(d);
+    });
+
+    const grid = document.createElement('div');
+    grid.className = 'heatmap-grid';
+    grid.style.gridTemplateRows = 'repeat(7, 11px)';
+    grid.style.gridAutoFlow = 'column';
+
+    // 前置空白
+    for (let i = 0; i < firstWeekday; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'heatmap-cell empty-date';
+      grid.appendChild(cell);
+    }
+
+    // 日期
+    data.forEach((d, idx) => {
+      const cell = createHeatCell(d);
+      grid.appendChild(cell);
+    });
+
+    weekdaysWrap.appendChild(weekdays);
+    weekdaysWrap.appendChild(grid);
+    c.appendChild(weekdaysWrap);
+
+  } else {
+    // 年视图：53 列（每周）× 7 行
+    // 先确定 2024-01-01 是周几
+    const firstDay = new Date(2024, 0, 1);
+    const firstWeekday = (firstDay.getDay() + 6) % 7; // 0=Mon
+    const today = new Date(2024, 7, 4);
+
+    // 月份标签
+    const monthRow = document.createElement('div');
+    monthRow.className = 'heatmap-months';
+    const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    // 计算每月 1 号对应的 grid 列号（粗略，1 周 ≈ 14px）
+    const cellSize = 14; // 11 + 3 gap
+    let currentWeek = 0;
+    months.forEach((m, i) => {
+      const monthStart = new Date(2024, i, 1);
+      const dayOfYear = Math.floor((monthStart - new Date(2024, 0, 1)) / (1000 * 60 * 60 * 24));
+      const weekNum = Math.floor((dayOfYear + firstWeekday) / 7);
+      if (i === 0 || weekNum > 2) {
+        const label = document.createElement('div');
+        label.className = 'heatmap-month';
+        label.style.left = (26 + weekNum * cellSize) + 'px';
+        label.textContent = m;
+        monthRow.appendChild(label);
+      }
+    });
+    c.appendChild(monthRow);
+
+    // 主网格
+    const wrap = document.createElement('div');
+    wrap.className = 'heatmap-grid-wrap';
+
+    const weekdays = document.createElement('div');
+    weekdays.className = 'heatmap-weekdays';
+    ['一','二','三','四','五','六','日'].forEach((w, i) => {
+      const d = document.createElement('div');
+      d.className = 'heatmap-weekday' + (i % 2 === 0 ? '' : ' skip');
+      d.textContent = w;
+      weekdays.appendChild(d);
+    });
+
+    const grid = document.createElement('div');
+    grid.className = 'heatmap-grid';
+
+    // 前置空白（1月1日之前的格子）
+    for (let i = 0; i < firstWeekday; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'heatmap-cell empty-date';
+      grid.appendChild(cell);
+    }
+
+    // 渲染全年数据
+    data.forEach(d => {
+      const cell = createHeatCell(d);
+      grid.appendChild(cell);
+    });
+
+    wrap.appendChild(weekdays);
+    wrap.appendChild(grid);
+    c.appendChild(wrap);
+
+    // 自动滚动到最近的月份（8月附近）
+    setTimeout(() => {
+      const augIdx = data.findIndex(d => d.date.getMonth() === 7 && d.date.getDate() === 1);
+      const augWeek = Math.floor((augIdx + firstWeekday) / 7);
+      const maxScroll = grid.scrollWidth - grid.clientWidth;
+      const targetScroll = Math.max(0, Math.min(maxScroll, augWeek * cellSize - grid.clientWidth / 2));
+      grid.scrollLeft = targetScroll;
+    }, 100);
+  }
+}
+
+function createHeatCell(d) {
+  const cell = document.createElement('div');
+  const today = new Date(2024, 7, 4);
+  const isToday = d.date.toDateString() === today.toDateString();
+  const min = d.min;
+  let lvl = 'l0';
+  if (!d.future && min > 0) {
+    if (min < 30) lvl = 'l1';
+    else if (min < 60) lvl = 'l2';
+    else if (min < 120) lvl = 'l3';
+    else if (min < 180) lvl = 'l4';
+    else lvl = 'l5';
+  }
+  cell.className = `heatmap-cell ${lvl}${isToday ? ' today' : ''}${d.future ? ' future' : ''}`;
+  cell.dataset.date = d.date.toISOString().slice(0, 10);
+  cell.dataset.min = min;
+  cell.dataset.future = d.future;
+
+  // 触摸/点击交互
+  cell.addEventListener('click', (e) => showTip(e, d));
+  cell.addEventListener('mouseenter', (e) => showTip(e, d));
+  cell.addEventListener('mouseleave', hideTip);
+
+  return cell;
+}
+
+/* ============================================================
+   Tooltip
+============================================================ */
+const tip = document.getElementById('tip');
+let tipTimer = null;
+
+function showTip(e, d) {
+  if (d.future) return;
+  const dateStr = d.date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' });
+  document.getElementById('tipDate').textContent = dateStr;
+  const hours = Math.floor(d.min / 60);
+  const mins = d.min % 60;
+  document.getElementById('tipDuration').textContent = d.min === 0 ? '未阅读' : `${hours}h${mins}m`;
+  document.getElementById('tipWords').textContent = d.min === 0 ? '—' : `${(d.min * 410).toLocaleString()} 字`;
+
+  // 定位
+  const rect = e.currentTarget.getBoundingClientRect();
+  const tipW = 160;
+  const left = Math.min(Math.max(10, rect.left + rect.width / 2 - tipW / 2), window.innerWidth - tipW - 10);
+  const top = rect.top - 60;
+  tip.style.left = left + 'px';
+  tip.style.top = Math.max(10, top) + 'px';
+  tip.style.width = tipW + 'px';
+  tip.classList.add('visible');
+
+  clearTimeout(tipTimer);
+  tipTimer = setTimeout(hideTip, 2500);
+}
+
+function hideTip() {
+  tip.classList.remove('visible');
+}
+
+/* ============================================================
+   周柱状图
+============================================================ */
+function renderWeeklyBars() {
+  const c = document.getElementById('weeklyBars');
+  c.innerHTML = '';
+  const max = Math.max(...WEEK_DATA.thisWeek, ...WEEK_DATA.lastWeek, 10);
+
+  WEEK_DATA.days.forEach((d, i) => {
+    const thisH = Math.max(3, (WEEK_DATA.thisWeek[i] / max) * 100);
+    const lastH = Math.max(3, (WEEK_DATA.lastWeek[i] / max) * 100);
+    const isToday = i === 6;
+    const isEmpty = WEEK_DATA.thisWeek[i] === 0;
+
+    const col = document.createElement('div');
+    col.className = 'week-col';
+    col.innerHTML = `
+      <div class="week-value">${WEEK_DATA.thisWeek[i] > 0 ? Math.floor(WEEK_DATA.thisWeek[i]/60) + 'h' : ''}</div>
+      <div class="week-bar-wrap">
+        <div class="week-bar" style="height:${lastH}%"></div>
+        <div class="week-bar ${isToday ? 'today' : 'current'} ${isEmpty ? 'empty' : ''}" style="height:${thisH}%"></div>
+      </div>
+      <div class="week-day ${isToday ? 'today' : ''}">${d}</div>
+    `;
+    col.addEventListener('click', (e) => {
+      const min = WEEK_DATA.thisWeek[i];
+      const hours = Math.floor(min / 60);
+      const mins = min % 60;
+      const mockDate = { date: new Date(2024, 7, 29 + i), min, future: false };
+      showTip(e, mockDate);
+    });
+    c.appendChild(col);
+  });
+}
+
+/* ============================================================
+   维度分布（环形图 + Legend + Seg 切换）
+============================================================ */
+let currentDim = 'author';
+
+function renderDistRing(dim) {
+  currentDim = dim;
+  const data = DIM_DATA[dim];
+  const g = document.getElementById('distRing');
+  g.innerHTML = '';
+
+  // 卡片副标题 + 中心数字
+  document.getElementById('distCardSub').textContent = data.sub;
+  document.getElementById('distRingNum').textContent = data.centerNum;
+  document.getElementById('distRingSub').textContent = data.centerSub;
+
+  // 计算总值
+  const total = data.items.reduce((s, it) => s + it.value, 0);
+
+  // 渲染环形图
+  const R = 38;
+  const C = 2 * Math.PI * R;
+  let offset = 0;
+  data.items.forEach((item, i) => {
+    const pct = item.value / total;
+    const seg = pct * C;
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', 50);
+    circle.setAttribute('cy', 50);
+    circle.setAttribute('r', R);
+    circle.setAttribute('fill', 'none');
+    circle.setAttribute('stroke', DIST_COLORS[i % DIST_COLORS.length]);
+    circle.setAttribute('stroke-width', 12);
+    circle.setAttribute('stroke-dasharray', `${seg} ${C}`);
+    circle.setAttribute('stroke-dashoffset', -offset);
+    circle.style.transition = 'stroke-dasharray 0.5s';
+    g.appendChild(circle);
+    offset += seg;
+  });
+
+  // Legend
+  const legend = document.getElementById('distLegend');
+  legend.innerHTML = '';
+  data.items.forEach((item, i) => {
+    const pct = Math.round((item.value / total) * 100);
+    const row = document.createElement('div');
+    row.className = 'dist-row';
+    row.innerHTML = `
+      <div class="dist-dot" style="background:${DIST_COLORS[i % DIST_COLORS.length]}"></div>
+      <div class="dist-name">${item.name}</div>
+      <div class="dist-pct">${pct}% · ${item.value}${item.unit}</div>
+    `;
+    legend.appendChild(row);
+  });
+}
+
+function switchDim(dim) {
+  currentDim = dim;
+  // 移动 indicator
+  const buttons = document.querySelectorAll('#dimSeg .dim-seg-btn');
+  const dims = ['author', 'group', 'format', 'words'];
+  const idx = dims.indexOf(dim);
+  document.getElementById('dimIndicator').style.transform = `translateX(${idx * 100}%)`;
+  buttons.forEach((b, i) => b.classList.toggle('active', i === idx));
+  renderDistRing(dim);
+}
+
+/* ============================================================
+   Top N 榜单（Seg 切换：时长 / 书签 / 笔记 / 速度）
+============================================================ */
+let currentSort = 'duration';
+
+function renderTopN(sort) {
+  currentSort = sort;
+  const meta = TOPN_META[sort];
+  document.getElementById('topnCardSub').textContent = meta.sub;
+
+  // 按当前指标降序排序
+  const sorted = [...TOPN_BOOKS].sort((a, b) => b[sort] - a[sort]);
+
+  const list = document.getElementById('topnList');
+  list.innerHTML = '';
+  sorted.slice(0, 5).forEach((book, i) => {
+    const row = document.createElement('div');
+    row.className = 'topn-row' + (i < 3 ? ' top3' : '');
+    const rankStr = String(i + 1).padStart(2, '0');
+    row.innerHTML = `
+      <div class="topn-rank">${rankStr}</div>
+      <div class="topn-info">
+        <div class="topn-title">${book.title}</div>
+        <div class="topn-meta">${book.author} · ${book.words}</div>
+      </div>
+      <div class="topn-value">${meta.format(book[sort])}</div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function switchSort(sort) {
+  currentSort = sort;
+  const buttons = document.querySelectorAll('#topnSeg .topn-seg-btn');
+  const sorts = ['duration', 'bookmarks', 'notes', 'speed'];
+  const idx = sorts.indexOf(sort);
+  document.getElementById('topnIndicator').style.transform = `translateX(${idx * 100}%)`;
+  buttons.forEach((b, i) => b.classList.toggle('active', i === idx));
+  renderTopN(sort);
+}
+
+/* ============================================================
+   阅读状态分布
+============================================================ */
+function renderStatus() {
+  const list = document.getElementById('statusList');
+  list.innerHTML = '';
+  STATUS_DATA.forEach(s => {
+    const pct = Math.round((s.count / s.total) * 100);
+    const row = document.createElement('div');
+    row.className = 'status-row';
+    row.innerHTML = `
+      <div class="status-label">
+        <span class="status-dot" style="background:${s.color}"></span>
+        ${s.label}
+      </div>
+      <div class="status-bar-wrap">
+        <div class="status-bar" style="width:${pct}%;background:${s.color}"></div>
+      </div>
+      <div class="status-count">${s.count} 本 · ${pct}%</div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+/* ============================================================
+   24 小时热力条（方案 B · 三行八列）
+   行 1: 06 07 08 09 10 11 12 13  — 上午
+   行 2: 14 15 16 17 18 19 20 21  — 下午
+   行 3: 22 23 00 01 02 03 04 05  — 深夜
+============================================================ */
+function renderHourlyChart() {
+  const DAY_HOURLY = [0,0,0,0,0,0,0, 0,12,8,0,0,15, 28,0,0,0,5, 42,65,85,47,23,0];
+  const c = document.getElementById('hourlyChart');
+  c.innerHTML = '';
+
+  // 自动计算峰值
+  const max = Math.max(...DAY_HOURLY);
+  const peakHour = DAY_HOURLY.indexOf(max);
+  // "现在"小时（模拟为 21:00，生产环境改为 new Date().getHours()）
+  const nowHour = 21;
+  const total = DAY_HOURLY.reduce((s, v) => s + v, 0);
+  const activeHours = DAY_HOURLY.filter(v => v > 0).length;
+
+  // 更新 card-sub
+  const cardSub = document.getElementById('hourlyCardSub');
+  if (cardSub) cardSub.textContent = `峰值 ${String(peakHour).padStart(2,'0')}:00 · ${max}m`;
+
+  // 三行定义（小时索引顺序）
+  const rows = [
+    { label: '上午', sub: '06-13', hours: [6, 7, 8, 9, 10, 11, 12, 13] },
+    { label: '下午', sub: '14-21', hours: [14, 15, 16, 17, 18, 19, 20, 21] },
+    { label: '深夜', sub: '22-05', hours: [22, 23, 0, 1, 2, 3, 4, 5] },
+  ];
+
+  const wrap = document.createElement('div');
+  wrap.className = 'hourly-heatmap';
+
+  // 主网格
+  const grid = document.createElement('div');
+  grid.className = 'hourly-grid';
+
+  rows.forEach(row => {
+    // 左侧行标签
+    const rowLabel = document.createElement('div');
+    rowLabel.className = 'hourly-row-label';
+    rowLabel.innerHTML = `<div><strong>${row.label}</strong>${row.sub}</div>`;
+    grid.appendChild(rowLabel);
+
+    // 8 个单元格
+    row.hours.forEach(h => {
+      const min = DAY_HOURLY[h] || 0;
+      const cell = document.createElement('div');
+      let lvl = 'l0';
+      if (min > 0) {
+        if (min < 15) lvl = 'l1';
+        else if (min < 30) lvl = 'l2';
+        else if (min < 60) lvl = 'l3';
+        else if (min < 90) lvl = 'l4';
+        else lvl = 'l5';
+      }
+      const isPeak = h === peakHour;
+      const isNow = h === nowHour;
+      const isActive = min > 0;
+      const isHot = min >= 60;
+
+      cell.className = `hourly-cell ${lvl}${isPeak ? ' peak' : ''}${isNow ? ' now' : ''}`;
+      cell.dataset.hour = h;
+      cell.dataset.min = min;
+      cell.dataset.active = isActive;
+      cell.dataset.hot = isHot;
+      cell.textContent = String(h).padStart(2, '0');
+
+      cell.addEventListener('click', (e) => showHourTip(e, h, min));
+      cell.addEventListener('mouseenter', (e) => showHourTip(e, h, min));
+      cell.addEventListener('mouseleave', hideTip);
+
+      grid.appendChild(cell);
+    });
+  });
+  wrap.appendChild(grid);
+
+  // 色阶说明
+  const scale = document.createElement('div');
+  scale.className = 'hourly-scale';
+  scale.innerHTML = `
+    <span>少</span>
+    <div class="hourly-scale-cell hourly-cell l0"></div>
+    <div class="hourly-scale-cell hourly-cell l1"></div>
+    <div class="hourly-scale-cell hourly-cell l2"></div>
+    <div class="hourly-scale-cell hourly-cell l3"></div>
+    <div class="hourly-scale-cell hourly-cell l4"></div>
+    <div class="hourly-scale-cell hourly-cell l5"></div>
+    <span>多</span>
+  `;
+  wrap.appendChild(scale);
+
+  // 峰值 callout
+  const callout = document.createElement('div');
+  callout.className = 'hourly-peak-callout';
+  callout.innerHTML = `
+    <div class="hourly-peak-icon">★</div>
+    <div class="hourly-peak-text">
+      <div class="hourly-peak-title">阅读高峰 · ${String(peakHour).padStart(2,'0')}:00 - ${String(peakHour+1).padStart(2,'0')}:00</div>
+      <div class="hourly-peak-sub">${max} 分钟 · 约 ${(max * 410).toLocaleString()} 字 · 占今日 ${Math.round(max/total*100)}%</div>
+    </div>
+  `;
+  wrap.appendChild(callout);
+
+  // 底部汇总
+  const summary = document.createElement('div');
+  summary.className = 'heatmap-summary';
+  summary.innerHTML = `
+    <div class="hs-stat"><div class="hs-value">${Math.floor(total/60)}h${total%60}m</div><div class="hs-label">总时长</div></div>
+    <div class="hs-stat"><div class="hs-value">${activeHours}/24</div><div class="hs-label">活跃小时</div></div>
+    <div class="hs-stat"><div class="hs-value">${String(peakHour).padStart(2,'0')}:00</div><div class="hs-label">峰值时段</div></div>
+    <div class="hs-stat"><div class="hs-value">${Math.round(total/Math.max(activeHours,1))}m</div><div class="hs-label">小时均值</div></div>
+  `;
+  wrap.appendChild(summary);
+
+  c.appendChild(wrap);
+}
+
+// 小时格专用 tooltip
+function showHourTip(e, hour, min) {
+  const tip = document.getElementById('tip');
+  document.getElementById('tipDate').textContent = `${String(hour).padStart(2,'0')}:00 - ${String(hour+1).padStart(2,'0')}:00`;
+  document.getElementById('tipDuration').textContent = min === 0 ? '未阅读' : `${min} 分钟`;
+  document.getElementById('tipWords').textContent = min === 0 ? '—' : `${(min * 410).toLocaleString()} 字`;
+
+  const rect = e.currentTarget.getBoundingClientRect();
+  const tipW = 140;
+  const left = Math.min(Math.max(10, rect.left + rect.width / 2 - tipW / 2), window.innerWidth - tipW - 10);
+  const top = rect.top - 60;
+  tip.style.left = left + 'px';
+  tip.style.top = Math.max(10, top) + 'px';
+  tip.style.width = tipW + 'px';
+  tip.classList.add('visible');
+
+  clearTimeout(tipTimer);
+  tipTimer = setTimeout(hideTip, 2500);
+}
+
+/* ============================================================
+   时间轴
+============================================================ */
+function renderTimeline(data) {
+  const c = document.getElementById('timeline');
+  c.innerHTML = '';
+  data.forEach(day => {
+    const el = document.createElement('div');
+    el.className = 'tl-day' + (day.today ? ' today' : '') + (day.empty ? ' empty' : '');
+    let sessionsHtml = '';
+    if (day.empty) {
+      sessionsHtml = '<div style="padding:8px;background:var(--surface-var);border:0.5px dashed var(--outline);border-radius:6px;font-size:11px;color:var(--on-surface-faint);text-align:center">未阅读</div>';
+    } else {
+      sessionsHtml = '<div class="tl-sessions">' + day.sessions.map(s => `
+        <div class="tl-session">
+          <div class="tl-cover ${s.color}">${s.title[0]}</div>
+          <div class="tl-body">
+            <div class="tl-book">${s.title}</div>
+            <div class="tl-chapters">${s.chapters}</div>
+            <div class="tl-meta"><span>⏱ ${s.duration}</span><span>📖 ${s.words}字</span></div>
+          </div>
+          ${s.marks ? `<div class="tl-marks"><div class="tl-mark">${s.marks}</div></div>` : ''}
+        </div>`).join('') + '</div>';
+    }
+    el.innerHTML = `
+      <div class="tl-dot"></div>
+      <div class="tl-head">
+        <div class="tl-date">${day.date}</div>
+        <div class="tl-weekday">${day.weekday}</div>
+        <div class="tl-summary">${day.summary}</div>
+      </div>
+      ${sessionsHtml}
+    `;
+    c.appendChild(el);
+  });
+}
+
+/* ============================================================
+   粒度切换
+============================================================ */
+const GRAN_CONFIG = {
+  day:   { idx: 0, dateText: '2024-08-04',                 todayTag: '今天', heroLabel: '今天累计',  heroSub: 'vs 昨日', heroMain: '1小时47分', delta: '↑ 23分钟', deltaCtx: '日环比', goalTitle: '今日目标 · 2小时',      goalSub: '已读 1h47m · 剩余 13m',         goalPct: 89,  grid: [['42,381','字数','p'],['14','章节','s'],['397','字/分','s'],['4','时段','p']] },
+  week:  { idx: 1, dateText: '2024-07-29 ~ 2024-08-04',    todayTag: '本周', heroLabel: '本周累计',  heroSub: 'vs 上周', heroMain: '11小时23分', delta: '↑ 1h05m', deltaCtx: '周环比', goalTitle: '本周目标 · 15小时',    goalSub: '已读 11h23m · 剩余 3h37m',      goalPct: 76,  grid: [['19.8万','字数','p'],['67','章节','s'],['412','字/分','s'],['6/7','活跃天','p']] },
+  month: { idx: 2, dateText: '2024 年 8 月',                todayTag: '本月', heroLabel: '8月累计',   heroSub: 'vs 7月',  heroMain: '42小时17分', delta: '↑ 3h12m', deltaCtx: '月环比', goalTitle: '8月目标 · 50小时',     goalSub: '已读 42h17m · 剩余 7h43m',      goalPct: 84,  grid: [['124.6万','字数','p'],['412','章节','s'],['408','字/分','s'],['21/31','活跃天','p']] },
+  year:  { idx: 3, dateText: '2024 年',                     todayTag: '今年', heroLabel: '今年累计',  heroSub: 'vs 2023', heroMain: '382小时',   delta: '↑ 14%',   deltaCtx: '同比',   goalTitle: '2024 年度目标 · 500小时', goalSub: '已读 382h · 剩余 118h · 还有 149 天', goalPct: 76, grid: [['1184万','字数','p'],['3842','章节','s'],['405','字/分','s'],['218/366','活跃天','p']] },
+};
+
+let currentGran = 'year';
+
+function switchGran(gran) {
+  currentGran = gran;
+  const cfg = GRAN_CONFIG[gran];
+
+  // 滑块位移
+  const ind = document.getElementById('granIndicator');
+  ind.style.transform = `translateX(${cfg.idx * 100}%)`;
+
+  // 按钮高亮
+  document.querySelectorAll('.gran-btn').forEach((b, i) => {
+    b.classList.toggle('active', i === cfg.idx);
+  });
+
+  // 视图切换
+  ['day','week','month','year'].forEach(g => {
+    document.getElementById('view-' + g).style.display = g === gran ? '' : 'none';
+  });
+  // 时间轴：仅日粒度显示（周粒度已有"本周每日阅读"柱状图，避免信息重复）
+  document.getElementById('timelineModule').style.display = (gran === 'day') ? '' : 'none';
+
+  // 日期导航
+  document.getElementById('dateText').textContent = cfg.dateText;
+  document.getElementById('todayTag').textContent = cfg.todayTag;
+
+  // Hero
+  document.getElementById('heroLabel').textContent = cfg.heroLabel;
+  document.getElementById('heroSub').textContent = cfg.heroSub;
+  setHeroMain(digitize(cfg.heroMain));
+  document.getElementById('heroDelta').textContent = cfg.delta;
+  document.getElementById('heroDeltaCtx').textContent = cfg.deltaCtx;
+
+  // Hero Grid
+  const grid = document.getElementById('heroGrid');
+  grid.innerHTML = cfg.grid.map(([v, l, w]) =>
+    `<div class="hero-stat ${w === 'p' ? 'primary' : 'secondary'}"><div class="hero-stat-value">${v}</div><div class="hero-stat-label">${l}</div></div>`
+  ).join('');
+
+  // Goal
+  document.getElementById('goalTitle').textContent = cfg.goalTitle;
+  document.getElementById('goalSub').textContent = cfg.goalSub;
+  document.getElementById('goalPct').textContent = cfg.goalPct + '%';
+  const C = 2 * Math.PI * 20;
+  const offset = C * (1 - cfg.goalPct / 100);
+  document.getElementById('goalRingFg').setAttribute('stroke-dashoffset', offset);
+
+  // 时间轴（仅日粒度渲染数据）
+  if (gran === 'day') {
+    document.getElementById('timelineTitle').textContent = '今天 · 阅读时段';
+    renderTimeline(TIMELINE_DAY);
+  }
+
+  document.querySelector('.scroll').scrollTop = 0;
+}
+
+/* ============================================================
+   主题切换
+============================================================ */
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const root = document.documentElement;
+  const isDark = root.getAttribute('data-theme') === 'dark';
+  if (isDark) {
+    root.removeAttribute('data-theme');
+    document.getElementById('themeBtn').textContent = '☾';
+  } else {
+    root.setAttribute('data-theme', 'dark');
+    document.getElementById('themeBtn').textContent = '☀';
+  }
+});
+
+/* ============================================================
+   初始化
+============================================================ */
+document.querySelectorAll('.gran-btn').forEach(b => {
+  b.addEventListener('click', () => switchGran(b.dataset.gran));
+});
+
+renderHeatmap('yearHeatmap', YEAR_DATA, false);
+renderHeatmap('monthHeatmap', MONTH_DATA, true);
+renderWeeklyBars();
+renderDistRing('author');
+renderTopN('duration');
+renderStatus();
+renderHourlyChart();
+switchGran('year');
+
+// 维度切换
+document.querySelectorAll('#dimSeg .dim-seg-btn').forEach(b => {
+  b.addEventListener('click', () => switchDim(b.dataset.dim));
+});
+// 榜单切换
+document.querySelectorAll('#topnSeg .topn-seg-btn').forEach(b => {
+  b.addEventListener('click', () => switchSort(b.dataset.sort));
+});
+
+// 触摸屏幕点击其他区域关闭 tooltip
+document.addEventListener('click', (e) => {
+  if (!e.target.classList.contains('heatmap-cell')
+   && !e.target.classList.contains('week-col')
+   && !e.target.classList.contains('hourly-cell')) {
+    hideTip();
+  }
+});
+</script>
+
+</body>
+</html>

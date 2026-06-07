@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -74,6 +75,9 @@ fun StatisticsBottomSheet(
     dailyTargetMinutes: Int,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    statusDistribution: Map<com.shuli.reader.core.reading.ReadingStatus, Int> = emptyMap(),
+    rereadCount: Int = 0,
+    topTags: List<Pair<String, Int>> = emptyList(),
 ) {
     val strings = LocalAppStrings.current
     val progress = remember(todayReadingMinutes, dailyTargetMinutes) {
@@ -156,6 +160,77 @@ fun StatisticsBottomSheet(
                         Text(strings.settings.totalReadingTime, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(4.dp))
                         Text(todayReadingTime, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            if (statusDistribution.isNotEmpty()) {
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    text = strings.bookshelf.readingData,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Start),
+                )
+                Spacer(Modifier.height(8.dp))
+                com.shuli.reader.core.reading.ReadingStatus.entries.forEach { status ->
+                    val count = statusDistribution[status] ?: 0
+                    val ratio = if (booksCount > 0) count.toFloat() / booksCount else 0f
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = com.shuli.reader.feature.bookshelf.component.readingStatusLabel(status),
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.width(56.dp),
+                        )
+                        LinearProgressIndicator(
+                            progress = { ratio },
+                            modifier = Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)),
+                            color = com.shuli.reader.feature.bookshelf.component.readingStatusColor(status),
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                        Text(
+                            text = "$count",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.width(32.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                        )
+                    }
+                }
+            }
+
+            if (rereadCount > 0) {
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = strings.bookshelf.rereadCountLabel(rereadCount),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (topTags.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = strings.bookshelf.tags,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Start),
+                )
+                Spacer(Modifier.height(4.dp))
+                topTags.take(5).forEach { (name, count) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text("#$name", style = MaterialTheme.typography.labelSmall)
+                        Text("$count", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -257,10 +332,12 @@ fun MoreActionsSheet(
     onCustomizeCover: () -> Unit,
     onMoveOut: () -> Unit,
     onDismiss: () -> Unit,
+    onBatchStatusChange: ((com.shuli.reader.core.reading.ReadingStatus) -> Unit)? = null,
 ) {
     val strings = LocalAppStrings.current
     val hasUnfavorited = selectedBooks.any { !it.isFavorite }
     val singleSelection = selectedBooks.size == 1
+    var showStatusPicker by remember { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -282,6 +359,15 @@ fun MoreActionsSheet(
                 colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
                 modifier = Modifier.clickable { onToggleFavorite() },
             )
+            // 批量改状态
+            if (onBatchStatusChange != null) {
+                ListItem(
+                    headlineContent = { Text(strings.bookshelf.batchStatusChange) },
+                    leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.clickable { showStatusPicker = true },
+                )
+            }
             // 书籍信息（仅单选时显示）
             if (singleSelection) {
                 ListItem(
@@ -306,6 +392,35 @@ fun MoreActionsSheet(
                 modifier = Modifier.clickable { onMoveOut() },
             )
         }
+    }
+
+    if (showStatusPicker && onBatchStatusChange != null) {
+        AlertDialog(
+            onDismissRequest = { showStatusPicker = false },
+            title = { Text(strings.bookshelf.batchStatusChange) },
+            text = {
+                Column {
+                    com.shuli.reader.core.reading.ReadingStatus.entries.forEach { status ->
+                        ListItem(
+                            headlineContent = {
+                                Text(com.shuli.reader.feature.bookshelf.component.readingStatusLabel(status))
+                            },
+                            colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
+                            modifier = Modifier.clickable {
+                                onBatchStatusChange(status)
+                                showStatusPicker = false
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showStatusPicker = false }) {
+                    Text(strings.common.cancel)
+                }
+            },
+        )
     }
 }
 
@@ -444,4 +559,28 @@ private fun FolderGridCover(
             overflow = TextOverflow.Ellipsis,
         )
     }
+}
+
+@Composable
+fun DeleteConfirmDialog(
+    count: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val strings = LocalAppStrings.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(strings.bookshelf.confirmDeleteTitle) },
+        text = { Text(strings.bookshelf.confirmDeleteSelected(count)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(strings.reader.deleteAction, color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(strings.reader.cancelAction)
+            }
+        },
+    )
 }
