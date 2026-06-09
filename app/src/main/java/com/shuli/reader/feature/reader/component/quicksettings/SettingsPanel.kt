@@ -42,7 +42,7 @@ import com.shuli.reader.feature.reader.component.ReaderValueSlider
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 
 /**
- * Tab 3: 设置面板 — 页眉页脚、标题样式、行为开关、TTS、预设管理
+ * Tab 3: 设置面板 — 页眉页脚、标题样式、行为开关、预设管理
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -81,12 +81,6 @@ internal fun SettingsPanel(
     onRenamePreset: (Long, String) -> Unit,
     onDeletePreset: (Long) -> Unit,
     onResetToDefault: () -> Unit,
-    ttsState: com.shuli.reader.core.tts.TtsState = com.shuli.reader.core.tts.TtsState.IDLE,
-    onTtsStart: () -> Unit = {},
-    onTtsPause: () -> Unit = {},
-    onTtsStop: () -> Unit = {},
-    onTtsSpeedChange: (Float) -> Unit = {},
-    onTtsPitchChange: (Float) -> Unit = {},
 ) {
     val readerColors = LocalReaderColorScheme.current
     val strings = LocalAppStrings.current
@@ -253,59 +247,6 @@ internal fun SettingsPanel(
             steps = 5,
             format = { "%.0f%%".format(it * 100) },
             onValueChange = onEdgeWidthPercentChange,
-        )
-    }
-
-    HorizontalDivider(
-        color = readerColors.divider,
-        modifier = Modifier.padding(vertical = 8.dp),
-    )
-
-    // ── TTS 朗读 ──
-    var expandedTts by remember { mutableStateOf(false) }
-    ExpandableSection(
-        title = strings.tts.ttsSettings,
-        expanded = expandedTts,
-        onToggle = { expandedTts = !expandedTts },
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            val isPlaying = ttsState == com.shuli.reader.core.tts.TtsState.PLAYING
-            val isPaused = ttsState == com.shuli.reader.core.tts.TtsState.PAUSED
-            OutlinedButton(
-                onClick = if (isPlaying) onTtsPause else onTtsStart,
-            ) {
-                Icon(
-                    imageVector = if (isPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(if (isPlaying) strings.tts.ttsPause else if (isPaused) strings.tts.ttsStart else strings.tts.ttsStart)
-            }
-            if (isPlaying || isPaused) {
-                OutlinedButton(onClick = onTtsStop) {
-                    Text(strings.tts.ttsStop)
-                }
-            }
-        }
-        ReaderValueSlider(
-            label = strings.tts.ttsSpeed,
-            value = prefs.ttsSpeed,
-            valueRange = 0.5f..2.0f,
-            steps = 14,
-            format = { "%.1fx".format(it) },
-            onValueChange = onTtsSpeedChange,
-        )
-        ReaderValueSlider(
-            label = strings.tts.ttsPitch,
-            value = prefs.ttsPitch,
-            valueRange = 0.5f..2.0f,
-            steps = 14,
-            format = { "%.1f".format(it) },
-            onValueChange = onTtsPitchChange,
         )
     }
 

@@ -95,9 +95,8 @@ fun ReaderUiState.toRenderInput(
 
     val overlaySnapshot = OverlaySnapshot(
         selectedRange = selectedRange,
-        ttsActiveRange = ttsActiveRange,
         noteRanges = emptyList(),
-        overlayKey = OverlayKey(selectedRange, ttsActiveRange, 0),
+        overlayKey = OverlayKey(selectedRange, 0),
     )
 
     return ReaderRenderInput(
@@ -194,9 +193,8 @@ fun SnapshotDigestTuple.toFallbackRenderInput(
 
     val overlaySnapshot = OverlaySnapshot(
         selectedRange = null,
-        ttsActiveRange = null,
         noteRanges = emptyList(),
-        overlayKey = com.shuli.reader.feature.reader.render.OverlayKey(null, null, 0),
+        overlayKey = com.shuli.reader.feature.reader.render.OverlayKey(null, 0),
     )
 
     return ReaderRenderInput(

@@ -32,7 +32,7 @@ import kotlin.math.roundToInt
  * - 密度同步（[ReaderViewModel.setDensity]）
  * - 亮度 / 屏幕常亮（Activity window 副作用，非 Canvas）
  * - 电量广播采集（Screen 层运行时数据，注入 snapshot 的 ShellSnapshot）
- * - 生命周期暂停/恢复（TTS 与阅读会话）
+ * - 生命周期暂停/恢复（阅读会话）
  */
 @Composable
 internal fun ReaderCanvasEffects(
@@ -82,7 +82,6 @@ internal fun ReaderCanvasEffects(
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_PAUSE -> {
-                    viewModel.ttsPlaybackManager.pauseTtsOnBackground()
                     viewModel.pauseReadingSession()
                 }
                 Lifecycle.Event.ON_RESUME -> {

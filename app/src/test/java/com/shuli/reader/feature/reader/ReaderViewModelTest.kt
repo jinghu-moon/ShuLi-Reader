@@ -15,9 +15,6 @@ import com.shuli.reader.core.repository.BookContentRepository
 import com.shuli.reader.core.repository.BookQueryRepository
 import com.shuli.reader.core.repository.ReadingProgressRepository
 import com.shuli.reader.core.repository.SearchResult
-import com.shuli.reader.core.tts.TtsConfig
-import com.shuli.reader.core.tts.TtsEngine
-import com.shuli.reader.core.tts.TtsState
 import com.shuli.reader.data.TestDataStoreFactory
 import io.mockk.coEvery
 import io.mockk.every
@@ -471,86 +468,6 @@ class ReaderViewModelTest {
         assertNull(viewModel.uiState.value.selectedRange)
     }
 
-    @Test
-    fun startTts_withHighlightEnabled_highlightsCurrentSentence() = runTest {
-        val engine = FakeTtsEngine()
-        val vm = readerViewModelWithContent(
-            content = "First sentence. Second sentence.",
-            engine = engine,
-        )
-
-        vm.ttsPlaybackManager.startTts(TtsConfig(highlightSentence = true))
-
-        assertEquals(TtsState.PLAYING, vm.uiState.value.ttsState)
-        assertEquals("First sentence.", engine.spokenText)
-        assertEquals("First sentence.", vm.uiState.value.ttsActiveRange?.selectedText)
-    }
-
-    @Test
-    fun ttsCompletion_advancesHighlightedSentence() = runTest {
-        val engine = FakeTtsEngine()
-        val vm = readerViewModelWithContent(
-            content = "First sentence. Second sentence.",
-            engine = engine,
-        )
-
-        vm.ttsPlaybackManager.startTts(TtsConfig(highlightSentence = true))
-        engine.completeUtterance()
-
-        assertEquals(TtsState.PLAYING, vm.uiState.value.ttsState)
-        assertEquals("Second sentence.", engine.spokenText)
-        assertEquals("Second sentence.", vm.uiState.value.ttsActiveRange?.selectedText)
-    }
-
-    @Test
-    fun ttsCompletionAtPageEnd_withAutoPageEnabled_turnsPageAndContinuesReading() = runTest {
-        val engine = FakeTtsEngine()
-        val vm = readerViewModelWithContent(
-            content = "First page.\nSecond page.",
-            engine = engine,
-            paginator = Paginator(oneLinePerPageTextMeasurer()),
-        )
-
-        vm.ttsPlaybackManager.startTts(TtsConfig(autoPage = true, highlightSentence = true))
-        engine.completeUtterance()
-
-        assertEquals(1, vm.uiState.value.pageIndex)
-        assertEquals("Second page.", engine.spokenText)
-        assertEquals("Second page.", vm.uiState.value.ttsActiveRange?.selectedText)
-    }
-
-    @Test
-    fun pauseTtsOnBackground_whenPlaying_pausesEngineAndState() = runTest {
-        val engine = FakeTtsEngine()
-        val vm = readerViewModelWithContent(
-            content = "First sentence. Second sentence.",
-            engine = engine,
-        )
-
-        vm.ttsPlaybackManager.startTts(TtsConfig(highlightSentence = true))
-        vm.ttsPlaybackManager.pauseTtsOnBackground()
-
-        assertEquals(TtsState.PAUSED, vm.uiState.value.ttsState)
-        assertEquals(1, engine.stopCalls)
-    }
-
-    @Test
-    fun releaseReaderResources_afterTtsStarted_shutdownsEngineAndClearsState() = runTest {
-        val engine = FakeTtsEngine()
-        val vm = readerViewModelWithContent(
-            content = "First sentence. Second sentence.",
-            engine = engine,
-        )
-
-        vm.ttsPlaybackManager.startTts(TtsConfig(highlightSentence = true))
-        vm.releaseReaderResources()
-
-        assertEquals(TtsState.IDLE, vm.uiState.value.ttsState)
-        assertNull(vm.uiState.value.ttsActiveRange)
-        assertEquals(1, engine.shutdownCalls)
-        assertTrue(engine.listenerCleared)
-    }
-
     private fun searchResult(chapterIndex: Int, charOffset: Int): SearchResult {
         return SearchResult(
             chapterIndex = chapterIndex,
@@ -563,7 +480,6 @@ class ReaderViewModelTest {
 
     private suspend fun readerViewModelWithContent(
         content: String,
-        engine: FakeTtsEngine,
         paginator: Paginator = Paginator(com.shuli.reader.core.reader.SimpleTextMeasurer()),
     ): ReaderViewModel {
         val bookContentRepository = mockk<BookContentRepository>()
@@ -623,7 +539,6 @@ class ReaderViewModelTest {
             bookQueryRepository = bookQueryRepository,
             readingProgressRepository = readingProgressRepository,
             paginator = paginator,
-            ttsEngine = engine,
         )
         vm.openBook(1L)
         vm.uiState.first { it.currentPage != null }
@@ -636,37 +551,6 @@ class ReaderViewModelTest {
             override fun measureTextHeight(textSize: Float, lineHeight: Float): Float = 1000f
             override fun measureCharWidth(char: Char, textSize: Float): Float = 10f
             override fun measureTextWidths(text: String, textSize: Float): FloatArray = FloatArray(text.length) { 10f }
-        }
-    }
-
-    private class FakeTtsEngine : TtsEngine {
-        var spokenText = ""
-        var stopCalls = 0
-        var shutdownCalls = 0
-        var listenerCleared = false
-        private var listener: TtsEngine.Listener? = null
-
-        override fun configure(config: TtsConfig) = Unit
-
-        override fun setListener(listener: TtsEngine.Listener?) {
-            this.listener = listener
-            listenerCleared = listener == null
-        }
-
-        override fun speak(text: String) {
-            spokenText = text
-        }
-
-        override fun stop() {
-            stopCalls++
-        }
-
-        override fun shutdown() {
-            shutdownCalls++
-        }
-
-        fun completeUtterance() {
-            listener?.onUtteranceCompleted()
         }
     }
 }

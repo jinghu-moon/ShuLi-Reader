@@ -98,7 +98,6 @@ internal class ReaderNavigationCoordinator(
             currentPage = chapter.getPage(safe),
             pageRenderMode = PageRenderMode.JUMP,
             selectedRange = null,
-            ttsActiveRange = null,
         )
         saveReadingProgress(true)
         scope.launch {

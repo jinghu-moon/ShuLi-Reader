@@ -11,7 +11,6 @@ import com.shuli.reader.core.reader.model.SelectionRange
 import com.shuli.reader.core.reader.model.TextChapter
 import com.shuli.reader.core.reader.model.TextPage
 import com.shuli.reader.core.repository.SearchResult
-import com.shuli.reader.core.tts.TtsState
 import com.shuli.reader.core.reader.animation.PageDelegateFactory
 import com.shuli.reader.ui.theme.resolveCustomColorScheme
 import com.shuli.reader.ui.theme.toCanvasThemeColors
@@ -58,8 +57,6 @@ data class ReaderUiState(
     val searchResults: List<SearchResult> = emptyList(),
     val currentSearchResultIndex: Int = -1,
     val selectedRange: SelectionRange? = null,
-    val ttsState: TtsState = TtsState.IDLE,
-    val ttsActiveRange: SelectionRange? = null,
     val sleepTimerRemainingSeconds: Int = -1,
     val presets: List<com.shuli.reader.core.database.entity.ReaderPresetEntity> = emptyList(),
     /** 用户导入的自定义字体列表 */

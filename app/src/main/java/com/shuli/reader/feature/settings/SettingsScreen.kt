@@ -34,7 +34,6 @@ import com.shuli.reader.feature.settings.sections.LibrarySection
 import com.shuli.reader.feature.settings.sections.ReaderPrefsSection
 import com.shuli.reader.feature.settings.sections.StatsSection
 import com.shuli.reader.feature.settings.sections.SyncSection
-import com.shuli.reader.feature.settings.sections.TtsSection
 import com.shuli.reader.ui.testing.UiTestTags
 
 // ================= 子页面导航路由 =================
@@ -133,7 +132,6 @@ fun SettingsScreen(
                     onNavigateToLocalBackup = { currentSubScreen = SettingsSubScreen.LocalBackup },
                 )
             }
-            item { TtsSection(uiState = uiState, viewModel = viewModel) }
             item {
                 AdvancedSection(
                     uiState = uiState,

@@ -8,7 +8,6 @@ sealed interface AppStrings {
     val reader: ReaderStrings
     val settings: SettingsStrings
     val sync: SyncStrings
-    val tts: TtsStrings
     val encryption: EncryptionStrings
 
     data object ZhHans : AppStrings {
@@ -17,7 +16,6 @@ sealed interface AppStrings {
         override val reader: ReaderStrings = ZhHansReader
         override val settings: SettingsStrings = ZhHansSettings
         override val sync: SyncStrings = ZhHansSync
-        override val tts: TtsStrings = ZhHansTts
         override val encryption: EncryptionStrings = ZhHansEncryption
     }
 
@@ -27,7 +25,6 @@ sealed interface AppStrings {
         override val reader: ReaderStrings = ZhHantReader
         override val settings: SettingsStrings = ZhHantSettings
         override val sync: SyncStrings = ZhHantSync
-        override val tts: TtsStrings = ZhHantTts
         override val encryption: EncryptionStrings = ZhHantEncryption
     }
 
@@ -37,7 +34,6 @@ sealed interface AppStrings {
         override val reader: ReaderStrings = EnReader
         override val settings: SettingsStrings = EnSettings
         override val sync: SyncStrings = EnSync
-        override val tts: TtsStrings = EnTts
         override val encryption: EncryptionStrings = EnEncryption
     }
 }

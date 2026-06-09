@@ -16,14 +16,13 @@ import androidx.compose.ui.Modifier
 import com.shuli.reader.core.data.PageAnimType
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.i18n.LocalAppStrings
-import com.shuli.reader.core.tts.TtsState
 import com.shuli.reader.feature.reader.component.ReaderFormPickerRow
 import com.shuli.reader.feature.reader.component.ReaderSwitchRow
 import com.shuli.reader.feature.reader.component.ReaderValueSlider
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 
 /**
- * Tab 4: 交互面板 — 翻页模式、行为开关、TTS 控制
+ * Tab 4: 交互面板 — 翻页模式、行为开关
  *
  * 按 §21.2 规范实现：
  * - 翻页模式
@@ -32,12 +31,10 @@ import com.shuli.reader.ui.theme.LocalReaderColorScheme
  * - 保持亮屏
  * - 沉浸模式
  * - 边缘翻页
- * - TTS 简要控制
  */
 @Composable
 internal fun InteractionPanel(
     prefs: ReaderPreferences,
-    ttsState: TtsState,
     onBrightnessChange: (Float) -> Unit = {},
     onPageAnimTypeChange: (PageAnimType) -> Unit,
     onVolumeKeyTurnPageChange: (Boolean) -> Unit,
@@ -48,11 +45,6 @@ internal fun InteractionPanel(
     onLeftZoneRatioChange: (Float) -> Unit = {},
     onAutoPageTurnChange: (Boolean) -> Unit = {},
     onAutoPageTurnIntervalChange: (Float) -> Unit = {},
-    onTtsStart: () -> Unit,
-    onTtsPause: () -> Unit,
-    onTtsStop: () -> Unit,
-    onTtsSpeedChange: (Float) -> Unit,
-    onTtsPitchChange: (Float) -> Unit,
 ) {
     val readerColors = LocalReaderColorScheme.current
     val strings = LocalAppStrings.current
@@ -147,89 +139,6 @@ internal fun InteractionPanel(
             steps = 10,
             format = { "%.0fs".format(it) },
             onValueChange = onAutoPageTurnIntervalChange,
-        )
-    }
-
-    // ── TTS 简要控制 ──
-    var ttsExpanded by remember { mutableStateOf(false) }
-    ExpandableSection(
-        title = "TTS",
-        expanded = ttsExpanded,
-        onToggle = { ttsExpanded = !ttsExpanded },
-    ) {
-        TtsControlSection(
-            ttsState = ttsState,
-            ttsSpeed = prefs.ttsSpeed,
-            ttsPitch = prefs.ttsPitch,
-            onTtsStart = onTtsStart,
-            onTtsPause = onTtsPause,
-            onTtsStop = onTtsStop,
-            onTtsSpeedChange = onTtsSpeedChange,
-            onTtsPitchChange = onTtsPitchChange,
-        )
-    }
-}
-
-/**
- * TTS 控制区域
- */
-@Composable
-private fun TtsControlSection(
-    ttsState: TtsState,
-    ttsSpeed: Float,
-    ttsPitch: Float,
-    onTtsStart: () -> Unit,
-    onTtsPause: () -> Unit,
-    onTtsStop: () -> Unit,
-    onTtsSpeedChange: (Float) -> Unit,
-    onTtsPitchChange: (Float) -> Unit,
-) {
-    val strings = LocalAppStrings.current
-    val isPlaying = ttsState == TtsState.PLAYING
-    val isPaused = ttsState == TtsState.PAUSED
-
-    Column {
-        // 播放/暂停/停止按钮行
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            TextButton(
-                onClick = if (isPlaying) onTtsPause else onTtsStart,
-            ) {
-                Text(
-                    text = if (isPlaying) "暂停" else if (isPaused) "继续" else "播放",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-            if (isPlaying || isPaused) {
-                TextButton(onClick = onTtsStop) {
-                    Text(
-                        text = "停止",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            }
-        }
-
-        // 语速
-        ReaderValueSlider(
-            label = "语速",
-            value = ttsSpeed,
-            valueRange = 0.5f..2.0f,
-            steps = 5,
-            format = { "%.1fx".format(it) },
-            onValueChange = onTtsSpeedChange,
-        )
-
-        // 音调
-        ReaderValueSlider(
-            label = "音调",
-            value = ttsPitch,
-            valueRange = 0.5f..2.0f,
-            steps = 5,
-            format = { "%.1fx".format(it) },
-            onValueChange = onTtsPitchChange,
         )
     }
 }

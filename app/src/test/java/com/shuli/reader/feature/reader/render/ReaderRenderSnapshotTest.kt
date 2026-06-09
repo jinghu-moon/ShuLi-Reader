@@ -62,17 +62,17 @@ class ReaderRenderSnapshotTest {
     }
 
     @Test
-    fun overlaySnapshot_equals_sameTtsRange_returnsTrue() {
+    fun overlaySnapshot_equals_sameSelection_returnsTrue() {
         val range = SelectionRange(0, 10, 20, "test")
-        val a = OverlaySnapshot(null, range, emptyList(), OverlayKey(null, range, 0))
-        val b = OverlaySnapshot(null, range, emptyList(), OverlayKey(null, range, 0))
+        val a = OverlaySnapshot(range, emptyList(), OverlayKey(range, 0))
+        val b = OverlaySnapshot(range, emptyList(), OverlayKey(range, 0))
         assertEquals(a, b)
     }
 
     @Test
-    fun overlaySnapshot_differentTtsRange_returnsFalse() {
-        val a = OverlaySnapshot(null, SelectionRange(0, 10, 20, "a"), emptyList(), OverlayKey(null, null, 0))
-        val b = OverlaySnapshot(null, SelectionRange(0, 30, 40, "b"), emptyList(), OverlayKey(null, null, 0))
+    fun overlaySnapshot_differentSelection_returnsFalse() {
+        val a = OverlaySnapshot(SelectionRange(0, 10, 20, "a"), emptyList(), OverlayKey(null, 0))
+        val b = OverlaySnapshot(SelectionRange(0, 30, 40, "b"), emptyList(), OverlayKey(null, 0))
         assertNotEquals(a, b)
     }
 
@@ -138,13 +138,11 @@ fun createDefaultShellSnapshot(
 )
 
 fun createDefaultOverlaySnapshot(
-    ttsRange: SelectionRange? = null,
     selection: SelectionRange? = null,
 ) = OverlaySnapshot(
     selectedRange = selection,
-    ttsActiveRange = ttsRange,
     noteRanges = emptyList(),
-    overlayKey = OverlayKey(selection, ttsRange, 0),
+    overlayKey = OverlayKey(selection, 0),
 )
 
 fun createDefaultSnapshot(
@@ -199,6 +197,5 @@ fun createShellSnapshot(
 ) = createDefaultShellSnapshot(batteryLevel = batteryLevel, headerText = headerText)
 
 fun createOverlaySnapshot(
-    ttsRange: SelectionRange? = null,
     selection: SelectionRange? = null,
-) = createDefaultOverlaySnapshot(ttsRange = ttsRange, selection = selection)
+) = createDefaultOverlaySnapshot(selection = selection)

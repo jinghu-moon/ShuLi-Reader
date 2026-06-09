@@ -278,7 +278,6 @@ fun QuickSettingsSheet(
                         )
                         TAB_INTERACTION -> InteractionPanel(
                             prefs = prefs,
-                            ttsState = uiState.ttsState,
                             onBrightnessChange = { value ->
                                 dispatch(ReaderIntent.UpdateSetting(ReaderSettingKey.BRIGHTNESS, ReaderSettingValue.Float(value)))
                             },
@@ -293,11 +292,6 @@ fun QuickSettingsSheet(
                             onLeftZoneRatioChange = { updateFloat(ReaderSettingKey.LEFT_ZONE_RATIO, it) },
                             onAutoPageTurnChange = { updateBool(ReaderSettingKey.AUTO_PAGE_TURN, it) },
                             onAutoPageTurnIntervalChange = { updateFloat(ReaderSettingKey.AUTO_PAGE_TURN_INTERVAL, it) },
-                            onTtsStart = { dispatch(ReaderIntent.StartTts) },
-                            onTtsPause = { dispatch(ReaderIntent.PauseTts) },
-                            onTtsStop = { dispatch(ReaderIntent.StopTts) },
-                            onTtsSpeedChange = { updateFloat(ReaderSettingKey.TTS_SPEED, it) },
-                            onTtsPitchChange = { updateFloat(ReaderSettingKey.TTS_PITCH, it) },
                         )
                     }
                 }

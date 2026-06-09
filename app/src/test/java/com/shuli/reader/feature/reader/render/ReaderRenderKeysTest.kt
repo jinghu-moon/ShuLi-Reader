@@ -82,12 +82,12 @@ class ReaderRenderKeysTest {
     }
 
     @Test
-    fun overlayKey_differentTtsRange_differentKey() {
+    fun overlayKey_differentSelection_differentKey() {
         val a = OverlayKeyFactory.from(
-            OverlaySnapshot(null, SelectionRange(0, 10, 20, "a"), emptyList(), OverlayKey(null, null, 0))
+            OverlaySnapshot(SelectionRange(0, 10, 20, "a"), emptyList(), OverlayKey(null, 0))
         )
         val b = OverlayKeyFactory.from(
-            OverlaySnapshot(null, SelectionRange(0, 30, 40, "b"), emptyList(), OverlayKey(null, null, 0))
+            OverlaySnapshot(SelectionRange(0, 30, 40, "b"), emptyList(), OverlayKey(null, 0))
         )
         assertNotEquals(a, b)
     }

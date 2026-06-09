@@ -7,7 +7,6 @@ import com.shuli.reader.core.canvasrecorder.recordIfNeeded
 import com.shuli.reader.core.reader.PageRenderContext
 import com.shuli.reader.core.reader.ReaderPageRenderer
 import com.shuli.reader.core.reader.RenderContext
-import com.shuli.reader.core.reader.model.SelectionRange
 import com.shuli.reader.core.reader.model.TextPage
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -37,7 +36,6 @@ class PageBitmapCache(
         renderContext: RenderContext,
         backgroundPaint: Paint,
         textPaint: Paint,
-        ttsHighlightPaint: Paint,
         selectionPaint: Paint,
     ): Boolean {
         val shellDirty = page.shellRecorder.recordIfNeeded(w, h) {
@@ -69,9 +67,7 @@ class PageBitmapCache(
             pageRenderer.renderOverlay(
                 canvas = this,
                 page = page,
-                ttsActiveRange = renderContext.ttsActiveRange,
                 selectedRange = renderContext.selectedRange,
-                ttsHighlightPaint = ttsHighlightPaint,
                 selectionPaint = selectionPaint,
                 noteRanges = renderContext.noteRanges,
             )
@@ -88,11 +84,10 @@ class PageBitmapCache(
         renderContext: RenderContext,
         backgroundPaint: Paint,
         textPaint: Paint,
-        ttsHighlightPaint: Paint,
         selectionPaint: Paint,
     ) {
         if (width <= 0 || height <= 0) return
-        doRecordPage(page, width, height, content, renderContext, backgroundPaint, textPaint, ttsHighlightPaint, selectionPaint)
+        doRecordPage(page, width, height, content, renderContext, backgroundPaint, textPaint, selectionPaint)
     }
 
     /**
@@ -107,10 +102,9 @@ class PageBitmapCache(
         renderContext: RenderContext,
         backgroundPaint: Paint,
         textPaint: Paint,
-        ttsHighlightPaint: Paint,
         selectionPaint: Paint,
     ): Boolean {
-        return doRecordPage(page, w, h, content, renderContext, backgroundPaint, textPaint, ttsHighlightPaint, selectionPaint)
+        return doRecordPage(page, w, h, content, renderContext, backgroundPaint, textPaint, selectionPaint)
     }
 
     /** 提交后台预渲染任务：录制 current/next/prev 三页，完成后触发重绘。 */
@@ -124,7 +118,6 @@ class PageBitmapCache(
         renderContext: RenderContext,
         backgroundPaint: Paint,
         textPaint: Paint,
-        ttsHighlightPaint: Paint,
         selectionPaint: Paint,
         postInvalidate: () -> Unit,
     ) {
@@ -132,13 +125,13 @@ class PageBitmapCache(
         renderThread.execute {
             var dirty = false
             currentPage?.let {
-                if (recordPageOffMain(it, width, height, content, renderContext, backgroundPaint, textPaint, ttsHighlightPaint, selectionPaint)) dirty = true
+                if (recordPageOffMain(it, width, height, content, renderContext, backgroundPaint, textPaint, selectionPaint)) dirty = true
             }
             nextPage?.let {
-                if (recordPageOffMain(it, width, height, content, renderContext, backgroundPaint, textPaint, ttsHighlightPaint, selectionPaint)) dirty = true
+                if (recordPageOffMain(it, width, height, content, renderContext, backgroundPaint, textPaint, selectionPaint)) dirty = true
             }
             prevPage?.let {
-                if (recordPageOffMain(it, width, height, content, renderContext, backgroundPaint, textPaint, ttsHighlightPaint, selectionPaint)) dirty = true
+                if (recordPageOffMain(it, width, height, content, renderContext, backgroundPaint, textPaint, selectionPaint)) dirty = true
             }
             if (dirty) postInvalidate()
         }

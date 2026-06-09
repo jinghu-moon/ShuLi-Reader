@@ -37,10 +37,6 @@ data class SettingsUiState(
     val webdavUrl: String = "",
     val webdavUser: String = "",
     val webdavPassword: String = "",
-    val ttsSpeed: Float = 1.0f,
-    val ttsPitch: Float = 1.0f,
-    val ttsAutoPage: Boolean = false,
-    val ttsHighlightSentence: Boolean = false,
     val gpuAcceleration: Boolean = true,
     val loggingEnabled: Boolean = false,
     // 自动备份
@@ -85,10 +81,6 @@ class SettingsViewModel(
         userPreferences.webdavUrl,
         userPreferences.webdavUser,
         userPreferences.webdavPassword,
-        userPreferences.ttsSpeed,
-        userPreferences.ttsPitch,
-        userPreferences.ttsAutoPage,
-        userPreferences.ttsHighlightSentence,
         userPreferences.gpuAcceleration,
         userPreferences.loggingEnabled,
         userPreferences.autoBackupEnabled,
@@ -118,17 +110,13 @@ class SettingsViewModel(
             webdavUrl = arr[17] as String,
             webdavUser = arr[18] as String,
             webdavPassword = arr[19] as String,
-            ttsSpeed = arr[20] as Float,
-            ttsPitch = arr[21] as Float,
-            ttsAutoPage = arr[22] as Boolean,
-            ttsHighlightSentence = arr[23] as Boolean,
-            gpuAcceleration = arr[24] as Boolean,
-            loggingEnabled = arr[25] as Boolean,
-            autoBackupEnabled = arr[26] as Boolean,
-            backupOnAppStart = arr[27] as Boolean,
-            backupOnAppExit = arr[28] as Boolean,
-            backupIntervalHours = arr[29] as Int,
-            backupLocation = arr[30] as String,
+            gpuAcceleration = arr[20] as Boolean,
+            loggingEnabled = arr[21] as Boolean,
+            autoBackupEnabled = arr[22] as Boolean,
+            backupOnAppStart = arr[23] as Boolean,
+            backupOnAppExit = arr[24] as Boolean,
+            backupIntervalHours = arr[25] as Int,
+            backupLocation = arr[26] as String,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -180,11 +168,6 @@ class SettingsViewModel(
     fun updateWebdavUrl(value: String) = updateSetting({ userPreferences.setWebdavUrl(value) })
     fun updateWebdavUser(value: String) = updateSetting({ userPreferences.setWebdavUser(value) })
     fun updateWebdavPassword(value: String) = updateSetting({ userPreferences.setWebdavPassword(value) })
-
-    fun updateTtsSpeed(value: Float) = updateSetting({ userPreferences.setTtsSpeed(value) })
-    fun updateTtsPitch(value: Float) = updateSetting({ userPreferences.setTtsPitch(value) })
-    fun updateTtsAutoPage(value: Boolean) = updateSetting({ userPreferences.setTtsAutoPage(value) })
-    fun updateTtsHighlightSentence(value: Boolean) = updateSetting({ userPreferences.setTtsHighlightSentence(value) })
 
     fun updateGpuAcceleration(value: Boolean) = updateSetting({ userPreferences.setGpuAcceleration(value) })
     fun updateLoggingEnabled(value: Boolean) = updateSetting({ userPreferences.setLoggingEnabled(value) })

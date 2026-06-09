@@ -28,7 +28,7 @@ import com.shuli.reader.ui.theme.toReaderColorScheme
  * 阅读器 Canvas 视图
  *
  * 渲染架构：每页持有独立的 CanvasRecorder（RenderNode/Picture），
- * 选区/TTS 高亮变化仅 invalidate recorder 而非重绘 Bitmap。
+ * 选区高亮变化仅 invalidate recorder 而非重绘 Bitmap。
  *
  * SRP 拆分后职责：字段声明、生命周期、onDraw 编排。
  * 视觉参数委托给 [CanvasVisualParamsManager]，
@@ -78,12 +78,6 @@ class ReaderCanvasView @JvmOverloads constructor(
         isAntiAlias = true
     }
 
-    private val ttsHighlightPaint = Paint().apply {
-        color = defaultColors.progressColor.withAlpha(TTS_HIGHLIGHT_ALPHA)
-        style = Paint.Style.FILL
-        isAntiAlias = true
-    }
-
     private val crossfadePaint = Paint().apply {
         isAntiAlias = true
     }
@@ -120,7 +114,6 @@ class ReaderCanvasView @JvmOverloads constructor(
         backgroundPaint = backgroundPaint,
         progressPaint = progressPaint,
         selectionPaint = selectionPaint,
-        ttsHighlightPaint = ttsHighlightPaint,
         renderContext = renderContext,
         pageRenderer = pageRenderer,
         fontManager = fontManager,
@@ -207,7 +200,6 @@ class ReaderCanvasView @JvmOverloads constructor(
             renderContext = renderContext,
             backgroundPaint = backgroundPaint,
             textPaint = textPaint,
-            ttsHighlightPaint = ttsHighlightPaint,
             selectionPaint = selectionPaint,
             postInvalidate = { postInvalidate() },
         )
@@ -473,7 +465,6 @@ class ReaderCanvasView @JvmOverloads constructor(
     ) = visualParams.updatePaintSnapshot(textSize, letterSpacing, fakeBold, fontKey, textAlign, invalidateContent)
 
     internal fun clearSelection() = visualParams.clearSelection()
-    internal fun setTtsActiveRange(range: SelectionRange?) = visualParams.setTtsActiveRange(range)
     internal fun setNoteRanges(ranges: List<Pair<SelectionRange, String?>>) = visualParams.setNoteRanges(ranges)
 
     internal fun setTheme(
@@ -579,7 +570,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         if (current.canvasRecorder.needRecord() || current.shellRecorder.needRecord()) {
             pageBitmapCache.recordPage(
                 current, width, height, chapterContent, renderContext,
-                backgroundPaint, textPaint, ttsHighlightPaint, selectionPaint,
+                backgroundPaint, textPaint, selectionPaint,
             )
         }
 
@@ -596,7 +587,7 @@ class ReaderCanvasView @JvmOverloads constructor(
                 if (it.canvasRecorder.needRecord() || it.shellRecorder.needRecord()) {
                     pageBitmapCache.recordPage(
                         it, width, height, chapterContent, renderContext,
-                        backgroundPaint, textPaint, ttsHighlightPaint, selectionPaint,
+                        backgroundPaint, textPaint, selectionPaint,
                     )
                 }
                 it.recordComposite(width, height)
@@ -626,6 +617,5 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     private companion object {
         private const val SELECTION_ALPHA = 0x33
-        private const val TTS_HIGHLIGHT_ALPHA = 0x24
     }
 }

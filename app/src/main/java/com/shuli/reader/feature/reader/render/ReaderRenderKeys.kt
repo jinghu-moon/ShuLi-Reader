@@ -32,7 +32,6 @@ data class RenderKey(
  */
 data class OverlayKey(
     val selectedRange: SelectionRange?,
-    val ttsActiveRange: SelectionRange?,
     val noteRangesHash: Int,
 )
 
@@ -90,7 +89,6 @@ internal object RenderKeyFactory {
 internal object OverlayKeyFactory {
     fun from(overlay: OverlaySnapshot): OverlayKey = OverlayKey(
         selectedRange = overlay.selectedRange,
-        ttsActiveRange = overlay.ttsActiveRange,
         noteRangesHash = overlay.noteRanges.hashCode(),
     )
 }

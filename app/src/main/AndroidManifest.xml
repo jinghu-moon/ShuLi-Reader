@@ -34,11 +34,6 @@
                 <data android:scheme="file" />
             </intent-filter>
         </activity>
-
-        <service
-            android:name="com.shuli.reader.core.tts.TtsService"
-            android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
     </application>
 
 </manifest>

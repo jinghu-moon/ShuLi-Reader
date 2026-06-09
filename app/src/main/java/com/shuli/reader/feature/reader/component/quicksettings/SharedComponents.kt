@@ -103,12 +103,6 @@ data class QuickSettingsActions(
     val onHeaderFontSizeRatioChange: (Float) -> Unit = {},
     val onFooterFontSizeRatioChange: (Float) -> Unit = {},
     val onBottomJustifyChange: (Boolean) -> Unit = {},
-    val ttsState: com.shuli.reader.core.tts.TtsState = com.shuli.reader.core.tts.TtsState.IDLE,
-    val onTtsStart: () -> Unit = {},
-    val onTtsPause: () -> Unit = {},
-    val onTtsStop: () -> Unit = {},
-    val onTtsSpeedChange: (Float) -> Unit = {},
-    val onTtsPitchChange: (Float) -> Unit = {},
     val onImportFont: (android.net.Uri) -> Unit = {},
     val onDeleteFont: (String) -> Unit = {},
 )

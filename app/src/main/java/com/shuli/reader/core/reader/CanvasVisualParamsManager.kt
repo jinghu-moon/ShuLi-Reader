@@ -12,7 +12,7 @@ import com.shuli.reader.core.reader.model.SelectionRange
 /**
  * Canvas 视觉参数管理（从 ReaderCanvasView 拆出，SRP）
  *
- * 职责：页眉页脚、排版参数（字号/字距/字重/字体/对齐）、主题色、选区/TTS/笔记高亮。
+ * 职责：页眉页脚、排版参数（字号/字距/字重/字体/对齐）、主题色、选区/笔记高亮。
  * 通过 [onInvalidate] 回调通知 View 重绘。
  */
 internal class CanvasVisualParamsManager(
@@ -22,7 +22,6 @@ internal class CanvasVisualParamsManager(
     private val backgroundPaint: Paint,
     private val progressPaint: Paint,
     private val selectionPaint: Paint,
-    private val ttsHighlightPaint: Paint,
     private val renderContext: RenderContext,
     private val pageRenderer: ReaderPageRenderer,
     private val fontManager: FontManager,
@@ -197,18 +196,11 @@ internal class CanvasVisualParamsManager(
         }
     }
 
-    // ── 选区 / TTS / 笔记 ──────────────────────────────────
+    // ── 选区 / 笔记 ────────────────────────────────────────
 
     fun clearSelection() {
         if (renderContext.selectedRange == null) return
         renderContext.selectedRange = null
-        onPagesInvalidate()
-        onInvalidate()
-    }
-
-    fun setTtsActiveRange(range: SelectionRange?) {
-        if (renderContext.ttsActiveRange == range) return
-        renderContext.ttsActiveRange = range
         onPagesInvalidate()
         onInvalidate()
     }
@@ -256,7 +248,6 @@ internal class CanvasVisualParamsManager(
         footerPaint.color = footerColor
         progressPaint.color = progressColor
         selectionPaint.color = progressColor.withAlpha(SELECTION_ALPHA)
-        ttsHighlightPaint.color = progressColor.withAlpha(TTS_HIGHLIGHT_ALPHA)
         onSubmitRenderTask()
         onInvalidate()
     }
@@ -320,6 +311,5 @@ internal class CanvasVisualParamsManager(
 
     private companion object {
         private const val SELECTION_ALPHA = 0x33
-        private const val TTS_HIGHLIGHT_ALPHA = 0x24
     }
 }

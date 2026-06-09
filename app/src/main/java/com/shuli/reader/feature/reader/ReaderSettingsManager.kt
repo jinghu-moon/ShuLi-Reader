@@ -171,8 +171,6 @@ internal class ReaderSettingsManager(
             autoNightMode = p.autoNightMode,
             epubOverrideStyle = p.epubOverrideStyle,
             pageAnimType = p.pageAnimType.name,
-            ttsSpeed = p.ttsSpeed,
-            ttsPitch = p.ttsPitch,
         )
     }
 
@@ -528,18 +526,6 @@ internal class ReaderSettingsManager(
     fun setImmersiveMode(enabled: Boolean) {
         updatePrefs({ it.copy(immersiveMode = enabled) }, { it.setImmersiveMode(enabled) },
             bookOverride = { o -> o.copy(immersiveMode = enabled) })
-    }
-
-    // ── TTS ──────────────────────────────────────────────
-
-    fun setTtsSpeed(speed: Float) {
-        updatePrefs({ it.copy(ttsSpeed = speed) }, { it.setTtsSpeed(speed) },
-            bookOverride = { o -> o.copy(ttsSpeed = speed) })
-    }
-
-    fun setTtsPitch(pitch: Float) {
-        updatePrefs({ it.copy(ttsPitch = pitch) }, { it.setTtsPitch(pitch) },
-            bookOverride = { o -> o.copy(ttsPitch = pitch) })
     }
 
     // ── P1: 排版增强 ──────────────────────────────────────────────

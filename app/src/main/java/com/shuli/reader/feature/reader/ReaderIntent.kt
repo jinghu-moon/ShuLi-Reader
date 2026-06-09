@@ -12,7 +12,7 @@ import com.shuli.reader.core.reader.SlotContent
 import com.shuli.reader.core.reader.TitleAlign
 
 /**
- * 阅读器统一意图 —— UI、快捷键、TTS、自动翻页的唯一入口。
+ * 阅读器统一意图 —— UI、快捷键、自动翻页的唯一入口。
  *
  * 所有用户操作通过 [ReaderViewModel.dispatch] 发送，
  * ViewModel 使用穷举 `when` 处理，新增意图时编译器强制覆盖。
@@ -71,12 +71,6 @@ sealed interface ReaderIntent {
     data class RenamePreset(val id: Long, val name: String) : ReaderIntent
     data class DeletePreset(val presetId: Long) : ReaderIntent
 
-    // ── TTS ──
-
-    object StartTts : ReaderIntent
-    object PauseTts : ReaderIntent
-    object StopTts : ReaderIntent
-
     // ── 搜索 ──
 
     data class Search(val query: String) : ReaderIntent
@@ -122,7 +116,6 @@ enum class ReaderSettingKey {
     TITLE_ALIGN, TITLE_SIZE_OFFSET, TITLE_MARGIN_TOP, TITLE_MARGIN_BOTTOM,
     KEEP_SCREEN_ON, VOLUME_KEY_TURN_PAGE, EDGE_TURN_PAGE, EDGE_WIDTH_PERCENT,
     IMMERSIVE_MODE,
-    TTS_SPEED, TTS_PITCH,
     MAX_PAGE_WIDTH, REMOVE_EMPTY_LINES, CLEAN_CHAPTER_TITLE, PROGRESS_STYLE,
     AUTO_NIGHT_MODE, AUTO_PAGE_TURN, AUTO_PAGE_TURN_INTERVAL, EPUB_OVERRIDE_STYLE,
     LEFT_ZONE_RATIO,

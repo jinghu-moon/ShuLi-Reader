@@ -117,15 +117,6 @@ class ReaderRenderDiffCalculatorTest {
     }
 
     @Test
-    fun diff_ttsRangeChanged_returnsOverlay() {
-        val old = createDefaultSnapshot(overlay = createOverlaySnapshot(ttsRange = SelectionRange(0, 0, 10, "a")))
-        val new = createDefaultSnapshot(overlay = createOverlaySnapshot(ttsRange = SelectionRange(0, 20, 30, "b")))
-        val diff = ReaderRenderDiffCalculator.diff(old, new)
-        assertTrue(diff.scopes.contains(InvalidationScope.OVERLAY))
-        assertFalse(diff.scopes.contains(InvalidationScope.CONTENT))
-    }
-
-    @Test
     fun diff_selectionChanged_returnsOverlay() {
         val old = createDefaultSnapshot(overlay = createOverlaySnapshot(selection = null))
         val new = createDefaultSnapshot(overlay = createOverlaySnapshot(selection = SelectionRange(0, 5, 15, "x")))

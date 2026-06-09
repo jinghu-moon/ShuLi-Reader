@@ -64,7 +64,6 @@ data class ShellSnapshot(
 
 data class OverlaySnapshot(
     val selectedRange: SelectionRange?,
-    val ttsActiveRange: SelectionRange?,
     val noteRanges: List<Pair<SelectionRange, String?>>,
     val overlayKey: OverlayKey,
 )

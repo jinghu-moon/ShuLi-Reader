@@ -31,9 +31,6 @@ import com.shuli.reader.core.repository.BookQueryRepository
 import com.shuli.reader.core.repository.ReadingProgressRepository
 import com.shuli.reader.core.repository.SearchIndexRepository
 import com.shuli.reader.core.repository.SearchResult
-import com.shuli.reader.core.tts.TtsConfig
-import com.shuli.reader.core.tts.TtsController
-import com.shuli.reader.core.tts.TtsEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Deferred
@@ -66,7 +63,6 @@ import kotlin.time.Duration.Companion.milliseconds
  * - [navigationCoordinator] 翻页、工具栏、目录
  * - [readerSettingsManager] 偏好读写
  * - [bookmarkNotesManager] 书签/笔记 CRUD
- * - [ttsPlaybackManager] TTS 朗读
  * - [readerSearchManager] 正文搜索
  * - [readerPresetManager] 预设管理
  * - [readerProgressResolver] 进度/页眉页脚解析
@@ -88,7 +84,6 @@ class ReaderViewModel(
     private val readingProgressDao: com.shuli.reader.core.database.dao.ReadingProgressDao? = null,
     private val chapterReadingStatsDao: com.shuli.reader.core.database.dao.ChapterReadingStatsDao? = null,
     private val paginator: Paginator = Paginator(SimpleTextMeasurer()),
-    ttsEngine: TtsEngine? = null,
     private val fontManager: com.shuli.reader.core.font.FontManager? = null,
     private val stringResolver: () -> com.shuli.reader.core.i18n.AppStrings = { com.shuli.reader.core.i18n.AppStrings.ZhHans },
     private val appContext: android.content.Context? = null,
@@ -143,14 +138,12 @@ class ReaderViewModel(
         )
 
     /**
-     * 覆盖层状态（高频变化：选区/TTS/睡眠计时）。
+     * 覆盖层状态（高频变化：选区/睡眠计时）。
      */
     val overlayState: StateFlow<ReaderOverlayState> = _uiState
         .map {
             ReaderOverlayState(
                 selectedRange = it.selectedRange,
-                ttsState = it.ttsState,
-                ttsActiveRange = it.ttsActiveRange,
                 sleepTimerRemainingSeconds = it.sleepTimerRemainingSeconds,
             )
         }
@@ -257,27 +250,6 @@ class ReaderViewModel(
     private var isCurrentBookEpub: Boolean = false
     private var currentChapterUtf16Map: IntArray = IntArray(0)
     private var cachedChapterText: String? = null
-    private var onTtsUtteranceCompleted: () -> Unit = {}
-    private val ttsController = ttsEngine?.let { engine ->
-        TtsController(
-            engine = engine,
-            onUtteranceCompleted = { onTtsUtteranceCompleted() },
-        )
-    }
-
-    /** TTS 朗读管理器 */
-    internal val ttsPlaybackManager: TtsPlaybackManager by lazy {
-        TtsPlaybackManager(
-            ttsController = ttsController,
-            uiState = _uiState,
-            scope = viewModelScope,
-            appContextProvider = { appContext },
-            loadedBookContentProvider = { loadedBookContent },
-            nextPage = { nextPage() },
-            openChapter = { openChapter(it) },
-            normalizedChapters = { normalizedChapters() },
-        ).also { onTtsUtteranceCompleted = { it.handleTtsUtteranceCompleted() } }
-    }
 
     /** 导航协调器 */
     internal val navigationCoordinator: ReaderNavigationCoordinator by lazy {
@@ -353,7 +325,7 @@ class ReaderViewModel(
             preloadAdjacentChapters = { content, index -> preloadAdjacentChapters(content, index) },
             loadBookmarks = { bookmarkNotesManager.loadBookmarks() },
             loadNotes = { bookmarkNotesManager.loadNotes() },
-            onChapterLoaded = { ttsPlaybackManager.onChapterLoaded() },
+            onChapterLoaded = { },
             logPerf = { label, startMs -> logPerf(label, startMs) },
             byteToCharOffset = { byteToCharOffset(it) },
             charToByteOffset = { charToByteOffset(it) },
@@ -444,7 +416,7 @@ class ReaderViewModel(
     }
 
     /**
-     * 统一意图入口 —— 所有 UI / 快捷键 / TTS / 自动翻页操作通过此方法分发。
+     * 统一意图入口 —— 所有 UI / 快捷键 / 自动翻页操作通过此方法分发。
      *
      * 编译器强制穷举：新增 [ReaderIntent] 子类时必须在此处添加处理分支。
      */
@@ -497,11 +469,6 @@ class ReaderViewModel(
             is ReaderIntent.SavePreset -> readerPresetManager.saveCurrentAsPreset(intent.name)
             is ReaderIntent.RenamePreset -> readerPresetManager.renamePreset(intent.id, intent.name)
             is ReaderIntent.DeletePreset -> readerPresetManager.deletePreset(intent.presetId)
-
-            // ── TTS ──
-            is ReaderIntent.StartTts -> ttsPlaybackManager.startTts()
-            is ReaderIntent.PauseTts -> ttsPlaybackManager.pauseTts()
-            is ReaderIntent.StopTts -> ttsPlaybackManager.stopTts()
 
             // ── 搜索 ──
             is ReaderIntent.Search -> readerSearchManager.searchInCurrentBook(intent.query)
@@ -573,8 +540,6 @@ class ReaderViewModel(
             ReaderSettingKey.EDGE_TURN_PAGE -> s.setEdgeTurnPage((value as ReaderSettingValue.Bool).value)
             ReaderSettingKey.EDGE_WIDTH_PERCENT -> s.setEdgeWidthPercent((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.IMMERSIVE_MODE -> s.setImmersiveMode((value as ReaderSettingValue.Bool).value)
-            ReaderSettingKey.TTS_SPEED -> s.setTtsSpeed((value as ReaderSettingValue.Float).value)
-            ReaderSettingKey.TTS_PITCH -> s.setTtsPitch((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.MAX_PAGE_WIDTH -> s.setMaxPageWidth((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.REMOVE_EMPTY_LINES -> s.setRemoveEmptyLines((value as ReaderSettingValue.Bool).value)
             ReaderSettingKey.CLEAN_CHAPTER_TITLE -> s.setCleanChapterTitle((value as ReaderSettingValue.Bool).value)
@@ -643,7 +608,6 @@ class ReaderViewModel(
         bookSessionManager.releaseResources()
         chapterProvider.cancel()
         navigationCoordinator.release()
-        ttsPlaybackManager.release()
     }
 
     /**
@@ -817,25 +781,6 @@ class ReaderViewModel(
             tagRepository?.addTagToBook(bookId, tagName)
         }
     }
-
-    fun removeTag(tagId: Long) {
-        val bookId = _uiState.value.bookId
-        viewModelScope.launch {
-            tagRepository?.removeTagFromBook(bookId, tagId)
-        }
-    }
-
-    fun searchTagSuggestions(prefix: String) {
-        viewModelScope.launch {
-            _tagSuggestions.value = tagRepository?.searchTagsByPrefix(prefix) ?: emptyList()
-        }
-    }
-
-    override fun onCleared() {
-        releaseReaderResources()
-        super.onCleared()
-    }
-}
 
     fun removeTag(tagId: Long) {
         val bookId = _uiState.value.bookId

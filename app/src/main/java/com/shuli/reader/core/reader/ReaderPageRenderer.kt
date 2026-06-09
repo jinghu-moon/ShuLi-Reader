@@ -73,9 +73,7 @@ class ReaderPageRenderer(
         footerText: String,
         showProgress: Boolean,
         batteryLevel: Int = 100,
-        ttsActiveRange: SelectionRange? = null,
         selectedRange: SelectionRange? = null,
-        ttsHighlightPaint: Paint? = null,
         selectionPaint: Paint? = null,
         backgroundPaint: Paint? = null,
     ) {
@@ -88,9 +86,7 @@ class ReaderPageRenderer(
             headerAlpha = 0.4f,
             footerAlpha = 0.4f,
             batteryLevel = batteryLevel,
-            ttsActiveRange = ttsActiveRange,
             selectedRange = selectedRange,
-            ttsHighlightPaint = ttsHighlightPaint,
             selectionPaint = selectionPaint,
             backgroundPaint = backgroundPaint,
         )
@@ -162,19 +158,11 @@ class ReaderPageRenderer(
      *
      * 排版参数变化时需要重录。
      *
-     * ⚠️ 旧版参数 ttsActiveRange / selectedRange / noteRanges 已废弃（§23.7），
-     *    覆盖层绘制已迁至 [renderOverlay]。这些参数保留仅为编译期兼容，不再绘制。
-     *
      * @param ctx 页面渲染上下文，提供 content + page + paint + metrics
      */
     fun renderContent(
         canvas: Canvas,
         ctx: PageRenderContext,
-        @Suppress("UNUSED_PARAMETER") ttsActiveRange: SelectionRange? = null,
-        @Suppress("UNUSED_PARAMETER") selectedRange: SelectionRange? = null,
-        @Suppress("UNUSED_PARAMETER") ttsHighlightPaint: Paint? = null,
-        @Suppress("UNUSED_PARAMETER") selectionPaint: Paint? = null,
-        @Suppress("UNUSED_PARAMETER") noteRanges: List<Pair<SelectionRange, Paint>> = emptyList(),
     ) {
         val page = ctx.page
         val density = page.density
@@ -189,17 +177,15 @@ class ReaderPageRenderer(
     }
 
     /**
-     * 渲染覆盖层：笔记高亮、TTS 高亮、选区高亮。
+     * 渲染覆盖层：笔记高亮、选区高亮。
      *
      * 独立录制在 [com.shuli.reader.core.reader.model.TextPage.overlayRecorder] 中，
-     * TTS/选区变化时仅 overlay 失效，正文不重录（§10 分层 recorder）。
+     * 选区变化时仅 overlay 失效，正文不重录（§10 分层 recorder）。
      */
     fun renderOverlay(
         canvas: Canvas,
         page: TextPage,
-        ttsActiveRange: SelectionRange? = null,
         selectedRange: SelectionRange? = null,
-        ttsHighlightPaint: Paint? = null,
         selectionPaint: Paint? = null,
         noteRanges: List<Pair<SelectionRange, Paint>> = emptyList(),
     ) {
@@ -219,7 +205,7 @@ class ReaderPageRenderer(
             }
         }
 
-        // 2. TTS/选区高亮背景
+        // 2. 选区高亮背景
         page.lines.forEach { line ->
             val startX = page.marginHorizontal + line.startXOffset
             val textWidth = line.measuredWidth
@@ -227,9 +213,6 @@ class ReaderPageRenderer(
             val bottom = line.bottom
             val rect = RectF(startX - 6f, top, startX + textWidth + 6f, bottom)
 
-            if (intersects(ttsActiveRange, line.startCharOffset, line.endCharOffset) && ttsHighlightPaint != null) {
-                canvas.drawRoundRect(rect, 6f, 6f, ttsHighlightPaint)
-            }
             if (intersects(selectedRange, line.startCharOffset, line.endCharOffset) && selectionPaint != null) {
                 canvas.drawRoundRect(rect, 6f, 6f, selectionPaint)
             }
@@ -248,14 +231,12 @@ class ReaderPageRenderer(
         headerAlpha: Float = 0.4f,
         footerAlpha: Float = 0.4f,
         batteryLevel: Int = 100,
-        ttsActiveRange: SelectionRange? = null,
         selectedRange: SelectionRange? = null,
-        ttsHighlightPaint: Paint? = null,
         selectionPaint: Paint? = null,
         backgroundPaint: Paint? = null,
     ) {
         renderShell(canvas, ctx.page, headerSlots, footerSlots, showProgress, headerAlpha, footerAlpha, batteryLevel, backgroundPaint)
-        renderContent(canvas, ctx, ttsActiveRange, selectedRange, ttsHighlightPaint, selectionPaint)
+        renderContent(canvas, ctx)
     }
 
     /**
@@ -343,7 +324,7 @@ class ReaderPageRenderer(
 
     /**
      * 使用 per-line CanvasRecorder 绘制单行文本
-     * 选区/TTS 高亮变化时仅重画受影响的行，而非整页
+     * 选区高亮变化时仅重画受影响的行，而非整页
      */
     private fun drawLineWithRecorder(canvas: Canvas, line: TextLine, ctx: PageRenderContext) {
         val recorder = line.canvasRecorder

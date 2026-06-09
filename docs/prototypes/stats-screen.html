@@ -418,19 +418,19 @@
     outline: 2px solid var(--accent);
     outline-offset: 1px;
   }
-  /* 复用热力图色阶 */
-  .hourly-cell.l0 { background: var(--surface-var); }
-  .hourly-cell.l1 { background: #E8DCC8; }
-  .hourly-cell.l2 { background: #D4BC94; }
-  .hourly-cell.l3 { background: #B89568; }
-  .hourly-cell.l4 { background: #9C6E42; }
-  .hourly-cell.l5 { background: var(--accent); }
-  :root[data-theme="dark"] .hourly-cell.l0 { background: var(--surface-var); }
-  :root[data-theme="dark"] .hourly-cell.l1 { background: #332819; }
-  :root[data-theme="dark"] .hourly-cell.l2 { background: #4E3A22; }
-  :root[data-theme="dark"] .hourly-cell.l3 { background: #70532E; }
-  :root[data-theme="dark"] .hourly-cell.l4 { background: #946D3B; }
-  :root[data-theme="dark"] .hourly-cell.l5 { background: var(--accent); }
+  /* Nord Frost 色阶 — 24h 热力条 */
+  .hourly-cell.l0 { background: #ECEFF4; }
+  .hourly-cell.l1 { background: #D8DEE9; }
+  .hourly-cell.l2 { background: #88C0D0; }
+  .hourly-cell.l3 { background: #81A1C1; }
+  .hourly-cell.l4 { background: #5E81AC; }
+  .hourly-cell.l5 { background: #4C7FBF; }
+  :root[data-theme="dark"] .hourly-cell.l0 { background: #3B4252; }
+  :root[data-theme="dark"] .hourly-cell.l1 { background: #434C5E; }
+  :root[data-theme="dark"] .hourly-cell.l2 { background: #5E81AC; }
+  :root[data-theme="dark"] .hourly-cell.l3 { background: #81A1C1; }
+  :root[data-theme="dark"] .hourly-cell.l4 { background: #88C0D0; }
+  :root[data-theme="dark"] .hourly-cell.l5 { background: #8FBCBB; }
 
   .hourly-labels {
     display: grid;
@@ -581,20 +581,20 @@
   .heatmap-cell.future { opacity: 0.3; pointer-events: none; }
   .heatmap-cell.empty-date { background: transparent; pointer-events: none; }
 
-  /* 热力图色阶（亮色） */
-  .heatmap-cell.l0 { background: var(--surface-var); }
-  .heatmap-cell.l1 { background: #E8DCC8; }
-  .heatmap-cell.l2 { background: #D4BC94; }
-  .heatmap-cell.l3 { background: #B89568; }
-  .heatmap-cell.l4 { background: #9C6E42; }
-  .heatmap-cell.l5 { background: var(--accent); }
-  /* 热力图色阶（暗色） */
-  :root[data-theme="dark"] .heatmap-cell.l0 { background: var(--surface-var); }
-  :root[data-theme="dark"] .heatmap-cell.l1 { background: #332819; }
-  :root[data-theme="dark"] .heatmap-cell.l2 { background: #4E3A22; }
-  :root[data-theme="dark"] .heatmap-cell.l3 { background: #70532E; }
-  :root[data-theme="dark"] .heatmap-cell.l4 { background: #946D3B; }
-  :root[data-theme="dark"] .heatmap-cell.l5 { background: var(--accent); }
+  /* Nord Frost 色阶 — 热力图（亮色） */
+  .heatmap-cell.l0 { background: #ECEFF4; }
+  .heatmap-cell.l1 { background: #D8DEE9; }
+  .heatmap-cell.l2 { background: #88C0D0; }
+  .heatmap-cell.l3 { background: #81A1C1; }
+  .heatmap-cell.l4 { background: #5E81AC; }
+  .heatmap-cell.l5 { background: #4C7FBF; }
+  /* Nord Frost 色阶 — 热力图（暗色） */
+  :root[data-theme="dark"] .heatmap-cell.l0 { background: #3B4252; }
+  :root[data-theme="dark"] .heatmap-cell.l1 { background: #434C5E; }
+  :root[data-theme="dark"] .heatmap-cell.l2 { background: #5E81AC; }
+  :root[data-theme="dark"] .heatmap-cell.l3 { background: #81A1C1; }
+  :root[data-theme="dark"] .heatmap-cell.l4 { background: #88C0D0; }
+  :root[data-theme="dark"] .heatmap-cell.l5 { background: #8FBCBB; }
 
   .heatmap-scale {
     display: flex;
@@ -972,6 +972,64 @@
 
   .foot { padding: 20px 16px 28px; text-align: center; font-size: 10px; color: var(--on-surface-faint); }
 
+  /* ===== 当前连读天数（日/周 Hero） ===== */
+  .hero-streak {
+    margin-top: 10px;
+    background: var(--accent-soft);
+    border-radius: var(--radius-md);
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hero-streak-icon {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--on-primary);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .hero-streak-text { display: flex; flex-direction: column; gap: 1px; }
+  .hero-streak-num { font-size: 14px; font-weight: 600; color: var(--on-surface); font-variant-numeric: tabular-nums; }
+  .hero-streak-sub { font-size: 10px; color: var(--on-surface-var); }
+
+  /* ===== 每日还需 X 分钟 ===== */
+  .hero-daily-needed {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ===== 空状态 ===== */
+  .empty-state {
+    padding: 40px 20px;
+    text-align: center;
+    display: none;
+  }
+  .empty-state.visible { display: block; }
+  .empty-state-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.4; }
+  .empty-state-text { font-size: 13px; color: var(--on-surface-var); line-height: 1.6; }
+
+  /* ===== 月视图热力图汇总行 ===== */
+  .month-heatmap-summary {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 0.5px solid var(--outline-var);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+  }
+
+  /* ===== 阅读速度趋势箭头 ===== */
+  .speed-trend { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; font-size: 11px; }
+  .speed-trend.up { color: var(--success); }
+  .speed-trend.down { color: var(--error); }
+  .speed-trend.flat { color: var(--on-surface-faint); }
+
   /* ===== Tooltip（浮动） ===== */
   .tip {
     position: fixed;
@@ -1049,7 +1107,7 @@
         </div>
       </div>
       <div class="hero-grid" id="heroGrid">
-        <div class="hero-stat primary"><div class="hero-stat-value">1184万</div><div class="hero-stat-label">字数</div></div>
+        <div class="hero-stat primary"><div class="hero-stat-value">≈1184万</div><div class="hero-stat-label">字数</div></div>
         <div class="hero-stat secondary"><div class="hero-stat-value">3842</div><div class="hero-stat-label">章节</div></div>
         <div class="hero-stat secondary"><div class="hero-stat-value">405</div><div class="hero-stat-label">字/分</div></div>
         <div class="hero-stat primary"><div class="hero-stat-value">218<span style="font-size:10px;color:var(--on-surface-faint)">/366</span></div><div class="hero-stat-label">活跃天</div></div>
@@ -1066,8 +1124,17 @@
         <div class="goal-info">
           <div class="goal-title" id="goalTitle">2024 年度目标 · 500 小时</div>
           <div class="goal-sub" id="goalSub">已读 382h · 剩余 118h · 还有 149 天</div>
+          <div class="hero-daily-needed" id="heroDailyNeeded"></div>
         </div>
         <div class="goal-edit">调整</div>
+      </div>
+      <!-- 当前连读（日/周视图） -->
+      <div class="hero-streak" id="heroStreak" style="display:none">
+        <div class="hero-streak-icon">🔥</div>
+        <div class="hero-streak-text">
+          <div class="hero-streak-num" id="heroStreakNum">已连续 12 天</div>
+          <div class="hero-streak-sub" id="heroStreakSub">最长连读 42 天</div>
+        </div>
       </div>
     </div>
 
@@ -1109,6 +1176,7 @@
           <div class="card-sub" id="heatmapMonthSub">21/31 天活跃</div>
         </div>
         <div class="heatmap-wrap" id="monthHeatmap"></div>
+        <div class="month-heatmap-summary" id="monthHeatmapSummary"></div>
       </div>
     </div>
 
@@ -1267,7 +1335,7 @@ const YEAR_DATA = generateYearData();
 const MONTH_DATA = YEAR_DATA.filter(d => d.date.getMonth() === 7);
 
 // 维度分布数据（4 个维度：作者 / 分组 / 格式 / 字数）
-const DIST_COLORS = ['#8B5E3C', '#5E5346', '#B89568', '#D4CCC0', '#9C9082', '#7D7162'];
+const DIST_COLORS = ['#5E81AC', '#434C5E', '#88C0D0', '#D8DEE9', '#81A1C1', '#4C7FBF'];
 const DIM_DATA = {
   author: {
     sub: '按作者 · 阅读时长',
@@ -1317,11 +1385,11 @@ const DIM_DATA = {
 
 // Top N 榜单数据（5 本书，每本书含 4 种排序指标）
 const TOPN_BOOKS = [
-  { title: '诡秘之主', author: '爱潜水的乌贼', duration: 182, bookmarks: 47, notes: 23, speed: 421, words: '214万' },
-  { title: '雪中悍刀行', author: '烽火戏诸侯', duration: 92, bookmarks: 31, notes: 15, speed: 398, words: '108万' },
-  { title: '大奉打更人', author: '卖报小郎君', duration: 68, bookmarks: 22, notes: 11, speed: 412, words: '82万' },
-  { title: '全职高手', author: '蝴蝶蓝', duration: 24, bookmarks: 8, notes: 4, speed: 387, words: '53万' },
-  { title: '夜的命名术', author: '会说话的肘子', duration: 16, bookmarks: 12, notes: 7, speed: 445, words: '41万' },
+  { title: '诡秘之主', author: '爱潜水的乌贼', duration: 182, bookmarks: 47, notes: 23, speed: 421, words: '≈214万' },
+  { title: '雪中悍刀行', author: '烽火戏诸侯', duration: 92, bookmarks: 31, notes: 15, speed: 398, words: '≈108万' },
+  { title: '大奉打更人', author: '卖报小郎君', duration: 68, bookmarks: 22, notes: 11, speed: 412, words: '≈82万' },
+  { title: '全职高手', author: '蝴蝶蓝', duration: 24, bookmarks: 8, notes: 4, speed: 387, words: '≈53万' },
+  { title: '夜的命名术', author: '会说话的肘子', duration: 16, bookmarks: 12, notes: 7, speed: 445, words: '≈41万' },
 ];
 const TOPN_META = {
   duration: { sub: 'Top 5 · 按阅读时长', format: v => `${v}h`, label: '时长' },
@@ -1332,43 +1400,43 @@ const TOPN_META = {
 
 // 阅读状态分布
 const STATUS_DATA = [
-  { label: '在读', count: 8, total: 14, color: '#8B5E3C' },
+  { label: '在读', count: 8, total: 14, color: '#5E81AC' },
   { label: '已读完', count: 4, total: 14, color: '#2D7A52' },
   { label: '暂停', count: 1, total: 14, color: '#9A6500' },
-  { label: '未读', count: 1, total: 14, color: '#9C9082' },
+  { label: '未读', count: 1, total: 14, color: '#81A1C1' },
 ];
 
 const TIMELINE_DAY = [
   { date: '22:15', weekday: '夜晚', today: false, summary: '23分 · 3章',
-    sessions: [{ book: 'gmsz', title: '诡秘之主', chapters: '第736-738章', duration: '23m', words: '9,430', marks: '', color: '' }]},
+    sessions: [{ book: 'gmsz', title: '诡秘之主', chapters: '第736-738章', duration: '23m', words: '≈9,430', marks: '', color: '' }]},
   { date: '20:05', weekday: '晚间', today: false, summary: '1小时25分 · 6章',
-    sessions: [{ book: 'gmsz', title: '诡秘之主', chapters: '第730-735章', duration: '1h25m', words: '34,850', marks: '🔖2 ✎1', color: '' }]},
+    sessions: [{ book: 'gmsz', title: '诡秘之主', chapters: '第730-735章', duration: '1h25m', words: '≈34,850', marks: '🔖2 ✎1', color: '' }]},
   { date: '18:30', weekday: '傍晚', today: false, summary: '42分 · 3章',
-    sessions: [{ book: 'dfdg', title: '大奉打更人', chapters: '第890-892章', duration: '42m', words: '17,220', marks: '🔖1', color: 'v2' }]},
+    sessions: [{ book: 'dfdg', title: '大奉打更人', chapters: '第890-892章', duration: '42m', words: '≈17,220', marks: '🔖1', color: 'v2' }]},
   { date: '12:15', weekday: '午间', today: false, summary: '15分 · 1章',
-    sessions: [{ book: 'ydmm', title: '夜的命名术', chapters: '第1204章', duration: '15m', words: '6,150', marks: '', color: 'v3' }]},
+    sessions: [{ book: 'ydmm', title: '夜的命名术', chapters: '第1204章', duration: '15m', words: '≈6,150', marks: '', color: 'v3' }]},
   { date: '08:45', weekday: '清晨', today: false, summary: '22分 · 1章',
-    sessions: [{ book: 'gmsz', title: '诡秘之主', chapters: '第729章', duration: '22m', words: '8,900', marks: '', color: '' }]},
+    sessions: [{ book: 'gmsz', title: '诡秘之主', chapters: '第729章', duration: '22m', words: '≈8,900', marks: '', color: '' }]},
 ];
 
 const TIMELINE_WEEK = [
   { date: '08-04', weekday: '日', today: true, summary: '1h47m · 14章',
     sessions: [
-      { book: 'gmsz', title: '诡秘之主', chapters: '第732-738章', duration: '1h02m', words: '24,312', marks: '🔖2 ✎1', color: '' },
-      { book: 'dfdg', title: '大奉打更人', chapters: '第891-892章', duration: '28m', words: '9,841', marks: '', color: 'v2' },
+      { book: 'gmsz', title: '诡秘之主', chapters: '第732-738章', duration: '1h02m', words: '≈24,312', marks: '🔖2 ✎1', color: '' },
+      { book: 'dfdg', title: '大奉打更人', chapters: '第891-892章', duration: '28m', words: '≈9,841', marks: '', color: 'v2' },
     ]},
   { date: '08-03', weekday: '六', summary: '2h37m · 21章',
     sessions: [
-      { book: 'gmsz', title: '诡秘之主', chapters: '第720-731章', duration: '1h48m', words: '42,110', marks: '🔖3', color: '' },
+      { book: 'gmsz', title: '诡秘之主', chapters: '第720-731章', duration: '1h48m', words: '≈42,110', marks: '🔖3', color: '' },
     ]},
   { date: '08-02', weekday: '五', summary: '2h15m · 18章',
     sessions: [
-      { book: 'dfdg', title: '大奉打更人', chapters: '第873-890章', duration: '1h35m', words: '32,410', marks: '', color: 'v2' },
+      { book: 'dfdg', title: '大奉打更人', chapters: '第873-890章', duration: '1h35m', words: '≈32,410', marks: '', color: 'v2' },
     ]},
   { date: '08-01', weekday: '四', empty: true, summary: '未阅读' },
   { date: '07-31', weekday: '三', summary: '1h23m · 11章',
     sessions: [
-      { book: 'ydmm', title: '夜的命名术', chapters: '第862-872章', duration: '1h23m', words: '28,340', marks: '✎2', color: 'v3' },
+      { book: 'ydmm', title: '夜的命名术', chapters: '第862-872章', duration: '1h23m', words: '≈28,340', marks: '✎2', color: 'v3' },
     ]},
 ];
 
@@ -1405,6 +1473,9 @@ function renderHeatmap(container, data, isMonth) {
   const c = document.getElementById(container);
   c.innerHTML = '';
 
+  // 计算最大分钟数（用于 sqrt 变换）
+  const maxMin = Math.max(...data.filter(d => !d.future).map(d => d.min), 1);
+
   if (isMonth) {
     // 月视图：7 列（每周一列）× N 行
     const firstDay = data[0].date;
@@ -1439,7 +1510,7 @@ function renderHeatmap(container, data, isMonth) {
 
     // 日期
     data.forEach((d, idx) => {
-      const cell = createHeatCell(d);
+      const cell = createHeatCell(d, maxMin);
       grid.appendChild(cell);
     });
 
@@ -1500,7 +1571,7 @@ function renderHeatmap(container, data, isMonth) {
 
     // 渲染全年数据
     data.forEach(d => {
-      const cell = createHeatCell(d);
+      const cell = createHeatCell(d, maxMin);
       grid.appendChild(cell);
     });
 
@@ -1519,17 +1590,19 @@ function renderHeatmap(container, data, isMonth) {
   }
 }
 
-function createHeatCell(d) {
+function createHeatCell(d, maxMin) {
   const cell = document.createElement('div');
   const today = new Date(2024, 7, 4);
   const isToday = d.date.toDateString() === today.toDateString();
   const min = d.min;
   let lvl = 'l0';
-  if (!d.future && min > 0) {
-    if (min < 30) lvl = 'l1';
-    else if (min < 60) lvl = 'l2';
-    else if (min < 120) lvl = 'l3';
-    else if (min < 180) lvl = 'l4';
+  if (!d.future && min > 0 && maxMin > 0) {
+    // sqrt 变换：压缩高值、放大低值区分度
+    const ratio = Math.sqrt(min / maxMin);
+    if (ratio < 0.17) lvl = 'l1';
+    else if (ratio < 0.33) lvl = 'l2';
+    else if (ratio < 0.50) lvl = 'l3';
+    else if (ratio < 0.67) lvl = 'l4';
     else lvl = 'l5';
   }
   cell.className = `heatmap-cell ${lvl}${isToday ? ' today' : ''}${d.future ? ' future' : ''}`;
@@ -1558,7 +1631,7 @@ function showTip(e, d) {
   const hours = Math.floor(d.min / 60);
   const mins = d.min % 60;
   document.getElementById('tipDuration').textContent = d.min === 0 ? '未阅读' : `${hours}h${mins}m`;
-  document.getElementById('tipWords').textContent = d.min === 0 ? '—' : `${(d.min * 410).toLocaleString()} 字`;
+  document.getElementById('tipWords').textContent = d.min === 0 ? '—' : `≈${(d.min * 410).toLocaleString()} 字`;
 
   // 定位
   const rect = e.currentTarget.getBoundingClientRect();
@@ -1770,9 +1843,9 @@ function renderHourlyChart() {
 
   // 三行定义（小时索引顺序）
   const rows = [
-    { label: '上午', sub: '06-13', hours: [6, 7, 8, 9, 10, 11, 12, 13] },
-    { label: '下午', sub: '14-21', hours: [14, 15, 16, 17, 18, 19, 20, 21] },
-    { label: '深夜', sub: '22-05', hours: [22, 23, 0, 1, 2, 3, 4, 5] },
+    { label: '上午', sub: '06-13h', hours: [6, 7, 8, 9, 10, 11, 12, 13] },
+    { label: '下午', sub: '14-21h', hours: [14, 15, 16, 17, 18, 19, 20, 21] },
+    { label: '深夜', sub: '22-05h', hours: [22, 23, 0, 1, 2, 3, 4, 5] },
   ];
 
   const wrap = document.createElement('div');
@@ -1844,7 +1917,7 @@ function renderHourlyChart() {
     <div class="hourly-peak-icon">★</div>
     <div class="hourly-peak-text">
       <div class="hourly-peak-title">阅读高峰 · ${String(peakHour).padStart(2,'0')}:00 - ${String(peakHour+1).padStart(2,'0')}:00</div>
-      <div class="hourly-peak-sub">${max} 分钟 · 约 ${(max * 410).toLocaleString()} 字 · 占今日 ${Math.round(max/total*100)}%</div>
+      <div class="hourly-peak-sub">${max} 分钟 · ≈${(max * 410).toLocaleString()} 字 · 占今日 ${Math.round(max/total*100)}%</div>
     </div>
   `;
   wrap.appendChild(callout);
@@ -1868,7 +1941,7 @@ function showHourTip(e, hour, min) {
   const tip = document.getElementById('tip');
   document.getElementById('tipDate').textContent = `${String(hour).padStart(2,'0')}:00 - ${String(hour+1).padStart(2,'0')}:00`;
   document.getElementById('tipDuration').textContent = min === 0 ? '未阅读' : `${min} 分钟`;
-  document.getElementById('tipWords').textContent = min === 0 ? '—' : `${(min * 410).toLocaleString()} 字`;
+  document.getElementById('tipWords').textContent = min === 0 ? '—' : `≈${(min * 410).toLocaleString()} 字`;
 
   const rect = e.currentTarget.getBoundingClientRect();
   const tipW = 140;
@@ -1924,10 +1997,10 @@ function renderTimeline(data) {
    粒度切换
 ============================================================ */
 const GRAN_CONFIG = {
-  day:   { idx: 0, dateText: '2024-08-04',                 todayTag: '今天', heroLabel: '今天累计',  heroSub: 'vs 昨日', heroMain: '1小时47分', delta: '↑ 23分钟', deltaCtx: '日环比', goalTitle: '今日目标 · 2小时',      goalSub: '已读 1h47m · 剩余 13m',         goalPct: 89,  grid: [['42,381','字数','p'],['14','章节','s'],['397','字/分','s'],['4','时段','p']] },
-  week:  { idx: 1, dateText: '2024-07-29 ~ 2024-08-04',    todayTag: '本周', heroLabel: '本周累计',  heroSub: 'vs 上周', heroMain: '11小时23分', delta: '↑ 1h05m', deltaCtx: '周环比', goalTitle: '本周目标 · 15小时',    goalSub: '已读 11h23m · 剩余 3h37m',      goalPct: 76,  grid: [['19.8万','字数','p'],['67','章节','s'],['412','字/分','s'],['6/7','活跃天','p']] },
-  month: { idx: 2, dateText: '2024 年 8 月',                todayTag: '本月', heroLabel: '8月累计',   heroSub: 'vs 7月',  heroMain: '42小时17分', delta: '↑ 3h12m', deltaCtx: '月环比', goalTitle: '8月目标 · 50小时',     goalSub: '已读 42h17m · 剩余 7h43m',      goalPct: 84,  grid: [['124.6万','字数','p'],['412','章节','s'],['408','字/分','s'],['21/31','活跃天','p']] },
-  year:  { idx: 3, dateText: '2024 年',                     todayTag: '今年', heroLabel: '今年累计',  heroSub: 'vs 2023', heroMain: '382小时',   delta: '↑ 14%',   deltaCtx: '同比',   goalTitle: '2024 年度目标 · 500小时', goalSub: '已读 382h · 剩余 118h · 还有 149 天', goalPct: 76, grid: [['1184万','字数','p'],['3842','章节','s'],['405','字/分','s'],['218/366','活跃天','p']] },
+  day:   { idx: 0, dateText: '2024-08-04',                 todayTag: '今天', heroLabel: '今天累计',  heroSub: 'vs 昨日', heroMain: '1小时47分', delta: '↑ 23分钟', deltaCtx: '日环比', goalTitle: '今日目标 · 2小时',      goalSub: '已读 1h47m · 剩余 13m',         goalPct: 89,  dailyNeeded: 13, streak: 12, longestStreak: 42, showStreak: true,  grid: [['≈42,381','字数','p'],['14','章节','s'],['397','字/分','s'],['4','时段','p']] },
+  week:  { idx: 1, dateText: '2024-07-29 ~ 2024-08-04',    todayTag: '本周', heroLabel: '本周累计',  heroSub: 'vs 上周', heroMain: '11小时23分', delta: '↑ 1h05m', deltaCtx: '周环比', goalTitle: '本周目标 · 15小时',    goalSub: '已读 11h23m · 剩余 3h37m',      goalPct: 76,  dailyNeeded: 52, streak: 12, longestStreak: 42, showStreak: true,  grid: [['≈19.8万','字数','p'],['67','章节','s'],['412','字/分','s'],['6/7','活跃天','p']] },
+  month: { idx: 2, dateText: '2024 年 8 月',                todayTag: '本月', heroLabel: '8月累计',   heroSub: 'vs 7月',  heroMain: '42小时17分', delta: '↑ 3h12m', deltaCtx: '月环比', goalTitle: '8月目标 · 50小时',     goalSub: '已读 42h17m · 剩余 7h43m',      goalPct: 84,  dailyNeeded: 0,  streak: 0,  longestStreak: 42, showStreak: false, grid: [['≈124.6万','字数','p'],['412','章节','s'],['408','字/分','s'],['21/31','活跃天','p']] },
+  year:  { idx: 3, dateText: '2024 年',                     todayTag: '今年', heroLabel: '今年累计',  heroSub: 'vs 2023', heroMain: '382小时',   delta: '↑ 14%',   deltaCtx: '同比',   goalTitle: '2024 年度目标 · 500小时', goalSub: '已读 382h · 剩余 118h · 还有 149 天', goalPct: 76, dailyNeeded: 47, streak: 0, longestStreak: 42, showStreak: false, grid: [['≈1184万','字数','p'],['3842','章节','s'],['405','字/分','s'],['218/366','活跃天','p']] },
 };
 
 let currentGran = 'year';
@@ -1977,6 +2050,30 @@ function switchGran(gran) {
   const offset = C * (1 - cfg.goalPct / 100);
   document.getElementById('goalRingFg').setAttribute('stroke-dashoffset', offset);
 
+  // 每日还需 X 分钟（派生行动指导）
+  const dailyNeededEl = document.getElementById('heroDailyNeeded');
+  if (cfg.dailyNeeded > 0) {
+    dailyNeededEl.textContent = `每天约需 ${cfg.dailyNeeded} 分钟可完成目标`;
+    dailyNeededEl.style.display = '';
+  } else {
+    dailyNeededEl.style.display = 'none';
+  }
+
+  // 当前连读（仅日/周视图显示）
+  const streakEl = document.getElementById('heroStreak');
+  if (cfg.showStreak && cfg.streak > 0) {
+    document.getElementById('heroStreakNum').textContent = `已连续 ${cfg.streak} 天`;
+    document.getElementById('heroStreakSub').textContent = `最长连读 ${cfg.longestStreak} 天`;
+    streakEl.style.display = '';
+  } else {
+    streakEl.style.display = 'none';
+  }
+
+  // 月视图：渲染热力图汇总行
+  if (gran === 'month') {
+    renderMonthHeatmapSummary();
+  }
+
   // 时间轴（仅日粒度渲染数据）
   if (gran === 'day') {
     document.getElementById('timelineTitle').textContent = '今天 · 阅读时段';
@@ -2000,6 +2097,33 @@ document.getElementById('themeBtn').addEventListener('click', () => {
     document.getElementById('themeBtn').textContent = '☀';
   }
 });
+
+/* ============================================================
+   月视图热力图汇总行
+============================================================ */
+function renderMonthHeatmapSummary() {
+  const data = MONTH_DATA.filter(d => !d.future);
+  const totalMin = data.reduce((s, d) => s + d.min, 0);
+  const activeDays = data.filter(d => d.min > 0).length;
+  // 计算当月最长连续活跃天数
+  let maxStreak = 0, curStreak = 0;
+  const sorted = [...data].sort((a, b) => a.date - b.date);
+  for (let i = 0; i < sorted.length; i++) {
+    if (sorted[i].min > 0) { curStreak++; maxStreak = Math.max(maxStreak, curStreak); }
+    else curStreak = 0;
+  }
+  const dailyAvg = activeDays > 0 ? Math.round(totalMin / activeDays) : 0;
+  const avgH = Math.floor(dailyAvg / 60);
+  const avgM = dailyAvg % 60;
+
+  const el = document.getElementById('monthHeatmapSummary');
+  el.innerHTML = `
+    <div class="hs-stat"><div class="hs-value">${Math.floor(totalMin/60)}<span style="font-size:10px;color:var(--on-surface-var)">h</span></div><div class="hs-label">累计时长</div></div>
+    <div class="hs-stat"><div class="hs-value">${activeDays}</div><div class="hs-label">活跃天数</div></div>
+    <div class="hs-stat"><div class="hs-value">${maxStreak}</div><div class="hs-label">最长连读</div></div>
+    <div class="hs-stat"><div class="hs-value">${avgH}<span style="font-size:10px;color:var(--on-surface-var)">h</span>${avgM}<span style="font-size:10px;color:var(--on-surface-var)">m</span></div><div class="hs-label">日均</div></div>
+  `;
+}
 
 /* ============================================================
    初始化
