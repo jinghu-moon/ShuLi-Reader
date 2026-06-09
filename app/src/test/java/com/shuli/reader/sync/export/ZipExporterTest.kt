@@ -3,9 +3,11 @@ package com.shuli.reader.sync.export
 
 import com.github.luben.zstd.Zstd
 import com.shuli.reader.core.database.entity.BookEntity
+import com.shuli.reader.core.database.entity.BookTagCrossRef
 import com.shuli.reader.core.database.entity.BookmarkEntity
 import com.shuli.reader.core.database.entity.NoteEntity
 import com.shuli.reader.core.database.entity.ReadingProgressEntity
+import com.shuli.reader.core.database.entity.TagEntity
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertTrue
@@ -186,4 +188,6 @@ class FakeExportDatabase(
     override suspend fun getAllBookmarks(): List<BookmarkEntity> = bookmarks
     override suspend fun getAllNotes(): List<NoteEntity> = notes
     override suspend fun getAllProgress(): List<ReadingProgressEntity> = progress
+    override suspend fun getAllTags() = emptyList<TagEntity>()
+    override suspend fun getAllBookTagCrossRefs() = emptyList<BookTagCrossRef>()
 }

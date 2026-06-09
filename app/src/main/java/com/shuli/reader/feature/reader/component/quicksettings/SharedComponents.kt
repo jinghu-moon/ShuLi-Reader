@@ -41,11 +41,12 @@ import com.shuli.reader.ui.theme.toCanvasThemeColors
 import com.shuli.reader.ui.theme.toReaderColorScheme
 
 /**
- * Tab 索引（3 Tab 结构）
+ * Tab 索引（4 Tab 结构）
  */
-internal const val TAB_LAYOUT = 0   // 排版
-internal const val TAB_STYLE = 1    // 样式
-internal const val TAB_SETTINGS = 2 // 设置
+internal const val TAB_LAYOUT = 0       // 排版
+internal const val TAB_FONT = 1         // 字体
+internal const val TAB_PAGE = 2         // 页面
+internal const val TAB_INTERACTION = 3  // 交互
 
 /**
  * 快捷设置面板的所有回调动作
@@ -119,12 +120,14 @@ data class QuickSettingsActions(
 internal fun ThemeColorRow(
     currentTheme: ReaderTheme,
     onThemeChange: (ReaderTheme) -> Unit,
+    customBackgroundColor: Int? = null,
 ) {
     val readerColors = LocalReaderColorScheme.current
+    // 只缓存非 CUSTOM 的内置主题
     val themeColorMap = remember {
-        ReaderTheme.entries.associateWith {
-            it.toReaderColorScheme().toCanvasThemeColors()
-        }
+        ReaderTheme.entries
+            .filter { it != ReaderTheme.CUSTOM }
+            .associateWith { it.toReaderColorScheme().toCanvasThemeColors() }
     }
     val strings = LocalAppStrings.current
     Row(
@@ -143,7 +146,8 @@ internal fun ThemeColorRow(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ReaderTheme.entries.forEach { theme ->
+            // 内置主题圆点
+            ReaderTheme.entries.filter { it != ReaderTheme.CUSTOM }.forEach { theme ->
                 val isSelected = currentTheme == theme
                 val themeColors = themeColorMap[theme]!!
                 Canvas(
@@ -174,6 +178,50 @@ internal fun ThemeColorRow(
                             style = Stroke(width = strokeWidth),
                         )
                     }
+                }
+            }
+            // 自定义主题圆点（显示用户自定义色或默认渐变）
+            val isCustomSelected = currentTheme == ReaderTheme.CUSTOM
+            val customColor = customBackgroundColor?.let { Color(it) }
+                ?: readerColors.accent.copy(alpha = 0.3f)
+            Canvas(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clickable { onThemeChange(ReaderTheme.CUSTOM) },
+            ) {
+                val strokeWidth = 2.dp.toPx()
+                val gap = 3.dp.toPx()
+                val centerRadius = size.minDimension / 2
+                val innerRadius = if (isCustomSelected) centerRadius - strokeWidth - gap else centerRadius - 2.dp.toPx()
+                if (!isCustomSelected) {
+                    drawCircle(
+                        color = readerColors.textSecondary.copy(alpha = 0.1f),
+                        radius = innerRadius,
+                        style = Stroke(width = 1.dp.toPx()),
+                    )
+                }
+                drawCircle(color = customColor, radius = innerRadius)
+                // 自定义图标：画一个小 "+" 号
+                val plusSize = innerRadius * 0.4f
+                val center = this.center
+                drawLine(
+                    color = readerColors.textPrimary.copy(alpha = 0.6f),
+                    start = center.copy(x = center.x - plusSize),
+                    end = center.copy(x = center.x + plusSize),
+                    strokeWidth = 2.dp.toPx(),
+                )
+                drawLine(
+                    color = readerColors.textPrimary.copy(alpha = 0.6f),
+                    start = center.copy(y = center.y - plusSize),
+                    end = center.copy(y = center.y + plusSize),
+                    strokeWidth = 2.dp.toPx(),
+                )
+                if (isCustomSelected) {
+                    drawCircle(
+                        color = readerColors.accent,
+                        radius = centerRadius - strokeWidth / 2,
+                        style = Stroke(width = strokeWidth),
+                    )
                 }
             }
         }
@@ -217,6 +265,151 @@ internal fun ExpandableSection(
             exit = shrinkVertically() + fadeOut(),
         ) {
             Column { content() }
+        }
+    }
+}
+
+/**
+ * 自定义主题颜色选择面板（当 CUSTOM 主题激活时显示）
+ *
+ * 提供背景色、正文色、强调色三行色块，
+ * 用户点击即刻应用到阅读器。
+ */
+@Composable
+internal fun CustomThemePanel(
+    currentBg: Int?,
+    currentText: Int?,
+    currentAccent: Int?,
+    onColorChange: (bg: Int?, text: Int?, accent: Int?) -> Unit,
+) {
+    val readerColors = LocalReaderColorScheme.current
+    val strings = LocalAppStrings.current
+
+    // 预定义调色板
+    val bgColors = listOf(
+        0xFFF6F4F0.toInt(),  // 纸质（默认）
+        0xFFFFFFFF.toInt(),  // 纯白
+        0xFFF5F0E8.toInt(),  // 米黄
+        0xFFE8F0E5.toInt(),  // 浅绿
+        0xFFE5ECF0.toInt(),  // 浅蓝
+        0xFFF0E8E5.toInt(),  // 浅粉
+        0xFF2C231A.toInt(),  // 深棕
+        0xFF1A1A2E.toInt(),  // 深蓝
+        0xFF1A1A1A.toInt(),  // 纯黑
+    )
+    val textColors = listOf(
+        0xFF453B2E.toInt(),  // 深棕（默认）
+        0xFF212121.toInt(),  // 近黑
+        0xFF37474F.toInt(),  // 深蓝灰
+        0xFF2E4A3E.toInt(),  // 深绿
+        0xFF4A3728.toInt(),  // 褐色
+        0xFFD4CCC0.toInt(),  // 浅灰（深色背景用）
+        0xFFE0E0E0.toInt(),  // 浅灰白
+        0xFFC5CAE9.toInt(),  // 浅蓝紫
+    )
+    val accentColors = listOf(
+        0xFF6B5B4E.toInt(),  // 棕色（默认）
+        0xFF1976D2.toInt(),  // 蓝色
+        0xFF388E3C.toInt(),  // 绿色
+        0xFFD32F2F.toInt(),  // 红色
+        0xFF7B1FA2.toInt(),  // 紫色
+        0xFFFF8F00.toInt(),  // 琥珀
+        0xFF00838F.toInt(),  // 青色
+        0xFF5D4037.toInt(),  // 深棕
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // 标题
+        Text(
+            text = strings.reader.customThemeLabel,
+            style = MaterialTheme.typography.titleSmall,
+            color = readerColors.textPrimary,
+        )
+        // 背景色
+        ColorSwatchRow(
+            label = strings.reader.customThemeBg,
+            colors = bgColors,
+            selectedColor = currentBg ?: 0xFFF6F4F0.toInt(),
+            onSelect = { onColorChange(it, currentText, currentAccent) },
+        )
+        // 正文色
+        ColorSwatchRow(
+            label = strings.reader.customThemeText,
+            colors = textColors,
+            selectedColor = currentText ?: 0xFF453B2E.toInt(),
+            onSelect = { onColorChange(currentBg, it, currentAccent) },
+        )
+        // 强调色
+        ColorSwatchRow(
+            label = strings.reader.customThemeAccent,
+            colors = accentColors,
+            selectedColor = currentAccent ?: 0xFF6B5B4E.toInt(),
+            onSelect = { onColorChange(currentBg, currentText, it) },
+        )
+    }
+}
+
+/**
+ * 单行颜色色块选择器
+ */
+@Composable
+private fun ColorSwatchRow(
+    label: String,
+    colors: List<Int>,
+    selectedColor: Int,
+    onSelect: (Int) -> Unit,
+) {
+    val readerColors = LocalReaderColorScheme.current
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = readerColors.textSecondary,
+            modifier = Modifier.padding(end = 12.dp),
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            colors.forEach { colorInt ->
+                val isSelected = colorInt == selectedColor
+                Canvas(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clickable { onSelect(colorInt) },
+                ) {
+                    val strokeWidth = 2.dp.toPx()
+                    val gap = 2.dp.toPx()
+                    val centerRadius = size.minDimension / 2
+                    val innerRadius = if (isSelected) centerRadius - strokeWidth - gap else centerRadius - 1.dp.toPx()
+                    if (!isSelected) {
+                        drawCircle(
+                            color = readerColors.textSecondary.copy(alpha = 0.1f),
+                            radius = innerRadius,
+                            style = Stroke(width = 1.dp.toPx()),
+                        )
+                    }
+                    drawCircle(
+                        color = Color(colorInt),
+                        radius = innerRadius,
+                    )
+                    if (isSelected) {
+                        drawCircle(
+                            color = readerColors.accent,
+                            radius = centerRadius - strokeWidth / 2,
+                            style = Stroke(width = strokeWidth),
+                        )
+                    }
+                }
+            }
         }
     }
 }

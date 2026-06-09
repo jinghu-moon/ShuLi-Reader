@@ -1,12 +1,14 @@
 package com.shuli.reader.feature.reader
 
 import com.shuli.reader.core.data.ChineseConvert
+import com.shuli.reader.core.data.IndentUnit
 import com.shuli.reader.core.data.ReaderFontWeight
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.data.UserPreferences
 import com.shuli.reader.core.data.toChineseConvert
 import com.shuli.reader.core.data.toFactoryType
+import com.shuli.reader.core.data.toIndentUnit
 import com.shuli.reader.core.data.toFontWeight
 import com.shuli.reader.core.data.toHeaderVisibility
 import com.shuli.reader.core.data.toPageAnimType
@@ -60,6 +62,7 @@ internal class ReaderPreferenceMonitor(
                 lineSpacing = prefs.defaultLineSpacing.first(),
                 paragraphSpacing = prefs.defaultParagraphSpacing.first(),
                 indent = prefs.defaultIndent.first(),
+                indentUnit = prefs.indentUnit.first().toIndentUnit(),
                 marginHorizontal = prefs.marginHorizontal.first(),
                 marginVertical = prefs.marginVertical.first(),
                 letterSpacing = prefs.letterSpacing.first(),
@@ -116,6 +119,7 @@ internal class ReaderPreferenceMonitor(
                 userPreferences.defaultLineSpacing,
                 userPreferences.defaultParagraphSpacing,
                 userPreferences.defaultIndent,
+                userPreferences.indentUnit,
                 userPreferences.marginHorizontal,
                 userPreferences.marginVertical,
                 userPreferences.letterSpacing,
@@ -134,6 +138,7 @@ internal class ReaderPreferenceMonitor(
                         lineSpacing = flows[1] as Float,
                         paragraphSpacing = flows[2] as Float,
                         indent = flows[3] as Float,
+                        indentUnit = (flows[15] as String).toIndentUnit(),
                         marginHorizontal = flows[4] as Float,
                         marginVertical = flows[5] as Float,
                         letterSpacing = flows[6] as Float,
@@ -158,6 +163,7 @@ internal class ReaderPreferenceMonitor(
                         lineSpacing = layoutPrefs.lineSpacing,
                         paragraphSpacing = layoutPrefs.paragraphSpacing,
                         indent = layoutPrefs.indent,
+                        indentUnit = layoutPrefs.indentUnit,
                         marginHorizontal = layoutPrefs.marginHorizontal,
                         marginVertical = layoutPrefs.marginVertical,
                         letterSpacing = layoutPrefs.letterSpacing,
@@ -299,6 +305,7 @@ internal data class ReaderLayoutPrefs(
     val lineSpacing: Float,
     val paragraphSpacing: Float,
     val indent: Float,
+    val indentUnit: IndentUnit,
     val marginHorizontal: Float,
     val marginVertical: Float,
     val letterSpacing: Float,

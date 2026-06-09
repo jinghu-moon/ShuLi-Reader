@@ -17,7 +17,6 @@ import com.shuli.reader.core.parser.model.Chapter
 import com.shuli.reader.core.reader.ChapterProvider
 import com.shuli.reader.core.reader.Paginator
 import com.shuli.reader.core.reader.ReadingStateManager
-import com.shuli.reader.core.reader.AndroidTextMeasurer
 import com.shuli.reader.core.reader.SimpleTextMeasurer
 import com.shuli.reader.core.reader.animation.PageDelegate
 import com.shuli.reader.core.reader.animation.PageDelegateFactory
@@ -85,7 +84,9 @@ class ReaderViewModel(
     private val bookmarkDao: BookmarkDao? = null,
     private val noteDao: NoteDao? = null,
     private val presetDao: com.shuli.reader.core.database.dao.ReaderPresetDao? = null,
+    private val bookReaderPrefsDao: com.shuli.reader.core.database.dao.BookReaderPrefsDao? = null,
     private val readingProgressDao: com.shuli.reader.core.database.dao.ReadingProgressDao? = null,
+    private val chapterReadingStatsDao: com.shuli.reader.core.database.dao.ChapterReadingStatsDao? = null,
     private val paginator: Paginator = Paginator(SimpleTextMeasurer()),
     ttsEngine: TtsEngine? = null,
     private val fontManager: com.shuli.reader.core.font.FontManager? = null,
@@ -107,23 +108,58 @@ class ReaderViewModel(
     private val _uiState = MutableStateFlow(ReaderUiState(bookId = bookId))
     val uiState: StateFlow<ReaderUiState> = _uiState.asStateFlow()
 
-    // AndroidTextMeasurer：首次 syncPaint 时惰性创建，此后复用
-    private var _androidTextMeasurer: AndroidTextMeasurer? = null
+    /**
+     * 页面渲染状态（中频变化）。
+     *
+     * 供 AndroidView.update 观察，避免 toolbar/搜索/预设列表等 UI 变化触发 recomposition。
+     * 当前由 uiState 派生；后续 ViewModel 迁移完成后将独立更新。
+     */
+    val pageState: StateFlow<ReaderPageState> = _uiState
+        .map {
+            ReaderPageState(
+                bookId = it.bookId,
+                bookTitle = it.bookTitle,
+                chapterTitle = it.chapterTitle,
+                currentPage = it.currentPage,
+                currentChapter = it.currentChapter,
+                chapterIndex = it.chapterIndex,
+                pageIndex = it.pageIndex,
+                totalPages = it.totalPages,
+                totalChapters = it.totalChapters,
+                pageAnimType = it.pageAnimType,
+                pageRenderMode = it.pageRenderMode,
+                chapterTitles = it.chapterTitles,
+                chapterWordCounts = it.chapterWordCounts,
+                chapterPageCounts = it.chapterPageCounts,
+                layoutVersion = it.layoutVersion,
+                isReflowing = it.isReflowing,
+            )
+        }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = ReaderPageState(bookId = bookId),
+        )
 
     /**
-     * 由 View 层调用，将 Canvas 的 [Paint] 配置同步到分页测量器。
-     * 首次调用时替换 Paginator 的 measurer 为 [AndroidTextMeasurer]。
+     * 覆盖层状态（高频变化：选区/TTS/睡眠计时）。
      */
-    fun syncTextMeasurerPaint(paint: android.graphics.Paint) {
-        val existing = _androidTextMeasurer
-        if (existing == null) {
-            _androidTextMeasurer = AndroidTextMeasurer(paint).also {
-                paginator.textMeasurer = it
-            }
-        } else {
-            existing.updatePaint(paint)
+    val overlayState: StateFlow<ReaderOverlayState> = _uiState
+        .map {
+            ReaderOverlayState(
+                selectedRange = it.selectedRange,
+                ttsState = it.ttsState,
+                ttsActiveRange = it.ttsActiveRange,
+                sleepTimerRemainingSeconds = it.sleepTimerRemainingSeconds,
+            )
         }
-    }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = ReaderOverlayState(),
+        )
 
     // reflow 防抖 Job
     private var reflowJob: Job? = null
@@ -277,8 +313,8 @@ class ReaderViewModel(
             uiState = _uiState,
             scope = viewModelScope,
             userPreferences = userPreferences,
+            bookReaderPrefsDao = bookReaderPrefsDao,
             reflowCurrentChapter = { prefs -> reflowCurrentChapter(prefs) },
-            currentPageInvalidate = { _uiState.value.currentPage?.invalidate() },
             resetToolbarAutoHide = { navigationCoordinator.resetToolbarAutoHide() },
         )
     }
@@ -293,6 +329,7 @@ class ReaderViewModel(
             bookContentRepository = bookContentRepository,
             readingProgressRepository = readingProgressRepository,
             readingProgressDao = readingProgressDao,
+            chapterReadingStatsDao = chapterReadingStatsDao,
             cacheManager = { cacheManager },
             setCacheManager = { cacheManager = it },
             readingStateManager = { readingStateManager },
@@ -401,6 +438,156 @@ class ReaderViewModel(
         viewModelScope.launch {
             initialSync.await()
             bookSessionManager.openBook(bookId)
+            // 加载本书级偏好覆盖（如有）
+            readerSettingsManager.loadBookOverrides(bookId)
+        }
+    }
+
+    /**
+     * 统一意图入口 —— 所有 UI / 快捷键 / TTS / 自动翻页操作通过此方法分发。
+     *
+     * 编译器强制穷举：新增 [ReaderIntent] 子类时必须在此处添加处理分支。
+     */
+    fun dispatch(intent: ReaderIntent) {
+        when (intent) {
+            // ── 导航 ──
+            is ReaderIntent.OpenBook -> openBook(intent.bookId)
+            is ReaderIntent.OpenChapter -> openChapter(intent.index, intent.targetToLastPage, intent.targetByteOffset)
+            is ReaderIntent.TurnPage -> when (intent.direction) {
+                PageDirection.NEXT -> nextPage()
+                PageDirection.PREV -> prevPage()
+            }
+            is ReaderIntent.NextPage -> nextPage()
+            is ReaderIntent.PrevPage -> prevPage()
+            is ReaderIntent.JumpToPosition -> jumpToChapterPosition(intent.chapterIndex, intent.byteOffset)
+
+            // ── UI 开关 ──
+            is ReaderIntent.ToggleToolbar -> navigationCoordinator.toggleToolbar()
+            is ReaderIntent.ToggleDirectory -> navigationCoordinator.toggleDirectory()
+            is ReaderIntent.ToggleQuickSettings -> navigationCoordinator.toggleQuickSettings()
+            is ReaderIntent.ToggleSearch -> navigationCoordinator.toggleSearch()
+            is ReaderIntent.ClearSelection -> navigationCoordinator.clearTextSelection()
+
+            // ── 选区操作 ──
+            is ReaderIntent.AddBookmarkFromSelection -> addBookmarkFromSelection()
+            is ReaderIntent.AddNoteFromSelection -> addNoteFromSelection()
+            is ReaderIntent.AddBookmark -> bookmarkNotesManager.addBookmark()
+
+            // ── 设置 ──
+            is ReaderIntent.UpdateSetting -> dispatchSetting(intent.key, intent.value)
+            is ReaderIntent.CycleTheme -> readerSettingsManager.cycleTheme()
+            is ReaderIntent.ResetSettingsToDefault -> readerPresetManager.resetToDefault()
+
+            // ── 设置作用域 ──
+            is ReaderIntent.SetSettingsScope -> {
+                if (intent.scope == com.shuli.reader.feature.reader.SettingsScope.BOOK &&
+                    uiState.value.settingsScope == com.shuli.reader.feature.reader.SettingsScope.GLOBAL
+                ) {
+                    // 从全局切换到本书：将当前全局值保存为本书覆盖
+                    readerSettingsManager.copyGlobalToBook()
+                } else {
+                    readerSettingsManager.setSettingsScope(intent.scope)
+                }
+            }
+            is ReaderIntent.ResetBookOverrides -> readerSettingsManager.resetBookOverrides()
+            is ReaderIntent.CopyGlobalToBook -> readerSettingsManager.copyGlobalToBook()
+
+            // ── 预设 ──
+            is ReaderIntent.ApplyPreset -> readerPresetManager.applyPreset(intent.presetId)
+            is ReaderIntent.SavePreset -> readerPresetManager.saveCurrentAsPreset(intent.name)
+            is ReaderIntent.RenamePreset -> readerPresetManager.renamePreset(intent.id, intent.name)
+            is ReaderIntent.DeletePreset -> readerPresetManager.deletePreset(intent.presetId)
+
+            // ── TTS ──
+            is ReaderIntent.StartTts -> ttsPlaybackManager.startTts()
+            is ReaderIntent.PauseTts -> ttsPlaybackManager.pauseTts()
+            is ReaderIntent.StopTts -> ttsPlaybackManager.stopTts()
+
+            // ── 搜索 ──
+            is ReaderIntent.Search -> readerSearchManager.searchInCurrentBook(intent.query)
+            is ReaderIntent.NextSearchResult -> readerSearchManager.goToNextSearchResult()
+            is ReaderIntent.PrevSearchResult -> readerSearchManager.goToPreviousSearchResult()
+
+            // ── 页面拖动 ──
+            is ReaderIntent.StartPageScrub -> navigationCoordinator.startPageScrub()
+            is ReaderIntent.ScrubToPage -> navigationCoordinator.scrubToPage(intent.pageIndex)
+            is ReaderIntent.CommitPageScrub -> navigationCoordinator.commitPageScrub()
+
+            // ── 屏幕 / 排版 ──
+            is ReaderIntent.SetScreenSize -> setScreenSize(intent.width, intent.height)
+            is ReaderIntent.SetPageAnimType -> navigationCoordinator.setPageAnimType(
+                intent.type.toFactoryType(),
+            ) { pageDelegate = it }
+
+            // ── 字体 ──
+            is ReaderIntent.ImportFont -> fontImportManager.importFont(intent.uri)
+            is ReaderIntent.DeleteFont -> fontImportManager.deleteFont(intent.fontKey)
+        }
+    }
+
+    /**
+     * 设置分发 —— 将 [ReaderSettingKey] + [ReaderSettingValue] 映射到对应 setter。
+     */
+    private fun dispatchSetting(key: ReaderSettingKey, value: ReaderSettingValue) {
+        val s = readerSettingsManager
+        when (key) {
+            ReaderSettingKey.FONT_SIZE -> s.setFontSize((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.LINE_SPACING -> s.setLineSpacing((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.PARAGRAPH_SPACING -> s.setParagraphSpacing((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.INDENT -> s.setIndent((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.INDENT_UNIT -> s.setIndentUnit((value as ReaderSettingValue.IndentUnit).value)
+            ReaderSettingKey.MARGIN_HORIZONTAL -> s.setMarginHorizontal((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.MARGIN_VERTICAL -> s.setMarginVertical((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.LETTER_SPACING -> s.setLetterSpacing((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.READING_FONT -> s.setReadingFont((value as ReaderSettingValue.Str).value)
+            ReaderSettingKey.FONT_WEIGHT -> s.setFontWeight((value as ReaderSettingValue.FontWeight).value)
+            ReaderSettingKey.TEXT_ALIGN -> s.setTextAlign((value as ReaderSettingValue.TextAlign).value)
+            ReaderSettingKey.THEME -> s.setReaderTheme((value as ReaderSettingValue.Theme).value)
+            ReaderSettingKey.BRIGHTNESS -> s.setBrightness((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.CHINESE_CONVERT -> s.setChineseConvert((value as ReaderSettingValue.ChineseConvert).value)
+            ReaderSettingKey.USE_ZH_LAYOUT -> s.setUseZhLayout((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.USE_PANGU_SPACING -> s.setPanguSpacing((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.BOTTOM_JUSTIFY -> s.setBottomJustify((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.HEADER_VISIBILITY -> s.setHeaderVisibility((value as ReaderSettingValue.HeaderVisibility).value)
+            ReaderSettingKey.HEADER_LEFT -> s.setHeaderLeft((value as ReaderSettingValue.SlotContent).value)
+            ReaderSettingKey.HEADER_CENTER -> s.setHeaderCenter((value as ReaderSettingValue.SlotContent).value)
+            ReaderSettingKey.HEADER_RIGHT -> s.setHeaderRight((value as ReaderSettingValue.SlotContent).value)
+            ReaderSettingKey.HEADER_MARGIN_TOP -> s.setHeaderMarginTop((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.FOOTER_VISIBILITY -> s.setFooterVisibility((value as ReaderSettingValue.HeaderVisibility).value)
+            ReaderSettingKey.FOOTER_LEFT -> s.setFooterLeft((value as ReaderSettingValue.SlotContent).value)
+            ReaderSettingKey.FOOTER_CENTER -> s.setFooterCenter((value as ReaderSettingValue.SlotContent).value)
+            ReaderSettingKey.FOOTER_RIGHT -> s.setFooterRight((value as ReaderSettingValue.SlotContent).value)
+            ReaderSettingKey.FOOTER_MARGIN_BOTTOM -> s.setFooterMarginBottom((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.HEADER_FOOTER_ALPHA -> s.setHeaderFooterAlpha((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.SHOW_PROGRESS -> s.setShowProgress((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.SHOW_HEADER_LINE -> s.setShowHeaderLine((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.SHOW_FOOTER_LINE -> s.setShowFooterLine((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.HEADER_FONT_SIZE_RATIO -> s.setHeaderFontSizeRatio((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.FOOTER_FONT_SIZE_RATIO -> s.setFooterFontSizeRatio((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.TITLE_ALIGN -> s.setTitleAlign((value as ReaderSettingValue.TitleAlign).value)
+            ReaderSettingKey.TITLE_SIZE_OFFSET -> s.setTitleSizeOffset((value as ReaderSettingValue.Int).value)
+            ReaderSettingKey.TITLE_MARGIN_TOP -> s.setTitleMarginTop((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.TITLE_MARGIN_BOTTOM -> s.setTitleMarginBottom((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.KEEP_SCREEN_ON -> s.setKeepScreenOn((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.VOLUME_KEY_TURN_PAGE -> s.setVolumeKeyTurnPage((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.EDGE_TURN_PAGE -> s.setEdgeTurnPage((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.EDGE_WIDTH_PERCENT -> s.setEdgeWidthPercent((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.IMMERSIVE_MODE -> s.setImmersiveMode((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.TTS_SPEED -> s.setTtsSpeed((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.TTS_PITCH -> s.setTtsPitch((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.MAX_PAGE_WIDTH -> s.setMaxPageWidth((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.REMOVE_EMPTY_LINES -> s.setRemoveEmptyLines((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.CLEAN_CHAPTER_TITLE -> s.setCleanChapterTitle((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.PROGRESS_STYLE -> s.setProgressStyle((value as ReaderSettingValue.ProgressStyle).value)
+            ReaderSettingKey.AUTO_NIGHT_MODE -> s.setAutoNightMode((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.AUTO_PAGE_TURN -> s.setAutoPageTurn((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.AUTO_PAGE_TURN_INTERVAL -> s.setAutoPageTurnInterval((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.EPUB_OVERRIDE_STYLE -> s.setEpubOverrideStyle((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.LEFT_ZONE_RATIO -> s.setLeftZoneRatio((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.CUSTOM_THEME_COLOR -> {
+                val v = value as ReaderSettingValue.CustomThemeColor
+                s.setCustomThemeColor(v.backgroundColor, v.textColor, v.accentColor)
+            }
         }
     }
 
@@ -630,6 +817,25 @@ class ReaderViewModel(
             tagRepository?.addTagToBook(bookId, tagName)
         }
     }
+
+    fun removeTag(tagId: Long) {
+        val bookId = _uiState.value.bookId
+        viewModelScope.launch {
+            tagRepository?.removeTagFromBook(bookId, tagId)
+        }
+    }
+
+    fun searchTagSuggestions(prefix: String) {
+        viewModelScope.launch {
+            _tagSuggestions.value = tagRepository?.searchTagsByPrefix(prefix) ?: emptyList()
+        }
+    }
+
+    override fun onCleared() {
+        releaseReaderResources()
+        super.onCleared()
+    }
+}
 
     fun removeTag(tagId: Long) {
         val bookId = _uiState.value.bookId

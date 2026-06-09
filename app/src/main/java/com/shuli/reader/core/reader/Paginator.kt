@@ -243,9 +243,9 @@ class Paginator(
         )
     }
 
-    /** 计算段落首行缩进宽度 */
+    /** 计算段落首行缩进宽度（config.indent 已由 ReaderTextMeasurerFactory 转为 px） */
     private fun calcIndent(config: ReaderLayoutConfig, availableWidth: Float): Float =
-        if (availableWidth > config.indent * config.textSize * 2f) config.indent * config.textSize else 0f
+        if (availableWidth > config.indent * 2f) config.indent else 0f
 
     /** 首页标题区域高度（含上下边距，支持多行自动换行） */
     private fun calcTitleAreaHeight(

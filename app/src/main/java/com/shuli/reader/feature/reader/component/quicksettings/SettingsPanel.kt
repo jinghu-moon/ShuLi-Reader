@@ -74,6 +74,8 @@ internal fun SettingsPanel(
     onHeaderFontSizeRatioChange: (Float) -> Unit,
     onFooterFontSizeRatioChange: (Float) -> Unit,
     onBottomJustifyChange: (Boolean) -> Unit,
+    onProgressStyleChange: (com.shuli.reader.core.data.ProgressStyle) -> Unit = {},
+    onAutoNightModeChange: (Boolean) -> Unit = {},
     onApplyPreset: (Long) -> Unit,
     onSavePreset: (String) -> Unit,
     onRenamePreset: (Long, String) -> Unit,
@@ -111,6 +113,19 @@ internal fun SettingsPanel(
         checked = prefs.showProgress,
         onCheckedChange = onShowProgressChange,
     )
+    // P1: 进度显示样式
+    ReaderFormPickerRow(
+        label = strings.reader.progressStyleLabel,
+        options = listOf(
+            com.shuli.reader.core.data.ProgressStyle.CHAPTER_FRACTION to strings.reader.progressStyleChapterFraction,
+            com.shuli.reader.core.data.ProgressStyle.CHAPTER_PERCENT to strings.reader.progressStyleChapterPercent,
+            com.shuli.reader.core.data.ProgressStyle.PAGE_NUMBER to strings.reader.progressStylePageNumber,
+            com.shuli.reader.core.data.ProgressStyle.BOOK_FRACTION to strings.reader.progressStyleBookFraction,
+            com.shuli.reader.core.data.ProgressStyle.BOOK_PERCENT to strings.reader.progressStyleBookPercent,
+        ),
+        selected = prefs.progressStyle,
+        onSelect = onProgressStyleChange,
+    )
     ReaderValueSlider(
         label = strings.reader.opacityLabel,
         value = prefs.headerFooterAlpha,
@@ -118,6 +133,13 @@ internal fun SettingsPanel(
         steps = 8,
         format = { "%.0f%%".format(it * 100) },
         onValueChange = onHeaderFooterAlphaChange,
+    )
+    // P2: 自动夜间模式
+    ReaderSwitchRow(
+        label = strings.reader.autoNightModeLabel,
+        description = strings.reader.autoNightModeDesc,
+        checked = prefs.autoNightMode,
+        onCheckedChange = onAutoNightModeChange,
     )
 
     HorizontalDivider(

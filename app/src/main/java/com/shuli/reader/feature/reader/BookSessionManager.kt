@@ -35,6 +35,7 @@ internal class BookSessionManager(
     private val bookContentRepository: BookContentRepository?,
     private val readingProgressRepository: ReadingProgressRepository?,
     private val readingProgressDao: com.shuli.reader.core.database.dao.ReadingProgressDao?,
+    private val chapterReadingStatsDao: com.shuli.reader.core.database.dao.ChapterReadingStatsDao?,
     private val cacheManager: () -> CacheManager,
     private val setCacheManager: (CacheManager) -> Unit,
     private val readingStateManager: () -> ReadingStateManager,
@@ -67,6 +68,13 @@ internal class BookSessionManager(
 
     /** 当前活跃的章节加载 Job（防止快速连续调用导致并发冲突） */
     private var chapterJob: Job? = null
+
+    // ── 章节阅读统计 ──────────────────────────────────────
+
+    /** 上一次活跃的章节索引（用于 per-chapter 时间累计） */
+    private var lastActiveChapterIndex: Int = -1
+    /** 当前章节开始阅读的时间戳（毫秒） */
+    private var chapterStartTimestamp: Long = 0L
 
     // ── 开书 ──────────────────────────────────────────────
 
@@ -125,6 +133,12 @@ internal class BookSessionManager(
                 }
                 logPerf("ensureChapterIndex [${book.fileType}]", indexStart)
 
+                // §11.1.1.1: 加载 SnapshotDigest（T0 fallback 用）
+                val digest = readingProgressDao?.loadSnapshotDigest(bookId)
+                if (digest != null) {
+                    uiState.value = uiState.value.copy(snapshotDigest = digest)
+                }
+
                 setCurrentBookFilePath(book.filePath)
                 setIsCurrentBookEpub(book.fileType == "EPUB")
 
@@ -164,6 +178,11 @@ internal class BookSessionManager(
                 loadBookmarks()
                 loadNotes()
                 readingStateManager().startSession()
+
+                // 加载章节阅读统计 + 标记当前章节已访问
+                loadChapterStats(bookId)
+                markChapterVisited(bookId, chapterIndex)
+
                 logPerf("openBook.preparation", perfStart)
 
                 // v4: 将 durByteOffset 转为章节内字符偏移
@@ -221,6 +240,10 @@ internal class BookSessionManager(
 
         val safeIndex = index.coerceIn(0, (content.normalizedChapters().size - 1).coerceAtLeast(0))
         chapterJob?.cancel()
+
+        // 切换章节时：累计上一章阅读时间 + 标记新章已访问
+        flushChapterTime()
+        markChapterVisited(uiState.value.bookId, safeIndex)
 
         val targetCharOffset = if (targetToLastPage) -1 else if (targetByteOffset >= 0) -1 else -1
 
@@ -310,6 +333,8 @@ internal class BookSessionManager(
         val dao = readingProgressDao ?: return
         if (bookId == 0L || elapsedMs < 1000L) return
         val elapsedSeconds = elapsedMs / 1000L
+        val snapshotChapterIndex = uiState.value.chapterIndex
+        val snapshotThemeBg = uiState.value.themeColors.backgroundColor
         scope.launch(Dispatchers.IO) {
             val existing = dao.getReadingDurationByBookId(bookId)
             if (existing != null) {
@@ -319,6 +344,8 @@ internal class BookSessionManager(
                     position = uiState.value.currentPage?.startCharOffset ?: 0,
                     readTime = existing + elapsedSeconds,
                     updatedTime = System.currentTimeMillis(),
+                    chapterIndex = snapshotChapterIndex,
+                    themeBackgroundColor = snapshotThemeBg,
                 )
             } else {
                 dao.insertProgress(
@@ -328,6 +355,8 @@ internal class BookSessionManager(
                         position = uiState.value.currentPage?.startCharOffset ?: 0,
                         readTime = elapsedSeconds,
                         updatedTime = System.currentTimeMillis(),
+                        chapterIndex = snapshotChapterIndex,
+                        themeBackgroundColor = snapshotThemeBg,
                     )
                 )
             }
@@ -338,6 +367,7 @@ internal class BookSessionManager(
 
     fun releaseResources() {
         saveReadingProgress(immediate = true)
+        flushChapterTime()
         val sessionElapsed = readingStateManager().endSession()
         persistReadingTime(uiState.value.bookId, sessionElapsed)
         readingStateManager().cancel()
@@ -447,5 +477,42 @@ internal class BookSessionManager(
         } else {
             emptyList()
         }
+    }
+
+    // ── 章节阅读统计辅助 ──────────────────────────────────────
+
+    /** 加载章节阅读统计到 uiState */
+    private fun loadChapterStats(bookId: Long) {
+        val dao = chapterReadingStatsDao ?: return
+        scope.launch {
+            dao.getStatsByBookId(bookId).collect { stats ->
+                uiState.value = uiState.value.copy(chapterStats = stats)
+            }
+        }
+    }
+
+    /** 标记章节已访问，开始计时 */
+    private fun markChapterVisited(bookId: Long, chapterIndex: Int) {
+        val dao = chapterReadingStatsDao ?: return
+        lastActiveChapterIndex = chapterIndex
+        chapterStartTimestamp = System.currentTimeMillis()
+        scope.launch(Dispatchers.IO) {
+            dao.markVisitedOrCreate(bookId, chapterIndex)
+        }
+    }
+
+    /** 累计当前章节的阅读时间到数据库，重置计时起点 */
+    private fun flushChapterTime() {
+        val dao = chapterReadingStatsDao ?: return
+        val bookId = uiState.value.bookId
+        val chapterIndex = lastActiveChapterIndex
+        val startTime = chapterStartTimestamp
+        if (bookId == 0L || chapterIndex < 0 || startTime == 0L) return
+        val elapsedSeconds = (System.currentTimeMillis() - startTime) / 1000L
+        if (elapsedSeconds < 1L) return
+        scope.launch(Dispatchers.IO) {
+            dao.addReadTimeOrCreate(bookId, chapterIndex, elapsedSeconds)
+        }
+        chapterStartTimestamp = System.currentTimeMillis()
     }
 }

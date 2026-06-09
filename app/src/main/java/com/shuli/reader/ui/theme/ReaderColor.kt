@@ -2,6 +2,7 @@ package com.shuli.reader.ui.theme
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import com.shuli.reader.core.data.ReaderTheme
 import com.shuli.reader.core.data.ThemeColors
@@ -79,7 +80,59 @@ fun ReaderTheme.toReaderColorScheme(): ReaderColorScheme {
         ReaderTheme.DARK -> ReaderDarkColorScheme
         ReaderTheme.PAPER -> ReaderPaperColorScheme
         ReaderTheme.OLED -> ReaderOledColorScheme
+        ReaderTheme.CUSTOM -> ReaderPaperColorScheme // fallback，实际由 resolveCustomColorScheme 处理
     }
+}
+
+/**
+ * 从自定义 ARGB 颜色值构建 ReaderColorScheme。
+ *
+ * 只需指定 background、textPrimary、accent 三个核心色，
+ * 其余派生色自动计算（降低用户配置负担）。
+ */
+fun resolveCustomColorScheme(
+    backgroundColor: Int,
+    textColor: Int,
+    accentColor: Int,
+): ReaderColorScheme {
+    val bg = Color(backgroundColor)
+    val text = Color(textColor)
+    val accent = Color(accentColor)
+    // 根据背景亮度判断深浅模式，自动派生辅助色
+    val bgLuminance = bg.luminance()
+    val isDark = bgLuminance < 0.5f
+    return ReaderColorScheme(
+        background = bg,
+        surface = if (isDark) bg.lighten(0.08f) else bg.darken(0.04f),
+        textPrimary = text,
+        textSecondary = text.copy(alpha = if (isDark) 0.7f else 0.6f),
+        textTertiary = text.copy(alpha = if (isDark) 0.5f else 0.4f),
+        accent = accent,
+        divider = text.copy(alpha = if (isDark) 0.15f else 0.12f),
+        overlay = bg.copy(alpha = 0.9f),
+        selection = accent.copy(alpha = 0.2f),
+        highlight = accent.copy(alpha = 0.4f),
+    )
+}
+
+/** 颜色亮度提升 */
+private fun Color.lighten(factor: Float): Color {
+    return Color(
+        red = (red + (1f - red) * factor).coerceIn(0f, 1f),
+        green = (green + (1f - green) * factor).coerceIn(0f, 1f),
+        blue = (blue + (1f - blue) * factor).coerceIn(0f, 1f),
+        alpha = alpha,
+    )
+}
+
+/** 颜色亮度降低 */
+private fun Color.darken(factor: Float): Color {
+    return Color(
+        red = (red * (1f - factor)).coerceIn(0f, 1f),
+        green = (green * (1f - factor)).coerceIn(0f, 1f),
+        blue = (blue * (1f - factor)).coerceIn(0f, 1f),
+        alpha = alpha,
+    )
 }
 
 fun ReaderColorScheme.toCanvasThemeColors(): ThemeColors {

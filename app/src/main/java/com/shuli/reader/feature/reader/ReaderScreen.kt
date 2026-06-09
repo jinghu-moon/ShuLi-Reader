@@ -44,6 +44,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -73,6 +74,8 @@ import com.shuli.reader.feature.bookshelf.component.BookDetailsSheet
 import com.shuli.reader.feature.bookshelf.component.BookDetailsTagActions
 import com.shuli.reader.feature.bookshelf.component.BookDetailsTagState
 import com.shuli.reader.feature.reader.effects.ReaderCanvasEffects
+import com.shuli.reader.feature.reader.render.toFallbackRenderInput
+import com.shuli.reader.feature.reader.render.toRenderInput
 import com.shuli.reader.feature.reader.overlays.ReaderBottomBar
 import com.shuli.reader.feature.reader.overlays.ReaderOverlayPanels
 import com.shuli.reader.feature.reader.overlays.ReaderTopBar
@@ -102,6 +105,51 @@ fun ReaderScreen(
     val tagSuggestions by viewModel.tagSuggestions.collectAsState()
     val density = LocalDensity.current.density
     var showBookDetailsSheet by remember { mutableStateOf(false) }
+    val orchestrator = remember { com.shuli.reader.feature.reader.render.ReaderRenderOrchestrator() }
+    var batteryLevel by remember { mutableIntStateOf(100) }
+    val dispatch = viewModel::dispatch
+
+    // 电量广播（Screen 层采集，传给 toRenderInput 与 Canvas）
+    val batteryContext = LocalContext.current
+    DisposableEffect(batteryContext) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(ctx: android.content.Context, intent: android.content.Intent) {
+                val level = intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1)
+                val scale = intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1)
+                if (level != -1 && scale != -1) {
+                    batteryLevel = (level.toFloat() / scale.toFloat() * 100).toInt()
+                }
+            }
+        }
+        val filter = android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)
+        val flags = if (android.os.Build.VERSION.SDK_INT >= 33) {
+            android.content.Context.RECEIVER_NOT_EXPORTED
+        } else {
+            0
+        }
+        androidx.core.content.ContextCompat.registerReceiver(batteryContext, receiver, filter, flags)
+        onDispose { batteryContext.unregisterReceiver(receiver) }
+    }
+
+    // 沉浸模式：根据偏好设置隐藏/显示系统栏
+    val immersiveMode = uiState.readerPreferences.immersiveMode
+    val activityContext = LocalContext.current
+    DisposableEffect(immersiveMode) {
+        val activity = activityContext as? android.app.Activity ?: return@DisposableEffect onDispose {}
+        val window = activity.window
+        val controller = androidx.core.view.WindowInsetsControllerCompat(window, window.decorView)
+        if (immersiveMode) {
+            controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior =
+                androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose {
+            // 离开阅读页时恢复系统栏
+            controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
+    }
 
     // 内层返回：选区 > 各浮层 > 工具栏，依次回退
     BackHandler(
@@ -111,17 +159,17 @@ fun ReaderScreen(
             || uiState.showToolbar,
     ) {
         when {
-            uiState.selectedRange != null -> viewModel.navigationCoordinator.clearTextSelection()
-            uiState.showDirectory -> viewModel.navigationCoordinator.toggleDirectory()
-            uiState.showQuickSettings -> viewModel.navigationCoordinator.toggleQuickSettings()
-            uiState.showToolbar -> viewModel.navigationCoordinator.toggleToolbar()
+            uiState.selectedRange != null -> dispatch(ReaderIntent.ClearSelection)
+            uiState.showDirectory -> dispatch(ReaderIntent.ToggleDirectory)
+            uiState.showQuickSettings -> dispatch(ReaderIntent.ToggleQuickSettings)
+            uiState.showToolbar -> dispatch(ReaderIntent.ToggleToolbar)
         }
     }
 
     // 必须始终在组合树中：不能放在 isLoading 条件分支内，
     // 否则每次 isLoading 切换都会 dispose LaunchedEffect，导致 openBook 反复触发。
     LaunchedEffect(bookId) {
-        viewModel.openBook(bookId)
+        dispatch(ReaderIntent.OpenBook(bookId))
     }
 
     Scaffold(
@@ -142,39 +190,54 @@ fun ReaderScreen(
                 var canvasView by remember { mutableStateOf<ReaderCanvasView?>(null) }
 
                 // 所有 LaunchedEffect 副作用
-                ReaderCanvasEffects(viewModel = viewModel, canvasView = canvasView)
+                ReaderCanvasEffects(
+                    viewModel = viewModel,
+                    canvasView = canvasView,
+                )
 
-                // Canvas 渲染
-                val layoutVersionRef = remember { mutableIntStateOf(uiState.layoutVersion) }
+                // Canvas 渲染：Orchestrator 驱动
                 AndroidView(
                     modifier = Modifier.fillMaxSize().testTag(UiTestTags.READER_CANVAS).onGloballyPositioned { coordinates ->
-                        viewModel.setScreenSize(coordinates.size.width, coordinates.size.height)
+                        dispatch(ReaderIntent.SetScreenSize(coordinates.size.width, coordinates.size.height))
                     },
                     factory = { context ->
                         ReaderCanvasView(context).apply {
                             canvasView = this
-                            onPageChanged = viewModel.navigationCoordinator::handlePageDirection
-                            onPageChangedSlots = { viewModel.readerProgressResolver.resolveHeaderAndFooterSlots() }
-                            onTextSelected = viewModel.navigationCoordinator::selectText
-                            onCenterClicked = viewModel.navigationCoordinator::toggleToolbar
-                            applyInitialReaderCanvasState(uiState, viewModel, density)
+                            onPageChanged = { direction ->
+                                when (direction) {
+                                    com.shuli.reader.core.reader.animation.PageDelegate.Direction.NEXT ->
+                                        dispatch(ReaderIntent.TurnPage(PageDirection.NEXT))
+                                    com.shuli.reader.core.reader.animation.PageDelegate.Direction.PREV ->
+                                        dispatch(ReaderIntent.TurnPage(PageDirection.PREV))
+                                    else -> { /* NONE: no-op */ }
+                                }
+                            }
+                            onTextSelected = { range ->
+                                viewModel.navigationCoordinator.selectText(range)
+                            }
+                            onCenterClicked = { dispatch(ReaderIntent.ToggleToolbar) }
                         }
                     },
                     update = { view ->
-                        val page = uiState.currentPage ?: return@AndroidView
-                        val nextPage = uiState.currentChapter?.getPage(uiState.pageIndex + 1)
-                        val prevPage = uiState.currentChapter?.getPage(uiState.pageIndex - 1)
-                        val isLayoutChange = layoutVersionRef.intValue != uiState.layoutVersion
-                        if (isLayoutChange) layoutVersionRef.intValue = uiState.layoutVersion
-
-                        view.canTurnPrev = { uiState.pageIndex > 0 || uiState.chapterIndex > 0 }
-                        view.canTurnNext = {
-                            val chapter = uiState.currentChapter
-                            if (chapter != null) {
-                                uiState.pageIndex < chapter.lastIndex || uiState.chapterIndex < uiState.totalChapters - 1
-                            } else false
+                        val (headerRes, footerRes) = viewModel.readerProgressResolver.resolveHeaderAndFooterSlots()
+                        val input = uiState.toRenderInput(
+                            density = density,
+                            headerSlots = headerRes,
+                            footerSlots = footerRes,
+                            batteryLevel = batteryLevel,
+                            pageDelegate = viewModel.pageDelegate,
+                        )
+                        // §11.1.1.1: T0 fallback — 首帧超预算时用持久化摘要渲染骨架页
+                        val digest = uiState.snapshotDigest
+                        if (uiState.isLoading && digest != null) {
+                            val fallbackInput = digest.toFallbackRenderInput(
+                                density = density,
+                                layoutVersion = uiState.layoutVersion,
+                            )
+                            orchestrator.applyWithFallback(view, input, fallbackInput, budgetMs = 200)
+                        } else {
+                            orchestrator.apply(view, input)
                         }
-                        view.setPage(page, nextPage, prevPage, uiState.currentChapter?.content ?: "", uiState.pageRenderMode, isLayoutChange = isLayoutChange)
                     },
                 )
 
@@ -183,9 +246,9 @@ fun ReaderScreen(
                     uiState = uiState,
                     bookId = bookId,
                     onBackClick = onBackClick,
-                    onToggleSearch = viewModel.navigationCoordinator::toggleSearch,
-                    onPreviousSearchResult = viewModel.readerSearchManager::goToPreviousSearchResult,
-                    onNextSearchResult = viewModel.readerSearchManager::goToNextSearchResult,
+                    onToggleSearch = { dispatch(ReaderIntent.ToggleSearch) },
+                    onPreviousSearchResult = { dispatch(ReaderIntent.PrevSearchResult) },
+                    onNextSearchResult = { dispatch(ReaderIntent.NextSearchResult) },
                     onShowBookInfo = { showBookDetailsSheet = true },
                     modifier = Modifier.align(Alignment.TopCenter),
                 )
@@ -193,8 +256,8 @@ fun ReaderScreen(
                 // 搜索输入栏
                 if (uiState.showSearch) {
                     ReaderSearchBar(
-                        onSearch = { query -> viewModel.readerSearchManager.searchInCurrentBook(query) },
-                        onClose = viewModel.navigationCoordinator::toggleSearch,
+                        onSearch = { query -> dispatch(ReaderIntent.Search(query)) },
+                        onClose = { dispatch(ReaderIntent.ToggleSearch) },
                         modifier = Modifier.align(Alignment.TopCenter),
                     )
                 }
@@ -208,7 +271,7 @@ fun ReaderScreen(
                 ) {
                     com.shuli.reader.feature.reader.component.VerticalBrightnessSlider(
                         brightness = uiState.readerPreferences.brightness,
-                        onBrightnessChange = viewModel.readerSettingsManager::setBrightness,
+                        onBrightnessChange = { value, _ -> dispatch(ReaderIntent.UpdateSetting(ReaderSettingKey.BRIGHTNESS, ReaderSettingValue.Float(value))) },
                         modifier = Modifier.padding(end = 12.dp, top = 24.dp).height(240.dp)
                     )
                 }
@@ -216,14 +279,14 @@ fun ReaderScreen(
                 // 底部工具栏
                 ReaderBottomBar(
                     uiState = uiState,
-                    onToggleDirectory = viewModel.navigationCoordinator::toggleDirectory,
-                    onCycleTheme = viewModel.readerSettingsManager::cycleTheme,
-                    onAddBookmark = { viewModel.bookmarkNotesManager.addBookmark() },
-                    onToggleQuickSettings = viewModel.navigationCoordinator::toggleQuickSettings,
-                    onOpenChapter = viewModel::openChapter,
-                    onStartPageScrub = viewModel.navigationCoordinator::startPageScrub,
-                    onScrubToPage = viewModel.navigationCoordinator::scrubToPage,
-                    onCommitPageScrub = viewModel.navigationCoordinator::commitPageScrub,
+                    onToggleDirectory = { dispatch(ReaderIntent.ToggleDirectory) },
+                    onCycleTheme = { dispatch(ReaderIntent.CycleTheme) },
+                    onAddBookmark = { dispatch(ReaderIntent.AddBookmark(pageOnly = true)) },
+                    onToggleQuickSettings = { dispatch(ReaderIntent.ToggleQuickSettings) },
+                    onOpenChapter = { index -> dispatch(ReaderIntent.OpenChapter(index)) },
+                    onStartPageScrub = { dispatch(ReaderIntent.StartPageScrub) },
+                    onScrubToPage = { page -> dispatch(ReaderIntent.ScrubToPage(page)) },
+                    onCommitPageScrub = { dispatch(ReaderIntent.CommitPageScrub) },
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
 
@@ -234,10 +297,10 @@ fun ReaderScreen(
                             range.selectedText?.takeIf { it.isNotBlank() }?.let { text ->
                                 clipboardManager.setText(AnnotatedString(text))
                             }
-                            viewModel.navigationCoordinator.clearTextSelection()
+                            dispatch(ReaderIntent.ClearSelection)
                         },
-                        onBookmark = viewModel::addBookmarkFromSelection,
-                        onNote = viewModel::addNoteFromSelection,
+                        onBookmark = { dispatch(ReaderIntent.AddBookmarkFromSelection) },
+                        onNote = { dispatch(ReaderIntent.AddNoteFromSelection) },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .navigationBarsPadding()
@@ -248,7 +311,7 @@ fun ReaderScreen(
         }
 
         // 弹出面板（放在 Box 外部，避免 enableEdgeToEdge 布局异常）
-        ReaderOverlayPanels(uiState = uiState, viewModel = viewModel)
+        ReaderOverlayPanels(uiState = uiState, dispatch = viewModel::dispatch)
     }
 
     // 书籍详情弹窗（P0+P1）
@@ -279,41 +342,6 @@ fun ReaderScreen(
 }
 
 // ================= 私有辅助组件 =================
-
-private fun ReaderCanvasView.applyInitialReaderCanvasState(
-    uiState: ReaderUiState,
-    viewModel: ReaderViewModel,
-    density: Float,
-) {
-    val prefs = uiState.readerPreferences
-
-    setHeaderTextRatio(prefs.headerFontSizeRatio)
-    setFooterTextRatio(prefs.footerFontSizeRatio)
-    updatePaintSnapshot(
-        textSize = prefs.fontSize * density,
-        letterSpacing = prefs.letterSpacing,
-        fakeBold = prefs.fontWeight == ReaderFontWeight.BOLD,
-        fontKey = prefs.readingFont,
-        textAlign = prefs.textAlign,
-        invalidateContent = false,
-    )
-    textPaint.let { viewModel.syncTextMeasurerPaint(it) }
-
-    val (headerRes, footerRes) = viewModel.readerProgressResolver.resolveHeaderAndFooterSlots()
-    updateHeaderFooter(
-        headerRes,
-        footerRes,
-        prefs.headerFooterAlpha,
-        prefs.showProgress,
-        prefs.showHeaderLine,
-        prefs.showFooterLine,
-    )
-    setTitleStyle(prefs.titleStyle)
-    setEdgeTurnPageEnabled(prefs.edgeTurnPage)
-    setEdgeWidthPercent(prefs.edgeWidthPercent)
-    setPageDelegate(viewModel.pageDelegate)
-    setThemeColors(uiState.themeColors)
-}
 
 @Composable
 private fun LoadingIndicator(readerColors: com.shuli.reader.ui.theme.ReaderColorScheme, text: String) {

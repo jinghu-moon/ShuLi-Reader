@@ -3,9 +3,11 @@ package com.shuli.reader.sync.export
 
 import com.github.luben.zstd.Zstd
 import com.shuli.reader.core.database.entity.BookEntity
+import com.shuli.reader.core.database.entity.BookTagCrossRef
 import com.shuli.reader.core.database.entity.BookmarkEntity
 import com.shuli.reader.core.database.entity.NoteEntity
 import com.shuli.reader.core.database.entity.ReadingProgressEntity
+import com.shuli.reader.core.database.entity.TagEntity
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -269,6 +271,14 @@ class FakeImportDatabase(
 
     override suspend fun clearProgress() { progress.clear() }
     override suspend fun getExistingProgressBookIds(): Set<Long> = progress.map { it.bookId }.toSet()
+
+    // --- Tags (P1) ---
+    private val tags = mutableListOf<TagEntity>()
+    private val bookTagRefs = mutableListOf<BookTagCrossRef>()
+    override suspend fun getAllTags(): List<TagEntity> = tags
+    override suspend fun getAllBookTagCrossRefs(): List<BookTagCrossRef> = bookTagRefs
+    override suspend fun insertTag(tag: TagEntity): Long { tags.add(tag); return tag.id }
+    override suspend fun addTagToBook(crossRef: BookTagCrossRef) { bookTagRefs.add(crossRef) }
 
     override suspend fun runInTransaction(block: suspend () -> Unit) {
         // 测试用：直接执行，不包裹事务

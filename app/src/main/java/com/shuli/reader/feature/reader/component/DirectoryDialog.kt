@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.shuli.reader.core.database.entity.BookmarkEntity
+import com.shuli.reader.core.database.entity.ChapterReadingStatsEntity
 import com.shuli.reader.core.database.entity.NoteEntity
 import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.reader.component.directory.BookmarkList
@@ -45,6 +46,7 @@ fun DirectoryDialog(
     chapters: List<String>,
     currentChapterIndex: Int,
     chapterWordCounts: List<Int>,
+    chapterStats: List<ChapterReadingStatsEntity> = emptyList(),
     bookmarks: List<BookmarkEntity>,
     notes: List<NoteEntity>,
     onChapterClick: (Int) -> Unit,
@@ -103,6 +105,8 @@ fun DirectoryDialog(
                         currentIndex = currentChapterIndex,
                         wordCounts = chapterWordCounts,
                         onChapterClick = onChapterClick,
+                        chapterStats = chapterStats,
+                        bookmarks = bookmarks,
                     )
                     1 -> BookmarkList(
                         bookmarks = bookmarks,

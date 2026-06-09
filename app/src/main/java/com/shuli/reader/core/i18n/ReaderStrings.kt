@@ -27,6 +27,9 @@ interface ReaderStrings {
     val firstLineIndent: String
     val indentNone: String
     val indentTwoChars: String
+    val indentUnitLabel: String
+    val indentUnitChar: String
+    val indentUnitDp: String
     val fullScreenMode: String
     val keepScreenOn: String
     val brightness: String
@@ -48,6 +51,15 @@ interface ReaderStrings {
     val layoutTab: String
     val styleTab: String
     val settingsTab: String
+    val fontTab: String
+    val pageTab: String
+    val interactionTab: String
+    val settingsScopeBook: String
+    val settingsScopeGlobal: String
+    val scopeLabelBook: String
+    val scopeLabelGlobal: String
+    val resetBookOverrides: String
+    val resetBookOverridesConfirm: String
     val letterSpacingLabel: String
     val fontWeightLabel: String
     val fontWeightLight: String
@@ -114,6 +126,32 @@ interface ReaderStrings {
     val headerFontSizeLabel: String
     val footerFontSizeLabel: String
     val bottomJustifyLabel: String
+    val immersiveModeLabel: String
+    val immersiveModeDesc: String
+    // P1 设置项
+    val maxPageWidthLabel: String
+    val maxPageWidthUnlimited: String
+    val removeEmptyLinesLabel: String
+    val removeEmptyLinesDesc: String
+    val cleanChapterTitleLabel: String
+    val cleanChapterTitleDesc: String
+    val progressStyleLabel: String
+    val progressStyleChapterFraction: String
+    val progressStyleChapterPercent: String
+    val progressStylePageNumber: String
+    val progressStyleBookFraction: String
+    val progressStyleBookPercent: String
+    // P2 设置项
+    val autoNightModeLabel: String
+    val autoNightModeDesc: String
+    val autoPageTurnLabel: String
+    val autoPageTurnDesc: String
+    val autoPageTurnIntervalLabel: String
+    val epubOverrideStyleLabel: String
+    val epubOverrideStyleDesc: String
+    // P0: 触控热区
+    val leftZoneRatioLabel: String
+    val leftZoneRatioDesc: String
     val readingPresets: String
     val savePresetAction: String
     val resetToDefault: String
@@ -157,10 +195,21 @@ interface ReaderStrings {
     val alreadyFirstPage: String
     val alreadyLastPage: String
 
+    // 自定义主题
+    val customThemeLabel: String
+    val customThemeBg: String
+    val customThemeText: String
+    val customThemeAccent: String
+
     // EPUB 图片占位
     val imagePlaceholder: String
 
     // 字数统计
     val wordCountTenThousand: (Float) -> String
     val wordCountUnit: (Int) -> String
+
+    // 章节阅读统计
+    val chapterReadTimeLabel: String
+    val chapterRead: String
+    val chapterUnread: String
 }

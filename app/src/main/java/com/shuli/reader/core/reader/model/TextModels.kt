@@ -153,20 +153,31 @@ class TextPage(
     val headerMarginTop: Float = 48f,
     val footerMarginBottom: Float = 48f,
 ) {
-    /** 内容渲染缓存（文本、标题、TTS/选区高亮），排版变化时重录。 */
+    /** 内容渲染缓存（文本、标题），排版变化时重录。 */
     @Transient
     val canvasRecorder: CanvasRecorder = CanvasRecorderFactory.create(locked = true)
+
+    /**
+     * 内容层 recorder 别名（§23.5 重命名方向）。
+     * 与 [canvasRecorder] 引用同一实例；过渡期保留旧名以兼容现有调用点。
+     */
+    @Transient
+    val contentRecorder: CanvasRecorder = canvasRecorder
 
     /** 壳层渲染缓存（背景、页眉、页脚、电池、进度条），排版变化时保持不变。 */
     @Transient
     val shellRecorder: CanvasRecorder = CanvasRecorderFactory.create(locked = true)
 
-    /** 合并渲染缓存（壳层+内容层叠加），翻页动画时使用，避免双层绘制冲突。 */
+    /** 覆盖层渲染缓存（选区、TTS、笔记），高频变化时独立重录，不污染正文。 */
+    @Transient
+    val overlayRecorder: CanvasRecorder = CanvasRecorderFactory.create(locked = true)
+
+    /** 合并渲染缓存（壳层+内容层+覆盖层叠加），翻页动画时使用。 */
     @Transient
     val compositeRecorder: CanvasRecorder = CanvasRecorderFactory.create(locked = true)
 
     /**
-     * 录制合并 recorder：先壳层后内容层叠加。
+     * 录制合并 recorder：先壳层后内容层再覆盖层叠加。
      * 仅在翻页动画触发时调用，静止状态不产生开销。
      */
     fun recordComposite(width: Int, height: Int) {
@@ -174,6 +185,7 @@ class TextPage(
         compositeRecorder.record(width, height) {
             shellRecorder.draw(this)
             canvasRecorder.draw(this)
+            overlayRecorder.draw(this)
         }
     }
 
@@ -184,16 +196,28 @@ class TextPage(
         lines.forEach { it.invalidateSelf() }
     }
 
+    /** [invalidate] 的语义别名，与 contentRecorder 重命名对齐。 */
+    fun invalidateContent() {
+        invalidate()
+    }
+
     /** 标记壳层 recorder 失效。 */
     fun invalidateShell() {
         shellRecorder.invalidate()
         compositeRecorder.invalidate()
     }
 
-    /** 标记内容 + 壳层 + 所有行级 recorder 失效。 */
+    /** 标记覆盖层 recorder 失效（选区、TTS、笔记变化时调用）。 */
+    fun invalidateOverlay() {
+        overlayRecorder.invalidate()
+        compositeRecorder.invalidate()
+    }
+
+    /** 标记内容 + 壳层 + 覆盖层 + 所有行级 recorder 失效。 */
     fun invalidateAll() {
         canvasRecorder.invalidate()
         shellRecorder.invalidate()
+        overlayRecorder.invalidate()
         compositeRecorder.invalidate()
         lines.forEach { it.invalidateSelf() }
     }
@@ -202,6 +226,7 @@ class TextPage(
     fun recycleRecorders() {
         canvasRecorder.recycle()
         shellRecorder.recycle()
+        overlayRecorder.recycle()
         compositeRecorder.recycle()
         lines.forEach { it.recycleRecorder() }
     }

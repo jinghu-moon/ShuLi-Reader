@@ -16,13 +16,15 @@ interface ReadingProgressDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProgress(progress: ReadingProgressEntity): Long
 
-    @Query("UPDATE reading_progress SET pageIndex = :pageIndex, position = :position, readTime = :readTime, updatedTime = :updatedTime WHERE bookId = :bookId")
+    @Query("UPDATE reading_progress SET pageIndex = :pageIndex, position = :position, readTime = :readTime, updatedTime = :updatedTime, chapterIndex = :chapterIndex, themeBackgroundColor = :themeBackgroundColor WHERE bookId = :bookId")
     suspend fun updateProgress(
         bookId: Long,
         pageIndex: Int,
         position: Int,
         readTime: Long,
         updatedTime: Long,
+        chapterIndex: Int = 0,
+        themeBackgroundColor: Int = 0,
     )
 
     @Query("SELECT SUM(readTime) FROM reading_progress WHERE bookId = :bookId")
@@ -49,9 +51,23 @@ interface ReadingProgressDao {
     /** Upsert 阅读进度（导入合并用） */
     @Upsert
     suspend fun upsertProgress(progress: ReadingProgressEntity)
+
+    /** §11.1.1.1: 加载 SnapshotDigest（T0 fallback 用） */
+    @Query("SELECT bookId, chapterIndex, pageIndex, position, themeBackgroundColor, updatedTime FROM reading_progress WHERE bookId = :bookId AND deleted = 0")
+    suspend fun loadSnapshotDigest(bookId: Long): SnapshotDigestTuple?
 }
 
 data class BookDurationTuple(
     val bookId: Long,
     val totalDuration: Long,
+)
+
+/** §11.1.1.1: SnapshotDigest 查询结果 */
+data class SnapshotDigestTuple(
+    val bookId: Long,
+    val chapterIndex: Int,
+    val pageIndex: Int,
+    val position: Int,
+    val themeBackgroundColor: Int,
+    val updatedTime: Long,
 )

@@ -39,7 +39,7 @@ class ReaderCanvasView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
-) : View(context, attrs, defStyleAttr) {
+) : View(context, attrs, defStyleAttr), RenderApplierTarget {
     private val fontManager = FontManager(context)
     private val defaultColors = ReaderTheme.PAPER.toReaderColorScheme().toCanvasThemeColors()
 
@@ -127,9 +127,10 @@ class ReaderCanvasView @JvmOverloads constructor(
         onInvalidate = { invalidate() },
         onSubmitRenderTask = { submitRenderTask() },
         onPagesInvalidate = {
-            currentPage?.invalidate()
-            nextPage?.invalidate()
-            prevPage?.invalidate()
+            // TTS/选区/笔记变化仅失效 overlay 层，正文不重录（§10 分层 recorder）
+            currentPage?.invalidateOverlay()
+            nextPage?.invalidateOverlay()
+            prevPage?.invalidateOverlay()
         },
     )
 
@@ -140,6 +141,7 @@ class ReaderCanvasView @JvmOverloads constructor(
             override fun getPageDelegate() = pageDelegate
             override fun isEdgeTurnPageEnabled() = visualParams.isEdgeTurnPageEnabled()
             override fun getEdgeWidthPercent() = visualParams.getEdgeWidthPercent()
+            override fun getLeftZoneRatio() = this@ReaderCanvasView.leftZoneRatio
             override fun onPageChanged(direction: PageDelegate.Direction) {
                 this@ReaderCanvasView.onPageChanged?.invoke(direction)
             }
@@ -163,7 +165,7 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     // ── 回调 ──────────────────────────────────────────────────
 
-    fun setBatteryLevel(level: Int) {
+    internal fun setBatteryLevel(level: Int) {
         if (renderContext.batteryLevel == level) return
         renderContext.batteryLevel = level
         currentPage?.invalidateShell()
@@ -179,9 +181,6 @@ class ReaderCanvasView @JvmOverloads constructor(
     // 翻页回调
     var onPageChanged: ((PageDelegate.Direction) -> Unit)? = null
 
-    // 翻页后立即获取新页眉页脚槽位
-    var onPageChangedSlots: (() -> Pair<SlotResolution, SlotResolution>)? = null
-
     // 边界检测回调
     var canTurnPrev: (() -> Boolean)? = null
     var canTurnNext: (() -> Boolean)? = null
@@ -192,9 +191,12 @@ class ReaderCanvasView @JvmOverloads constructor(
     // 中心区域点击回调
     var onCenterClicked: (() -> Unit)? = null
 
+    // 触控热区比例（左侧区域宽度比例，右侧对称）
+    var leftZoneRatio: Float = 0.33f
+
     // ── 页面录制委托 ──────────────────────────────────────────
 
-    private fun submitRenderTask() {
+    override fun submitRenderTask() {
         pageBitmapCache.submitRenderTask(
             width = width,
             height = height,
@@ -211,15 +213,66 @@ class ReaderCanvasView @JvmOverloads constructor(
         )
     }
 
+    // ── RenderApplierTarget：scope-only invalidation ─────────────
+
+    override fun invalidateContentOnly() {
+        currentPage?.invalidate()
+        nextPage?.invalidate()
+        prevPage?.invalidate()
+    }
+
+    override fun invalidateShellOnly() {
+        currentPage?.invalidateShell()
+        nextPage?.invalidateShell()
+        prevPage?.invalidateShell()
+    }
+
+    override fun invalidateOverlayOnly() {
+        currentPage?.invalidateOverlay()
+        nextPage?.invalidateOverlay()
+        prevPage?.invalidateOverlay()
+    }
+
+    override fun invalidateAllPages() {
+        currentPage?.invalidateAll()
+        nextPage?.invalidateAll()
+        prevPage?.invalidateAll()
+    }
+
+    override fun rebuildPageDelegate() {
+        // pageDelegate 已由 applySnapshot 在进入 Applier 之前通过 setPageDelegate 设置；
+        // 此方法仅作语义标记，使测试可验证 PAGE_DELEGATE scope 分发。
+    }
+
     // ── 页面设置 ──────────────────────────────────────────────
 
-    fun setPage(
+    override fun setPage(
+        page: TextPage,
+        next: TextPage?,
+        prev: TextPage?,
+        mode: PageRenderMode,
+    ) {
+        setPageInternal(page, next, prev, "", mode, isLayoutChange = false)
+    }
+
+    internal fun setPage(
         page: TextPage,
         next: TextPage? = null,
         prev: TextPage? = null,
         content: CharSequence = "",
         mode: PageRenderMode = PageRenderMode.SEQUENTIAL,
         isLayoutChange: Boolean = false,
+    ) {
+        setPageInternal(page, next, prev, content, mode, isLayoutChange)
+    }
+
+    private fun setPageInternal(
+        page: TextPage,
+        next: TextPage?,
+        prev: TextPage?,
+        content: CharSequence,
+        mode: PageRenderMode,
+        isLayoutChange: Boolean,
     ) {
         val changed = currentPage !== page || nextPage !== next || prevPage !== prev
 
@@ -267,6 +320,79 @@ class ReaderCanvasView @JvmOverloads constructor(
         }
     }
 
+    // ── Snapshot 应用入口（Orchestrator 唯一调用） ──────────────
+
+    override fun applySnapshot(
+        snapshot: Any,
+        diff: Any,
+        pageDelegate: com.shuli.reader.core.reader.animation.PageDelegate?,
+    ) {
+        val renderSnapshot = snapshot as com.shuli.reader.feature.reader.render.ReaderRenderSnapshot
+        val renderDiff = diff as com.shuli.reader.feature.reader.render.ReaderRenderDiff
+        applySnapshotInternal(renderSnapshot, renderDiff, pageDelegate)
+    }
+
+    /**
+     * 唯一渲染入口。先应用全部视觉参数（幂等），再按 diff 范围精确失效。
+     *
+     * 视觉参数从 [com.shuli.reader.feature.reader.render.ReaderRenderSnapshot] 的
+     * `layout.input`、`visual`、`shell` 子快照读取，不依赖任何 `settings` 中间字段。
+     *
+     * @param snapshot 完整不可变快照
+     * @param diff 失效范围集合
+     * @param pageDelegate 翻页动画委托（可为 null）
+     */
+    fun applySnapshot(
+        snapshot: com.shuli.reader.feature.reader.render.ReaderRenderSnapshot,
+        diff: com.shuli.reader.feature.reader.render.ReaderRenderDiff,
+        pageDelegate: com.shuli.reader.core.reader.animation.PageDelegate? = null,
+    ) {
+        applySnapshotInternal(snapshot, diff, pageDelegate)
+    }
+
+    private fun applySnapshotInternal(
+        snapshot: com.shuli.reader.feature.reader.render.ReaderRenderSnapshot,
+        diff: com.shuli.reader.feature.reader.render.ReaderRenderDiff,
+        pageDelegate: com.shuli.reader.core.reader.animation.PageDelegate? = null,
+    ) {
+        val layoutInput = snapshot.layout.input
+        val v = snapshot.visual
+        val sh = snapshot.shell
+
+        // 1. 始终应用全部视觉参数（幂等操作，值未变时各 setter 内部跳过）
+        visualParams.updatePaintSnapshot(
+            textSize = layoutInput.fontSizeSp * layoutInput.density,
+            letterSpacing = layoutInput.letterSpacing,
+            fakeBold = layoutInput.fontWeight == com.shuli.reader.core.data.ReaderFontWeight.BOLD,
+            fontKey = layoutInput.fontKey,
+            textAlign = v.textAlign,
+            invalidateContent = false,
+        )
+        visualParams.setHeaderTextRatio(sh.headerFontSizeRatio)
+        visualParams.setFooterTextRatio(sh.footerFontSizeRatio)
+        visualParams.updateHeaderFooter(
+            headerSlots = sh.headerSlots,
+            footerSlots = sh.footerSlots,
+            alpha = sh.headerFooterAlpha,
+            showProgress = sh.showProgress,
+            showHeaderLine = sh.showHeaderLine,
+            showFooterLine = sh.showFooterLine,
+        )
+        visualParams.setTitleStyle(v.titleStyle)
+        visualParams.setEdgeTurnPageEnabled(sh.edgeTurnPage)
+        visualParams.setEdgeWidthPercent(sh.edgeWidthPercent)
+        this.leftZoneRatio = sh.leftZoneRatio
+        visualParams.setThemeColors(v.themeColors)
+        if (pageDelegate != null) {
+            setPageDelegate(pageDelegate)
+        }
+
+        // 2. 按 diff 范围精确失效：委托给 ReaderCanvasStateApplier
+        com.shuli.reader.feature.reader.render.ReaderCanvasStateApplier()
+            .apply(this, snapshot, diff)
+        invalidate()
+    }
+
     // ── 翻页动画委托 ──────────────────────────────────────────
 
     private var animationDisabledCache: Boolean? = null
@@ -292,7 +418,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         animationDisabledCache = null
     }
 
-    fun setPageDelegate(delegate: PageDelegate?) {
+    internal fun setPageDelegate(delegate: PageDelegate?) {
         val actualDelegate = if (isAnimationDisabled() && delegate != null && delegate !is com.shuli.reader.core.reader.animation.NoAnimPageDelegate) {
             com.shuli.reader.core.reader.animation.NoAnimPageDelegate()
         } else {
@@ -304,15 +430,6 @@ class ReaderCanvasView @JvmOverloads constructor(
             override fun onPageChanged(direction: PageDelegate.Direction) {
                 fillPage(direction)
                 onPageChanged?.invoke(direction)
-                onPageChangedSlots?.invoke()?.let { (h, f) ->
-                    if (renderContext.headerSlots != h || renderContext.footerSlots != f) {
-                        renderContext.headerSlots = h
-                        renderContext.footerSlots = f
-                        currentPage?.invalidateShell()
-                        nextPage?.invalidateShell()
-                        prevPage?.invalidateShell()
-                    }
-                }
             }
 
             override fun invalidate() {
@@ -323,12 +440,12 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     // ── 视觉参数委托（CanvasVisualParamsManager） ────────────
 
-    fun setHeaderText(text: String) = visualParams.setHeaderText(text)
-    fun setFooterText(text: String) = visualParams.setFooterText(text)
-    fun setHeaderSlots(slots: SlotResolution) = visualParams.setHeaderSlots(slots)
-    fun setFooterSlots(slots: SlotResolution) = visualParams.setFooterSlots(slots)
+    internal fun setHeaderText(text: String) = visualParams.setHeaderText(text)
+    internal fun setFooterText(text: String) = visualParams.setFooterText(text)
+    internal fun setHeaderSlots(slots: SlotResolution) = visualParams.setHeaderSlots(slots)
+    internal fun setFooterSlots(slots: SlotResolution) = visualParams.setFooterSlots(slots)
 
-    fun updateHeaderFooter(
+    internal fun updateHeaderFooter(
         headerSlots: SlotResolution,
         footerSlots: SlotResolution,
         alpha: Float,
@@ -337,16 +454,16 @@ class ReaderCanvasView @JvmOverloads constructor(
         showFooterLine: Boolean = false,
     ) = visualParams.updateHeaderFooter(headerSlots, footerSlots, alpha, showProgress, showHeaderLine, showFooterLine)
 
-    fun setShowProgress(show: Boolean) = visualParams.setShowProgress(show)
-    fun setHeaderFooterAlpha(alpha: Float) = visualParams.setHeaderFooterAlpha(alpha)
-    fun setTextSizePx(textSize: Float) = visualParams.setTextSizePx(textSize)
-    fun setLetterSpacing(emSpacing: Float) = visualParams.setLetterSpacing(emSpacing)
-    fun setFakeBoldText(fakeBold: Boolean) = visualParams.setFakeBoldText(fakeBold)
-    fun setTextAlign(align: com.shuli.reader.core.data.ReaderTextAlign) = visualParams.setTextAlign(align)
-    fun setTitleStyle(style: TitleStyleConfig) = visualParams.setTitleStyle(style)
-    fun setFontFamily(fontKey: String) = visualParams.setFontFamily(fontKey)
+    internal fun setShowProgress(show: Boolean) = visualParams.setShowProgress(show)
+    internal fun setHeaderFooterAlpha(alpha: Float) = visualParams.setHeaderFooterAlpha(alpha)
+    internal fun setTextSizePx(textSize: Float) = visualParams.setTextSizePx(textSize)
+    internal fun setLetterSpacing(emSpacing: Float) = visualParams.setLetterSpacing(emSpacing)
+    internal fun setFakeBoldText(fakeBold: Boolean) = visualParams.setFakeBoldText(fakeBold)
+    internal fun setTextAlign(align: com.shuli.reader.core.data.ReaderTextAlign) = visualParams.setTextAlign(align)
+    internal fun setTitleStyle(style: TitleStyleConfig) = visualParams.setTitleStyle(style)
+    internal fun setFontFamily(fontKey: String) = visualParams.setFontFamily(fontKey)
 
-    fun updatePaintSnapshot(
+    internal fun updatePaintSnapshot(
         textSize: Float? = null,
         letterSpacing: Float? = null,
         fakeBold: Boolean? = null,
@@ -355,11 +472,11 @@ class ReaderCanvasView @JvmOverloads constructor(
         invalidateContent: Boolean = false,
     ) = visualParams.updatePaintSnapshot(textSize, letterSpacing, fakeBold, fontKey, textAlign, invalidateContent)
 
-    fun clearSelection() = visualParams.clearSelection()
-    fun setTtsActiveRange(range: SelectionRange?) = visualParams.setTtsActiveRange(range)
-    fun setNoteRanges(ranges: List<Pair<SelectionRange, String?>>) = visualParams.setNoteRanges(ranges)
+    internal fun clearSelection() = visualParams.clearSelection()
+    internal fun setTtsActiveRange(range: SelectionRange?) = visualParams.setTtsActiveRange(range)
+    internal fun setNoteRanges(ranges: List<Pair<SelectionRange, String?>>) = visualParams.setNoteRanges(ranges)
 
-    fun setTheme(
+    internal fun setTheme(
         backgroundColor: Int,
         textColor: Int,
         headerColor: Int,
@@ -370,12 +487,12 @@ class ReaderCanvasView @JvmOverloads constructor(
         pageBitmapCache.invalidateAllRecorders(currentPage, nextPage, prevPage)
     }
 
-    fun setThemeColors(colors: ThemeColors) = visualParams.setThemeColors(colors)
+    internal fun setThemeColors(colors: ThemeColors) = visualParams.setThemeColors(colors)
 
-    fun setEdgeTurnPageEnabled(enabled: Boolean) = visualParams.setEdgeTurnPageEnabled(enabled)
-    fun setEdgeWidthPercent(percent: Float) = visualParams.setEdgeWidthPercent(percent)
-    fun setHeaderTextRatio(ratio: Float) = visualParams.setHeaderTextRatio(ratio)
-    fun setFooterTextRatio(ratio: Float) = visualParams.setFooterTextRatio(ratio)
+    internal fun setEdgeTurnPageEnabled(enabled: Boolean) = visualParams.setEdgeTurnPageEnabled(enabled)
+    internal fun setEdgeWidthPercent(percent: Float) = visualParams.setEdgeWidthPercent(percent)
+    internal fun setHeaderTextRatio(ratio: Float) = visualParams.setHeaderTextRatio(ratio)
+    internal fun setFooterTextRatio(ratio: Float) = visualParams.setFooterTextRatio(ratio)
 
     // ── 页面旋转 / crossfade ──────────────────────────────────
 

@@ -158,24 +158,52 @@ class ReaderPageRenderer(
     }
 
     /**
-     * 渲染内容：TTS/选区高亮、正文文本、章节标题。
+     * 渲染内容：正文文本 + 章节标题。
+     *
      * 排版参数变化时需要重录。
+     *
+     * ⚠️ 旧版参数 ttsActiveRange / selectedRange / noteRanges 已废弃（§23.7），
+     *    覆盖层绘制已迁至 [renderOverlay]。这些参数保留仅为编译期兼容，不再绘制。
      *
      * @param ctx 页面渲染上下文，提供 content + page + paint + metrics
      */
     fun renderContent(
         canvas: Canvas,
         ctx: PageRenderContext,
+        @Suppress("UNUSED_PARAMETER") ttsActiveRange: SelectionRange? = null,
+        @Suppress("UNUSED_PARAMETER") selectedRange: SelectionRange? = null,
+        @Suppress("UNUSED_PARAMETER") ttsHighlightPaint: Paint? = null,
+        @Suppress("UNUSED_PARAMETER") selectionPaint: Paint? = null,
+        @Suppress("UNUSED_PARAMETER") noteRanges: List<Pair<SelectionRange, Paint>> = emptyList(),
+    ) {
+        val page = ctx.page
+        val density = page.density
+
+        // 1. 绘制正文文本（per-line CanvasRecorder 优化）
+        for (line in page.lines) {
+            drawLineWithRecorder(canvas, line, ctx)
+        }
+
+        // 2. 绘制章节标题（仅首页）
+        drawChapterTitle(canvas, page, density)
+    }
+
+    /**
+     * 渲染覆盖层：笔记高亮、TTS 高亮、选区高亮。
+     *
+     * 独立录制在 [com.shuli.reader.core.reader.model.TextPage.overlayRecorder] 中，
+     * TTS/选区变化时仅 overlay 失效，正文不重录（§10 分层 recorder）。
+     */
+    fun renderOverlay(
+        canvas: Canvas,
+        page: TextPage,
         ttsActiveRange: SelectionRange? = null,
         selectedRange: SelectionRange? = null,
         ttsHighlightPaint: Paint? = null,
         selectionPaint: Paint? = null,
         noteRanges: List<Pair<SelectionRange, Paint>> = emptyList(),
     ) {
-        val page = ctx.page
-        val density = page.density
-
-        // 1. 绘制笔记高亮背景（彩色半透明，在 TTS/选区高亮之下）
+        // 1. 笔记高亮背景（彩色半透明，在 TTS/选区高亮之下）
         if (noteRanges.isNotEmpty()) {
             page.lines.forEach { line ->
                 val startX = page.marginHorizontal + line.startXOffset
@@ -191,7 +219,7 @@ class ReaderPageRenderer(
             }
         }
 
-        // 2. 绘制 TTS/选区高亮背景
+        // 2. TTS/选区高亮背景
         page.lines.forEach { line ->
             val startX = page.marginHorizontal + line.startXOffset
             val textWidth = line.measuredWidth
@@ -206,14 +234,6 @@ class ReaderPageRenderer(
                 canvas.drawRoundRect(rect, 6f, 6f, selectionPaint)
             }
         }
-
-        // 2. 绘制正文文本（per-line CanvasRecorder 优化）
-        for (line in page.lines) {
-            drawLineWithRecorder(canvas, line, ctx)
-        }
-
-        // 3. 绘制章节标题（仅首页）
-        drawChapterTitle(canvas, page, density)
     }
 
     /**

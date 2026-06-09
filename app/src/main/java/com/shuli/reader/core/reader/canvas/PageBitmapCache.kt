@@ -63,9 +63,12 @@ class PageBitmapCache(
                 letterSpacingPx = textPaint.letterSpacing * textPaint.textSize,
                 availableWidth = page.pageSize.width - page.marginHorizontal * 2,
             )
-            pageRenderer.renderContent(
+            pageRenderer.renderContent(canvas = this, ctx = ctx)
+        }
+        val overlayDirty = page.overlayRecorder.recordIfNeeded(w, h) {
+            pageRenderer.renderOverlay(
                 canvas = this,
-                ctx = ctx,
+                page = page,
                 ttsActiveRange = renderContext.ttsActiveRange,
                 selectedRange = renderContext.selectedRange,
                 ttsHighlightPaint = ttsHighlightPaint,
@@ -73,7 +76,7 @@ class PageBitmapCache(
                 noteRanges = renderContext.noteRanges,
             )
         }
-        return shellDirty || contentDirty
+        return shellDirty || contentDirty || overlayDirty
     }
 
     /** 主线程同步录制单页（兜底用）。 */

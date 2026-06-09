@@ -7,6 +7,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.shuli.reader.core.database.dao.BookChapterDao
 import com.shuli.reader.core.database.dao.BookDao
 import com.shuli.reader.core.database.dao.BookmarkDao
+import com.shuli.reader.core.database.dao.BookReaderPrefsDao
+import com.shuli.reader.core.database.dao.ChapterReadingStatsDao
 import com.shuli.reader.core.database.dao.NoteDao
 import com.shuli.reader.core.database.dao.ReadingHistoryDao
 import com.shuli.reader.core.database.dao.ReadingProgressDao
@@ -15,8 +17,10 @@ import com.shuli.reader.core.database.dao.TagDao
 import com.shuli.reader.core.database.dao.TagSuggestionDecisionDao
 import com.shuli.reader.core.database.entity.BookChapterEntity
 import com.shuli.reader.core.database.entity.BookContentIndexEntity
+import com.shuli.reader.core.database.entity.ChapterReadingStatsEntity
 import com.shuli.reader.core.database.entity.BookEntity
 import com.shuli.reader.core.database.entity.BookFtsEntity
+import com.shuli.reader.core.database.entity.BookReaderPrefsEntity
 import com.shuli.reader.core.database.entity.BookTagCrossRef
 import com.shuli.reader.core.database.entity.BookmarkEntity
 import com.shuli.reader.core.database.entity.NoteEntity
@@ -41,8 +45,10 @@ import com.shuli.reader.core.database.entity.TagSuggestionDecisionEntity
         BookTagCrossRef::class,
         ReadingHistoryEntity::class,
         TagSuggestionDecisionEntity::class,
+        BookReaderPrefsEntity::class,
+        ChapterReadingStatsEntity::class,
     ],
-    version = 20,
+    version = 23,
     exportSchema = true,
 )
 abstract class ShuLiDatabase : RoomDatabase() {
@@ -55,6 +61,8 @@ abstract class ShuLiDatabase : RoomDatabase() {
     abstract fun tagDao(): TagDao
     abstract fun readingHistoryDao(): ReadingHistoryDao
     abstract fun tagSuggestionDecisionDao(): TagSuggestionDecisionDao
+    abstract fun bookReaderPrefsDao(): BookReaderPrefsDao
+    abstract fun chapterReadingStatsDao(): ChapterReadingStatsDao
 
     companion object {
         const val DATABASE_NAME = "shuli_database"
@@ -137,11 +145,59 @@ abstract class ShuLiDatabase : RoomDatabase() {
             }
         }
 
+        /** §11.1.1.1: SnapshotDigest — 新增 chapterIndex / themeBackgroundColor */
+        val MIGRATION_20_21 = object : Migration(20, 21) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE reading_progress ADD COLUMN chapterIndex INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL(
+                    "ALTER TABLE reading_progress ADD COLUMN themeBackgroundColor INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
+        /** 本书级偏好覆盖表 */
+        val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE book_reader_prefs (
+                        book_id INTEGER NOT NULL PRIMARY KEY,
+                        config_json TEXT NOT NULL,
+                        updated_at INTEGER NOT NULL DEFAULT 0
+                    )
+                """)
+            }
+        }
+
+        /** 章节阅读统计表 */
+        val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE chapter_reading_stats (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        book_id INTEGER NOT NULL,
+                        chapter_index INTEGER NOT NULL,
+                        visited INTEGER NOT NULL DEFAULT 0,
+                        read_time_seconds INTEGER NOT NULL DEFAULT 0,
+                        first_visited_at INTEGER NOT NULL DEFAULT 0,
+                        last_visited_at INTEGER NOT NULL DEFAULT 0,
+                        FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+                    )
+                """)
+                database.execSQL("CREATE UNIQUE INDEX index_chapter_reading_stats_book_chapter ON chapter_reading_stats(book_id, chapter_index)")
+                database.execSQL("CREATE INDEX index_chapter_reading_stats_book_id ON chapter_reading_stats(book_id)")
+            }
+        }
+
         val ALL_MIGRATIONS = arrayOf(
             MIGRATION_16_17,
             MIGRATION_17_18,
             MIGRATION_18_19,
             MIGRATION_19_20,
+            MIGRATION_20_21,
+            MIGRATION_21_22,
+            MIGRATION_22_23,
         )
     }
 }

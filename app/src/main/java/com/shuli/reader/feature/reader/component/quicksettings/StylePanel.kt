@@ -48,6 +48,9 @@ internal fun StylePanel(
     onUseZhLayoutChange: (Boolean) -> Unit,
     onPanguSpacingChange: (Boolean) -> Unit,
     onBottomJustifyChange: (Boolean) -> Unit,
+    onRemoveEmptyLinesChange: (Boolean) -> Unit = {},
+    onCleanChapterTitleChange: (Boolean) -> Unit = {},
+    onEpubOverrideStyleChange: (Boolean) -> Unit = {},
 ) {
     val strings = LocalAppStrings.current
     val readerColors = LocalReaderColorScheme.current
@@ -177,5 +180,25 @@ internal fun StylePanel(
         label = strings.reader.bottomJustifyLabel,
         checked = prefs.bottomJustify,
         onCheckedChange = onBottomJustifyChange,
+    )
+    // P1: 文本净化
+    ReaderSwitchRow(
+        label = strings.reader.removeEmptyLinesLabel,
+        description = strings.reader.removeEmptyLinesDesc,
+        checked = prefs.removeEmptyLines,
+        onCheckedChange = onRemoveEmptyLinesChange,
+    )
+    ReaderSwitchRow(
+        label = strings.reader.cleanChapterTitleLabel,
+        description = strings.reader.cleanChapterTitleDesc,
+        checked = prefs.cleanChapterTitle,
+        onCheckedChange = onCleanChapterTitleChange,
+    )
+    // P2: EPUB 覆盖样式
+    ReaderSwitchRow(
+        label = strings.reader.epubOverrideStyleLabel,
+        description = strings.reader.epubOverrideStyleDesc,
+        checked = prefs.epubOverrideStyle,
+        onCheckedChange = onEpubOverrideStyleChange,
     )
 }

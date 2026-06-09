@@ -4,9 +4,11 @@ package com.shuli.reader.sync.export
 import com.github.luben.zstd.Zstd
 import com.github.luben.zstd.ZstdOutputStream
 import com.shuli.reader.core.database.entity.BookEntity
+import com.shuli.reader.core.database.entity.BookTagCrossRef
 import com.shuli.reader.core.database.entity.BookmarkEntity
 import com.shuli.reader.core.database.entity.NoteEntity
 import com.shuli.reader.core.database.entity.ReadingProgressEntity
+import com.shuli.reader.core.database.entity.TagEntity
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -20,6 +22,8 @@ class ZstdDecompressTest {
         override suspend fun getAllBookmarks() = emptyList<BookmarkEntity>()
         override suspend fun getAllNotes() = emptyList<NoteEntity>()
         override suspend fun getAllProgress() = emptyList<ReadingProgressEntity>()
+        override suspend fun getAllTags() = emptyList<TagEntity>()
+        override suspend fun getAllBookTagCrossRefs() = emptyList<BookTagCrossRef>()
         override suspend fun upsertBook(book: BookEntity) {}
         override suspend fun clearBooks() {}
         override suspend fun getExistingBookIds(): Set<Long> = emptySet()
@@ -32,6 +36,8 @@ class ZstdDecompressTest {
         override suspend fun upsertProgress(progress: ReadingProgressEntity) {}
         override suspend fun clearProgress() {}
         override suspend fun getExistingProgressBookIds(): Set<Long> = emptySet()
+        override suspend fun insertTag(tag: TagEntity): Long = 0
+        override suspend fun addTagToBook(crossRef: BookTagCrossRef) {}
         override suspend fun runInTransaction(block: suspend () -> Unit) {}
     }
 

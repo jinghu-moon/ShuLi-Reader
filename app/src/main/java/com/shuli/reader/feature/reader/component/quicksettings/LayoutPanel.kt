@@ -1,8 +1,10 @@
 package com.shuli.reader.feature.reader.component.quicksettings
 
 import androidx.compose.runtime.Composable
+import com.shuli.reader.core.data.IndentUnit
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.i18n.LocalAppStrings
+import com.shuli.reader.feature.reader.component.ReaderSegmentedRow
 import com.shuli.reader.feature.reader.component.ReaderValueSlider
 
 /**
@@ -16,8 +18,10 @@ internal fun LayoutPanel(
     onLineSpacingChange: (Float) -> Unit,
     onParagraphSpacingChange: (Float) -> Unit,
     onIndentChange: (Float) -> Unit,
+    onIndentUnitChange: (IndentUnit) -> Unit = {},
     onMarginVerticalChange: (Float) -> Unit,
     onMarginHorizontalChange: (Float) -> Unit,
+    onMaxPageWidthChange: (Float) -> Unit = {},
 ) {
     val strings = LocalAppStrings.current
 
@@ -61,12 +65,24 @@ internal fun LayoutPanel(
         format = { "%.1f".format(it) },
         onValueChange = onParagraphSpacingChange,
     )
+    ReaderSegmentedRow(
+        label = strings.reader.indentUnitLabel,
+        options = listOf(
+            IndentUnit.CHARACTER to strings.reader.indentUnitChar,
+            IndentUnit.PIXEL to strings.reader.indentUnitDp,
+        ),
+        selected = prefs.indentUnit,
+        onSelect = onIndentUnitChange,
+    )
     ReaderValueSlider(
         label = strings.reader.firstLineIndent,
         value = prefs.indent,
-        valueRange = 0f..10f,
-        steps = 19,
-        format = { "%.1f".format(it) },
+        valueRange = if (prefs.indentUnit == IndentUnit.CHARACTER) 0f..10f else 0f..200f,
+        steps = if (prefs.indentUnit == IndentUnit.CHARACTER) 19 else 19,
+        format = {
+            if (prefs.indentUnit == IndentUnit.CHARACTER) "%.1f".format(it)
+            else "${it.toInt()}dp"
+        },
         onValueChange = onIndentChange,
     )
     ReaderValueSlider(
@@ -76,5 +92,14 @@ internal fun LayoutPanel(
         steps = 19,
         format = { "%.2f".format(it) },
         onValueChange = onLetterSpacingChange,
+    )
+    // P1: 页面最大宽度（平板/横屏时限制正文宽度）
+    ReaderValueSlider(
+        label = strings.reader.maxPageWidthLabel,
+        value = prefs.maxPageWidth,
+        valueRange = 0f..1200f,
+        steps = 23,
+        format = { if (it == 0f) strings.reader.maxPageWidthUnlimited else "${it.toInt()}dp" },
+        onValueChange = onMaxPageWidthChange,
     )
 }

@@ -46,6 +46,7 @@ class UserPreferences(
         val KEY_DEFAULT_LINE_SPACING = floatPreferencesKey("default_line_spacing")
         val KEY_DEFAULT_PARAGRAPH_SPACING = floatPreferencesKey("default_paragraph_spacing")
         val KEY_DEFAULT_INDENT = floatPreferencesKey("default_indent")
+        val KEY_INDENT_UNIT = stringPreferencesKey("indent_unit")
         val KEY_DEFAULT_PAGE_ANIM = stringPreferencesKey("default_page_anim")
         val KEY_PAGE_TURN_DIR = stringPreferencesKey("page_turn_dir")
         val KEY_FULL_SCREEN = booleanPreferencesKey("full_screen")
@@ -91,6 +92,23 @@ class UserPreferences(
         val KEY_VOLUME_KEY_TURN_PAGE = booleanPreferencesKey("volume_key_turn_page")
         val KEY_EDGE_TURN_PAGE = booleanPreferencesKey("edge_turn_page")
         val KEY_EDGE_WIDTH_PERCENT = floatPreferencesKey("edge_width_percent")
+        val KEY_IMMERSIVE_MODE = booleanPreferencesKey("immersive_mode")
+        // P1 新增
+        val KEY_MAX_PAGE_WIDTH = floatPreferencesKey("max_page_width")
+        val KEY_REMOVE_EMPTY_LINES = booleanPreferencesKey("remove_empty_lines")
+        val KEY_CLEAN_CHAPTER_TITLE = booleanPreferencesKey("clean_chapter_title")
+        // P1: 主题自定义
+        val KEY_READER_THEME = stringPreferencesKey("reader_theme")
+        val KEY_CUSTOM_BACKGROUND_COLOR = intPreferencesKey("custom_background_color")
+        val KEY_CUSTOM_TEXT_COLOR = intPreferencesKey("custom_text_color")
+        val KEY_CUSTOM_ACCENT_COLOR = intPreferencesKey("custom_accent_color")
+        val KEY_PROGRESS_STYLE = stringPreferencesKey("progress_style")
+        // P2 新增
+        val KEY_AUTO_NIGHT_MODE = booleanPreferencesKey("auto_night_mode")
+        val KEY_AUTO_PAGE_TURN = booleanPreferencesKey("auto_page_turn")
+        val KEY_AUTO_PAGE_TURN_INTERVAL = floatPreferencesKey("auto_page_turn_interval")
+        val KEY_EPUB_OVERRIDE_STYLE = booleanPreferencesKey("epub_override_style")
+        val KEY_LEFT_ZONE_RATIO = floatPreferencesKey("left_zone_ratio")
 
         // 书库与导入
         val KEY_DUPLICATE_CHECK = booleanPreferencesKey("duplicate_check_enabled")
@@ -137,6 +155,7 @@ class UserPreferences(
     val defaultLineSpacing: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_LINE_SPACING] ?: 1.5f }.distinctUntilChanged()
     val defaultParagraphSpacing: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_PARAGRAPH_SPACING] ?: 1.0f }.distinctUntilChanged()
     val defaultIndent: Flow<Float> = dataStore.data.map { it[KEY_DEFAULT_INDENT] ?: 2.0f }.distinctUntilChanged()
+    val indentUnit: Flow<String> = dataStore.data.map { it[KEY_INDENT_UNIT] ?: "character" }.distinctUntilChanged()
     val defaultPageAnim: Flow<String> = dataStore.data.map { it[KEY_DEFAULT_PAGE_ANIM] ?: PageAnimConst.OVERLAY }.distinctUntilChanged()
     val pageTurnDir: Flow<String> = dataStore.data.map { it[KEY_PAGE_TURN_DIR] ?: PageTurnDirConst.HORIZONTAL }.distinctUntilChanged()
     val fullScreen: Flow<Boolean> = dataStore.data.map { it[KEY_FULL_SCREEN] ?: false }.distinctUntilChanged()
@@ -182,6 +201,23 @@ class UserPreferences(
     val volumeKeyTurnPage: Flow<Boolean> = dataStore.data.map { it[KEY_VOLUME_KEY_TURN_PAGE] ?: false }.distinctUntilChanged()
     val edgeTurnPage: Flow<Boolean> = dataStore.data.map { it[KEY_EDGE_TURN_PAGE] ?: true }.distinctUntilChanged()
     val edgeWidthPercent: Flow<Float> = dataStore.data.map { it[KEY_EDGE_WIDTH_PERCENT] ?: 0.33f }.distinctUntilChanged()
+    val immersiveMode: Flow<Boolean> = dataStore.data.map { it[KEY_IMMERSIVE_MODE] ?: false }.distinctUntilChanged()
+    // P1 新增
+    val maxPageWidth: Flow<Float> = dataStore.data.map { it[KEY_MAX_PAGE_WIDTH] ?: 0f }.distinctUntilChanged()
+    val removeEmptyLines: Flow<Boolean> = dataStore.data.map { it[KEY_REMOVE_EMPTY_LINES] ?: false }.distinctUntilChanged()
+    val cleanChapterTitle: Flow<Boolean> = dataStore.data.map { it[KEY_CLEAN_CHAPTER_TITLE] ?: false }.distinctUntilChanged()
+    val progressStyle: Flow<String> = dataStore.data.map { it[KEY_PROGRESS_STYLE] ?: "chapter_fraction" }.distinctUntilChanged()
+    // P2 新增
+    val autoNightMode: Flow<Boolean> = dataStore.data.map { it[KEY_AUTO_NIGHT_MODE] ?: false }.distinctUntilChanged()
+    val autoPageTurn: Flow<Boolean> = dataStore.data.map { it[KEY_AUTO_PAGE_TURN] ?: false }.distinctUntilChanged()
+    val autoPageTurnInterval: Flow<Float> = dataStore.data.map { it[KEY_AUTO_PAGE_TURN_INTERVAL] ?: 10f }.distinctUntilChanged()
+    val epubOverrideStyle: Flow<Boolean> = dataStore.data.map { it[KEY_EPUB_OVERRIDE_STYLE] ?: true }.distinctUntilChanged()
+    val leftZoneRatio: Flow<Float> = dataStore.data.map { it[KEY_LEFT_ZONE_RATIO] ?: 0.33f }.distinctUntilChanged()
+    // P1: 主题自定义
+    val readerTheme: Flow<String> = dataStore.data.map { it[KEY_READER_THEME] ?: "PAPER" }.distinctUntilChanged()
+    val customBackgroundColor: Flow<Int?> = dataStore.data.map { it[KEY_CUSTOM_BACKGROUND_COLOR] }.distinctUntilChanged()
+    val customTextColor: Flow<Int?> = dataStore.data.map { it[KEY_CUSTOM_TEXT_COLOR] }.distinctUntilChanged()
+    val customAccentColor: Flow<Int?> = dataStore.data.map { it[KEY_CUSTOM_ACCENT_COLOR] }.distinctUntilChanged()
 
     val duplicateCheckEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_DUPLICATE_CHECK] ?: true }.distinctUntilChanged()
     val importCopyFile: Flow<Boolean> = dataStore.data.map { it[KEY_IMPORT_COPY] ?: true }.distinctUntilChanged()
@@ -221,6 +257,7 @@ class UserPreferences(
     suspend fun setDefaultLineSpacing(value: Float) = dataStore.edit { it[KEY_DEFAULT_LINE_SPACING] = value }
     suspend fun setDefaultParagraphSpacing(value: Float) = dataStore.edit { it[KEY_DEFAULT_PARAGRAPH_SPACING] = value }
     suspend fun setDefaultIndent(value: Float) = dataStore.edit { it[KEY_DEFAULT_INDENT] = value }
+    suspend fun setIndentUnit(value: String) = dataStore.edit { it[KEY_INDENT_UNIT] = value }
     suspend fun setDefaultPageAnim(value: String) = dataStore.edit { it[KEY_DEFAULT_PAGE_ANIM] = value }
     suspend fun setPageTurnDir(value: String) = dataStore.edit { it[KEY_PAGE_TURN_DIR] = value }
     suspend fun setFullScreen(value: Boolean) = dataStore.edit { it[KEY_FULL_SCREEN] = value }
@@ -266,6 +303,29 @@ class UserPreferences(
     suspend fun setVolumeKeyTurnPage(value: Boolean) = dataStore.edit { it[KEY_VOLUME_KEY_TURN_PAGE] = value }
     suspend fun setEdgeTurnPage(value: Boolean) = dataStore.edit { it[KEY_EDGE_TURN_PAGE] = value }
     suspend fun setEdgeWidthPercent(value: Float) = dataStore.edit { it[KEY_EDGE_WIDTH_PERCENT] = value }
+    suspend fun setImmersiveMode(value: Boolean) = dataStore.edit { it[KEY_IMMERSIVE_MODE] = value }
+    // P1 新增
+    suspend fun setMaxPageWidth(value: Float) = dataStore.edit { it[KEY_MAX_PAGE_WIDTH] = value }
+    suspend fun setRemoveEmptyLines(value: Boolean) = dataStore.edit { it[KEY_REMOVE_EMPTY_LINES] = value }
+    suspend fun setCleanChapterTitle(value: Boolean) = dataStore.edit { it[KEY_CLEAN_CHAPTER_TITLE] = value }
+    suspend fun setProgressStyle(value: String) = dataStore.edit { it[KEY_PROGRESS_STYLE] = value }
+    // P2 新增
+    suspend fun setAutoNightMode(value: Boolean) = dataStore.edit { it[KEY_AUTO_NIGHT_MODE] = value }
+    suspend fun setAutoPageTurn(value: Boolean) = dataStore.edit { it[KEY_AUTO_PAGE_TURN] = value }
+    suspend fun setAutoPageTurnInterval(value: Float) = dataStore.edit { it[KEY_AUTO_PAGE_TURN_INTERVAL] = value }
+    suspend fun setEpubOverrideStyle(value: Boolean) = dataStore.edit { it[KEY_EPUB_OVERRIDE_STYLE] = value }
+    suspend fun setLeftZoneRatio(value: Float) = dataStore.edit { it[KEY_LEFT_ZONE_RATIO] = value }
+    // P1: 主题自定义
+    suspend fun setBackgroundColor(value: String) = dataStore.edit { it[KEY_READER_THEME] = value }
+    suspend fun setCustomBackgroundColor(value: Int?) = dataStore.edit { prefs ->
+        if (value != null) prefs[KEY_CUSTOM_BACKGROUND_COLOR] = value else prefs.remove(KEY_CUSTOM_BACKGROUND_COLOR)
+    }
+    suspend fun setCustomTextColor(value: Int?) = dataStore.edit { prefs ->
+        if (value != null) prefs[KEY_CUSTOM_TEXT_COLOR] = value else prefs.remove(KEY_CUSTOM_TEXT_COLOR)
+    }
+    suspend fun setCustomAccentColor(value: Int?) = dataStore.edit { prefs ->
+        if (value != null) prefs[KEY_CUSTOM_ACCENT_COLOR] = value else prefs.remove(KEY_CUSTOM_ACCENT_COLOR)
+    }
 
     suspend fun setDuplicateCheckEnabled(value: Boolean) = dataStore.edit { it[KEY_DUPLICATE_CHECK] = value }
     suspend fun setImportCopyFile(value: Boolean) = dataStore.edit { it[KEY_IMPORT_COPY] = value }

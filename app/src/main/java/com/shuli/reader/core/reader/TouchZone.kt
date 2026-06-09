@@ -38,19 +38,23 @@ object TouchZoneCalculator {
 
     /**
      * 计算触控区域
+     *
+     * @param leftZoneRatio 左侧区域宽度比例（0.2~0.5），右侧对称，中间为剩余
      */
     fun calculateZone(
         touchX: Float,
         touchY: Float,
         screenWidth: Int,
         screenHeight: Int,
+        leftZoneRatio: Float = 0.33f,
     ): TouchZone {
-        val thirdWidth = screenWidth / 3f
+        val leftWidth = screenWidth * leftZoneRatio.coerceIn(0.2f, 0.5f)
+        val rightStart = screenWidth - leftWidth
         val thirdHeight = screenHeight / 3f
 
         val col = when {
-            touchX < thirdWidth -> 0
-            touchX < thirdWidth * 2 -> 1
+            touchX < leftWidth -> 0
+            touchX < rightStart -> 1
             else -> 2
         }
 

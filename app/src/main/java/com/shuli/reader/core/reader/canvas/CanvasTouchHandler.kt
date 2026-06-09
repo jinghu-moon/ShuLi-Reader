@@ -20,6 +20,7 @@ class CanvasTouchHandler(context: Context) {
         fun getPageDelegate(): PageDelegate?
         fun isEdgeTurnPageEnabled(): Boolean
         fun getEdgeWidthPercent(): Float
+        fun getLeftZoneRatio(): Float = 0.33f
         fun onPageChanged(direction: PageDelegate.Direction)
         fun onCenterClicked()
         fun onLongPress(x: Float, y: Float)
@@ -55,9 +56,9 @@ class CanvasTouchHandler(context: Context) {
                 val y = event.y
                 val w = cb.getWidth()
                 val h = cb.getHeight()
-                val edgeWidthPercent = cb.getEdgeWidthPercent()
+                val leftRatio = cb.getLeftZoneRatio().coerceIn(0.2f, 0.5f)
 
-                val isCenter = x > w * edgeWidthPercent && x < w * (1f - edgeWidthPercent) &&
+                val isCenter = x > w * leftRatio && x < w * (1f - leftRatio) &&
                     y > h / 3f && y < h * 2f / 3f
                 if (isCenter) {
                     cb.onCenterClicked()
