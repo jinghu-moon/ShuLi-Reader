@@ -38,6 +38,10 @@ interface ImportDatabase : ExportDatabase {
     suspend fun insertTag(tag: TagEntity): Long
     suspend fun addTagToBook(crossRef: BookTagCrossRef)
 
+    // --- ReadingSession ---
+    suspend fun upsertReadingSession(session: com.shuli.reader.core.database.entity.ReadingSessionEntity)
+    suspend fun clearReadingSessions()
+
     // --- Transaction ---
     /** 在数据库事务内执行 [block]，失败时自动回滚 */
     suspend fun runInTransaction(block: suspend () -> Unit)

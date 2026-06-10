@@ -49,7 +49,7 @@ internal object BookshelfSorting {
             SortOrder.ADD_TIME -> if (isAscending) sortedBy { it.id } else sortedByDescending { it.id }
             SortOrder.TITLE -> if (isAscending) sortedBy { it.title } else sortedByDescending { it.title }
             SortOrder.FILE_SIZE -> {
-                val selector: (BookshelfNode) -> Long = { if (it is BookItem) it.readingDurationMinutes else 0L }
+                val selector: (BookshelfNode) -> Long = { if (it is BookItem) it.readingDurationSeconds else 0L }
                 if (isAscending) sortedBy(selector) else sortedByDescending(selector)
             }
             SortOrder.PROGRESS -> {

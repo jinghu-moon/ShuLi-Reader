@@ -23,7 +23,6 @@ data class ReadingProgressEntity(
     val bookId: Long,
     val pageIndex: Int,
     val position: Int,
-    val readTime: Long,  // 阅读时长（秒）
     val updatedTime: Long,
     // === 同步字段（T-06）===
     val isDirty: Boolean = true,

@@ -34,7 +34,7 @@ data class BookItem(
     val fileSize: String,
     val readingProgress: Float,
     val readingDuration: String,
-    val readingDurationMinutes: Long,
+    val readingDurationSeconds: Long,
     val lastReadTime: Long?,
     val isFavorite: Boolean,
     val customCoverPaletteIndex: Int? = null,
@@ -62,17 +62,6 @@ data class BookshelfUiState(
     val activeTagFilter: String? = null,
 )
 
-fun Long.toReadableDuration(): String {
-    if (this <= 0) return ""
-    val hours = this / 60
-    val minutes = this % 60
-    return when {
-        hours > 0 && minutes > 0 -> "${hours}h${minutes}m"
-        hours > 0 -> "${hours}h"
-        else -> "${minutes}m"
-    }
-}
-
 fun Long.toFormattedFileSize(): String {
     return when {
         this < 1024 -> "${this}B"
@@ -81,7 +70,7 @@ fun Long.toFormattedFileSize(): String {
     }
 }
 
-fun BookEntity.toBookItem(readingDurationMinutes: Long = 0): BookItem {
+fun BookEntity.toBookItem(readingDurationSeconds: Long = 0): BookItem {
     return toBookItem(
         id = id,
         author = author,
@@ -90,7 +79,7 @@ fun BookEntity.toBookItem(readingDurationMinutes: Long = 0): BookItem {
         rawFileType = fileType,
         fileSize = fileSize,
         readingProgress = readingProgress,
-        readingDurationMinutes = readingDurationMinutes,
+        readingDurationSeconds = readingDurationSeconds,
         lastReadTime = lastReadTime,
         isFavorite = isFavorite,
         customCoverPaletteIndex = customCoverPaletteIndex,
@@ -101,7 +90,7 @@ fun BookEntity.toBookItem(readingDurationMinutes: Long = 0): BookItem {
     )
 }
 
-fun BookShelfRow.toBookItem(readingDurationMinutes: Long = 0): BookItem {
+fun BookShelfRow.toBookItem(readingDurationSeconds: Long = 0): BookItem {
     return toBookItem(
         id = id,
         author = author,
@@ -110,7 +99,7 @@ fun BookShelfRow.toBookItem(readingDurationMinutes: Long = 0): BookItem {
         rawFileType = fileType,
         fileSize = fileSize,
         readingProgress = readingProgress,
-        readingDurationMinutes = readingDurationMinutes,
+        readingDurationSeconds = readingDurationSeconds,
         lastReadTime = lastReadTime,
         isFavorite = isFavorite,
         customCoverPaletteIndex = customCoverPaletteIndex,
@@ -129,7 +118,7 @@ private fun toBookItem(
     rawFileType: String,
     fileSize: Long,
     readingProgress: Float,
-    readingDurationMinutes: Long,
+    readingDurationSeconds: Long,
     lastReadTime: Long?,
     isFavorite: Boolean,
     customCoverPaletteIndex: Int?,
@@ -155,8 +144,8 @@ private fun toBookItem(
         fileType = type,
         fileSize = fileSize.toFormattedFileSize(),
         readingProgress = readingProgress,
-        readingDuration = readingDurationMinutes.toReadableDuration(),
-        readingDurationMinutes = readingDurationMinutes,
+        readingDuration = com.shuli.reader.core.util.StatsFormatter.formatDuration(readingDurationSeconds),
+        readingDurationSeconds = readingDurationSeconds,
         lastReadTime = lastReadTime,
         isFavorite = isFavorite,
         customCoverPaletteIndex = customCoverPaletteIndex,

@@ -56,6 +56,9 @@ class BackupWorker(
                 override suspend fun getAllBookTagCrossRefs(): List<com.shuli.reader.core.database.entity.BookTagCrossRef> {
                     return database.tagDao().getAllBookTagCrossRefs()
                 }
+                override suspend fun getAllReadingSessions(): List<com.shuli.reader.core.database.entity.ReadingSessionEntity> {
+                    return database.readingSessionDao().getAllSessions()
+                }
             }
 
             val exporter = BackupExporter(exportDb, applicationContext)

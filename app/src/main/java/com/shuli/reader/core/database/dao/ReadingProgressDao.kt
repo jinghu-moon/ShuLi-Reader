@@ -16,25 +16,15 @@ interface ReadingProgressDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProgress(progress: ReadingProgressEntity): Long
 
-    @Query("UPDATE reading_progress SET pageIndex = :pageIndex, position = :position, readTime = :readTime, updatedTime = :updatedTime, chapterIndex = :chapterIndex, themeBackgroundColor = :themeBackgroundColor WHERE bookId = :bookId")
+    @Query("UPDATE reading_progress SET pageIndex = :pageIndex, position = :position, updatedTime = :updatedTime, chapterIndex = :chapterIndex, themeBackgroundColor = :themeBackgroundColor WHERE bookId = :bookId")
     suspend fun updateProgress(
         bookId: Long,
         pageIndex: Int,
         position: Int,
-        readTime: Long,
         updatedTime: Long,
         chapterIndex: Int = 0,
         themeBackgroundColor: Int = 0,
     )
-
-    @Query("SELECT SUM(readTime) FROM reading_progress WHERE bookId = :bookId")
-    suspend fun getReadingDurationByBookId(bookId: Long): Long?
-
-    @Query("SELECT bookId, SUM(readTime) as totalDuration FROM reading_progress GROUP BY bookId")
-    fun getAllReadingDurations(): Flow<List<BookDurationTuple>>
-
-    @Query("SELECT SUM(readTime) FROM reading_progress WHERE updatedTime >= :todayStart")
-    fun getTodayTotalReadingTime(todayStart: Long): Flow<Long?>
 
     /** T-06: 查询脏进度（同步用） */
     @Query("SELECT * FROM reading_progress WHERE isDirty = 1 AND deleted = 0")
@@ -56,11 +46,6 @@ interface ReadingProgressDao {
     @Query("SELECT bookId, chapterIndex, pageIndex, position, themeBackgroundColor, updatedTime FROM reading_progress WHERE bookId = :bookId AND deleted = 0")
     suspend fun loadSnapshotDigest(bookId: Long): SnapshotDigestTuple?
 }
-
-data class BookDurationTuple(
-    val bookId: Long,
-    val totalDuration: Long,
-)
 
 /** §11.1.1.1: SnapshotDigest 查询结果 */
 data class SnapshotDigestTuple(

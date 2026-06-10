@@ -127,7 +127,6 @@ class ZipExporter(
                             put("bookKey", book.bookKey)
                             put("pageIndex", prog.pageIndex)
                             put("position", prog.position)
-                            put("readTime", prog.readTime)
                             put("updatedTime", prog.updatedTime)
                         }
                         zip.putNextEntry(ZipEntry("states/${book.bookKey}.json"))

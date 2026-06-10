@@ -54,11 +54,12 @@ class BackupExporter(
             val progress = db.getAllProgress()
             val tags = db.getAllTags()
             val bookTagCrossRefs = db.getAllBookTagCrossRefs()
+            val readingSessions = db.getAllReadingSessions()
 
             if (options.encryptionPassword != null) {
-                exportEncrypted(outputFile, options, books, bookmarks, notes, progress, tags, bookTagCrossRefs)
+                exportEncrypted(outputFile, options, books, bookmarks, notes, progress, tags, bookTagCrossRefs, readingSessions)
             } else {
-                exportPlain(outputFile, options, books, bookmarks, notes, progress, tags, bookTagCrossRefs)
+                exportPlain(outputFile, options, books, bookmarks, notes, progress, tags, bookTagCrossRefs, readingSessions)
             }
         }
 
@@ -72,9 +73,10 @@ class BackupExporter(
         progress: List<com.shuli.reader.core.database.entity.ReadingProgressEntity>,
         tags: List<com.shuli.reader.core.database.entity.TagEntity>,
         bookTagCrossRefs: List<com.shuli.reader.core.database.entity.BookTagCrossRef>,
+        readingSessions: List<com.shuli.reader.core.database.entity.ReadingSessionEntity>,
     ) {
         FileOutputStream(outputFile).use { fos ->
-            writeZipEntries(fos, options, books, bookmarks, notes, progress, tags, bookTagCrossRefs)
+            writeZipEntries(fos, options, books, bookmarks, notes, progress, tags, bookTagCrossRefs, readingSessions)
         }
     }
 
@@ -88,6 +90,7 @@ class BackupExporter(
         progress: List<com.shuli.reader.core.database.entity.ReadingProgressEntity>,
         tags: List<com.shuli.reader.core.database.entity.TagEntity>,
         bookTagCrossRefs: List<com.shuli.reader.core.database.entity.BookTagCrossRef>,
+        readingSessions: List<com.shuli.reader.core.database.entity.ReadingSessionEntity>,
     ) {
         val salt = ByteArray(16)
         SecureRandom().nextBytes(salt)
@@ -111,7 +114,7 @@ class BackupExporter(
             fos.write(salt)
             fos.write(nonce)
             CipherOutputStream(fos, cipher).use { cos ->
-                writeZipEntries(cos, options, books, bookmarks, notes, progress, tags, bookTagCrossRefs)
+                writeZipEntries(cos, options, books, bookmarks, notes, progress, tags, bookTagCrossRefs, readingSessions)
             }
         }
     }
@@ -126,6 +129,7 @@ class BackupExporter(
         progress: List<com.shuli.reader.core.database.entity.ReadingProgressEntity>,
         tags: List<com.shuli.reader.core.database.entity.TagEntity>,
         bookTagCrossRefs: List<com.shuli.reader.core.database.entity.BookTagCrossRef>,
+        readingSessions: List<com.shuli.reader.core.database.entity.ReadingSessionEntity>,
     ) {
         ZipOutputStream(outputStream).use { zip ->
             zip.setLevel(Deflater.NO_COMPRESSION)
@@ -139,6 +143,7 @@ class BackupExporter(
             }
             if (options.includeProgress) {
                 writeProgress(zip, progress, books)
+                writeReadingSessions(zip, readingSessions)
             }
             if (options.includeBookmarks) {
                 writeBookmarks(zip, bookmarks, books)
@@ -260,7 +265,6 @@ class BackupExporter(
                     add(buildJsonObject {
                         put("pageIndex", prog.pageIndex)
                         put("position", prog.position)
-                        put("readTime", prog.readTime)
                         put("updatedTime", prog.updatedTime)
                     })
                 }
@@ -319,6 +323,27 @@ class BackupExporter(
 
     private fun writeConfig(zip: ZipOutputStream) {
         writeZstdEntry(zip, "config/settings.json", "{}".toByteArray())
+    }
+
+    private fun writeReadingSessions(
+        zip: ZipOutputStream,
+        sessions: List<com.shuli.reader.core.database.entity.ReadingSessionEntity>,
+    ) {
+        if (sessions.isEmpty()) return
+        val arr = buildJsonArray {
+            for (s in sessions) {
+                add(buildJsonObject {
+                    put("bookId", s.bookId)
+                    put("chapterIndex", s.chapterIndex)
+                    put("startedAt", s.startedAt)
+                    put("endedAt", s.endedAt)
+                    put("durationSeconds", s.durationSeconds)
+                    put("dateKey", s.dateKey)
+                    put("hour", s.hour)
+                })
+            }
+        }
+        writeZstdEntry(zip, "reading_sessions.json", json.encodeToString(JsonElement.serializer(), arr).toByteArray())
     }
 
     /** 读取书籍文件内容（支持 content URI 和文件路径） */

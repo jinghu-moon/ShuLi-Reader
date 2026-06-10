@@ -19,4 +19,5 @@ interface ExportDatabase {
     suspend fun getAllProgress(): List<ReadingProgressEntity>
     suspend fun getAllTags(): List<TagEntity>
     suspend fun getAllBookTagCrossRefs(): List<BookTagCrossRef>
+    suspend fun getAllReadingSessions(): List<com.shuli.reader.core.database.entity.ReadingSessionEntity>
 }

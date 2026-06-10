@@ -104,7 +104,7 @@ internal fun ChapterList(
         items(chapters.size) { index ->
             val stats = statsMap[index]
             val isVisited = stats?.visited == true
-            val readTimeSeconds = stats?.readTimeSeconds ?: 0L
+            val readTimeSeconds = 0L
             val bmCount = bookmarkCountMap[index] ?: 0
 
             Row(

@@ -89,6 +89,16 @@ class ShuLiAppContainer(
         )
     }
 
+    val statsRepository: com.shuli.reader.feature.stats.StatsRepository by lazy {
+        com.shuli.reader.feature.stats.StatsRepository(
+            readingSessionDao = database.readingSessionDao(),
+            bookDao = database.bookDao(),
+            bookmarkDao = database.bookmarkDao(),
+            noteDao = database.noteDao(),
+            userPreferences = userPreferences,
+        )
+    }
+
     val tagRepository: TagRepository by lazy {
         TagRepository(tagDao = database.tagDao(), bookDao = database.bookDao())
     }

@@ -29,14 +29,6 @@ interface ChapterReadingStatsDao {
     """)
     suspend fun markVisited(bookId: Long, chapterIndex: Int, now: Long)
 
-    /** 累加章节阅读时长 */
-    @Query("""
-        UPDATE chapter_reading_stats
-        SET read_time_seconds = read_time_seconds + :secondsToAdd
-        WHERE book_id = :bookId AND chapter_index = :chapterIndex
-    """)
-    suspend fun addReadTime(bookId: Long, chapterIndex: Int, secondsToAdd: Long)
-
     /** 插入或更新（UPSERT） */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(stats: ChapterReadingStatsEntity)
@@ -65,13 +57,6 @@ interface ChapterReadingStatsDao {
         } else {
             markVisited(bookId, chapterIndex, now)
         }
-    }
-
-    /** 累加阅读时长，不存在则先创建 */
-    suspend fun addReadTimeOrCreate(bookId: Long, chapterIndex: Int, secondsToAdd: Long) {
-        if (secondsToAdd <= 0) return
-        ensureExists(bookId, chapterIndex)
-        addReadTime(bookId, chapterIndex, secondsToAdd)
     }
 
     /** 删除某书所有章节统计 */

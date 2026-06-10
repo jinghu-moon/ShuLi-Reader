@@ -84,6 +84,7 @@ class BackupImporter(
             val importProgress = parseProgress(entries)
             val importTags = parseTags(entries)
             val importCrossRefs = parseBookTagCrossRefs(entries)
+            val importSessions = parseReadingSessions(entries)
 
             // 在 DB 事务内执行导入（失败自动回滚）
             db.runInTransaction {
@@ -93,10 +94,12 @@ class BackupImporter(
                         db.clearBookmarks()
                         db.clearNotes()
                         db.clearProgress()
+                        db.clearReadingSessions()
                         for (book in importBooks) { db.upsertBook(book) }
                         for (bookmark in importBookmarks) { db.upsertBookmark(bookmark) }
                         for (note in importNotes) { db.upsertNote(note) }
                         for (prog in importProgress) { db.upsertProgress(prog) }
+                        for (session in importSessions) { db.upsertReadingSession(session) }
                         importTagsAndCrossRefs(importTags, importCrossRefs)
                     }
                     ImportStrategy.MERGE -> {
@@ -104,6 +107,7 @@ class BackupImporter(
                         for (bookmark in importBookmarks) { db.upsertBookmark(bookmark) }
                         for (note in importNotes) { db.upsertNote(note) }
                         for (prog in importProgress) { db.upsertProgress(prog) }
+                        for (session in importSessions) { db.upsertReadingSession(session) }
                         importTagsAndCrossRefs(importTags, importCrossRefs)
                     }
                     ImportStrategy.IMPORT_ONLY_NEW -> {
@@ -123,6 +127,7 @@ class BackupImporter(
                         for (prog in importProgress) {
                             if (prog.bookId !in existingProgressBookIds) db.upsertProgress(prog)
                         }
+                        for (session in importSessions) { db.upsertReadingSession(session) }
                         importTagsAndCrossRefs(importTags, importCrossRefs)
                     }
                 }
@@ -334,7 +339,6 @@ class BackupImporter(
                         bookId = bookId,
                         pageIndex = obj["pageIndex"].safeInt() ?: 0,
                         position = obj["position"].safeInt() ?: 0,
-                        readTime = obj["readTime"].safeLong() ?: 0L,
                         updatedTime = obj["updatedTime"].safeLong() ?: 0L,
                     ),
                 )
@@ -374,6 +378,26 @@ class BackupImporter(
             )
         }
         return refs
+    }
+
+    private fun parseReadingSessions(entries: Map<String, String>): List<com.shuli.reader.core.database.entity.ReadingSessionEntity> {
+        val data = entries["reading_sessions.json"] ?: return emptyList()
+        val sessions = mutableListOf<com.shuli.reader.core.database.entity.ReadingSessionEntity>()
+        for (element in json.parseToJsonElement(data).jsonArray) {
+            val obj = element.jsonObject
+            sessions.add(
+                com.shuli.reader.core.database.entity.ReadingSessionEntity(
+                    bookId = obj["bookId"].safeLong() ?: continue,
+                    chapterIndex = obj["chapterIndex"].safeInt() ?: 0,
+                    startedAt = obj["startedAt"].safeLong() ?: 0L,
+                    endedAt = obj["endedAt"].safeLong() ?: 0L,
+                    durationSeconds = obj["durationSeconds"].safeLong() ?: 0L,
+                    dateKey = obj["dateKey"].safeInt() ?: 0,
+                    hour = obj["hour"].safeInt() ?: 0,
+                ),
+            )
+        }
+        return sessions
     }
 
     private suspend fun importTagsAndCrossRefs(

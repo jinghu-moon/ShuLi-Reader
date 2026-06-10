@@ -37,9 +37,6 @@ data class ChapterReadingStatsEntity(
     /** 是否已访问过 */
     @ColumnInfo(name = "visited")
     val visited: Boolean = false,
-    /** 累计阅读时长（秒） */
-    @ColumnInfo(name = "read_time_seconds")
-    val readTimeSeconds: Long = 0,
     /** 首次访问时间戳（毫秒），0 = 未访问 */
     @ColumnInfo(name = "first_visited_at")
     val firstVisitedAt: Long = 0,

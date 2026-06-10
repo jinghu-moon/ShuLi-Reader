@@ -24,6 +24,7 @@ class ZstdDecompressTest {
         override suspend fun getAllProgress() = emptyList<ReadingProgressEntity>()
         override suspend fun getAllTags() = emptyList<TagEntity>()
         override suspend fun getAllBookTagCrossRefs() = emptyList<BookTagCrossRef>()
+        override suspend fun getAllReadingSessions() = emptyList<com.shuli.reader.core.database.entity.ReadingSessionEntity>()
         override suspend fun upsertBook(book: BookEntity) {}
         override suspend fun clearBooks() {}
         override suspend fun getExistingBookIds(): Set<Long> = emptySet()
@@ -38,6 +39,8 @@ class ZstdDecompressTest {
         override suspend fun getExistingProgressBookIds(): Set<Long> = emptySet()
         override suspend fun insertTag(tag: TagEntity): Long = 0
         override suspend fun addTagToBook(crossRef: BookTagCrossRef) {}
+        override suspend fun upsertReadingSession(session: com.shuli.reader.core.database.entity.ReadingSessionEntity) {}
+        override suspend fun clearReadingSessions() {}
         override suspend fun runInTransaction(block: suspend () -> Unit) {}
     }
 

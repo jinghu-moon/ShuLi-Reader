@@ -131,7 +131,6 @@ class BackupImporterTest {
                         add(buildJsonObject {
                             put("pageIndex", prog.pageIndex)
                             put("position", prog.position)
-                            put("readTime", prog.readTime)
                             put("updatedTime", prog.updatedTime)
                         })
                     }
@@ -279,6 +278,15 @@ class FakeImportDatabase(
     override suspend fun getAllBookTagCrossRefs(): List<BookTagCrossRef> = bookTagRefs
     override suspend fun insertTag(tag: TagEntity): Long { tags.add(tag); return tag.id }
     override suspend fun addTagToBook(crossRef: BookTagCrossRef) { bookTagRefs.add(crossRef) }
+
+    // --- ReadingSession ---
+    private val readingSessions = mutableListOf<com.shuli.reader.core.database.entity.ReadingSessionEntity>()
+    override suspend fun getAllReadingSessions() = readingSessions.toList()
+    override suspend fun upsertReadingSession(session: com.shuli.reader.core.database.entity.ReadingSessionEntity) {
+        val idx = readingSessions.indexOfFirst { it.id == session.id }
+        if (idx >= 0) readingSessions[idx] = session else readingSessions.add(session)
+    }
+    override suspend fun clearReadingSessions() { readingSessions.clear() }
 
     override suspend fun runInTransaction(block: suspend () -> Unit) {
         // 测试用：直接执行，不包裹事务

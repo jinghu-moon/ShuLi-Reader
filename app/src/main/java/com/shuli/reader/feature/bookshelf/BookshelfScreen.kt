@@ -50,6 +50,7 @@ fun BookshelfScreen(
     viewModel: BookshelfViewModel,
     onNavigateToSettings: () -> Unit,
     onNavigateToReader: (Long) -> Unit,
+    onNavigateToStats: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -110,7 +111,7 @@ fun BookshelfScreen(
                         searchQuery = uiState.searchQuery,
                         onSearchQueryChange = viewModel::onSearchQueryChanged,
                         onSearchActiveChange = viewModel::onSearchActiveChanged,
-                        onStatisticsClick = { overlaysState.showStatisticsSheet = true },
+                        onStatisticsClick = onNavigateToStats,
                         onSettingsClick = onNavigateToSettings,
                     )
                     if (!uiState.isSearching) {

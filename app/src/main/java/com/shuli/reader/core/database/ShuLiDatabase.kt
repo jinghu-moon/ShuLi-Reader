@@ -12,6 +12,7 @@ import com.shuli.reader.core.database.dao.ChapterReadingStatsDao
 import com.shuli.reader.core.database.dao.NoteDao
 import com.shuli.reader.core.database.dao.ReadingHistoryDao
 import com.shuli.reader.core.database.dao.ReadingProgressDao
+import com.shuli.reader.core.database.dao.ReadingSessionDao
 import com.shuli.reader.core.database.dao.ReaderPresetDao
 import com.shuli.reader.core.database.dao.TagDao
 import com.shuli.reader.core.database.dao.TagSuggestionDecisionDao
@@ -27,6 +28,7 @@ import com.shuli.reader.core.database.entity.NoteEntity
 import com.shuli.reader.core.database.entity.ReaderPresetEntity
 import com.shuli.reader.core.database.entity.ReadingHistoryEntity
 import com.shuli.reader.core.database.entity.ReadingProgressEntity
+import com.shuli.reader.core.database.entity.ReadingSessionEntity
 import com.shuli.reader.core.database.entity.TagEntity
 import com.shuli.reader.core.database.entity.TagSuggestionDecisionEntity
 
@@ -47,8 +49,9 @@ import com.shuli.reader.core.database.entity.TagSuggestionDecisionEntity
         TagSuggestionDecisionEntity::class,
         BookReaderPrefsEntity::class,
         ChapterReadingStatsEntity::class,
+        ReadingSessionEntity::class,
     ],
-    version = 23,
+    version = 24,
     exportSchema = true,
 )
 abstract class ShuLiDatabase : RoomDatabase() {
@@ -63,6 +66,7 @@ abstract class ShuLiDatabase : RoomDatabase() {
     abstract fun tagSuggestionDecisionDao(): TagSuggestionDecisionDao
     abstract fun bookReaderPrefsDao(): BookReaderPrefsDao
     abstract fun chapterReadingStatsDao(): ChapterReadingStatsDao
+    abstract fun readingSessionDao(): ReadingSessionDao
 
     companion object {
         const val DATABASE_NAME = "shuli_database"
@@ -190,6 +194,76 @@ abstract class ShuLiDatabase : RoomDatabase() {
             }
         }
 
+        /** v24: reading_session 表 + 旧表列清理 */
+        val MIGRATION_23_24 = object : Migration(23, 24) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // 1. 创建 reading_session 表
+                database.execSQL("""
+                    CREATE TABLE reading_session (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        book_id INTEGER NOT NULL,
+                        chapter_index INTEGER NOT NULL,
+                        started_at INTEGER NOT NULL,
+                        ended_at INTEGER NOT NULL,
+                        duration_seconds INTEGER NOT NULL,
+                        date_key INTEGER NOT NULL,
+                        hour INTEGER NOT NULL,
+                        is_dirty INTEGER NOT NULL DEFAULT 1,
+                        version INTEGER NOT NULL DEFAULT 1,
+                        synced_version INTEGER NOT NULL DEFAULT 0,
+                        deleted INTEGER NOT NULL DEFAULT 0,
+                        updated_at INTEGER NOT NULL DEFAULT 0,
+                        merge_source TEXT,
+                        FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+                    )
+                """)
+                database.execSQL("CREATE INDEX index_reading_session_date_key ON reading_session(date_key)")
+                database.execSQL("CREATE INDEX index_reading_session_book_id ON reading_session(book_id)")
+                database.execSQL("CREATE INDEX index_reading_session_book_chapter ON reading_session(book_id, chapter_index)")
+                database.execSQL("CREATE INDEX index_reading_session_started_at ON reading_session(started_at)")
+
+                // 2. chapter_reading_stats 移除 read_time_seconds 列
+                database.execSQL("""
+                    CREATE TABLE chapter_reading_stats_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        book_id INTEGER NOT NULL,
+                        chapter_index INTEGER NOT NULL,
+                        visited INTEGER NOT NULL DEFAULT 0,
+                        first_visited_at INTEGER NOT NULL DEFAULT 0,
+                        last_visited_at INTEGER NOT NULL DEFAULT 0,
+                        FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+                    )
+                """)
+                database.execSQL("""
+                    INSERT INTO chapter_reading_stats_new (id, book_id, chapter_index, visited, first_visited_at, last_visited_at)
+                    SELECT id, book_id, chapter_index, visited, first_visited_at, last_visited_at FROM chapter_reading_stats
+                """)
+                database.execSQL("DROP TABLE chapter_reading_stats")
+                database.execSQL("ALTER TABLE chapter_reading_stats_new RENAME TO chapter_reading_stats")
+                database.execSQL("CREATE UNIQUE INDEX index_chapter_reading_stats_book_chapter ON chapter_reading_stats(book_id, chapter_index)")
+                database.execSQL("CREATE INDEX index_chapter_reading_stats_book_id ON chapter_reading_stats(book_id)")
+
+                // 3. reading_history 移除 reading_duration_minutes 列
+                database.execSQL("""
+                    CREATE TABLE reading_history_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        book_id INTEGER NOT NULL,
+                        read_count INTEGER NOT NULL,
+                        finished_at INTEGER NOT NULL,
+                        reading_progress REAL NOT NULL DEFAULT 1.0,
+                        FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+                    )
+                """)
+                database.execSQL("""
+                    INSERT INTO reading_history_new (id, book_id, read_count, finished_at, reading_progress)
+                    SELECT id, book_id, read_count, finished_at, reading_progress FROM reading_history
+                """)
+                database.execSQL("DROP TABLE reading_history")
+                database.execSQL("ALTER TABLE reading_history_new RENAME TO reading_history")
+                database.execSQL("CREATE INDEX index_reading_history_book_id ON reading_history(book_id)")
+            }
+        }
+
         val ALL_MIGRATIONS = arrayOf(
             MIGRATION_16_17,
             MIGRATION_17_18,
@@ -198,6 +272,7 @@ abstract class ShuLiDatabase : RoomDatabase() {
             MIGRATION_20_21,
             MIGRATION_21_22,
             MIGRATION_22_23,
+            MIGRATION_23_24,
         )
     }
 }

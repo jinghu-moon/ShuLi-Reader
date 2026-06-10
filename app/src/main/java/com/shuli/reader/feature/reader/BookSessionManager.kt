@@ -36,6 +36,7 @@ internal class BookSessionManager(
     private val readingProgressRepository: ReadingProgressRepository?,
     private val readingProgressDao: com.shuli.reader.core.database.dao.ReadingProgressDao?,
     private val chapterReadingStatsDao: com.shuli.reader.core.database.dao.ChapterReadingStatsDao?,
+    private val readingSessionDao: com.shuli.reader.core.database.dao.ReadingSessionDao?,
     private val cacheManager: () -> CacheManager,
     private val setCacheManager: (CacheManager) -> Unit,
     private val readingStateManager: () -> ReadingStateManager,
@@ -95,7 +96,7 @@ internal class BookSessionManager(
         // 结束上一次阅读会话
         val sessionElapsed = readingStateManager().endSession()
         if (oldBookId != 0L && sessionElapsed > 0L) {
-            persistReadingTime(oldBookId, sessionElapsed)
+            persistReadingPosition(oldBookId, sessionElapsed)
         }
 
         scope.launch {
@@ -329,37 +330,20 @@ internal class BookSessionManager(
         }
     }
 
-    fun persistReadingTime(bookId: Long, elapsedMs: Long) {
+    fun persistReadingPosition(bookId: Long, elapsedMs: Long) {
         val dao = readingProgressDao ?: return
         if (bookId == 0L || elapsedMs < 1000L) return
-        val elapsedSeconds = elapsedMs / 1000L
         val snapshotChapterIndex = uiState.value.chapterIndex
         val snapshotThemeBg = uiState.value.themeColors.backgroundColor
         scope.launch(Dispatchers.IO) {
-            val existing = dao.getReadingDurationByBookId(bookId)
-            if (existing != null) {
-                dao.updateProgress(
-                    bookId = bookId,
-                    pageIndex = uiState.value.pageIndex,
-                    position = uiState.value.currentPage?.startCharOffset ?: 0,
-                    readTime = existing + elapsedSeconds,
-                    updatedTime = System.currentTimeMillis(),
-                    chapterIndex = snapshotChapterIndex,
-                    themeBackgroundColor = snapshotThemeBg,
-                )
-            } else {
-                dao.insertProgress(
-                    com.shuli.reader.core.database.entity.ReadingProgressEntity(
-                        bookId = bookId,
-                        pageIndex = uiState.value.pageIndex,
-                        position = uiState.value.currentPage?.startCharOffset ?: 0,
-                        readTime = elapsedSeconds,
-                        updatedTime = System.currentTimeMillis(),
-                        chapterIndex = snapshotChapterIndex,
-                        themeBackgroundColor = snapshotThemeBg,
-                    )
-                )
-            }
+            dao.updateProgress(
+                bookId = bookId,
+                pageIndex = uiState.value.pageIndex,
+                position = uiState.value.currentPage?.startCharOffset ?: 0,
+                updatedTime = System.currentTimeMillis(),
+                chapterIndex = snapshotChapterIndex,
+                themeBackgroundColor = snapshotThemeBg,
+            )
         }
     }
 
@@ -368,8 +352,7 @@ internal class BookSessionManager(
     fun releaseResources() {
         saveReadingProgress(immediate = true)
         flushChapterTime()
-        val sessionElapsed = readingStateManager().endSession()
-        persistReadingTime(uiState.value.bookId, sessionElapsed)
+        readingStateManager().endSession()
         readingStateManager().cancel()
         chapterJob?.cancel()
     }
@@ -502,17 +485,38 @@ internal class BookSessionManager(
     }
 
     /** 累计当前章节的阅读时间到数据库，重置计时起点 */
-    private fun flushChapterTime() {
-        val dao = chapterReadingStatsDao ?: return
+    internal fun flushChapterTime() {
+        val dao = readingSessionDao ?: return
         val bookId = uiState.value.bookId
         val chapterIndex = lastActiveChapterIndex
         val startTime = chapterStartTimestamp
         if (bookId == 0L || chapterIndex < 0 || startTime == 0L) return
-        val elapsedSeconds = (System.currentTimeMillis() - startTime) / 1000L
+        val now = System.currentTimeMillis()
+        val elapsedSeconds = (now - startTime) / 1000L
         if (elapsedSeconds < 1L) return
+        val calendar = java.util.Calendar.getInstance()
+        val dateKey = calendar.get(java.util.Calendar.YEAR) * 10000 +
+            (calendar.get(java.util.Calendar.MONTH) + 1) * 100 +
+            calendar.get(java.util.Calendar.DAY_OF_MONTH)
+        val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
         scope.launch(Dispatchers.IO) {
-            dao.addReadTimeOrCreate(bookId, chapterIndex, elapsedSeconds)
+            dao.insert(
+                com.shuli.reader.core.database.entity.ReadingSessionEntity(
+                    bookId = bookId,
+                    chapterIndex = chapterIndex,
+                    startedAt = startTime,
+                    endedAt = now,
+                    durationSeconds = elapsedSeconds,
+                    dateKey = dateKey,
+                    hour = hour,
+                ),
+            )
         }
+        chapterStartTimestamp = System.currentTimeMillis()
+    }
+
+    /** 重置计时起点（从暂停恢复时使用，跳过暂停时段） */
+    internal fun resetChapterStartTimestamp() {
         chapterStartTimestamp = System.currentTimeMillis()
     }
 }

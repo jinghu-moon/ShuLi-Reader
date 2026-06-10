@@ -119,7 +119,6 @@ class BackupExporterTest {
                     bookId = 1,
                     pageIndex = 0,
                     position = 0,
-                    readTime = 60L,
                     updatedTime = System.currentTimeMillis(),
                 ),
             ),

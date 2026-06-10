@@ -159,6 +159,8 @@ private fun LocalBackupNavigation(
                                 database.tagDao().getAllTagsSync()
                             override suspend fun getAllBookTagCrossRefs(): List<com.shuli.reader.core.database.entity.BookTagCrossRef> =
                                 database.tagDao().getAllBookTagCrossRefs()
+                            override suspend fun getAllReadingSessions() =
+                                database.readingSessionDao().getAllSessions()
                         }
                         val exporter = BackupExporter(exportDb, context)
                         val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
@@ -251,6 +253,14 @@ private fun LocalBackupNavigation(
                                 database.tagDao().insertTagSync(tag)
                             override suspend fun addTagToBook(crossRef: com.shuli.reader.core.database.entity.BookTagCrossRef) {
                                 database.tagDao().addTagToBookSync(crossRef)
+                            }
+                            override suspend fun getAllReadingSessions() =
+                                database.readingSessionDao().getAllSessions()
+                            override suspend fun upsertReadingSession(session: com.shuli.reader.core.database.entity.ReadingSessionEntity) {
+                                database.readingSessionDao().upsertSession(session)
+                            }
+                            override suspend fun clearReadingSessions() {
+                                database.readingSessionDao().deleteAllSessions()
                             }
                             override suspend fun runInTransaction(block: suspend () -> Unit) {
                                 database.withTransaction { block() }

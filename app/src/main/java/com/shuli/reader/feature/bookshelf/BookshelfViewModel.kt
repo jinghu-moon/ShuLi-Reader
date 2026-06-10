@@ -20,7 +20,6 @@ import com.shuli.reader.feature.bookshelf.model.FilterType
 import com.shuli.reader.feature.bookshelf.model.SortOrder
 import com.shuli.reader.feature.bookshelf.model.ViewMode
 import com.shuli.reader.feature.bookshelf.model.toBookItem
-import com.shuli.reader.feature.bookshelf.model.toReadableDuration
 import com.shuli.reader.core.i18n.AppStrings
 import com.shuli.reader.core.reading.ReadingStatus
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -45,6 +44,7 @@ class BookshelfViewModel(
     private val bookImportRepository: BookImportRepository,
     private val tagRepository: TagRepository? = null,
     private val userPreferences: com.shuli.reader.core.data.UserPreferences? = null,
+    private val readingSessionDao: com.shuli.reader.core.database.dao.ReadingSessionDao? = null,
 ) : ViewModel() {
 
     companion object {
@@ -146,8 +146,10 @@ class BookshelfViewModel(
 
     val uiState: StateFlow<BookshelfUiState> = combine(
         booksFlow,
-        readingProgressRepository.getReadingDurations(),
-        readingProgressRepository.getTodayReadingTime(),
+        readingSessionDao?.getBookTotals()?.map { tuples ->
+            tuples.associate { it.bookId to it.totalDuration }
+        } ?: flowOf(emptyMap<Long, Long>()),
+        readingSessionDao?.getTodayTotal(todayDateKey()) ?: flowOf(0L),
         _viewMode,
         _sortOrder,
         _filterType,
@@ -227,8 +229,8 @@ class BookshelfViewModel(
             filterType = filterType,
             searchQuery = searchQuery,
             isSearching = isSearching,
-            todayReadingTime = (todayTime ?: 0L).toReadableDuration().ifBlank { "0m" },
-            todayReadingMinutes = todayTime ?: 0L,
+            todayReadingTime = com.shuli.reader.core.util.StatsFormatter.formatDuration(todayTime ?: 0L).ifBlank { "0m" },
+            todayReadingMinutes = (todayTime ?: 0L) / 60,
             isLoading = false,
             isEmpty = sorted.isEmpty(),
             isEditMode = isEditMode,
@@ -241,6 +243,13 @@ class BookshelfViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = BookshelfUiState(),
     )
+
+    private fun todayDateKey(): Int {
+        val cal = java.util.Calendar.getInstance()
+        return cal.get(java.util.Calendar.YEAR) * 10000 +
+            (cal.get(java.util.Calendar.MONTH) + 1) * 100 +
+            cal.get(java.util.Calendar.DAY_OF_MONTH)
+    }
 
     fun onViewModeChanged(mode: ViewMode) {
         _viewMode.value = mode

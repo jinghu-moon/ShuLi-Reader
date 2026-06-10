@@ -53,7 +53,6 @@ class BookmarkEntityTest {
             bookId = 1L,
             pageIndex = 10,
             position = 500,
-            readTime = 3600L,
             updatedTime = System.currentTimeMillis(),
             isDirty = true,
             version = 1,

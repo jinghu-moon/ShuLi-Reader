@@ -83,6 +83,7 @@ class ReaderViewModel(
     private val bookReaderPrefsDao: com.shuli.reader.core.database.dao.BookReaderPrefsDao? = null,
     private val readingProgressDao: com.shuli.reader.core.database.dao.ReadingProgressDao? = null,
     private val chapterReadingStatsDao: com.shuli.reader.core.database.dao.ChapterReadingStatsDao? = null,
+    private val readingSessionDao: com.shuli.reader.core.database.dao.ReadingSessionDao? = null,
     private val paginator: Paginator = Paginator(SimpleTextMeasurer()),
     private val fontManager: com.shuli.reader.core.font.FontManager? = null,
     private val stringResolver: () -> com.shuli.reader.core.i18n.AppStrings = { com.shuli.reader.core.i18n.AppStrings.ZhHans },
@@ -302,6 +303,7 @@ class ReaderViewModel(
             readingProgressRepository = readingProgressRepository,
             readingProgressDao = readingProgressDao,
             chapterReadingStatsDao = chapterReadingStatsDao,
+            readingSessionDao = readingSessionDao,
             cacheManager = { cacheManager },
             setCacheManager = { cacheManager = it },
             readingStateManager = { readingStateManager },
@@ -598,11 +600,17 @@ class ReaderViewModel(
         navigationCoordinator.clearTextSelection()
     }
 
-    /** R7: 暂停阅读会话 */
-    fun pauseReadingSession() { readingStateManager.pauseSession() }
+    /** R7: 暂停阅读会话（flush 当前片段，排除暂停时段） */
+    fun pauseReadingSession() {
+        bookSessionManager.flushChapterTime()
+        readingStateManager.pauseSession()
+    }
 
-    /** R7: 恢复阅读会话 */
-    fun resumeReadingSession() { readingStateManager.resumeSession() }
+    /** R7: 恢复阅读会话（重置计时起点，跳过暂停时段） */
+    fun resumeReadingSession() {
+        readingStateManager.resumeSession()
+        bookSessionManager.resetChapterStartTimestamp()
+    }
 
     fun releaseReaderResources() {
         bookSessionManager.releaseResources()

@@ -35,7 +35,4 @@ data class ReadingHistoryEntity(
 
     @ColumnInfo(name = "reading_progress")
     val readingProgress: Float = 1f,
-
-    @ColumnInfo(name = "reading_duration_minutes")
-    val readingDurationMinutes: Long = 0L,
 )

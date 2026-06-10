@@ -9,6 +9,7 @@ sealed interface AppStrings {
     val settings: SettingsStrings
     val sync: SyncStrings
     val encryption: EncryptionStrings
+    val stats: StatsStrings
 
     data object ZhHans : AppStrings {
         override val common: CommonStrings = ZhHansCommon
@@ -17,6 +18,7 @@ sealed interface AppStrings {
         override val settings: SettingsStrings = ZhHansSettings
         override val sync: SyncStrings = ZhHansSync
         override val encryption: EncryptionStrings = ZhHansEncryption
+        override val stats: StatsStrings = ZhHansStats
     }
 
     data object ZhHant : AppStrings {
@@ -26,6 +28,7 @@ sealed interface AppStrings {
         override val settings: SettingsStrings = ZhHantSettings
         override val sync: SyncStrings = ZhHantSync
         override val encryption: EncryptionStrings = ZhHantEncryption
+        override val stats: StatsStrings = ZhHantStats
     }
 
     data object En : AppStrings {
@@ -35,6 +38,7 @@ sealed interface AppStrings {
         override val settings: SettingsStrings = EnSettings
         override val sync: SyncStrings = EnSync
         override val encryption: EncryptionStrings = EnEncryption
+        override val stats: StatsStrings = EnStats
     }
 }
 

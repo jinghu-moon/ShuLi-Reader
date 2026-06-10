@@ -248,4 +248,38 @@ interface BookDao {
 
     @Query("UPDATE folders SET pinnedSlot = NULL")
     suspend fun clearAllFolderPinnedSlots()
+
+    @Query("""
+        SELECT b.id, b.title, b.author, b.fileType, b.readingStatus,
+               b.totalChapterNum, b.estimatedTotalChars,
+               COALESCE(rs.totalDuration, 0) AS totalDuration
+        FROM books b
+        LEFT JOIN (
+            SELECT book_id, SUM(duration_seconds) AS totalDuration
+            FROM reading_session GROUP BY book_id
+        ) rs ON b.id = rs.book_id
+    """)
+    fun getAllBooksWithDuration(): Flow<List<BookWithDurationTuple>>
+
+    @Query("SELECT bookId AS bookId, COUNT(*) AS count FROM bookmarks WHERE deleted = 0 GROUP BY bookId")
+    fun getBookmarkCounts(): Flow<List<BookCountTuple>>
+
+    @Query("SELECT bookId AS bookId, COUNT(*) AS count FROM notes WHERE deleted = 0 GROUP BY bookId")
+    fun getNoteCounts(): Flow<List<BookCountTuple>>
 }
+
+data class BookWithDurationTuple(
+    val id: Long,
+    val title: String,
+    val author: String?,
+    val fileType: String,
+    val readingStatus: String,
+    val totalChapterNum: Int,
+    val estimatedTotalChars: Long,
+    val totalDuration: Long,
+)
+
+data class BookCountTuple(
+    val bookId: Long,
+    val count: Int,
+)

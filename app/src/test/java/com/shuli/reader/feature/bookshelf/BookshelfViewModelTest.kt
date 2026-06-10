@@ -1,6 +1,7 @@
 package com.shuli.reader.feature.bookshelf
 
 import com.shuli.reader.MainDispatcherRule
+import com.shuli.reader.core.database.entity.BookShelfRow
 import com.shuli.reader.core.repository.BookAlreadyExistsException
 import com.shuli.reader.core.repository.BookQueryRepository
 import com.shuli.reader.core.repository.BookImportRepository
@@ -8,6 +9,7 @@ import com.shuli.reader.core.repository.FolderRepository
 import com.shuli.reader.core.repository.ReadingProgressRepository
 import com.shuli.reader.core.repository.ImportConfig
 import com.shuli.reader.core.repository.ImportResult
+import com.shuli.reader.feature.bookshelf.model.BookshelfUiState
 import com.shuli.reader.feature.bookshelf.model.FilterType
 import com.shuli.reader.feature.bookshelf.model.SortOrder
 import com.shuli.reader.feature.bookshelf.model.ViewMode
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
@@ -29,8 +32,10 @@ import java.io.File
 @OptIn(ExperimentalCoroutinesApi::class)
 class BookshelfViewModelTest {
 
+    private val testDispatcher = UnconfinedTestDispatcher()
+
     @get:Rule
-    val mainDispatcherRule = MainDispatcherRule()
+    val mainDispatcherRule = MainDispatcherRule(testDispatcher)
 
     private lateinit var bookQueryRepository: BookQueryRepository
     private lateinit var readingProgressRepository: ReadingProgressRepository
@@ -40,17 +45,25 @@ class BookshelfViewModelTest {
     fun setup() {
         bookQueryRepository = mockk(relaxed = true)
         readingProgressRepository = mockk(relaxed = true)
+        val emptyRows = emptyList<BookShelfRow>()
         every { bookQueryRepository.getAllBooks() } returns flowOf(emptyList())
-        every { bookQueryRepository.getBookshelfPage(any(), any()) } returns flowOf(emptyList())
-        every { bookQueryRepository.searchBooksPage(any(), any(), any()) } returns flowOf(emptyList())
-        every { readingProgressRepository.getReadingDurations() } returns flowOf(emptyMap())
-        every { readingProgressRepository.getTodayReadingTime() } returns flowOf(0L)
+        every { bookQueryRepository.getBookshelfPage(100, 0) } returns flowOf(emptyRows)
+        every { bookQueryRepository.getBookshelfPage(any(), any()) } returns flowOf(emptyRows)
+        every { bookQueryRepository.searchBooksPage(any(), any(), any()) } returns flowOf(emptyRows)
+        every { bookQueryRepository.getBooksByTagPage(any(), any(), any()) } returns flowOf(emptyRows)
+        val folderRepo = mockk<FolderRepository>(relaxed = true)
+        every { folderRepo.getAllFolders() } returns flowOf(emptyList())
         viewModel = BookshelfViewModel(
             bookQueryRepository = bookQueryRepository,
-            folderRepository = mockk(relaxed = true),
+            folderRepository = folderRepo,
             readingProgressRepository = readingProgressRepository,
             bookImportRepository = mockk(relaxed = true),
         )
+    }
+
+    private fun kotlinx.coroutines.test.TestScope.advanceAll() {
+        advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
     }
 
     @Test

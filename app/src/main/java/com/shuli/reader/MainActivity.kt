@@ -31,6 +31,8 @@ import com.shuli.reader.core.font.FontManager
 import com.shuli.reader.feature.settings.SettingsEvent
 import com.shuli.reader.feature.settings.SettingsScreen
 import com.shuli.reader.feature.settings.SettingsViewModel
+import com.shuli.reader.feature.stats.StatsScreen
+import com.shuli.reader.feature.stats.StatsViewModel
 import com.shuli.reader.ui.theme.ReadingFont
 import com.shuli.reader.ui.theme.ShuLiTheme
 import com.shuli.reader.ui.theme.Typography
@@ -41,6 +43,7 @@ import kotlinx.coroutines.launch
 
 sealed class ActiveScreen {
     data object Bookshelf : ActiveScreen()
+    data object Stats : ActiveScreen()
     data object Settings : ActiveScreen()
     data class Reader(val bookId: Long) : ActiveScreen()
 }
@@ -89,8 +92,13 @@ class MainActivity : ComponentActivity() {
             bookImportRepository = appContainer.bookImportRepository,
             tagRepository = appContainer.tagRepository,
             userPreferences = appContainer.userPreferences,
+            readingSessionDao = appContainer.database.readingSessionDao(),
         )
         val settingsViewModel = SettingsViewModel(appContainer.userPreferences)
+        val statsViewModel = StatsViewModel(
+            statsRepository = appContainer.statsRepository,
+            userPreferences = appContainer.userPreferences,
+        )
 
         // Macrobenchmark 测试钩子：仅在 debug 构建生效，release 包不暴露入口，
         // 避免外部 App 通过 Intent 强制导入任意路径文件
@@ -185,7 +193,18 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToSettings = { currentScreen = ActiveScreen.Settings },
                                     onNavigateToReader = { bookId ->
                                         currentScreen = ActiveScreen.Reader(bookId)
-                                    }
+                                    },
+                                    onNavigateToStats = { currentScreen = ActiveScreen.Stats },
+                                )
+                            }
+                            is ActiveScreen.Stats -> {
+                                BackHandler { currentScreen = ActiveScreen.Bookshelf }
+                                StatsScreen(
+                                    viewModel = statsViewModel,
+                                    onBackClick = { currentScreen = ActiveScreen.Bookshelf },
+                                    onBookClick = { bookId ->
+                                        currentScreen = ActiveScreen.Reader(bookId)
+                                    },
                                 )
                             }
                             is ActiveScreen.Settings -> {
@@ -214,6 +233,7 @@ class MainActivity : ComponentActivity() {
                                         bookReaderPrefsDao = appContainer.database.bookReaderPrefsDao(),
                                         readingProgressDao = appContainer.database.readingProgressDao(),
                                         chapterReadingStatsDao = appContainer.database.chapterReadingStatsDao(),
+                                        readingSessionDao = appContainer.database.readingSessionDao(),
                                         fontManager = FontManager(context),
                                         stringResolver = { currentStrings },
                                         appContext = context.applicationContext,
