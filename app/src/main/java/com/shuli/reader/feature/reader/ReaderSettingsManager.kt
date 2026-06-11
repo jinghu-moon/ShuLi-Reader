@@ -15,6 +15,7 @@ import com.shuli.reader.core.database.entity.BookReaderPrefsOverrides
 import com.shuli.reader.core.reader.HeaderVisibility
 import com.shuli.reader.core.reader.SlotContent
 import com.shuli.reader.core.reader.TitleAlign
+import com.shuli.reader.feature.reader.settings.GestureConfig
 import com.shuli.reader.ui.theme.resolveCustomColorScheme
 import com.shuli.reader.ui.theme.toCanvasThemeColors
 import com.shuli.reader.ui.theme.toReaderColorScheme
@@ -38,7 +39,11 @@ internal class ReaderSettingsManager(
     private val resetToolbarAutoHide: () -> Unit,
 ) {
 
-    private val json = kotlinx.serialization.json.Json { encodeDefaults = false }
+    private val json = kotlinx.serialization.json.Json {
+        encodeDefaults = false
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+    }
 
     // ── 作用域管理 ──────────────────────────────────────────────
 
@@ -123,22 +128,32 @@ internal class ReaderSettingsManager(
             indentUnit = p.indentUnit.toStorageString(),
             marginHorizontal = p.marginHorizontal,
             marginVertical = p.marginVertical,
+            marginTop = p.marginTop,
+            marginBottom = p.marginBottom,
+            marginLeft = p.marginLeft,
+            marginRight = p.marginRight,
             letterSpacing = p.letterSpacing,
+            wordSpacing = p.wordSpacing,
+            paragraphDivider = p.paragraphDivider,
             readingFont = p.readingFont,
             fontWeight = p.fontWeight.toStorageString(),
             textAlign = p.textAlign.toStorageString(),
             chineseConvert = p.chineseConvert.toStorageString(),
             useZhLayout = p.useZhLayout,
             usePanguSpacing = p.usePanguSpacing,
+            bionicReading = p.bionicReading,
             bottomJustify = p.bottomJustify,
             maxPageWidth = p.maxPageWidth,
             removeEmptyLines = p.removeEmptyLines,
             cleanChapterTitle = p.cleanChapterTitle,
+            adFiltering = p.adFiltering,
             backgroundColor = p.backgroundColor.name,
             customBackgroundColor = p.customBackgroundColor,
             customTextColor = p.customTextColor,
             customAccentColor = p.customAccentColor,
             brightness = p.brightness,
+            colorTemperature = p.colorTemperature,
+            backgroundTexture = p.backgroundTexture,
             headerVisibility = p.header.visibility.toStorageString(),
             headerLeft = p.header.left.toStorageString(),
             headerCenter = p.header.center.toStorageString(),
@@ -170,7 +185,19 @@ internal class ReaderSettingsManager(
             autoPageTurnInterval = p.autoPageTurnInterval,
             autoNightMode = p.autoNightMode,
             epubOverrideStyle = p.epubOverrideStyle,
+            hapticFeedback = p.hapticFeedback,
+            orientationLock = p.orientationLock.name,
             pageAnimType = p.pageAnimType.name,
+            pageAnimSpeed = p.pageAnimSpeed.name,
+            verticalText = p.verticalText,
+            dualPageMode = p.dualPageMode.name,
+            focusLine = p.focusLine,
+            eyeCareReminderInterval = p.eyeCareReminderInterval,
+            ttsSpeed = p.ttsSpeed,
+            ttsPitch = p.ttsPitch,
+            ttsVoice = p.ttsVoice,
+            ttsAutoPage = p.ttsAutoPage,
+            ttsTimer = p.ttsTimer,
         )
     }
 
@@ -603,5 +630,21 @@ internal class ReaderSettingsManager(
         } else {
             scope.launch { userPreferences?.let { save(it) } }
         }
+    }
+
+    /**
+     * 通用设置更新（v5.1 Phase 1-4 新增设置的临时入口）。
+     * 仅更新 UI 状态和触发 reflow，DataStore/BookOverride 持久化待各 Phase 专用 setter 实现。
+     */
+    fun updatePrefsGeneric(
+        transform: (ReaderPreferences) -> ReaderPreferences,
+        reflow: Boolean = false,
+    ) {
+        val updated = transform(uiState.value.readerPreferences)
+        uiState.value = uiState.value.copy(
+            readerPreferences = updated,
+            isReflowing = reflow,
+        )
+        if (reflow) reflowCurrentChapter(updated)
     }
 }

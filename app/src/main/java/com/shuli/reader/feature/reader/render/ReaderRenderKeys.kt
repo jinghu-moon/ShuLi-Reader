@@ -48,8 +48,10 @@ internal object ReaderLayoutHasher {
         sb.append(input.lineSpacing).append('|')
         sb.append(input.paragraphSpacing).append('|')
         sb.append(input.letterSpacing).append('|')
-        sb.append(input.marginHorizontalDp).append('|')
-        sb.append(input.marginVerticalDp).append('|')
+        sb.append(input.marginTopDp).append('|')
+        sb.append(input.marginBottomDp).append('|')
+        sb.append(input.marginLeftDp).append('|')
+        sb.append(input.marginRightDp).append('|')
         sb.append(input.indent).append('|')
         sb.append(input.indentUnit).append('|')
         sb.append(input.titleStyle).append('|')
@@ -58,8 +60,14 @@ internal object ReaderLayoutHasher {
         sb.append(input.chineseConvert).append('|')
         sb.append(input.usePanguSpacing).append('|')
         sb.append(input.useZhLayout).append('|')
-        sb.append(input.bottomJustify)
-        // 算法版本 + 运行时 reflow 版本合并，确保算法升级时旧缓存一次性失效（§14.1.1）
+        sb.append(input.bottomJustify).append('|')
+        // v5.1 预留字段（一次性加入 hash，避免后续多次 bump VERSION）
+        sb.append(input.wordSpacing).append('|')
+        sb.append(input.paragraphDivider).append('|')
+        sb.append(input.hyphenation).append('|')
+        sb.append(input.vertical).append('|')
+        sb.append(input.dualPage).append('|')
+        sb.append(input.bionicReading)
         val combinedVersion = ReaderLayoutInput.LAYOUT_ALGORITHM_VERSION * 1000 + input.layoutVersion
         return LayoutKey(
             layoutVersion = combinedVersion,

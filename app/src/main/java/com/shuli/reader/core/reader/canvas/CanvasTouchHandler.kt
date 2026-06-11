@@ -5,6 +5,9 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import com.shuli.reader.core.reader.animation.PageDelegate
+import com.shuli.reader.feature.reader.settings.GestureAction
+import com.shuli.reader.feature.reader.settings.GestureConfig
+import com.shuli.reader.feature.reader.settings.TouchZone
 
 /**
  * 触摸手势处理：tap / long-press / 边缘拖拽 / 边缘点击翻页。
@@ -24,7 +27,16 @@ class CanvasTouchHandler(context: Context) {
         fun onPageChanged(direction: PageDelegate.Direction)
         fun onCenterClicked()
         fun onLongPress(x: Float, y: Float)
+
+        /** action-based 扩展（v5.1），默认无操作以保持向后兼容 */
+        fun onAction(action: GestureAction, x: Float = 0f, y: Float = 0f) {}
+
+        /** 获取当前手势配置（v5.1），默认返回默认配置 */
+        fun getGestureConfig(): GestureConfig = GestureConfig()
     }
+
+    /** 手势配置快捷访问 */
+    var gestureConfig: GestureConfig = GestureConfig()
 
     var callbacks: Callbacks? = null
 

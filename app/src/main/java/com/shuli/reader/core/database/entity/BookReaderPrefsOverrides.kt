@@ -21,17 +21,25 @@ data class BookReaderPrefsOverrides(
     val indentUnit: String? = null,
     val marginHorizontal: Float? = null,
     val marginVertical: Float? = null,
+    val marginTop: Float? = null,
+    val marginBottom: Float? = null,
+    val marginLeft: Float? = null,
+    val marginRight: Float? = null,
     val letterSpacing: Float? = null,
+    val wordSpacing: Float? = null,
+    val paragraphDivider: Boolean? = null,
     val readingFont: String? = null,
     val fontWeight: String? = null,
     val textAlign: String? = null,
     val chineseConvert: String? = null,
     val useZhLayout: Boolean? = null,
     val usePanguSpacing: Boolean? = null,
+    val bionicReading: Boolean? = null,
     val bottomJustify: Boolean? = null,
     val maxPageWidth: Float? = null,
     val removeEmptyLines: Boolean? = null,
     val cleanChapterTitle: Boolean? = null,
+    val adFiltering: Boolean? = null,
 
     // ── 主题 ──
     val backgroundColor: String? = null,
@@ -39,6 +47,8 @@ data class BookReaderPrefsOverrides(
     val customTextColor: Int? = null,
     val customAccentColor: Int? = null,
     val brightness: Float? = null,
+    val colorTemperature: Float? = null,
+    val backgroundTexture: String? = null,
 
     // ── 页眉页脚 ──
     val headerVisibility: String? = null,
@@ -74,11 +84,28 @@ data class BookReaderPrefsOverrides(
     val autoPageTurnInterval: Float? = null,
     val autoNightMode: Boolean? = null,
     val epubOverrideStyle: Boolean? = null,
+    val hapticFeedback: Boolean? = null,
+    val orientationLock: String? = null,
 
     // ── 翻页动画 ──
     val pageAnimType: String? = null,
+    val pageAnimSpeed: String? = null,
+
+    // ── 显示模式 ──
+    val verticalText: Boolean? = null,
+    val dualPageMode: String? = null,
+
+    // ── 辅助 ──
+    val focusLine: Boolean? = null,
+    val eyeCareReminderInterval: Int? = null,
+
+    // ── 手势 ──
+    val gestureConfig: String? = null,
 
     // ── TTS ──
     val ttsSpeed: Float? = null,
     val ttsPitch: Float? = null,
+    val ttsVoice: String? = null,
+    val ttsAutoPage: Boolean? = null,
+    val ttsTimer: Int? = null,
 )

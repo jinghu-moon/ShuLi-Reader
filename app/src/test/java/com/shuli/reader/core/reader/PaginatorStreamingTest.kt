@@ -38,8 +38,10 @@ class PaginatorStreamingTest {
             textSize = 24f,
             lineHeight = 1.5f,
             paragraphSpacing = 12f,
-            marginHorizontal = 24f,
-            marginVertical = 48f,
+            marginTop = 48f,
+            marginBottom = 48f,
+            marginLeft = 24f,
+            marginRight = 24f,
             indent = 2f,
             density = 3f,
         )

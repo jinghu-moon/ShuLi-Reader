@@ -120,6 +120,14 @@ enum class ReaderSettingKey {
     AUTO_NIGHT_MODE, AUTO_PAGE_TURN, AUTO_PAGE_TURN_INTERVAL, EPUB_OVERRIDE_STYLE,
     LEFT_ZONE_RATIO,
     CUSTOM_THEME_COLOR,
+    // v5.1 Phase 1-4 新增
+    COLOR_TEMPERATURE, FOCUS_LINE,
+    WORD_SPACING, PARAGRAPH_DIVIDER,
+    MARGIN_TOP, MARGIN_BOTTOM, MARGIN_LEFT, MARGIN_RIGHT,
+    BIONIC_READING, VERTICAL_TEXT, DUAL_PAGE_MODE,
+    HAPTIC_FEEDBACK, ORIENTATION_LOCK, PAGE_ANIM_SPEED,
+    AD_FILTERING, TTS_VOICE, TTS_AUTO_PAGE, TTS_TIMER,
+    EYE_CARE_REMINDER_INTERVAL, BACKGROUND_TEXTURE,
 }
 
 /**
@@ -139,6 +147,10 @@ sealed interface ReaderSettingValue {
     data class TitleAlign(val value: com.shuli.reader.core.reader.TitleAlign) : ReaderSettingValue
     data class ProgressStyle(val value: com.shuli.reader.core.data.ProgressStyle) : ReaderSettingValue
     data class IndentUnit(val value: com.shuli.reader.core.data.IndentUnit) : ReaderSettingValue
+    data class DualPageMode(val value: com.shuli.reader.core.data.DualPageMode) : ReaderSettingValue
+    data class OrientationLock(val value: com.shuli.reader.core.data.OrientationLock) : ReaderSettingValue
+    data class PageAnimSpeed(val value: com.shuli.reader.core.data.PageAnimSpeed) : ReaderSettingValue
+    data class GestureConfigValue(val value: com.shuli.reader.feature.reader.settings.GestureConfig) : ReaderSettingValue
     data class CustomThemeColor(
         val backgroundColor: kotlin.Int?,
         val textColor: kotlin.Int?,

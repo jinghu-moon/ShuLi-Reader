@@ -25,8 +25,10 @@ data class ReaderLayoutInput(
     val lineSpacing: Float,
     val paragraphSpacing: Float,
     val letterSpacing: Float,
-    val marginHorizontalDp: Float,
-    val marginVerticalDp: Float,
+    val marginTopDp: Float,
+    val marginBottomDp: Float,
+    val marginLeftDp: Float,
+    val marginRightDp: Float,
     val indent: Float,
     val indentUnit: IndentUnit = IndentUnit.CHARACTER,
     val titleStyle: TitleStyleConfig,
@@ -36,16 +38,15 @@ data class ReaderLayoutInput(
     val usePanguSpacing: Boolean,
     val useZhLayout: Boolean,
     val bottomJustify: Boolean,
+    // v5.1 预留字段（Phase 1-4）
+    val wordSpacing: Float = 0f,
+    val paragraphDivider: Boolean = false,
+    val hyphenation: Int = 0,
+    val vertical: Boolean = false,
+    val dualPage: Boolean = false,
+    val bionicReading: Boolean = false,
 ) {
     companion object {
-        /**
-         * 分页算法版本常量。
-         *
-         * 当标点避头尾、缩进规则、中文/日文换行、标题占位等分页算法升级时，
-         * 提高此值即可一次性废弃旧分页缓存（§14.1.1）。
-         *
-         * 运行时的 [layoutVersion] 由 reflow 递增，与此常量相加后进入 [LayoutKey]。
-         */
-        const val LAYOUT_ALGORITHM_VERSION = 1
+        const val LAYOUT_ALGORITHM_VERSION = 2
     }
 }

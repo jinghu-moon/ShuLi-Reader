@@ -131,8 +131,10 @@ class TextModelsTest {
             textSize = 18f,
             lineHeight = 1.5f,
             paragraphSpacing = 10f,
-            marginHorizontal = 20f,
-            marginVertical = 30f,
+            marginTop = 30f,
+            marginBottom = 30f,
+            marginLeft = 20f,
+            marginRight = 20f,
             indent = 2f,
         )
 
@@ -141,8 +143,8 @@ class TextModelsTest {
         assertEquals(18f, config.textSize, 0.001f)
         assertEquals(1.5f, config.lineHeight, 0.001f)
         assertEquals(10f, config.paragraphSpacing, 0.001f)
-        assertEquals(20f, config.marginHorizontal, 0.001f)
-        assertEquals(30f, config.marginVertical, 0.001f)
+        assertEquals(20f, config.marginLeft, 0.001f)
+        assertEquals(30f, config.marginTop, 0.001f)
         assertEquals(2f, config.indent, 0.001f)
     }
 

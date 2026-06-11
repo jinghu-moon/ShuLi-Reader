@@ -64,6 +64,12 @@ class ReaderCanvasStateApplier {
                 InvalidationScope.REFLOW -> {
                     // REFLOW 已在上方显式处理
                 }
+                InvalidationScope.VIEW_INVALIDATE -> {
+                    // 仅 View.invalidate()，由 StateFlow 重组自然触发，不进 recorder
+                }
+                InvalidationScope.NONE -> {
+                    // 行为标志，不影响 Canvas
+                }
             }
         }
     }

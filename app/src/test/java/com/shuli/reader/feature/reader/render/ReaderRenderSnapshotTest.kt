@@ -166,14 +166,20 @@ fun createLayoutSnapshot(
     fontKey: String = "harmony",
     fontWeight: ReaderFontWeight = ReaderFontWeight.NORMAL,
     lineSpacing: Float = 1.5f,
-    marginHorizontalDp: Float = 24f,
+    marginTopDp: Float = 48f,
+    marginBottomDp: Float = 48f,
+    marginLeftDp: Float = 24f,
+    marginRightDp: Float = 24f,
 ) = LayoutSnapshot(
     input = createDefaultLayoutInput(
         fontSizeSp = fontSizeSp,
         fontKey = fontKey,
         fontWeight = fontWeight,
         lineSpacing = lineSpacing,
-        marginHorizontalDp = marginHorizontalDp,
+        marginTopDp = marginTopDp,
+        marginBottomDp = marginBottomDp,
+        marginLeftDp = marginLeftDp,
+        marginRightDp = marginRightDp,
     ),
     layoutKey = ReaderLayoutHasher.hash(
         createDefaultLayoutInput(
@@ -181,7 +187,10 @@ fun createLayoutSnapshot(
             fontKey = fontKey,
             fontWeight = fontWeight,
             lineSpacing = lineSpacing,
-            marginHorizontalDp = marginHorizontalDp,
+            marginTopDp = marginTopDp,
+            marginBottomDp = marginBottomDp,
+            marginLeftDp = marginLeftDp,
+            marginRightDp = marginRightDp,
         )
     ),
 )

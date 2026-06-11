@@ -81,8 +81,8 @@ class ReaderRenderDiffCalculatorTest {
 
     @Test
     fun diff_marginChanged_returnsReflow() {
-        val old = createDefaultSnapshot(layout = createLayoutSnapshot(marginHorizontalDp = 24f))
-        val new = createDefaultSnapshot(layout = createLayoutSnapshot(marginHorizontalDp = 32f))
+        val old = createDefaultSnapshot(layout = createLayoutSnapshot(marginLeftDp = 24f))
+        val new = createDefaultSnapshot(layout = createLayoutSnapshot(marginLeftDp = 32f))
         val diff = ReaderRenderDiffCalculator.diff(old, new)
         assertTrue(diff.scopes.contains(InvalidationScope.REFLOW))
     }

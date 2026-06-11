@@ -1,0 +1,1727 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>书里阅读器 · 设置面板 v5.0 Demo</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   墨土 · Mò Tǔ — Design Tokens
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  /* Primitive 主色阶 */
+  --ink-T50:  #F6F4F0; --ink-T100: #EAE5DC; --ink-T200: #D4CCC0;
+  --ink-T300: #B9AFA0; --ink-T400: #9C9082; --ink-T500: #7D7162;
+  --ink-T600: #5E5346; --ink-T700: #453B2E; --ink-T800: #2C231A;
+  --ink-T900: #1A130B; --ink-T950: #0C0804;
+
+  /* Functional */
+  --func-success: #2D7A52; --func-success-bg: #E8F4EE;
+  --func-warning: #9A6500; --func-warning-bg: #F5ECD8;
+  --func-error:   #9B3525; --func-error-bg:   #F5E5E2;
+  --func-info:    #3A607A; --func-info-bg:    #E2EDF4;
+
+  /* Radius & Shadow */
+  --r-sm: 6px; --r-md: 10px; --r-lg: 16px; --r-xl: 24px;
+  --shadow-sm: 0 1px 3px rgba(12,8,4,.08);
+  --shadow-md: 0 4px 12px rgba(12,8,4,.10);
+  --shadow-lg: 0 8px 30px rgba(12,8,4,.14);
+
+  /* Font */
+  --font-sans: "HarmonyOS Sans SC", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
+
+  /* Transition */
+  --spring: cubic-bezier(.34,1.56,.64,1);
+  --ease-out: cubic-bezier(.22,1,.36,1);
+}
+
+/* ── Semantic: Light ── */
+:root, [data-mode="light"] {
+  --surface:           var(--ink-T50);
+  --surface-variant:   var(--ink-T100);
+  --surface-container: var(--ink-T100);
+  --primary:           var(--ink-T700);
+  --on-primary:        #FFFFFF;
+  --on-surface:        var(--ink-T900);
+  --on-surface-var:    var(--ink-T600);
+  --on-surface-faint:  var(--ink-T400);
+  --outline:           var(--ink-T300);
+  --outline-variant:   var(--ink-T200);
+  --scrim:             rgba(12,8,4,.28);
+  --card-bg:           #FFFFFF;
+  --card-border:       var(--ink-T200);
+  --input-bg:          var(--ink-T100);
+  --slider-track:      var(--ink-T200);
+  --slider-fill:       var(--ink-T700);
+  --slider-thumb:      var(--ink-T700);
+  --chip-bg:           var(--ink-T100);
+  --chip-active-bg:    var(--ink-T700);
+  --chip-active-text:  #FFFFFF;
+}
+
+/* ── Semantic: Dark ── */
+[data-mode="dark"] {
+  --surface:           var(--ink-T950);
+  --surface-variant:   var(--ink-T900);
+  --surface-container: var(--ink-T800);
+  --primary:           var(--ink-T200);
+  --on-primary:        var(--ink-T950);
+  --on-surface:        var(--ink-T100);
+  --on-surface-var:    var(--ink-T400);
+  --on-surface-faint:  var(--ink-T600);
+  --outline:           var(--ink-T600);
+  --outline-variant:   var(--ink-T700);
+  --scrim:             rgba(0,0,0,.50);
+  --card-bg:           var(--ink-T900);
+  --card-border:       var(--ink-T700);
+  --input-bg:          var(--ink-T800);
+  --slider-track:      var(--ink-T700);
+  --slider-fill:       var(--ink-T200);
+  --slider-thumb:      var(--ink-T200);
+  --chip-bg:           var(--ink-T800);
+  --chip-active-bg:    var(--ink-T200);
+  --chip-active-text:  var(--ink-T950);
+  --func-success: #5DBE8A; --func-success-bg: #0E2A1E;
+  --func-warning: #E0A020; --func-warning-bg: #2A1E00;
+  --func-error:   #D46050; --func-error-bg:   #2A0E0A;
+  --func-info:    #6AA0BE; --func-info-bg:    #0A1E2A;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Base Reset & Typography
+   ═══════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+body {
+  font-family: var(--font-sans);
+  background: var(--surface);
+  color: var(--on-surface);
+  transition: background .3s var(--ease-out), color .3s var(--ease-out);
+  overflow-x: hidden;
+}
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+input[type="range"] { -webkit-appearance: none; appearance: none; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Demo Shell — simulates the reading page behind the sheet
+   ═══════════════════════════════════════════════════════════════ */
+.demo-shell {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start;
+  padding: 2rem 1rem 0;
+  position: relative;
+}
+.demo-header {
+  text-align: center; margin-bottom: 1.5rem;
+}
+.demo-header h1 {
+  font-size: 20px; font-weight: 600; color: var(--on-surface);
+  letter-spacing: -.02em;
+}
+.demo-header p {
+  font-size: 13px; color: var(--on-surface-var); margin-top: 4px;
+}
+.demo-reading-area {
+  width: 100%; max-width: 380px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-lg);
+  padding: 24px 20px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+.demo-reading-area .page-header {
+  font-size: 10px; color: var(--on-surface-faint);
+  letter-spacing: .06em; text-transform: uppercase;
+  margin-bottom: 12px; display: flex; justify-content: space-between;
+}
+.demo-reading-area .page-title {
+  font-size: 16px; font-weight: 600; margin-bottom: 16px;
+  color: var(--on-surface);
+}
+.demo-reading-area .page-body {
+  font-size: 14px; line-height: 1.85; color: var(--on-surface);
+  text-align: justify;
+}
+.demo-reading-area .page-body p { margin-bottom: .8em; text-indent: 2em; }
+.demo-reading-area .page-footer {
+  margin-top: 16px; font-size: 10px; color: var(--on-surface-faint);
+  text-align: center; letter-spacing: .04em;
+}
+
+/* Scrim overlay when sheet expanded */
+.scrim {
+  position: fixed; inset: 0; background: var(--scrim);
+  opacity: 0; pointer-events: none;
+  transition: opacity .35s var(--ease-out);
+  z-index: 90;
+}
+.scrim.active { opacity: 1; pointer-events: auto; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Bottom Sheet — the core v5.0 component
+   ═══════════════════════════════════════════════════════════════ */
+.bottom-sheet {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  z-index: 100;
+  background: var(--surface);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  box-shadow: var(--shadow-lg);
+  transition: transform .4s var(--spring);
+  will-change: transform;
+  max-height: 92vh;
+  display: flex; flex-direction: column;
+}
+
+/* Drag handle */
+.drag-handle {
+  display: flex; justify-content: center; padding: 10px 0 6px;
+  flex-shrink: 0;
+}
+.drag-handle span {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: var(--outline);
+  transition: width .2s var(--ease-out);
+}
+.bottom-sheet.expanded .drag-handle span { width: 48px; }
+
+/* ── Peek content ── */
+.peek-content {
+  padding: 0 16px 12px;
+  flex-shrink: 0;
+  transition: opacity .3s var(--ease-out), max-height .4s var(--ease-out), padding .3s var(--ease-out);
+  max-height: 300px;
+  overflow: hidden;
+}
+.bottom-sheet.expanded .peek-content {
+  opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0;
+}
+
+/* Scope header */
+.scope-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.scope-tabs {
+  display: flex; gap: 2px; background: var(--chip-bg);
+  border-radius: var(--r-sm); padding: 2px;
+}
+.scope-tab {
+  padding: 4px 12px; border-radius: 4px;
+  font-size: 12px; font-weight: 500;
+  color: var(--on-surface-var);
+  transition: all .2s var(--ease-out);
+}
+.scope-tab.active {
+  background: var(--card-bg);
+  color: var(--on-surface);
+  box-shadow: var(--shadow-sm);
+}
+.scope-reset {
+  font-size: 11px; color: var(--on-surface-faint);
+  padding: 4px 8px; border-radius: 4px;
+  transition: color .15s;
+}
+.scope-reset:hover { color: var(--func-error); }
+
+/* Font size stepper */
+.font-stepper {
+  display: flex; align-items: center; justify-content: center;
+  gap: 16px; margin-bottom: 10px;
+}
+.font-stepper-label {
+  font-size: 11px; color: var(--on-surface-var);
+  width: 36px; text-align: center;
+}
+.font-stepper-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--chip-bg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 300;
+  color: var(--on-surface);
+  transition: all .15s var(--ease-out);
+  border: 1px solid var(--outline-variant);
+}
+.font-stepper-btn:hover { background: var(--outline-variant); }
+.font-stepper-btn:active { transform: scale(.92); }
+.font-stepper-btn:disabled { opacity: .3; cursor: default; }
+.font-stepper-btn:disabled:active { transform: none; }
+.font-stepper-value {
+  font-size: 20px; font-weight: 600;
+  color: var(--on-surface);
+  min-width: 48px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.font-stepper-unit {
+  font-size: 11px; color: var(--on-surface-faint);
+  font-weight: 400;
+}
+
+/* Theme color row */
+.theme-row {
+  display: flex; gap: 8px; justify-content: center;
+  margin-bottom: 10px;
+}
+.theme-swatch {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 2px solid transparent;
+  transition: all .2s var(--spring);
+  position: relative;
+  /* 浅色主题需要边框可见 */
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.1);
+}
+.theme-swatch:hover { transform: scale(1.12); }
+.theme-swatch.active {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.1), 0 0 0 2px var(--surface), 0 0 0 4px var(--primary);
+}
+.theme-swatch.active::after {
+  content: '✓'; position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+}
+/* 深色色块上的 ✓ 用白色 */
+.theme-swatch.swatch-dark.active::after { color: rgba(255,255,255,.9); }
+.theme-swatch.swatch-light.active::after { color: rgba(0,0,0,.7); }
+
+/* Quick chips row */
+.quick-chips {
+  display: flex; gap: 6px; justify-content: center;
+  flex-wrap: wrap;
+}
+.quick-chip {
+  padding: 5px 12px; border-radius: 20px;
+  font-size: 11px; font-weight: 500;
+  background: var(--chip-bg);
+  color: var(--on-surface-var);
+  border: 1px solid var(--outline-variant);
+  transition: all .2s var(--ease-out);
+  display: flex; align-items: center; gap: 4px;
+}
+.quick-chip:hover { background: var(--outline-variant); }
+.quick-chip.active {
+  background: var(--chip-active-bg);
+  color: var(--chip-active-text);
+  border-color: transparent;
+}
+.quick-chip .chip-icon { font-size: 13px; line-height: 1; }
+
+/* ── Expanded content ── */
+.expanded-content {
+  flex: 1; overflow: hidden;
+  display: flex; flex-direction: column;
+  opacity: 0; max-height: 0;
+  transition: opacity .35s var(--ease-out) .1s, max-height .45s var(--spring);
+  pointer-events: none;
+}
+.bottom-sheet.expanded .expanded-content {
+  opacity: 1; max-height: 75vh;
+  pointer-events: auto;
+}
+
+/* Preview area */
+.preview-area {
+  margin: 0 16px 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  overflow: hidden;
+  position: relative;
+}
+.preview-text {
+  font-size: 13px; line-height: 1.8;
+  color: var(--on-surface);
+  max-height: 54px; overflow: hidden;
+  transition: font-size .2s, line-height .2s;
+}
+.preview-label {
+  position: absolute; top: 6px; right: 8px;
+  font-size: 9px; color: var(--on-surface-faint);
+  letter-spacing: .06em; text-transform: uppercase;
+}
+
+/* Tab row */
+.tab-row {
+  display: flex; padding: 0 16px;
+  border-bottom: 1px solid var(--outline-variant);
+  flex-shrink: 0;
+}
+.tab-item {
+  flex: 1; padding: 10px 0;
+  font-size: 13px; font-weight: 500;
+  color: var(--on-surface-var);
+  text-align: center;
+  position: relative;
+  transition: color .2s;
+}
+.tab-item.active { color: var(--on-surface); }
+.tab-item.active::after {
+  content: ''; position: absolute;
+  bottom: -1px; left: 25%; right: 25%;
+  height: 2.5px; background: var(--primary);
+  border-radius: 2px;
+  animation: tabSlideIn .3s var(--spring);
+}
+@keyframes tabSlideIn {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+
+/* Tab panels */
+.tab-panels {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 12px 16px 24px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Settings Card — card-based grouping
+   ═══════════════════════════════════════════════════════════════ */
+.settings-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-md);
+  padding: 14px;
+  margin-bottom: 10px;
+  transition: box-shadow .2s;
+}
+.settings-card:hover { box-shadow: var(--shadow-sm); }
+.card-title {
+  font-size: 11px; font-weight: 600;
+  color: var(--on-surface-var);
+  letter-spacing: .06em; text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* Setting row */
+.setting-row {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  min-height: 40px;
+}
+.setting-row + .setting-row {
+  border-top: 1px solid var(--outline-variant);
+}
+.setting-label {
+  font-size: 13px; color: var(--on-surface);
+  flex-shrink: 0;
+}
+.setting-sublabel {
+  font-size: 10px; color: var(--on-surface-faint);
+  margin-top: 1px;
+}
+.setting-value {
+  font-size: 12px; color: var(--on-surface-var);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Toggle switch */
+.toggle {
+  width: 42px; height: 24px;
+  border-radius: 12px;
+  background: var(--slider-track);
+  position: relative;
+  transition: background .2s var(--ease-out);
+  flex-shrink: 0;
+}
+.toggle.on { background: var(--slider-fill); }
+.toggle::after {
+  content: ''; position: absolute;
+  width: 18px; height: 18px;
+  border-radius: 50%; background: #fff;
+  top: 3px; left: 3px;
+  transition: transform .2s var(--spring);
+  box-shadow: 0 1px 3px rgba(0,0,0,.15);
+}
+.toggle.on::after { transform: translateX(18px); }
+[data-mode="dark"] .toggle::after { background: var(--ink-T950); }
+
+/* ═══════════════════════════════════════════════════════════════
+   StepperSlider — composite control (§4.7)
+   ═══════════════════════════════════════════════════════════════ */
+.stepper-slider {
+  display: flex; align-items: center; gap: 6px;
+  flex: 1; max-width: 220px;
+}
+.ss-btn {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--chip-bg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--on-surface-var);
+  flex-shrink: 0;
+  transition: all .12s var(--ease-out);
+  border: 1px solid var(--outline-variant);
+}
+.ss-btn:hover { background: var(--outline-variant); }
+.ss-btn:active { transform: scale(.88); }
+.ss-track {
+  flex: 1; height: 4px;
+  background: var(--slider-track);
+  border-radius: 2px;
+  position: relative;
+  cursor: pointer;
+}
+.ss-fill {
+  position: absolute; top: 0; left: 0;
+  height: 100%; background: var(--slider-fill);
+  border-radius: 2px;
+  transition: width .1s;
+}
+.ss-thumb {
+  position: absolute; top: 50%;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--slider-thumb);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 1px 4px rgba(12,8,4,.2);
+  transition: left .1s, transform .12s var(--spring);
+  cursor: grab;
+}
+.ss-thumb:hover { transform: translate(-50%, -50%) scale(1.2); }
+.ss-value {
+  font-size: 11px; color: var(--on-surface-var);
+  font-family: var(--font-mono);
+  min-width: 32px; text-align: right;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Visual Margin Control (§4.6.1)
+   ═══════════════════════════════════════════════════════════════ */
+.margin-control {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 6px;
+  padding: 8px 0;
+}
+.margin-row {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%;
+}
+.margin-stepper {
+  display: flex; align-items: center; gap: 4px;
+}
+.margin-stepper-label {
+  font-size: 10px; color: var(--on-surface-faint);
+  width: 14px; text-align: center;
+}
+.margin-stepper-btn {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--chip-bg);
+  border: 1px solid var(--outline-variant);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: var(--on-surface-var);
+  transition: all .12s;
+}
+.margin-stepper-btn:hover { background: var(--outline-variant); }
+.margin-stepper-btn:active { transform: scale(.88); }
+.margin-stepper-val {
+  font-size: 11px; font-family: var(--font-mono);
+  color: var(--on-surface); min-width: 28px;
+  text-align: center; font-variant-numeric: tabular-nums;
+}
+.margin-thumbnail {
+  width: 72px; height: 100px;
+  background: var(--input-bg);
+  border-radius: var(--r-sm);
+  position: relative;
+  border: 1px solid var(--outline-variant);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.margin-inner {
+  position: absolute;
+  background: var(--card-bg);
+  border-radius: 2px;
+  transition: all .2s var(--spring);
+}
+.margin-inner-lines {
+  position: absolute; inset: 3px;
+}
+.margin-inner-lines span {
+  display: block; height: 2px;
+  background: var(--outline-variant);
+  border-radius: 1px;
+  margin-bottom: 3px;
+}
+.margin-inner-lines span:nth-child(odd) { width: 85%; }
+.margin-inner-lines span:nth-child(even) { width: 70%; }
+.margin-inner-lines span:last-child { width: 45%; }
+.margin-sync {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 4px;
+}
+.margin-sync-toggle {
+  width: 32px; height: 18px;
+  border-radius: 9px;
+  background: var(--slider-track);
+  position: relative;
+  transition: background .2s;
+}
+.margin-sync-toggle.on { background: var(--slider-fill); }
+.margin-sync-toggle::after {
+  content: ''; position: absolute;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #fff; top: 2px; left: 2px;
+  transition: transform .2s var(--spring);
+  box-shadow: 0 1px 2px rgba(0,0,0,.12);
+}
+.margin-sync-toggle.on::after { transform: translateX(14px); }
+[data-mode="dark"] .margin-sync-toggle::after { background: var(--ink-T950); }
+.margin-sync-label {
+  font-size: 10px; color: var(--on-surface-faint);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Header/Footer Wireframe (§4.6.2)
+   ═══════════════════════════════════════════════════════════════ */
+.wireframe {
+  background: var(--input-bg);
+  border-radius: var(--r-md);
+  border: 1px solid var(--outline-variant);
+  overflow: hidden;
+  margin: 8px 0;
+}
+.wf-section {
+  padding: 8px 10px;
+  display: flex; justify-content: space-between;
+  gap: 4px;
+}
+.wf-section.header { border-bottom: 1px dashed var(--outline); }
+.wf-section.footer { border-top: 1px dashed var(--outline); }
+.wf-body {
+  padding: 16px 10px;
+  display: flex; flex-direction: column; gap: 3px;
+  align-items: center;
+}
+.wf-body-line {
+  height: 2px; background: var(--outline-variant);
+  border-radius: 1px;
+}
+.wf-slot {
+  flex: 1; min-width: 0;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--card-bg);
+  border: 1px solid var(--outline);
+  font-size: 9px; font-family: var(--font-mono);
+  color: var(--on-surface-var);
+  text-align: center;
+  cursor: pointer;
+  transition: all .15s var(--ease-out);
+  white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  position: relative;
+}
+.wf-slot:hover {
+  border-color: var(--primary);
+  background: var(--surface);
+}
+.wf-slot.empty {
+  color: var(--on-surface-faint);
+  border-style: dashed;
+}
+.wf-label {
+  font-size: 9px; color: var(--on-surface-faint);
+  letter-spacing: .04em; margin-bottom: 4px;
+  text-align: center;
+}
+
+/* Slot bubble picker */
+.bubble-picker {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%; transform: translateX(-50%);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
+  padding: 6px;
+  z-index: 200;
+  min-width: 110px;
+  display: none;
+  animation: bubbleIn .2s var(--spring);
+}
+.bubble-picker.show { display: block; }
+@keyframes bubbleIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px) scale(.95); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+.bubble-picker::after {
+  content: ''; position: absolute;
+  bottom: -5px; left: 50%; transform: translateX(-50%) rotate(45deg);
+  width: 8px; height: 8px;
+  background: var(--card-bg);
+  border-right: 1px solid var(--card-border);
+  border-bottom: 1px solid var(--card-border);
+}
+.bp-option {
+  padding: 5px 8px;
+  font-size: 11px; color: var(--on-surface);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.bp-option:hover { background: var(--chip-bg); }
+.bp-option.selected { color: var(--primary); font-weight: 500; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Expandable section (for advanced groups)
+   ═══════════════════════════════════════════════════════════════ */
+.expandable-header {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  cursor: pointer;
+}
+.expandable-header .card-title { margin-bottom: 0; }
+.expandable-arrow {
+  font-size: 12px; color: var(--on-surface-faint);
+  transition: transform .25s var(--spring);
+}
+.expandable-header.open .expandable-arrow { transform: rotate(180deg); }
+.expandable-body {
+  max-height: 0; overflow: hidden;
+  transition: max-height .35s var(--ease-out);
+}
+.expandable-body.open { max-height: 600px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Gesture Zone Grid (§2.4.1)
+   ═══════════════════════════════════════════════════════════════ */
+.gesture-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 3px; width: 180px; margin: 8px auto;
+}
+.gesture-zone {
+  background: var(--chip-bg);
+  border-radius: 6px;
+  padding: 10px 4px;
+  text-align: center;
+  font-size: 10px; font-weight: 500;
+  color: var(--on-surface-var);
+  cursor: pointer;
+  border: 1px solid var(--outline-variant);
+  transition: all .15s var(--ease-out);
+  user-select: none;
+}
+.gesture-zone:hover {
+  border-color: var(--primary);
+  background: var(--surface-variant);
+}
+.gesture-zone:active {
+  transform: scale(.92);
+  background: var(--outline-variant);
+}
+.gesture-grid-label {
+  font-size: 10px; color: var(--on-surface-faint);
+  text-align: center; margin: 4px 0 8px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Select dropdown (inline)
+   ═══════════════════════════════════════════════════════════════ */
+.inline-select {
+  padding: 5px 10px;
+  border-radius: var(--r-sm);
+  background: var(--chip-bg);
+  border: 1px solid var(--outline-variant);
+  font-size: 12px; color: var(--on-surface);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: border-color .15s;
+  -webkit-appearance: none; appearance: none;
+  padding-right: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239C9082' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+.inline-select:hover { border-color: var(--primary); }
+
+/* ═══════════════════════════════════════════════════════════════
+   Responsive
+   ═══════════════════════════════════════════════════════════════ */
+@media (min-width: 480px) {
+  .bottom-sheet {
+    left: 50%; transform: translateX(-50%);
+    max-width: 420px; width: 420px;
+    border-radius: var(--r-xl);
+    bottom: 12px;
+  }
+  .bottom-sheet.expanded {
+    bottom: 12px;
+  }
+}
+</style>
+</head>
+<body data-mode="light">
+
+<!-- ═══ Demo Shell (reading page behind sheet) ═══ -->
+<div class="demo-shell">
+  <div class="demo-header">
+    <h1>书里 · 设置面板 v5.0</h1>
+    <p>墨土配色 · 双层渐进式展开 · 3-Tab 卡片化分组</p>
+  </div>
+  <div class="demo-reading-area" id="readingArea">
+    <div class="page-header">
+      <span id="demoHeaderLeft">书里阅读器</span>
+      <span id="demoHeaderRight">第三章</span>
+    </div>
+    <div class="page-title" id="demoTitle">春江花月夜</div>
+    <div class="page-body" id="demoBody">
+      <p>春江潮水连海平，海上明月共潮生。滟滟随波千万里，何处春江无月明。</p>
+      <p>江流宛转绕芳甸，月照花林皆似霰。空里流霜不觉飞，汀上白沙看不见。</p>
+    </div>
+    <div class="page-footer" id="demoFooter">— 第 3 页 · 12% —</div>
+  </div>
+</div>
+
+<!-- ═══ Scrim ═══ -->
+<div class="scrim" id="scrim" onclick="toggleSheet(false)"></div>
+
+<!-- ═══ Bottom Sheet ═══ -->
+<div class="bottom-sheet" id="sheet">
+  <!-- Drag handle -->
+  <div class="drag-handle" onclick="toggleSheet()"><span></span></div>
+
+  <!-- ─── Peek Content ─── -->
+  <div class="peek-content">
+    <!-- Scope header -->
+    <div class="scope-header">
+      <div class="scope-tabs">
+        <button class="scope-tab active" onclick="setScope(this,'global')">全局</button>
+        <button class="scope-tab" onclick="setScope(this,'book')">本书</button>
+      </div>
+      <button class="scope-reset">恢复默认</button>
+    </div>
+
+    <!-- Font size stepper -->
+    <div class="font-stepper">
+      <span class="font-stepper-label">字号</span>
+      <button class="font-stepper-btn" onclick="adjustFontSize(-1)" id="fontMinus">−</button>
+      <span class="font-stepper-value"><span id="fontValue">18</span><span class="font-stepper-unit"> sp</span></span>
+      <button class="font-stepper-btn" onclick="adjustFontSize(1)" id="fontPlus">+</button>
+    </div>
+
+    <!-- Theme swatches -->
+    <div class="theme-row" id="themeRow">
+      <button class="theme-swatch swatch-light active" style="background:#F6F4F0" onclick="setTheme(this,'light')" title="纸质"></button>
+      <button class="theme-swatch swatch-light" style="background:#FFFFFF" onclick="setTheme(this,'white')" title="白色"></button>
+      <button class="theme-swatch swatch-dark" style="background:#1A130B" onclick="setTheme(this,'dark')" title="深色"></button>
+      <button class="theme-swatch swatch-dark" style="background:#0C0804" onclick="setTheme(this,'oled')" title="OLED"></button>
+      <button class="theme-swatch swatch-light" style="background:#E8E0D0" onclick="setTheme(this,'warm')" title="暖黄"></button>
+    </div>
+
+    <!-- Quick chips -->
+    <div class="quick-chips">
+      <button class="quick-chip" onclick="toggleChip(this)" data-action="darkMode">
+        <span class="chip-icon">🌙</span> 暗色
+      </button>
+      <button class="quick-chip" onclick="toggleChip(this)" data-action="eyeCare">
+        <span class="chip-icon">👁</span> 护眼
+      </button>
+      <button class="quick-chip" onclick="toggleChip(this)" data-action="landscape">
+        <span class="chip-icon">📐</span> 横屏锁定
+      </button>
+    </div>
+  </div>
+
+  <!-- ─── Expanded Content ─── -->
+  <div class="expanded-content">
+    <!-- Preview area -->
+    <div class="preview-area">
+      <span class="preview-label">实时预览</span>
+      <div class="preview-text" id="previewText">
+        春江潮水连海平，海上明月共潮生。滟滟随波千万里，何处春江无月明。
+      </div>
+    </div>
+
+    <!-- Tab row -->
+    <div class="tab-row" id="tabRow">
+      <button class="tab-item active" onclick="switchTab(this, 'tabTypeFont')">排版与字体</button>
+      <button class="tab-item" onclick="switchTab(this, 'tabAppearance')">外观与显示</button>
+      <button class="tab-item" onclick="switchTab(this, 'tabBehavior')">行为与手势</button>
+    </div>
+
+    <!-- Tab panels -->
+    <div class="tab-panels">
+
+      <!-- ═══ Tab 1: 排版与字体 ═══ -->
+      <div class="tab-panel active" id="tabTypeFont">
+
+        <!-- Card: 基础排版 -->
+        <div class="settings-card">
+          <div class="card-title">基础排版</div>
+
+          <!-- 行距 StepperSlider -->
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">行距</div>
+            </div>
+            <div class="stepper-slider">
+              <button class="ss-btn" onclick="adjustSlider('lineSpacing', -0.1)">−</button>
+              <div class="ss-track" onclick="clickTrack(event, 'lineSpacing')">
+                <div class="ss-fill" id="lineSpacing-fill" style="width:25%"></div>
+                <div class="ss-thumb" id="lineSpacing-thumb" style="left:25%"></div>
+              </div>
+              <button class="ss-btn" onclick="adjustSlider('lineSpacing', 0.1)">+</button>
+              <span class="ss-value" id="lineSpacing-value">1.5</span>
+            </div>
+          </div>
+
+          <!-- 段距 StepperSlider -->
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">段距</div>
+            </div>
+            <div class="stepper-slider">
+              <button class="ss-btn" onclick="adjustSlider('paraSpacing', -0.1)">−</button>
+              <div class="ss-track" onclick="clickTrack(event, 'paraSpacing')">
+                <div class="ss-fill" id="paraSpacing-fill" style="width:50%"></div>
+                <div class="ss-thumb" id="paraSpacing-thumb" style="left:50%"></div>
+              </div>
+              <button class="ss-btn" onclick="adjustSlider('paraSpacing', 0.1)">+</button>
+              <span class="ss-value" id="paraSpacing-value">1.0</span>
+            </div>
+          </div>
+
+          <!-- 缩进 -->
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">缩进</div>
+            </div>
+            <div class="stepper-slider">
+              <button class="ss-btn" onclick="adjustSlider('indent', -0.5)">−</button>
+              <div class="ss-track" onclick="clickTrack(event, 'indent')">
+                <div class="ss-fill" id="indent-fill" style="width:40%"></div>
+                <div class="ss-thumb" id="indent-thumb" style="left:40%"></div>
+              </div>
+              <button class="ss-btn" onclick="adjustSlider('indent', 0.5)">+</button>
+              <span class="ss-value" id="indent-value">2.0em</span>
+            </div>
+          </div>
+
+          <!-- 字间距 -->
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">字间距</div>
+            </div>
+            <div class="stepper-slider">
+              <button class="ss-btn" onclick="adjustSlider('letterSpacing', -0.02)">−</button>
+              <div class="ss-track" onclick="clickTrack(event, 'letterSpacing')">
+                <div class="ss-fill" id="letterSpacing-fill" style="width:0%"></div>
+                <div class="ss-thumb" id="letterSpacing-thumb" style="left:0%"></div>
+              </div>
+              <button class="ss-btn" onclick="adjustSlider('letterSpacing', 0.02)">+</button>
+              <span class="ss-value" id="letterSpacing-value">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: 字体 -->
+        <div class="settings-card">
+          <div class="card-title">字体</div>
+          <div class="setting-row">
+            <div class="setting-label">正文字体</div>
+            <select class="inline-select" onchange="setFont(this.value)">
+              <option value="harmony" selected>HarmonyOS Sans</option>
+              <option value="system">系统默认</option>
+              <option value="serif">宋体</option>
+              <option value="kaiti">楷体</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">字重</div>
+            <select class="inline-select">
+              <option value="light">细</option>
+              <option value="normal" selected>常规</option>
+              <option value="medium">中等</option>
+              <option value="bold">粗</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">对齐</div>
+            <select class="inline-select">
+              <option value="left">左对齐</option>
+              <option value="justify" selected>两端对齐</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Card: 独立边距 (Visual Margin Control §4.6.1) -->
+        <div class="settings-card">
+          <div class="card-title">边距</div>
+          <div class="margin-control">
+            <!-- Top -->
+            <div class="margin-row" style="justify-content:center">
+              <div class="margin-stepper">
+                <button class="margin-stepper-btn" onclick="adjustMargin('top',-2)">−</button>
+                <span class="margin-stepper-val" id="margin-top-val">48</span>
+                <button class="margin-stepper-btn" onclick="adjustMargin('top',2)">+</button>
+              </div>
+              <span class="margin-stepper-label">上</span>
+            </div>
+            <!-- Middle: left + thumbnail + right -->
+            <div class="margin-row" style="justify-content:center">
+              <div class="margin-stepper" style="flex-direction:column">
+                <button class="margin-stepper-btn" onclick="adjustMargin('left',-2)">−</button>
+                <span class="margin-stepper-val" id="margin-left-val">24</span>
+                <button class="margin-stepper-btn" onclick="adjustMargin('left',2)">+</button>
+              </div>
+              <div class="margin-thumbnail">
+                <div class="margin-inner" id="marginInner" style="top:20%;bottom:20%;left:14%;right:14%">
+                  <div class="margin-inner-lines">
+                    <span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span>
+                  </div>
+                </div>
+              </div>
+              <div class="margin-stepper" style="flex-direction:column">
+                <button class="margin-stepper-btn" onclick="adjustMargin('right',-2)">−</button>
+                <span class="margin-stepper-val" id="margin-right-val">24</span>
+                <button class="margin-stepper-btn" onclick="adjustMargin('right',2)">+</button>
+              </div>
+            </div>
+            <!-- Bottom -->
+            <div class="margin-row" style="justify-content:center">
+              <span class="margin-stepper-label">下</span>
+              <div class="margin-stepper">
+                <button class="margin-stepper-btn" onclick="adjustMargin('bottom',-2)">−</button>
+                <span class="margin-stepper-val" id="margin-bottom-val">48</span>
+                <button class="margin-stepper-btn" onclick="adjustMargin('bottom',2)">+</button>
+              </div>
+            </div>
+            <!-- Sync toggle -->
+            <div class="margin-sync">
+              <div class="margin-sync-toggle on" id="marginSync" onclick="toggleMarginSync()"></div>
+              <span class="margin-sync-label">同步上下 / 左右</span>
+            </div>
+          </div>
+          <div class="setting-row" style="margin-top:12px; border-top:1px solid var(--outline-variant); padding-top:12px">
+            <div><div class="setting-label">限制最大页宽</div></div>
+            <div class="toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+        </div>
+
+        <!-- Card: 文本样式 (Expandable advanced) -->
+        <div class="settings-card">
+          <div class="expandable-header" onclick="toggleExpand(this)">
+            <div class="card-title">高级排版</div>
+            <span class="expandable-arrow">▼</span>
+          </div>
+          <div class="expandable-body">
+            <div class="setting-row">
+              <div class="setting-label">简繁转换</div>
+              <select class="inline-select">
+                <option value="none" selected>不转换</option>
+                <option value="simplified">简体</option>
+                <option value="traditional">繁体</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-label">盘古之白</div><div class="setting-sublabel">中英文间自动加空格</div></div>
+              <div class="toggle" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-label">底部对齐</div><div class="setting-sublabel">均匀分布行间距</div></div>
+              <div class="toggle" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-label">去除空行</div></div>
+              <div class="toggle" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-label">段间分隔线</div></div>
+              <div class="toggle" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-label">断字 (Hyphenation)</div><div class="setting-sublabel">改善英文两端对齐效果</div></div>
+              <div class="toggle" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-label">Bionic Reading</div><div class="setting-sublabel">仿生阅读加粗</div></div>
+              <div class="toggle" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-label">覆盖 EPUB 样式</div><div class="setting-sublabel">强制使用阅读器排版</div></div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Tab 2: 外观与显示 ═══ -->
+      <div class="tab-panel" id="tabAppearance">
+
+        <!-- Card: 页眉页脚 Wireframe (§4.6.2) -->
+        <div class="settings-card">
+          <div class="card-title">页眉页脚</div>
+          <div class="wireframe">
+            <div class="wf-section header">
+              <div class="wf-slot" onclick="openBubble(this)" data-slot="headerLeft">
+                书名
+                <div class="bubble-picker" id="bp-headerLeft">
+                  <div class="bp-option selected" onclick="pickSlot(event, 'headerLeft', '书名')">书名</div>
+                  <div class="bp-option" onclick="pickSlot(event, 'headerLeft', '章节')">章节</div>
+                  <div class="bp-option" onclick="pickSlot(event, 'headerLeft', '时间')">时间</div>
+                  <div class="bp-option" onclick="pickSlot(event, 'headerLeft', '—')">空</div>
+                </div>
+              </div>
+              <div class="wf-slot" onclick="openBubble(this)">章节</div>
+              <div class="wf-slot empty" onclick="openBubble(this)">空</div>
+            </div>
+            <div class="wf-body">
+              <div class="wf-body-line" style="width:80%"></div>
+              <div class="wf-body-line" style="width:90%"></div>
+              <div class="wf-body-line" style="width:75%"></div>
+              <div class="wf-body-line" style="width:85%"></div>
+              <div class="wf-body-line" style="width:60%"></div>
+            </div>
+            <div class="wf-section footer">
+              <div class="wf-slot empty" onclick="openBubble(this)">空</div>
+              <div class="wf-slot" onclick="openBubble(this)">3/120</div>
+              <div class="wf-slot" onclick="openBubble(this)">电池</div>
+            </div>
+          </div>
+          <div class="wf-label">点击 slot 更换内容</div>
+
+          <div class="setting-row" style="margin-top:4px">
+            <div class="setting-label">页眉页脚透明度</div>
+            <div class="stepper-slider" style="max-width:140px">
+              <div class="ss-track">
+                <div class="ss-fill" style="width:40%"></div>
+                <div class="ss-thumb" style="left:40%"></div>
+              </div>
+              <span class="ss-value">0.4</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: 屏幕与亮度 (§2.1.1) -->
+        <div class="settings-card">
+          <div class="card-title">屏幕与亮度</div>
+          <div class="setting-row">
+            <div><div class="setting-label">屏幕亮度</div></div>
+            <div class="stepper-slider" style="max-width:160px">
+              <button class="ss-btn" onclick="adjustSlider('brightness', -0.05)">−</button>
+              <div class="ss-track" onclick="clickTrack(event, 'brightness')">
+                <div class="ss-fill" id="brightness-fill" style="width:0%"></div>
+                <div class="ss-thumb" id="brightness-thumb" style="left:0%"></div>
+              </div>
+              <button class="ss-btn" onclick="adjustSlider('brightness', 0.05)">+</button>
+              <span class="ss-value" id="brightness-value">系统</span>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">色温</div>
+              <div class="setting-sublabel">MULTIPLY 模式 · OLED 安全</div>
+            </div>
+            <div class="stepper-slider" style="max-width:160px">
+              <button class="ss-btn" onclick="adjustSlider('colorTemp', -100)">−</button>
+              <div class="ss-track" onclick="clickTrack(event, 'colorTemp')">
+                <div class="ss-fill" id="colorTemp-fill" style="width:69%;background:linear-gradient(90deg,#FF8C00,var(--slider-fill))"></div>
+                <div class="ss-thumb" id="colorTemp-thumb" style="left:69%"></div>
+              </div>
+              <button class="ss-btn" onclick="adjustSlider('colorTemp', 100)">+</button>
+              <span class="ss-value" id="colorTemp-value">5500K</span>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">阅读聚焦线</div></div>
+            <div class="toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+        </div>
+
+        <!-- Card: 显示模式 -->
+        <div class="settings-card">
+          <div class="card-title">显示模式</div>
+          <div class="setting-row">
+            <div class="setting-label">双页模式</div>
+            <select class="inline-select">
+              <option value="auto" selected>自动</option>
+              <option value="single">单页</option>
+              <option value="dual">双页</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">背景纹理</div>
+            <select class="inline-select">
+              <option value="none" selected>纯色</option>
+              <option value="kraft">Kraft 纸</option>
+              <option value="linen">仿麻</option>
+              <option value="grid">米格</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">翻页动画速度</div>
+            <select class="inline-select">
+              <option value="fast">快 (100ms)</option>
+              <option value="normal" selected>标准 (250ms)</option>
+              <option value="slow">慢 (400ms)</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">翻页动画类型</div>
+            <select class="inline-select">
+              <option value="horizontal" selected>水平滑动</option>
+              <option value="cover">覆盖</option>
+              <option value="simulation">仿真</option>
+              <option value="scroll">连续滚动</option>
+              <option value="none">无动画</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Tab 3: 行为与手势 ═══ -->
+      <div class="tab-panel" id="tabBehavior">
+
+        <!-- Card: 翻页 -->
+        <div class="settings-card">
+          <div class="card-title">翻页</div>
+          <div class="setting-row">
+            <div><div class="setting-label">音量键翻页</div></div>
+            <div class="toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">边缘翻页</div>
+              <div class="setting-sublabel">触摸屏幕边缘区域翻页</div>
+            </div>
+            <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">边缘宽度</div>
+            <div class="stepper-slider" style="max-width:140px">
+              <div class="ss-track">
+                <div class="ss-fill" style="width:33%"></div>
+                <div class="ss-thumb" style="left:33%"></div>
+              </div>
+              <span class="ss-value">33%</span>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">自动翻页</div></div>
+            <div class="toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">翻页间隔</div>
+            <div class="stepper-slider" style="max-width:140px">
+              <div class="ss-track">
+                <div class="ss-fill" style="width:17%"></div>
+                <div class="ss-thumb" style="left:17%"></div>
+              </div>
+              <span class="ss-value">10s</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: 手势绑定 -->
+        <div class="settings-card">
+          <div class="card-title">触控区域</div>
+          <div class="gesture-grid">
+            <div class="gesture-zone" onclick="cycleGesture(this)" data-action="PREV_PAGE">上一页</div>
+            <div class="gesture-zone" onclick="cycleGesture(this)" data-action="TOGGLE_TOOLBAR">工具栏</div>
+            <div class="gesture-zone" onclick="cycleGesture(this)" data-action="NEXT_PAGE">下一页</div>
+            <div class="gesture-zone" onclick="cycleGesture(this)" data-action="PREV_PAGE">上一页</div>
+            <div class="gesture-zone" onclick="cycleGesture(this)" data-action="TOGGLE_TOOLBAR">工具栏</div>
+            <div class="gesture-zone" onclick="cycleGesture(this)" data-action="NEXT_PAGE">下一页</div>
+            <div class="gesture-zone" onclick="cycleGesture(this)" data-action="PREV_PAGE">上一页</div>
+            <div class="gesture-zone" onclick="cycleGesture(this)" data-action="TOGGLE_TOOLBAR">工具栏</div>
+            <div class="gesture-zone" onclick="cycleGesture(this)" data-action="NEXT_PAGE">下一页</div>
+          </div>
+          <div class="gesture-grid-label">点击区域循环切换动作</div>
+          <div class="setting-row">
+            <div><div class="setting-label">振动反馈</div></div>
+            <div class="toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">左侧热区比例</div>
+            <div class="stepper-slider" style="max-width:120px">
+              <div class="ss-track">
+                <div class="ss-fill" style="width:33%"></div>
+                <div class="ss-thumb" style="left:33%"></div>
+              </div>
+              <span class="ss-value">0.33</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: 护眼 -->
+        <div class="settings-card">
+          <div class="card-title">护眼</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">护眼提醒</div>
+              <div class="setting-sublabel">基于翻页活动计时</div>
+            </div>
+            <select class="inline-select">
+              <option value="0" selected>关闭</option>
+              <option value="15">15 分钟</option>
+              <option value="30">30 分钟</option>
+              <option value="45">45 分钟</option>
+              <option value="60">60 分钟</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Card: 通用 -->
+        <div class="settings-card">
+          <div class="card-title">通用</div>
+          <div class="setting-row">
+            <div><div class="setting-label">沉浸模式</div><div class="setting-sublabel">隐藏状态栏和导航栏</div></div>
+            <div class="toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">保持亮屏</div></div>
+            <div class="toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">屏幕方向</div>
+            <select class="inline-select">
+              <option value="system" selected>跟随系统</option>
+              <option value="portrait">竖屏锁定</option>
+              <option value="landscape">横屏锁定</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   State
+   ═══════════════════════════════════════════════════════════════ */
+const state = {
+  fontSize: 18,
+  lineSpacing: 1.5,
+  paraSpacing: 1.0,
+  indent: 2.0,
+  letterSpacing: 0,
+  colorTemp: 5500,
+  brightness: -0.1, // -0.1 represents system default
+  margins: { top: 48, bottom: 48, left: 24, right: 24 },
+  marginSync: true,
+};
+
+const GESTURE_ACTIONS = ['PREV_PAGE', 'NEXT_PAGE', 'TOGGLE_TOOLBAR', 'TOGGLE_DIRECTORY', 'ADD_BOOKMARK', 'TOGGLE_THEME', 'NONE'];
+const GESTURE_LABELS = { PREV_PAGE:'上一页', NEXT_PAGE:'下一页', TOGGLE_TOOLBAR:'工具栏', TOGGLE_DIRECTORY:'目录', ADD_BOOKMARK:'书签', TOGGLE_THEME:'切主题', NONE:'无' };
+
+/* ═══════════════════════════════════════════════════════════════
+   Sheet toggle
+   ═══════════════════════════════════════════════════════════════ */
+let sheetExpanded = false;
+
+function toggleSheet(forceState) {
+  const sheet = document.getElementById('sheet');
+  const scrim = document.getElementById('scrim');
+  sheetExpanded = forceState !== undefined ? forceState : !sheetExpanded;
+  sheet.classList.toggle('expanded', sheetExpanded);
+  scrim.classList.toggle('active', sheetExpanded);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Scope tabs
+   ═══════════════════════════════════════════════════════════════ */
+function setScope(el, scope) {
+  el.parentElement.querySelectorAll('.scope-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Font size stepper
+   ═══════════════════════════════════════════════════════════════ */
+function adjustFontSize(delta) {
+  state.fontSize = Math.max(12, Math.min(32, state.fontSize + delta));
+  document.getElementById('fontValue').textContent = state.fontSize;
+  document.getElementById('fontMinus').disabled = state.fontSize <= 12;
+  document.getElementById('fontPlus').disabled = state.fontSize >= 32;
+  // Update preview
+  document.getElementById('previewText').style.fontSize = (state.fontSize * 0.72) + 'px';
+  // Update demo reading area
+  document.getElementById('demoBody').style.fontSize = state.fontSize + 'px';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Theme swatches
+   ═══════════════════════════════════════════════════════════════ */
+function setTheme(el, theme) {
+  document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  const body = document.body;
+  const area = document.getElementById('readingArea');
+  switch(theme) {
+    case 'light':
+      body.setAttribute('data-mode', 'light');
+      area.style.background = '#FFFFFF';
+      break;
+    case 'white':
+      body.setAttribute('data-mode', 'light');
+      area.style.background = '#FFFFFF';
+      break;
+    case 'dark':
+      body.setAttribute('data-mode', 'dark');
+      area.style.background = 'var(--ink-T900)';
+      break;
+    case 'oled':
+      body.setAttribute('data-mode', 'dark');
+      area.style.background = '#000000';
+      break;
+    case 'warm':
+      body.setAttribute('data-mode', 'light');
+      area.style.background = '#E8E0D0';
+      break;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Quick chips
+   ═══════════════════════════════════════════════════════════════ */
+function toggleChip(el) {
+  el.classList.toggle('active');
+  const action = el.dataset.action;
+  if (action === 'darkMode') {
+    document.body.setAttribute('data-mode', el.classList.contains('active') ? 'dark' : 'light');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Tabs
+   ═══════════════════════════════════════════════════════════════ */
+function switchTab(el, panelId) {
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(panelId).classList.add('active');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   StepperSlider
+   ═══════════════════════════════════════════════════════════════ */
+const sliderConfigs = {
+  lineSpacing:   { min: 1.0, max: 3.0, step: 0.1, unit: '', decimals: 1 },
+  paraSpacing:   { min: 0,   max: 2.0, step: 0.1, unit: '', decimals: 1 },
+  indent:        { min: 0,   max: 5.0, step: 0.5, unit: 'em', decimals: 1 },
+  letterSpacing: { min: 0,   max: 0.5, step: 0.02, unit: '', decimals: 2 },
+  colorTemp:     { min: 2000, max: 6500, step: 100, unit: 'K', decimals: 0 },
+  brightness:    { min: -0.1, max: 1.0, step: 0.05, unit: '', decimals: 2 },
+};
+
+function adjustSlider(name, delta) {
+  const cfg = sliderConfigs[name];
+  if (!cfg) return;
+  state[name] = Math.max(cfg.min, Math.min(cfg.max, +(state[name] + delta).toFixed(cfg.decimals)));
+  updateSliderUI(name);
+}
+
+function clickTrack(e, name) {
+  const cfg = sliderConfigs[name];
+  if (!cfg) return;
+  const track = e.currentTarget;
+  const rect = track.getBoundingClientRect();
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  state[name] = +(cfg.min + ratio * (cfg.max - cfg.min)).toFixed(cfg.decimals);
+  updateSliderUI(name);
+}
+
+function updateSliderUI(name) {
+  const cfg = sliderConfigs[name];
+  const ratio = (state[name] - cfg.min) / (cfg.max - cfg.min);
+  const pct = (ratio * 100).toFixed(1);
+  const fill = document.getElementById(name + '-fill');
+  const thumb = document.getElementById(name + '-thumb');
+  const value = document.getElementById(name + '-value');
+  if (fill) fill.style.width = pct + '%';
+  if (thumb) thumb.style.left = pct + '%';
+  if (value) {
+    if (name === 'brightness' && state[name] < 0) {
+      value.textContent = '系统';
+    } else {
+      value.textContent = state[name].toFixed(cfg.decimals) + cfg.unit;
+    }
+  }
+  // 联动预览区和阅读区
+  applyPreviewEffects(name);
+}
+
+/** 设置变化时联动预览区 + 阅读区 */
+function applyPreviewEffects(name) {
+  const preview = document.getElementById('previewText');
+  const body = document.getElementById('demoBody');
+  switch(name) {
+    case 'lineSpacing':
+      preview.style.lineHeight = state.lineSpacing;
+      body.style.lineHeight = state.lineSpacing;
+      break;
+    case 'letterSpacing':
+      preview.style.letterSpacing = state.letterSpacing + 'em';
+      body.style.letterSpacing = state.letterSpacing + 'em';
+      break;
+    case 'indent':
+      body.querySelectorAll('p').forEach(p => p.style.textIndent = state.indent + 'em');
+      break;
+    case 'colorTemp':
+      applyColorTemperature(state.colorTemp);
+      break;
+    case 'brightness':
+      applyBrightness(state.brightness);
+      break;
+  }
+}
+
+/** 模拟亮度调节 */
+function applyBrightness(val) {
+  const target = document.getElementById('readingArea');
+  if (val < 0) {
+    target.style.filter = '';
+  } else {
+    // 模拟亮度降低 (30% ~ 100%)
+    const b = 0.3 + (val * 0.7);
+    target.style.filter = `brightness(${b})`;
+  }
+}
+
+/** 色温 → RGB（Tanner Helland 近似） */
+function colorTempToRgb(kelvin) {
+  const temp = kelvin / 100;
+  const r = temp <= 66 ? 255 : Math.min(255, Math.max(0, 329.698727446 * Math.pow(temp - 60, -0.1332047592)));
+  const g = temp <= 66
+    ? Math.min(255, Math.max(0, 99.4708025861 * Math.log(temp) - 161.1195681661))
+    : Math.min(255, Math.max(0, 288.1221695283 * Math.pow(temp - 60, -0.0755148492)));
+  const b = temp >= 66 ? 255 : temp <= 19 ? 0 : Math.min(255, Math.max(0, 138.5177312231 * Math.log(temp - 10) - 305.0447927307));
+  return [Math.round(r), Math.round(g), Math.round(b)];
+}
+
+/** 色温叠加到阅读区和预览区（模拟 MULTIPLY 模式） */
+function applyColorTemperature(kelvin) {
+  const overlay = document.getElementById('colorTempOverlay');
+  if (!overlay) {
+    // 创建色温覆盖层
+    const el = document.createElement('div');
+    el.id = 'colorTempOverlay';
+    el.style.cssText = 'position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;border-radius:inherit;transition:background .15s;z-index:10';
+    document.getElementById('readingArea').appendChild(el);
+  }
+  const target = document.getElementById('colorTempOverlay') || overlay;
+  if (kelvin >= 6500) {
+    target.style.background = 'transparent';
+  } else {
+    const [r, g, b] = colorTempToRgb(kelvin);
+    target.style.background = `rgba(${r},${g},${b},0.12)`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Slider Drag Support (真正的拖拽交互)
+   ═══════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.ss-thumb').forEach(thumb => {
+    thumb.addEventListener('mousedown', startDrag);
+    thumb.addEventListener('touchstart', startDrag, {passive: false});
+  });
+});
+
+function startDrag(e) {
+  e.preventDefault();
+  const thumb = e.currentTarget;
+  const track = thumb.parentElement;
+  const id = thumb.id.replace('-thumb', '');
+  const cfg = sliderConfigs[id];
+  if (!cfg) return;
+
+  thumb.style.cursor = 'grabbing';
+  thumb.style.transform = 'translate(-50%, -50%) scale(1.3)';
+
+  function onMove(ev) {
+    const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+    const rect = track.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    state[id] = +(cfg.min + ratio * (cfg.max - cfg.min)).toFixed(cfg.decimals);
+    updateSliderUI(id);
+  }
+  function onUp() {
+    thumb.style.cursor = '';
+    thumb.style.transform = '';
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onUp);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+  document.addEventListener('touchmove', onMove, {passive: false});
+  document.addEventListener('touchend', onUp);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Visual Margin Control
+   ═══════════════════════════════════════════════════════════════ */
+function adjustMargin(side, delta) {
+  const min = 8, max = 80;
+  state.margins[side] = Math.max(min, Math.min(max, state.margins[side] + delta));
+  if (state.marginSync) {
+    if (side === 'top' || side === 'bottom') {
+      const other = side === 'top' ? 'bottom' : 'top';
+      state.margins[other] = state.margins[side];
+    }
+    if (side === 'left' || side === 'right') {
+      const other = side === 'left' ? 'right' : 'left';
+      state.margins[other] = state.margins[side];
+    }
+  }
+  updateMarginUI();
+}
+
+function toggleMarginSync() {
+  state.marginSync = !state.marginSync;
+  document.getElementById('marginSync').classList.toggle('on', state.marginSync);
+  if (state.marginSync) {
+    state.margins.bottom = state.margins.top;
+    state.margins.right = state.margins.left;
+    updateMarginUI();
+  }
+}
+
+function updateMarginUI() {
+  ['top','bottom','left','right'].forEach(s => {
+    document.getElementById('margin-' + s + '-val').textContent = state.margins[s];
+  });
+  // Update thumbnail
+  const inner = document.getElementById('marginInner');
+  const tPct = (state.margins.top / 120 * 100).toFixed(0);
+  const bPct = (state.margins.bottom / 120 * 100).toFixed(0);
+  const lPct = (state.margins.left / 80 * 100).toFixed(0);
+  const rPct = (state.margins.right / 80 * 100).toFixed(0);
+  inner.style.top = tPct + '%';
+  inner.style.bottom = bPct + '%';
+  inner.style.left = lPct + '%';
+  inner.style.right = rPct + '%';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Header/Footer Wireframe Bubble Picker
+   ═══════════════════════════════════════════════════════════════ */
+let activeBubble = null;
+
+function openBubble(slotEl) {
+  // Close existing
+  if (activeBubble) activeBubble.remove();
+
+  const options = ['书名','章节','页码','时间','百分比','电池','日期','空'];
+  const currentText = slotEl.textContent.trim();
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble-picker show';
+  bubble.innerHTML = options.map(opt =>
+    `<div class="bp-option${opt === currentText ? ' selected' : ''}" onclick="pickSlotValue(event, this)">${opt}</div>`
+  ).join('');
+
+  slotEl.style.position = 'relative';
+  slotEl.appendChild(bubble);
+  activeBubble = bubble;
+
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', function handler(e) {
+      if (!bubble.contains(e.target) && e.target !== slotEl) {
+        bubble.remove();
+        activeBubble = null;
+        document.removeEventListener('click', handler);
+      }
+    });
+  }, 10);
+}
+
+function pickSlotValue(e, optionEl) {
+  e.stopPropagation();
+  const bubble = optionEl.closest('.bubble-picker');
+  const slot = bubble.parentElement;
+  const value = optionEl.textContent;
+  slot.childNodes[0].textContent = value === '空' ? '空' : value;
+  slot.classList.toggle('empty', value === '空');
+  bubble.remove();
+  activeBubble = null;
+}
+
+function pickSlot(e, slotName, value) {
+  e.stopPropagation();
+  // Simple version
+  const bubble = e.target.closest('.bubble-picker');
+  const slot = bubble.parentElement;
+  slot.childNodes[0].textContent = value === '—' ? '空' : value;
+  slot.classList.toggle('empty', value === '—');
+  bubble.remove();
+  activeBubble = null;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Expandable sections
+   ═══════════════════════════════════════════════════════════════ */
+function toggleExpand(header) {
+  header.classList.toggle('open');
+  const body = header.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Gesture zone cycling
+   ═══════════════════════════════════════════════════════════════ */
+function cycleGesture(el) {
+  const current = el.dataset.action;
+  const idx = GESTURE_ACTIONS.indexOf(current);
+  const next = GESTURE_ACTIONS[(idx + 1) % GESTURE_ACTIONS.length];
+  el.dataset.action = next;
+  el.textContent = GESTURE_LABELS[next];
+  // 脉冲动画：缩放 + 边框高亮
+  el.style.transform = 'scale(0.88)';
+  el.style.borderColor = 'var(--primary)';
+  el.style.background = 'var(--surface-variant)';
+  setTimeout(() => {
+    el.style.transform = '';
+    el.style.borderColor = '';
+    el.style.background = '';
+  }, 180);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Font change
+   ═══════════════════════════════════════════════════════════════ */
+function setFont(font) {
+  const area = document.getElementById('demoBody');
+  const preview = document.getElementById('previewText');
+  const fontMap = {
+    harmony: '"HarmonyOS Sans SC", system-ui, sans-serif',
+    system: 'system-ui, sans-serif',
+    serif: '"Noto Serif SC", "Source Han Serif SC", serif',
+    kaiti: '"Kaiti SC", "STKaiti", cursive',
+  };
+  const ff = fontMap[font] || fontMap.harmony;
+  area.style.fontFamily = ff;
+  preview.style.fontFamily = ff;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Init
+   ═══════════════════════════════════════════════════════════════ */
+updateMarginUI();
+adjustFontSize(0); // init button states
+</script>
+
+</body>
+</html>

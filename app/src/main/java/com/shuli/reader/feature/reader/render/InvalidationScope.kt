@@ -15,7 +15,9 @@ enum class InvalidationScope(
     PAGE(2, true),
     CONTENT(3, true),
     SHELL(4, true),
-    OVERLAY(5, true);
+    OVERLAY(5, true),
+    VIEW_INVALIDATE(6, false),
+    NONE(7, false);
 
     companion object {
         val REFLOW_IMPLIED: Set<InvalidationScope> = entries.filter { it.impliedByReflow }.toSet()

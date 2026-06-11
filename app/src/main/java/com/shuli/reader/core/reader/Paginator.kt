@@ -1,5 +1,8 @@
 package com.shuli.reader.core.reader
 
+import com.shuli.reader.core.data.ReaderPreferences
+import com.shuli.reader.core.data.toLayoutConfig
+import com.shuli.reader.core.reader.model.PageSize
 import com.shuli.reader.core.reader.model.ReaderLayoutConfig
 import com.shuli.reader.core.reader.model.TextChapter
 import com.shuli.reader.core.reader.model.TextLine
@@ -8,11 +11,37 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
 /**
- * 分页器，负责将文本内容分页
+ * 分页器，负责将文本内容分页。
+ *
+ * 支持策略模式：通过 [strategy] 可切换横排/竖排分页算法。
+ * 未设置 strategy 时使用内置横排逻辑（向后兼容）。
  */
 class Paginator(
     var textMeasurer: TextMeasurer,
+    var strategy: PaginationStrategy? = null,
 ) {
+    /**
+     * 策略模式入口：从 ReaderPreferences 解析参数并委托给 strategy。
+     * 如无 strategy 则构建 ReaderLayoutConfig 后走内置 paginateChapter。
+     */
+    fun paginateChapter(
+        chapterIndex: Int,
+        title: String,
+        content: String,
+        prefs: ReaderPreferences,
+        pageSize: PageSize,
+        density: Float,
+        showHeader: Boolean = true,
+        showFooter: Boolean = true,
+    ): TextChapter {
+        val s = strategy
+        if (s != null) {
+            return s.paginate(chapterIndex, title, content, prefs, pageSize, density, showHeader, showFooter)
+        }
+        val config = prefs.toLayoutConfig(pageSize, density)
+        return paginateChapter(chapterIndex, title, content, config, showHeader, showFooter)
+    }
+
     private companion object {
         /** 禁止出现在行首的标点（右引号、右括号、句末标点等） */
         private val FORBIDDEN_LINE_START_CHARS = setOf(
@@ -141,13 +170,13 @@ class Paginator(
         val lines = mutableListOf<TextLine>()
 
         val lineHeight = textMeasurer.measureTextHeight(config.textSize, config.lineHeight)
-        val availableWidth = config.pageSize.width - config.marginHorizontal * 2
+        val availableWidth = config.pageSize.width - config.marginLeft - config.marginRight
         val headerHeight = if (showHeader) 24f * config.density else 0f
         val footerHeight = if (showFooter) 24f * config.density else 0f
-        val maxAvailableY = config.pageSize.height - config.marginVertical - footerHeight
+        val maxAvailableY = config.pageSize.height - config.marginBottom - footerHeight
         val titleAreaHeight = calcTitleAreaHeight(config, pageIndex, chapterTitle, availableWidth)
 
-        val startY = config.marginVertical + headerHeight + titleAreaHeight
+        val startY = config.marginTop + headerHeight + titleAreaHeight
         val indentWidth = calcIndent(config, availableWidth)
         var currentY = startY
         var currentOffset = startOffset
@@ -237,7 +266,7 @@ class Paginator(
             density = config.density,
             chapterContentLength = content.length,
             chapterTitle = if (pageIndex == 0) chapterTitle else "",
-            topContentY = config.marginVertical + headerHeight + titleAreaHeight,
+            topContentY = config.marginTop + headerHeight + titleAreaHeight,
             headerMarginTop = config.headerMarginTop,
             footerMarginBottom = config.footerMarginBottom,
         )

@@ -32,13 +32,15 @@ class ReaderTextMeasurerFactoryTest {
     @Test
     fun toLayoutConfig_correctMargins() {
         val input = createDefaultLayoutInput(
-            marginHorizontalDp = 24f,
-            marginVerticalDp = 48f,
+            marginTopDp = 48f,
+            marginBottomDp = 48f,
+            marginLeftDp = 24f,
+            marginRightDp = 24f,
             density = 3f,
         )
         val config = ReaderTextMeasurerFactory.toLayoutConfig(input)
-        assertEquals(72f, config.marginHorizontal, 0.01f)
-        assertEquals(144f, config.marginVertical, 0.01f)
+        assertEquals(72f, config.marginLeft, 0.01f)
+        assertEquals(144f, config.marginTop, 0.01f)
     }
 
     @Test

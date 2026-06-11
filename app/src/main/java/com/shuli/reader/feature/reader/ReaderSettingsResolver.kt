@@ -1,7 +1,10 @@
 package com.shuli.reader.feature.reader
 
 import com.shuli.reader.core.data.ChineseConvert
+import com.shuli.reader.core.data.DualPageMode
 import com.shuli.reader.core.data.IndentUnit
+import com.shuli.reader.core.data.OrientationLock
+import com.shuli.reader.core.data.PageAnimSpeed
 import com.shuli.reader.core.data.PageAnimType
 import com.shuli.reader.core.data.ProgressStyle
 import com.shuli.reader.core.data.ReaderFontWeight
@@ -43,6 +46,9 @@ fun BookReaderPrefsOverrides.mergeOnto(global: ReaderPreferences): ReaderPrefere
         indent = this.indent ?: global.indent,
         indentUnit = this.indentUnit?.toIndentUnit() ?: global.indentUnit,
         pageAnimType = this.pageAnimType?.toPageAnimType() ?: global.pageAnimType,
+        pageAnimSpeed = this.pageAnimSpeed?.let {
+            try { PageAnimSpeed.valueOf(it) } catch (_: Exception) { null }
+        } ?: global.pageAnimSpeed,
         backgroundColor = this.backgroundColor?.let {
             try { ReaderTheme.valueOf(it) } catch (_: Exception) { null }
         } ?: global.backgroundColor,
@@ -51,13 +57,27 @@ fun BookReaderPrefsOverrides.mergeOnto(global: ReaderPreferences): ReaderPrefere
         customAccentColor = this.customAccentColor ?: global.customAccentColor,
         marginHorizontal = this.marginHorizontal ?: global.marginHorizontal,
         marginVertical = this.marginVertical ?: global.marginVertical,
+        marginTop = this.marginTop ?: global.marginTop,
+        marginBottom = this.marginBottom ?: global.marginBottom,
+        marginLeft = this.marginLeft ?: global.marginLeft,
+        marginRight = this.marginRight ?: global.marginRight,
         brightness = this.brightness ?: global.brightness,
+        colorTemperature = this.colorTemperature ?: global.colorTemperature,
+        backgroundTexture = this.backgroundTexture ?: global.backgroundTexture,
         readingFont = this.readingFont ?: global.readingFont,
         optimizeRender = global.optimizeRender,
         letterSpacing = this.letterSpacing ?: global.letterSpacing,
+        wordSpacing = this.wordSpacing ?: global.wordSpacing,
+        paragraphDivider = this.paragraphDivider ?: global.paragraphDivider,
         fontWeight = this.fontWeight?.toFontWeight() ?: global.fontWeight,
         textAlign = this.textAlign?.toTextAlign() ?: global.textAlign,
         chineseConvert = this.chineseConvert?.toChineseConvert() ?: global.chineseConvert,
+        bionicReading = this.bionicReading ?: global.bionicReading,
+        verticalText = this.verticalText ?: global.verticalText,
+        dualPageMode = this.dualPageMode?.let {
+            try { DualPageMode.valueOf(it) } catch (_: Exception) { null }
+        } ?: global.dualPageMode,
+        adFiltering = this.adFiltering ?: global.adFiltering,
         titleStyle = TitleStyleConfig(
             align = this.titleAlign?.toTitleAlign() ?: global.titleStyle.align,
             sizeOffsetSp = this.titleSizeOffset ?: global.titleStyle.sizeOffsetSp,
@@ -92,8 +112,15 @@ fun BookReaderPrefsOverrides.mergeOnto(global: ReaderPreferences): ReaderPrefere
         edgeTurnPage = this.edgeTurnPage ?: global.edgeTurnPage,
         edgeWidthPercent = this.edgeWidthPercent ?: global.edgeWidthPercent,
         immersiveMode = this.immersiveMode ?: global.immersiveMode,
+        hapticFeedback = this.hapticFeedback ?: global.hapticFeedback,
+        orientationLock = this.orientationLock?.let {
+            try { OrientationLock.valueOf(it) } catch (_: Exception) { null }
+        } ?: global.orientationLock,
         ttsSpeed = this.ttsSpeed ?: global.ttsSpeed,
         ttsPitch = this.ttsPitch ?: global.ttsPitch,
+        ttsVoice = this.ttsVoice ?: global.ttsVoice,
+        ttsAutoPage = this.ttsAutoPage ?: global.ttsAutoPage,
+        ttsTimer = this.ttsTimer ?: global.ttsTimer,
         maxPageWidth = this.maxPageWidth ?: global.maxPageWidth,
         removeEmptyLines = this.removeEmptyLines ?: global.removeEmptyLines,
         cleanChapterTitle = this.cleanChapterTitle ?: global.cleanChapterTitle,
@@ -103,5 +130,7 @@ fun BookReaderPrefsOverrides.mergeOnto(global: ReaderPreferences): ReaderPrefere
         autoPageTurnInterval = this.autoPageTurnInterval ?: global.autoPageTurnInterval,
         epubOverrideStyle = this.epubOverrideStyle ?: global.epubOverrideStyle,
         leftZoneRatio = this.leftZoneRatio ?: global.leftZoneRatio,
+        focusLine = this.focusLine ?: global.focusLine,
+        eyeCareReminderInterval = this.eyeCareReminderInterval ?: global.eyeCareReminderInterval,
     )
 }

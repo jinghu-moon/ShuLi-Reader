@@ -21,17 +21,22 @@ data class ReaderLayoutConfig(
     val textSize: Float,
     val lineHeight: Float,
     val paragraphSpacing: Float,
-    val marginHorizontal: Float,
-    val marginVertical: Float,
+    val marginTop: Float,
+    val marginBottom: Float,
+    val marginLeft: Float,
+    val marginRight: Float,
     val indent: Float,
     val density: Float = 3f,
-    val letterSpacingPx: Float = 0f,  // 字距，已转为绝对像素
+    val letterSpacingPx: Float = 0f,
     val titleStyle: TitleStyleConfig = TitleStyleConfig(),
-    val useZhLayout: Boolean = false,  // 自定义中文分行（标点避头尾）
-    val bottomJustify: Boolean = false, // 底部对齐（均匀分布行间距）
+    val useZhLayout: Boolean = false,
+    val bottomJustify: Boolean = false,
     val headerMarginTop: Float = 48f,
     val footerMarginBottom: Float = 48f,
-)
+) {
+    val marginHorizontal: Float get() = (marginLeft + marginRight) / 2
+    val marginVertical: Float get() = (marginTop + marginBottom) / 2
+}
 
 /**
  * 文本列，支持字符级坐标

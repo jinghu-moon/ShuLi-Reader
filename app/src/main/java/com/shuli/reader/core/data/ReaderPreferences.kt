@@ -3,6 +3,7 @@ package com.shuli.reader.core.data
 import com.shuli.reader.core.reader.FooterConfig
 import com.shuli.reader.core.reader.HeaderConfig
 import com.shuli.reader.core.reader.TitleStyleConfig
+import com.shuli.reader.feature.reader.settings.ReaderSettingRegistry
 import kotlinx.serialization.Serializable
 
 /**
@@ -11,65 +12,89 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class ReaderPreferences(
-    val fontSize: Float = 16f,
-    val lineSpacing: Float = 1.5f,
-    val paragraphSpacing: Float = 1.0f,
-    val indent: Float = 2.0f,
-    val indentUnit: IndentUnit = IndentUnit.CHARACTER,
-    val pageAnimType: PageAnimType = PageAnimType.HORIZONTAL,
-    val backgroundColor: ReaderTheme = ReaderTheme.PAPER,
-    val marginHorizontal: Float = 24f,
-    val marginVertical: Float = 48f,
-    val brightness: Float = -1f,
-    val readingFont: String = "harmony",
-    val optimizeRender: Boolean = true,  // 渲染优化总开关，关闭则降级为 Bitmap 逐帧绘制
+    // ── 所有默认值统一从 ReaderSettingRegistry 读取，保证单一真相源 ──
+    val fontSize: Float = ReaderSettingRegistry.getDefault("font_size"),
+    val lineSpacing: Float = ReaderSettingRegistry.getDefault("line_spacing"),
+    val paragraphSpacing: Float = ReaderSettingRegistry.getDefault("paragraph_spacing"),
+    val indent: Float = ReaderSettingRegistry.getDefault("indent"),
+    val indentUnit: IndentUnit = ReaderSettingRegistry.getDefault("indent_unit"),
+    val pageAnimType: PageAnimType = ReaderSettingRegistry.getDefault("page_anim_type"),
+    val backgroundColor: ReaderTheme = ReaderSettingRegistry.getDefault("background_color"),
+    val marginHorizontal: Float = ReaderSettingRegistry.getDefault("margin_horizontal"),
+    val marginVertical: Float = ReaderSettingRegistry.getDefault("margin_vertical"),
+    val brightness: Float = ReaderSettingRegistry.getDefault("brightness"),
+    val readingFont: String = ReaderSettingRegistry.getDefault("reading_font"),
+    val optimizeRender: Boolean = ReaderSettingRegistry.getDefault("optimize_render"),
     // 阶段三新增字段
-    val letterSpacing: Float = 0f,       // 字距，单位 em（字号倍数），范围 0..0.2
-    val fontWeight: ReaderFontWeight = ReaderFontWeight.NORMAL,
-    val textAlign: ReaderTextAlign = ReaderTextAlign.LEFT,
-    val chineseConvert: ChineseConvert = ChineseConvert.NONE,
-    // 阶段五新增字段
+    val letterSpacing: Float = ReaderSettingRegistry.getDefault("letter_spacing"),
+    val fontWeight: ReaderFontWeight = ReaderSettingRegistry.getDefault("font_weight"),
+    val textAlign: ReaderTextAlign = ReaderSettingRegistry.getDefault("text_align"),
+    val chineseConvert: ChineseConvert = ReaderSettingRegistry.getDefault("chinese_convert"),
+    // 阶段五新增字段（无 Registry 条目的复合类型保留硬编码）
     val titleStyle: TitleStyleConfig = TitleStyleConfig(),
     val header: HeaderConfig = HeaderConfig(),
     val footer: FooterConfig = FooterConfig(),
-    val headerFooterAlpha: Float = 0.4f,
-    val showProgress: Boolean = true,
+    val headerFooterAlpha: Float = ReaderSettingRegistry.getDefault("header_footer_alpha"),
+    val showProgress: Boolean = ReaderSettingRegistry.getDefault("show_progress"),
     // 排版增强
-    val useZhLayout: Boolean = false,    // 自定义中文分行（标点避头尾）
-    val usePanguSpacing: Boolean = false, // 中英文之间自动加空格
+    val useZhLayout: Boolean = ReaderSettingRegistry.getDefault("use_zh_layout"),
+    val usePanguSpacing: Boolean = ReaderSettingRegistry.getDefault("use_pangu_spacing"),
     // 页眉页脚增强
-    val showHeaderLine: Boolean = false,       // 页眉分割线
-    val showFooterLine: Boolean = false,       // 页脚分割线
-    val headerFontSizeRatio: Float = 0.75f,    // 页眉字号比例
-    val footerFontSizeRatio: Float = 0.75f,    // 页脚字号比例
+    val showHeaderLine: Boolean = ReaderSettingRegistry.getDefault("show_header_line"),
+    val showFooterLine: Boolean = ReaderSettingRegistry.getDefault("show_footer_line"),
+    val headerFontSizeRatio: Float = ReaderSettingRegistry.getDefault("header_font_size_ratio"),
+    val footerFontSizeRatio: Float = ReaderSettingRegistry.getDefault("footer_font_size_ratio"),
     // 排版增强2
-    val bottomJustify: Boolean = false,        // 底部对齐（均匀分布行间距）
+    val bottomJustify: Boolean = ReaderSettingRegistry.getDefault("bottom_justify"),
     // 阶段六新增字段
-    val keepScreenOn: Boolean = false,
-    val volumeKeyTurnPage: Boolean = false,
-    val edgeTurnPage: Boolean = true,
-    val edgeWidthPercent: Float = 0.33f,       // 边缘触摸宽度百分比
-    val immersiveMode: Boolean = false,        // 沉浸模式：隐藏状态栏和导航栏
+    val keepScreenOn: Boolean = ReaderSettingRegistry.getDefault("keep_screen_on"),
+    val volumeKeyTurnPage: Boolean = ReaderSettingRegistry.getDefault("volume_key_turn_page"),
+    val edgeTurnPage: Boolean = ReaderSettingRegistry.getDefault("edge_turn_page"),
+    val edgeWidthPercent: Float = ReaderSettingRegistry.getDefault("edge_width_percent"),
+    val immersiveMode: Boolean = ReaderSettingRegistry.getDefault("immersive_mode"),
     // TTS 设置
-    val ttsSpeed: Float = 1.0f,
-    val ttsPitch: Float = 1.0f,
+    val ttsSpeed: Float = ReaderSettingRegistry.getDefault("tts_speed"),
+    val ttsPitch: Float = ReaderSettingRegistry.getDefault("tts_pitch"),
     // P1: 排版增强
-    val maxPageWidth: Float = 0f,              // 页面最大宽度（dp），0 = 不限制
-    val removeEmptyLines: Boolean = false,     // 去除多余空行
-    val cleanChapterTitle: Boolean = false,    // 章节标题清理（去除序号、多余空格）
+    val maxPageWidth: Float = ReaderSettingRegistry.getDefault("max_page_width"),
+    val removeEmptyLines: Boolean = ReaderSettingRegistry.getDefault("remove_empty_lines"),
+    val cleanChapterTitle: Boolean = ReaderSettingRegistry.getDefault("clean_chapter_title"),
     // P1: 进度显示样式
-    val progressStyle: ProgressStyle = ProgressStyle.CHAPTER_FRACTION,
+    val progressStyle: ProgressStyle = ReaderSettingRegistry.getDefault("progress_style"),
     // P2: 低频增强
-    val autoNightMode: Boolean = false,          // 自动夜间模式（跟随系统暗色）
-    val autoPageTurn: Boolean = false,           // 自动翻页
-    val autoPageTurnInterval: Float = 10f,       // 自动翻页间隔（秒），5..60
-    val epubOverrideStyle: Boolean = true,       // EPUB 覆盖样式（true=使用阅读器样式，false=保留EPUB原样式）
+    val autoNightMode: Boolean = ReaderSettingRegistry.getDefault("auto_night_mode"),
+    val autoPageTurn: Boolean = ReaderSettingRegistry.getDefault("auto_page_turn"),
+    val autoPageTurnInterval: Float = ReaderSettingRegistry.getDefault("auto_page_turn_interval"),
+    val epubOverrideStyle: Boolean = ReaderSettingRegistry.getDefault("epub_override_style"),
     // P0: 触控热区
-    val leftZoneRatio: Float = 0.33f,            // 左侧点击区域宽度比例（0.2~0.5），右侧对称，中间为剩余
+    val leftZoneRatio: Float = ReaderSettingRegistry.getDefault("left_zone_ratio"),
     // P1: 自定义主题颜色
-    val customBackgroundColor: Int? = null,       // 自定义背景色（ARGB），null = 使用默认
-    val customTextColor: Int? = null,             // 自定义正文色（ARGB），null = 使用默认
-    val customAccentColor: Int? = null,           // 自定义强调色（ARGB），null = 使用默认
+    val customBackgroundColor: Int? = ReaderSettingRegistry.getDefault("custom_background_color"),
+    val customTextColor: Int? = ReaderSettingRegistry.getDefault("custom_text_color"),
+    val customAccentColor: Int? = ReaderSettingRegistry.getDefault("custom_accent_color"),
+    // ── v5.1 新增字段 ──
+    val colorTemperature: Float = ReaderSettingRegistry.getDefault("color_temperature"),
+    val focusLine: Boolean = ReaderSettingRegistry.getDefault("focus_line"),
+    val wordSpacing: Float = ReaderSettingRegistry.getDefault("word_spacing"),
+    val paragraphDivider: Boolean = ReaderSettingRegistry.getDefault("paragraph_divider"),
+    val marginTop: Float? = ReaderSettingRegistry.getDefault("margin_top"),
+    val marginBottom: Float? = ReaderSettingRegistry.getDefault("margin_bottom"),
+    val marginLeft: Float? = ReaderSettingRegistry.getDefault("margin_left"),
+    val marginRight: Float? = ReaderSettingRegistry.getDefault("margin_right"),
+    val bionicReading: Boolean = ReaderSettingRegistry.getDefault("bionic_reading"),
+    val verticalText: Boolean = ReaderSettingRegistry.getDefault("vertical_text"),
+    val dualPageMode: DualPageMode = ReaderSettingRegistry.getDefault("dual_page_mode"),
+    val hapticFeedback: Boolean = ReaderSettingRegistry.getDefault("haptic_feedback"),
+    val orientationLock: OrientationLock = ReaderSettingRegistry.getDefault("orientation_lock"),
+    val pageAnimSpeed: PageAnimSpeed = PageAnimSpeed.fromDurationMs(
+        ReaderSettingRegistry.getDefault<Int>("page_anim_speed")
+    ),
+    val adFiltering: Boolean = ReaderSettingRegistry.getDefault("ad_filtering"),
+    val ttsVoice: String = ReaderSettingRegistry.getDefault("tts_voice"),
+    val ttsAutoPage: Boolean = ReaderSettingRegistry.getDefault("tts_auto_page"),
+    val ttsTimer: Int = ReaderSettingRegistry.getDefault("tts_timer"),
+    val eyeCareReminderInterval: Int = ReaderSettingRegistry.getDefault("eye_care_reminder_interval"),
+    val backgroundTexture: String? = ReaderSettingRegistry.getDefault("background_texture"),
 )
 
 /**
@@ -385,3 +410,139 @@ fun String.toProgressStyle(): ProgressStyle {
         else -> ProgressStyle.CHAPTER_FRACTION
     }
 }
+
+@Serializable
+enum class DualPageMode { AUTO, SINGLE, DUAL }
+
+@Serializable
+enum class OrientationLock { SYSTEM, PORTRAIT, LANDSCAPE }
+
+@Serializable
+enum class PageAnimSpeed(val durationMs: Int) {
+    FAST(100),
+    NORMAL(250),
+    SLOW(400);
+
+    companion object {
+        fun fromDurationMs(ms: Int): PageAnimSpeed =
+            entries.firstOrNull { it.durationMs == ms } ?: NORMAL
+    }
+}
+
+/**
+ * 将 ReaderPreferences 转换为 Paginator 使用的 ReaderLayoutConfig。
+ * 独立边距使用 nullable fallback：`marginTop ?: marginVertical`。
+ */
+fun ReaderPreferences.toLayoutConfig(
+    pageSize: com.shuli.reader.core.reader.model.PageSize,
+    density: Float,
+): com.shuli.reader.core.reader.model.ReaderLayoutConfig {
+    val textSizePx = fontSize * density
+    val mt = (marginTop ?: marginVertical) * density
+    val mb = (marginBottom ?: marginVertical) * density
+    val ml = (marginLeft ?: marginHorizontal) * density
+    val mr = (marginRight ?: marginHorizontal) * density
+    val indentPx = when (indentUnit) {
+        IndentUnit.CHARACTER -> indent * textSizePx
+        IndentUnit.PIXEL -> indent * density
+    }
+    return com.shuli.reader.core.reader.model.ReaderLayoutConfig(
+        pageSize = pageSize,
+        textSize = textSizePx,
+        lineHeight = lineSpacing,
+        paragraphSpacing = paragraphSpacing * textSizePx,
+        marginTop = mt,
+        marginBottom = mb,
+        marginLeft = ml,
+        marginRight = mr,
+        indent = indentPx,
+        density = density,
+        letterSpacingPx = letterSpacing * textSizePx,
+        titleStyle = titleStyle,
+        useZhLayout = useZhLayout,
+        bottomJustify = bottomJustify,
+        headerMarginTop = header.marginTop * density,
+        footerMarginBottom = footer.marginBottom * density,
+    )
+}
+
+/**
+ * 按 Registry key 读取 ReaderPreferences 中对应的值。
+ *
+ * 用于 PresetSnapshot 等需要按 key 动态遍历的场景。
+ * 复合类型（titleStyle/header/footer）返回 null，调用方应特殊处理。
+ */
+@Suppress("UNCHECKED_CAST")
+fun <T> ReaderPreferences.getValueByKey(key: String): T? = when (key) {
+    "font_size" -> fontSize
+    "line_spacing" -> lineSpacing
+    "paragraph_spacing" -> paragraphSpacing
+    "indent" -> indent
+    "indent_unit" -> indentUnit
+    "page_anim_type" -> pageAnimType
+    "background_color" -> backgroundColor
+    "margin_horizontal" -> marginHorizontal
+    "margin_vertical" -> marginVertical
+    "brightness" -> brightness
+    "reading_font" -> readingFont
+    "optimize_render" -> optimizeRender
+    "letter_spacing" -> letterSpacing
+    "font_weight" -> fontWeight
+    "text_align" -> textAlign
+    "chinese_convert" -> chineseConvert
+    "header_footer_alpha" -> headerFooterAlpha
+    "show_progress" -> showProgress
+    "use_zh_layout" -> useZhLayout
+    "use_pangu_spacing" -> usePanguSpacing
+    "show_header_line" -> showHeaderLine
+    "show_footer_line" -> showFooterLine
+    "header_font_size_ratio" -> headerFontSizeRatio
+    "footer_font_size_ratio" -> footerFontSizeRatio
+    "bottom_justify" -> bottomJustify
+    "keep_screen_on" -> keepScreenOn
+    "volume_key_turn_page" -> volumeKeyTurnPage
+    "edge_turn_page" -> edgeTurnPage
+    "edge_width_percent" -> edgeWidthPercent
+    "immersive_mode" -> immersiveMode
+    "tts_speed" -> ttsSpeed
+    "tts_pitch" -> ttsPitch
+    "max_page_width" -> maxPageWidth
+    "remove_empty_lines" -> removeEmptyLines
+    "clean_chapter_title" -> cleanChapterTitle
+    "progress_style" -> progressStyle
+    "auto_night_mode" -> autoNightMode
+    "auto_page_turn" -> autoPageTurn
+    "auto_page_turn_interval" -> autoPageTurnInterval
+    "epub_override_style" -> epubOverrideStyle
+    "left_zone_ratio" -> leftZoneRatio
+    "custom_background_color" -> customBackgroundColor
+    "custom_text_color" -> customTextColor
+    "custom_accent_color" -> customAccentColor
+    "color_temperature" -> colorTemperature
+    "focus_line" -> focusLine
+    "word_spacing" -> wordSpacing
+    "paragraph_divider" -> paragraphDivider
+    "margin_top" -> marginTop
+    "margin_bottom" -> marginBottom
+    "margin_left" -> marginLeft
+    "margin_right" -> marginRight
+    "bionic_reading" -> bionicReading
+    "vertical_text" -> verticalText
+    "dual_page_mode" -> dualPageMode
+    "haptic_feedback" -> hapticFeedback
+    "orientation_lock" -> orientationLock
+    "page_anim_speed" -> pageAnimSpeed.durationMs
+    "ad_filtering" -> adFiltering
+    "tts_voice" -> ttsVoice
+    "tts_auto_page" -> ttsAutoPage
+    "tts_timer" -> ttsTimer
+    "eye_care_reminder_interval" -> eyeCareReminderInterval
+    "background_texture" -> backgroundTexture
+    // 复合类型：返回 null，由调用方特殊处理
+    "title_style" -> null
+    "header_visibility" -> header.visibility
+    "footer_visibility" -> footer.visibility
+    "title_font" -> null
+    "gesture_config" -> null
+    else -> null
+} as T?

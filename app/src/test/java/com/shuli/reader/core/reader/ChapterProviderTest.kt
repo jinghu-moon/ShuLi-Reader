@@ -19,8 +19,10 @@ class ChapterProviderTest {
         textSize = 18f,
         lineHeight = 1.5f,
         paragraphSpacing = 10f,
-        marginHorizontal = 20f,
-        marginVertical = 20f,
+        marginTop = 20f,
+        marginBottom = 20f,
+        marginLeft = 20f,
+        marginRight = 20f,
         indent = 2f,
     )
 

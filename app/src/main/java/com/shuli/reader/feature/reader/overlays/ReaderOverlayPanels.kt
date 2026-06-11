@@ -8,6 +8,8 @@ import com.shuli.reader.feature.reader.ReaderSettingValue
 import com.shuli.reader.feature.reader.ReaderUiState
 import com.shuli.reader.feature.reader.component.DirectoryDialog
 import com.shuli.reader.feature.reader.component.QuickSettingsSheet
+import com.shuli.reader.feature.reader.component.quicksettings.v5.SettingsPanelV5Modal
+import com.shuli.reader.feature.reader.settings.ReaderFeatureFlags
 
 /**
  * 目录弹窗 + 快捷设置面板的组装层。
@@ -53,11 +55,18 @@ internal fun ReaderOverlayPanels(
         )
     }
 
-    // 快捷设置面板
+    // 快捷设置面板（V5 / Legacy 切换）
     if (uiState.showQuickSettings) {
-        QuickSettingsSheet(
-            uiState = uiState,
-            dispatch = dispatch,
-        )
+        if (ReaderFeatureFlags.SETTINGS_PANEL_V5_ENABLED) {
+            SettingsPanelV5Modal(
+                uiState = uiState,
+                dispatch = dispatch,
+            )
+        } else {
+            QuickSettingsSheet(
+                uiState = uiState,
+                dispatch = dispatch,
+            )
+        }
     }
 }

@@ -40,6 +40,10 @@ import com.shuli.reader.core.reading.ReadingStatus
 import com.shuli.reader.core.repository.ReadingStatusUpdateResult
 import com.shuli.reader.feature.bookshelf.model.BookItem
 import com.shuli.reader.feature.bookshelf.model.toBookItem
+import com.shuli.reader.feature.reader.settings.toChromePrefs
+import com.shuli.reader.feature.reader.settings.toLayoutPrefs
+import com.shuli.reader.feature.reader.settings.toOverlayPrefs
+import com.shuli.reader.feature.reader.settings.toStylePrefs
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -154,6 +158,45 @@ class ReaderViewModel(
             started = SharingStarted.Eagerly,
             initialValue = ReaderOverlayState(),
         )
+
+    // ── 四层 StateFlow 拆分（v5.1 §0a.5）──────────────────
+    // 每层独立 map + distinctUntilChanged + stateIn，避免高频层变化触发低频层 recomposition。
+
+    val overlayPrefs: StateFlow<com.shuli.reader.feature.reader.settings.OverlayPrefs> = _uiState
+        .map { state -> state.readerPreferences.toOverlayPrefs() }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ReaderPreferences().toOverlayPrefs())
+
+    val chromePrefs: StateFlow<com.shuli.reader.feature.reader.settings.ChromePrefs> = _uiState
+        .map { state -> state.readerPreferences.toChromePrefs() }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ReaderPreferences().toChromePrefs())
+
+    val stylePrefs: StateFlow<com.shuli.reader.feature.reader.settings.StylePrefs> = _uiState
+        .map { state -> state.readerPreferences.toStylePrefs() }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ReaderPreferences().toStylePrefs())
+
+    val layoutPrefs: StateFlow<com.shuli.reader.feature.reader.settings.LayoutPrefs> = _uiState
+        .map { state -> state.readerPreferences.toLayoutPrefs() }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ReaderPreferences().toLayoutPrefs())
+
+    // ── 护眼提醒可见性（v5.1 §1.3）──────────────────────
+    private val _eyeCareReminderVisible = MutableStateFlow(false)
+    val eyeCareReminderVisible: StateFlow<Boolean> = _eyeCareReminderVisible.asStateFlow()
+
+    fun dismissEyeCareReminder() {
+        _eyeCareReminderVisible.value = false
+    }
+
+    // ── 系统 WindowInsets（v5.1 §0a.14）──────────────────
+    private val _systemBottomInset = MutableStateFlow(0)
+    val systemBottomInset: StateFlow<Int> = _systemBottomInset.asStateFlow()
+
+    fun updateSystemBottomInset(insetPx: Int) {
+        _systemBottomInset.value = insetPx
+    }
 
     // reflow 防抖 Job
     private var reflowJob: Job? = null
@@ -555,6 +598,87 @@ class ReaderViewModel(
                 val v = value as ReaderSettingValue.CustomThemeColor
                 s.setCustomThemeColor(v.backgroundColor, v.textColor, v.accentColor)
             }
+            // v5.1 Phase 1-4 新增设置（setter 待各 Phase 实现，暂用通用更新）
+            ReaderSettingKey.COLOR_TEMPERATURE -> s.updatePrefsGeneric(
+                { it.copy(colorTemperature = (value as ReaderSettingValue.Float).value) },
+                reflow = false,
+            )
+            ReaderSettingKey.FOCUS_LINE -> s.updatePrefsGeneric(
+                { it.copy(focusLine = (value as ReaderSettingValue.Bool).value) },
+                reflow = false,
+            )
+            ReaderSettingKey.WORD_SPACING -> s.updatePrefsGeneric(
+                { it.copy(wordSpacing = (value as ReaderSettingValue.Float).value) },
+                reflow = true,
+            )
+            ReaderSettingKey.PARAGRAPH_DIVIDER -> s.updatePrefsGeneric(
+                { it.copy(paragraphDivider = (value as ReaderSettingValue.Bool).value) },
+                reflow = true,
+            )
+            ReaderSettingKey.MARGIN_TOP -> s.updatePrefsGeneric(
+                { it.copy(marginTop = (value as ReaderSettingValue.Float).value) },
+                reflow = true,
+            )
+            ReaderSettingKey.MARGIN_BOTTOM -> s.updatePrefsGeneric(
+                { it.copy(marginBottom = (value as ReaderSettingValue.Float).value) },
+                reflow = true,
+            )
+            ReaderSettingKey.MARGIN_LEFT -> s.updatePrefsGeneric(
+                { it.copy(marginLeft = (value as ReaderSettingValue.Float).value) },
+                reflow = true,
+            )
+            ReaderSettingKey.MARGIN_RIGHT -> s.updatePrefsGeneric(
+                { it.copy(marginRight = (value as ReaderSettingValue.Float).value) },
+                reflow = true,
+            )
+            ReaderSettingKey.BIONIC_READING -> s.updatePrefsGeneric(
+                { it.copy(bionicReading = (value as ReaderSettingValue.Bool).value) },
+                reflow = true,
+            )
+            ReaderSettingKey.VERTICAL_TEXT -> s.updatePrefsGeneric(
+                { it.copy(verticalText = (value as ReaderSettingValue.Bool).value) },
+                reflow = true,
+            )
+            ReaderSettingKey.DUAL_PAGE_MODE -> s.updatePrefsGeneric(
+                { it.copy(dualPageMode = (value as ReaderSettingValue.DualPageMode).value) },
+                reflow = true,
+            )
+            ReaderSettingKey.HAPTIC_FEEDBACK -> s.updatePrefsGeneric(
+                { it.copy(hapticFeedback = (value as ReaderSettingValue.Bool).value) },
+                reflow = false,
+            )
+            ReaderSettingKey.ORIENTATION_LOCK -> s.updatePrefsGeneric(
+                { it.copy(orientationLock = (value as ReaderSettingValue.OrientationLock).value) },
+                reflow = false,
+            )
+            ReaderSettingKey.PAGE_ANIM_SPEED -> s.updatePrefsGeneric(
+                { it.copy(pageAnimSpeed = (value as ReaderSettingValue.PageAnimSpeed).value) },
+                reflow = false,
+            )
+            ReaderSettingKey.AD_FILTERING -> s.updatePrefsGeneric(
+                { it.copy(adFiltering = (value as ReaderSettingValue.Bool).value) },
+                reflow = true,
+            )
+            ReaderSettingKey.TTS_VOICE -> s.updatePrefsGeneric(
+                { it.copy(ttsVoice = (value as ReaderSettingValue.Str).value) },
+                reflow = false,
+            )
+            ReaderSettingKey.TTS_AUTO_PAGE -> s.updatePrefsGeneric(
+                { it.copy(ttsAutoPage = (value as ReaderSettingValue.Bool).value) },
+                reflow = false,
+            )
+            ReaderSettingKey.TTS_TIMER -> s.updatePrefsGeneric(
+                { it.copy(ttsTimer = (value as ReaderSettingValue.Int).value) },
+                reflow = false,
+            )
+            ReaderSettingKey.EYE_CARE_REMINDER_INTERVAL -> s.updatePrefsGeneric(
+                { it.copy(eyeCareReminderInterval = (value as ReaderSettingValue.Int).value) },
+                reflow = false,
+            )
+            ReaderSettingKey.BACKGROUND_TEXTURE -> s.updatePrefsGeneric(
+                { it.copy(backgroundTexture = (value as ReaderSettingValue.Str).value) },
+                reflow = false,
+            )
         }
     }
 
@@ -665,13 +789,19 @@ class ReaderViewModel(
 
     private fun layoutConfigFor(preferences: ReaderPreferences): ReaderLayoutConfig {
         val textSizePx = preferences.fontSize * density
+        val mt = (preferences.marginTop ?: preferences.marginVertical) * density
+        val mb = (preferences.marginBottom ?: preferences.marginVertical) * density
+        val ml = (preferences.marginLeft ?: preferences.marginHorizontal) * density
+        val mr = (preferences.marginRight ?: preferences.marginHorizontal) * density
         return ReaderLayoutConfig(
             pageSize = PageSize(screenWidthPx, screenHeightPx),
             textSize = textSizePx,
             lineHeight = preferences.lineSpacing,
             paragraphSpacing = preferences.paragraphSpacing * textSizePx,
-            marginHorizontal = preferences.marginHorizontal * density,
-            marginVertical = preferences.marginVertical * density,
+            marginTop = mt,
+            marginBottom = mb,
+            marginLeft = ml,
+            marginRight = mr,
             indent = preferences.indent,
             density = this.density,
             letterSpacingPx = preferences.letterSpacing * textSizePx,
