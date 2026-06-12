@@ -1,5 +1,6 @@
 package com.shuli.reader.core.database.entity
 
+import com.shuli.reader.feature.reader.settings.GestureConfig
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
@@ -99,8 +100,8 @@ data class BookReaderPrefsOverrides(
     val focusLine: Boolean? = null,
     val eyeCareReminderInterval: Int? = null,
 
-    // ── 手势 ──
-    val gestureConfig: String? = null,
+    // ── 手势（类型安全：@Serializable GestureConfig，非 JSON String）──
+    val gestureConfig: GestureConfig? = null,
 
     // ── TTS ──
     val ttsSpeed: Float? = null,

@@ -30,8 +30,6 @@ data class OverlayPrefs(
     val colorTemperature: Float,
     val focusLine: Boolean,
     val brightness: Float,
-    val hapticFeedback: Boolean,
-    val eyeCareReminderInterval: Int,
 )
 
 data class ChromePrefs(
@@ -94,8 +92,6 @@ fun ReaderPreferences.toOverlayPrefs(): OverlayPrefs = OverlayPrefs(
     colorTemperature = colorTemperature,
     focusLine = focusLine,
     brightness = brightness,
-    hapticFeedback = hapticFeedback,
-    eyeCareReminderInterval = eyeCareReminderInterval,
 )
 
 fun ReaderPreferences.toChromePrefs(): ChromePrefs = ChromePrefs(
@@ -153,3 +149,32 @@ fun ReaderPreferences.toLayoutPrefs(): LayoutPrefs = LayoutPrefs(
     pageAnimSpeed = pageAnimSpeed,
     orientationLock = orientationLock,
 )
+
+/**
+ * 验证四层 StateFlow 的字段归属与 [ReaderSettingRegistry.recompositionTier] 一致。
+ *
+ * 确保新增设置字段不会因手动映射错误而出现在错误的层级中。
+ * 在 debug 构建或测试中调用即可。
+ *
+ * @return 不一致的 key 列表，空列表表示完全对齐
+ */
+fun validateTierAlignment(): List<String> {
+    val mismatches = mutableListOf<String>()
+    val tier0Keys = setOf("color_temperature", "focus_line", "brightness")
+    val tier1Keys = setOf(
+        "header_visibility", "footer_visibility", "header_footer_alpha",
+        "show_progress", "progress_style", "show_header_line", "show_footer_line",
+        "header_font_size_ratio", "footer_font_size_ratio",
+        "background_texture", "custom_accent_color",
+    )
+    for (def in ReaderSettingRegistry.all) {
+        val expectedTier = def.recompositionTier
+        val inTier0 = def.key in tier0Keys
+        val inTier1 = def.key in tier1Keys
+        when {
+            expectedTier == 0 && !inTier0 -> mismatches.add("${def.key}: expected Overlay(tier 0)")
+            expectedTier == 1 && !inTier1 -> mismatches.add("${def.key}: expected Chrome(tier 1)")
+        }
+    }
+    return mismatches
+}

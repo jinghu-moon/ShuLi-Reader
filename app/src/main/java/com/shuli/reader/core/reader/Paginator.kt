@@ -202,6 +202,7 @@ class Paginator(
                 widthWindow = widthWindow,
                 availableWidth = if (isParagraphStart) availableWidth - indentWidth else availableWidth,
                 letterSpacingPx = config.letterSpacingPx,
+                wordSpacingPx = config.wordSpacingPx,
                 useZhLayout = config.useZhLayout,
             )
 
@@ -222,6 +223,7 @@ class Paginator(
                 widthWindow = widthWindow,
                 availableWidth = availableWidth - indentWidth,
                 letterSpacingPx = config.letterSpacingPx,
+                wordSpacingPx = config.wordSpacingPx,
                 useZhLayout = config.useZhLayout,
             )
             lines.add(buildLine(lineResult, textStart, startY, lineHeight, true, indentWidth))
@@ -344,6 +346,7 @@ class Paginator(
         widthWindow: WidthWindow,
         availableWidth: Float,
         letterSpacingPx: Float = 0f,
+        wordSpacingPx: Float = 0f,
         useZhLayout: Boolean = false,
     ): LineResult {
         if (startOffset >= content.length) {
@@ -363,10 +366,12 @@ class Paginator(
         var charCount = 0
 
         for (i in 0 until lineEnd) {
+            val ch = content[startOffset + i]
             val width = widthWindow[startOffset + i]
             val spacing = if (charCount > 0) letterSpacingPx else 0f
-            if (currentWidth + width + spacing > availableWidth) break
-            currentWidth += width + spacing
+            val wordSpace = if (ch == ' ' && wordSpacingPx > 0f) wordSpacingPx else 0f
+            if (currentWidth + width + spacing + wordSpace > availableWidth) break
+            currentWidth += width + spacing + wordSpace
             charCount++
         }
 
@@ -403,7 +408,10 @@ class Paginator(
         // 需要重新计算精确的 measuredWidth
         val measuredWidth = if (charCount > 0) {
             var w = 0f
-            for (i in 0 until charCount) w += widthWindow[startOffset + i]
+            for (i in 0 until charCount) {
+                w += widthWindow[startOffset + i]
+                if (content[startOffset + i] == ' ' && wordSpacingPx > 0f) w += wordSpacingPx
+            }
             w + letterSpacingPx * (charCount - 1).coerceAtLeast(0)
         } else {
             0f

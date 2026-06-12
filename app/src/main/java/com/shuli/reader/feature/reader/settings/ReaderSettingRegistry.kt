@@ -697,7 +697,7 @@ object ReaderSettingRegistry {
             scope = InvalidationScope.CONTENT,
             recompositionTier = 2,
             uiGroup = UiGroup.TEXT_STYLE,
-            includeInPreset = false,
+            includeInPreset = true,
             previewStrategy = PreviewStrategy.ON_APPLY,
         ))
 

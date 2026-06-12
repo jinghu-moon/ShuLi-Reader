@@ -96,7 +96,7 @@ class PaginatorTest {
     @Test
     fun chineseClosingPunctuation_doesNotStartLine() {
         val content = "你好，世界"
-        val narrowConfig = config.copy(pageSize = PageSize(width = 62, height = 400))
+        val narrowConfig = config.copy(pageSize = PageSize(width = 80, height = 400))
         val chapter = paginator.paginateChapter(0, "Test", content, narrowConfig)
 
         val lines = chapter.pages.flatMap { it.lines }

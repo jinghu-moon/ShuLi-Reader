@@ -3,6 +3,7 @@ package com.shuli.reader.feature.reader.render
 import com.shuli.reader.core.data.ChineseConvert
 import com.shuli.reader.core.data.ReaderFontWeight
 import com.shuli.reader.core.data.ReaderTextAlign
+import com.shuli.reader.core.reader.layout.ReaderLayoutInput
 import com.shuli.reader.core.reader.layout.createDefaultLayoutInput
 import com.shuli.reader.core.reader.model.SelectionRange
 import org.junit.Assert.assertEquals
@@ -39,7 +40,9 @@ class ReaderRenderKeysTest {
     @Test
     fun layoutKey_containsLayoutVersion() {
         val key = ReaderLayoutHasher.hash(createDefaultLayoutInput(layoutVersion = 5))
-        assertEquals(5, key.layoutVersion)
+        // layoutVersion is combined: LAYOUT_ALGORITHM_VERSION * 1000 + input.layoutVersion
+        val expected = ReaderLayoutInput.LAYOUT_ALGORITHM_VERSION * 1000 + 5
+        assertEquals(expected, key.layoutVersion)
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.shuli.reader.feature.reader.settings
 
 import com.shuli.reader.core.data.ReaderPreferences
+import com.shuli.reader.core.data.getValueByKey
 import com.shuli.reader.core.reader.TitleStyleConfig
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -115,8 +116,9 @@ data class PresetSnapshot(
          * 枚举字段转换为 [Enum.name] 字符串存储。
          */
         fun fromPreferences(prefs: ReaderPreferences): PresetSnapshot {
-            val values = ReaderSettingRegistry.presetFields().associate { def ->
-                def.key to prefs.getValueByKey<Any>(def.key)
+            val presetKeys = ReaderSettingRegistry.presetFields().map { it.key }.toSet()
+            val values: Map<String, Any?> = presetKeys.associateWith { key ->
+                prefs.getValueByKey<Any>(key)
             }
             return PresetSnapshot(
                 fontSize = (values["font_size"] as? Float) ?: 16f,

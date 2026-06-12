@@ -16,7 +16,9 @@ import com.shuli.reader.core.canvasrecorder.CanvasRecorder
  * 仿真翻页委托
  * 实现贝塞尔曲线控制的卷页效果
  */
-class SimulationPageDelegate : PageDelegate {
+class SimulationPageDelegate(
+    private val durationMs: Long = ReaderMotionTokens.LONG_MS,
+) : PageDelegate {
 
     override var state: PageDelegate.State = PageDelegate.State.IDLE
         private set
@@ -322,7 +324,7 @@ class SimulationPageDelegate : PageDelegate {
 
         animator?.cancel()
         animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = ReaderMotionTokens.LONG_MS
+            duration = durationMs
             interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
                 val linearProgress = anim.animatedValue as Float

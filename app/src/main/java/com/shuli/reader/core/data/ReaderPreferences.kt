@@ -458,6 +458,7 @@ fun ReaderPreferences.toLayoutConfig(
         indent = indentPx,
         density = density,
         letterSpacingPx = letterSpacing * textSizePx,
+        wordSpacingPx = wordSpacing * textSizePx,
         titleStyle = titleStyle,
         useZhLayout = useZhLayout,
         bottomJustify = bottomJustify,

@@ -13,7 +13,9 @@ import com.shuli.reader.core.canvasrecorder.CanvasRecorder
  * 使用统一的 pageOffset 变量驱动 DRAGGING 和 ANIMATING 渲染，
  * 覆盖效果：当前页覆盖在目标页上方滑动。
  */
-class CoverPageDelegate : PageDelegate {
+class CoverPageDelegate(
+    private val durationMs: Long = ReaderMotionTokens.MEDIUM_MS,
+) : PageDelegate {
 
     override var state: PageDelegate.State = PageDelegate.State.IDLE
         private set
@@ -185,7 +187,7 @@ class CoverPageDelegate : PageDelegate {
 
         animator?.cancel()
         animator = ValueAnimator.ofFloat(currentOffset, targetOffset).apply {
-            duration = (ReaderMotionTokens.MEDIUM_MS * fraction).toLong().coerceAtLeast(50L)
+            duration = (durationMs * fraction).toLong().coerceAtLeast(50L)
             interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
                 pageOffset = anim.animatedValue as Float

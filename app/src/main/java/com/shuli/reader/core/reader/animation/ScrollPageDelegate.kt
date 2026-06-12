@@ -10,7 +10,9 @@ import com.shuli.reader.core.canvasrecorder.CanvasRecorder
  * 垂直滚动翻页委托
  * 支持连续滚动阅读模式
  */
-class ScrollPageDelegate : PageDelegate {
+class ScrollPageDelegate(
+    private val durationMs: Long = ReaderMotionTokens.MEDIUM_MS,
+) : PageDelegate {
 
     override var state: PageDelegate.State = PageDelegate.State.IDLE
         private set
@@ -73,7 +75,7 @@ class ScrollPageDelegate : PageDelegate {
 
         animator?.cancel()
         animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = ReaderMotionTokens.LONG_MS
+            duration = durationMs
             interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
                 val progress = anim.animatedValue as Float
@@ -152,7 +154,7 @@ class ScrollPageDelegate : PageDelegate {
 
         animator?.cancel()
         animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = ReaderMotionTokens.MEDIUM_MS
+            duration = durationMs
             interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
                 val progress = anim.animatedValue as Float

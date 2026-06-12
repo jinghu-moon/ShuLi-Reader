@@ -14,8 +14,7 @@ class ReaderPrefsLayersTest {
         assertEquals(prefs.colorTemperature, overlay.colorTemperature, 0.001f)
         assertEquals(prefs.focusLine, overlay.focusLine)
         assertEquals(prefs.brightness, overlay.brightness, 0.001f)
-        assertEquals(prefs.hapticFeedback, overlay.hapticFeedback)
-        assertEquals(prefs.eyeCareReminderInterval, overlay.eyeCareReminderInterval)
+        // hapticFeedback 和 eyeCareReminderInterval 属于 tier -1（不参与重组），不在 OverlayPrefs 中
     }
 
     @Test
