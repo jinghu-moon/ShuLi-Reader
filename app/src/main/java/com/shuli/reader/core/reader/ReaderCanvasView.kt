@@ -7,6 +7,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
@@ -17,10 +19,13 @@ import com.shuli.reader.core.font.FontManager
 import com.shuli.reader.core.reader.animation.PageDelegate
 import com.shuli.reader.core.reader.canvas.CanvasTextSelection
 import com.shuli.reader.core.reader.canvas.CanvasTouchHandler
+import com.shuli.reader.feature.reader.settings.GestureAction
+import com.shuli.reader.feature.reader.settings.GestureConfig
 import com.shuli.reader.core.reader.canvas.PageBitmapCache
 import com.shuli.reader.core.reader.model.PageRenderMode
 import com.shuli.reader.core.reader.model.SelectionRange
 import com.shuli.reader.core.reader.model.TextPage
+import com.shuli.reader.feature.reader.render.colorTemperatureToRgb
 import com.shuli.reader.ui.theme.toCanvasThemeColors
 import com.shuli.reader.ui.theme.toReaderColorScheme
 
@@ -82,6 +87,25 @@ class ReaderCanvasView @JvmOverloads constructor(
         isAntiAlias = true
     }
 
+    // ── VIEW_INVALIDATE overlay state（§1.4.1，不进 recorder）──
+    private var colorTemperature: Float = 6500f
+    private var focusLineEnabled: Boolean = false
+    private var currentReadingLineY: Float = -1f
+    private var overlayMarginLeft: Float = 0f
+    private var overlayMarginRight: Float = 0f
+    private var accentColor: Int = 0xFF6B6B6B.toInt()
+
+    private val colorTempPaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.FILL
+    }
+
+    private val focusLinePaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
+    }
+
     // 页面引用
     private var currentPage: TextPage? = null
     private var nextPage: TextPage? = null
@@ -89,6 +113,10 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     // 章节文本
     private var chapterContent: CharSequence = ""
+    /** chapterContent 来自哪一章。setPageInternal 用它检测跨章切换。 */
+    private var chapterContentChapterIndex: Int = -1
+    /** 当前及相邻章节正文。录制任意 page 时必须按 page.chapterIndex 取正文。 */
+    private val chapterContentsByIndex = mutableMapOf<Int, CharSequence>()
 
     // 排版变化 crossfade 动画
     private var oldPageBitmap: Bitmap? = null
@@ -135,6 +163,10 @@ class ReaderCanvasView @JvmOverloads constructor(
             override fun isEdgeTurnPageEnabled() = visualParams.isEdgeTurnPageEnabled()
             override fun getEdgeWidthPercent() = visualParams.getEdgeWidthPercent()
             override fun getLeftZoneRatio() = this@ReaderCanvasView.leftZoneRatio
+            override fun getGestureConfig() = this@ReaderCanvasView.gestureConfig
+            override fun onAction(action: GestureAction, x: Float, y: Float) {
+                this@ReaderCanvasView.onGestureAction?.invoke(action)
+            }
             override fun onPageChanged(direction: PageDelegate.Direction) {
                 this@ReaderCanvasView.onPageChanged?.invoke(direction)
             }
@@ -168,6 +200,29 @@ class ReaderCanvasView @JvmOverloads constructor(
         invalidate()
     }
 
+    internal fun setColorTemperature(temperature: Float) {
+        if (colorTemperature == temperature) return
+        colorTemperature = temperature
+        invalidate()
+    }
+
+    internal fun setFocusLine(enabled: Boolean) {
+        if (focusLineEnabled == enabled) return
+        focusLineEnabled = enabled
+        invalidate()
+    }
+
+    internal fun setReadingLinePosition(y: Float, marginLeft: Float, marginRight: Float) {
+        currentReadingLineY = y
+        overlayMarginLeft = marginLeft
+        overlayMarginRight = marginRight
+        if (focusLineEnabled) invalidate()
+    }
+
+    internal fun setAccentColor(color: Int) {
+        accentColor = color
+    }
+
     // 翻页动画委托
     private var pageDelegate: PageDelegate? = null
 
@@ -187,6 +242,12 @@ class ReaderCanvasView @JvmOverloads constructor(
     // 触控热区比例（左侧区域宽度比例，右侧对称）
     var leftZoneRatio: Float = 0.33f
 
+    // 触控区域手势配置（v5.1）
+    var gestureConfig: GestureConfig = GestureConfig()
+
+    // 触控区域动作回调（v5.1）：将 GestureAction 上抛给上层映射为 ReaderIntent
+    var onGestureAction: ((GestureAction) -> Unit)? = null
+
     // ── 页面录制委托 ──────────────────────────────────────────
 
     override fun submitRenderTask() {
@@ -196,13 +257,26 @@ class ReaderCanvasView @JvmOverloads constructor(
             currentPage = currentPage,
             nextPage = nextPage,
             prevPage = prevPage,
-            content = chapterContent,
+            chapterContents = snapshotChapterContents(),
             renderContext = renderContext,
             backgroundPaint = backgroundPaint,
             textPaint = textPaint,
             selectionPaint = selectionPaint,
             postInvalidate = { postInvalidate() },
         )
+    }
+
+    private fun snapshotChapterContents(): Map<Int, CharSequence> {
+        val snapshot = chapterContentsByIndex.toMutableMap()
+        if (chapterContentChapterIndex >= 0) {
+            snapshot[chapterContentChapterIndex] = chapterContent
+        }
+        return snapshot
+    }
+
+    private fun contentForPage(page: TextPage): CharSequence? {
+        return chapterContentsByIndex[page.chapterIndex]
+            ?: chapterContent.takeIf { chapterContentChapterIndex == page.chapterIndex }
     }
 
     // ── RenderApplierTarget：scope-only invalidation ─────────────
@@ -289,8 +363,38 @@ class ReaderCanvasView @JvmOverloads constructor(
             }
         }
 
+        // M4+: 跨章检测 —— 新 page 来自不同章节时，当前 chapterContent 是旧章正文。
+        // 此时若让新 page 的 canvasRecorder 直接 draw，会画出 PicturePool 里残留的旧内容
+        // （典型现象：翻到下一章首页瞬间闪现上一章第一页的内容）。强制 invalidate 让
+        // recorder 进入「脏」状态，下一帧 applySnapshot 写入新章内容后才会重录。
+        val previousChapterIdx = currentPage?.chapterIndex ?: -1
+        val incomingChapterIdx = page.chapterIndex
+        val chapterSwitched = previousChapterIdx != incomingChapterIdx
+
         currentPage = page
-        chapterContent = content
+        // content 为空表示「沿用已就位的章节文本」：RenderApplierTarget.setPage 不携带 content，
+        // 真实章节文本由 applySnapshot 经 snapshot.chapterContent 写入。若用空串覆盖，会导致首页在
+        // 文本缺失时录制出空白正文（recordIfNeeded 录制后不再刷新），而分页 offset 已推进，
+        // 造成「首页只剩标题、次页缺章节开头」。
+        if (content.isNotEmpty()) {
+            chapterContent = content
+            chapterContentChapterIndex = incomingChapterIdx
+            chapterContentsByIndex[incomingChapterIdx] = content
+        }
+
+        if (chapterSwitched && chapterContentChapterIndex != incomingChapterIdx) {
+            // 新章 content 尚未就位（applySnapshot 还没跑），先把 recorder 标脏，
+            // 阻止 draw 时使用 PicturePool 残留的旧 Picture。
+            if (com.shuli.reader.BuildConfig.DEBUG) {
+                android.util.Log.d(
+                    "ReaderCanvasView",
+                    "chapterSwitch invalidate: prev=$previousChapterIdx incoming=$incomingChapterIdx contentChapter=$chapterContentChapterIndex",
+                )
+            }
+            page.canvasRecorder.invalidate()
+            page.shellRecorder.invalidate()
+            page.compositeRecorder.invalidate()
+        }
         when (mode) {
             PageRenderMode.SEQUENTIAL -> {
                 nextPage = next
@@ -318,10 +422,12 @@ class ReaderCanvasView @JvmOverloads constructor(
         snapshot: Any,
         diff: Any,
         pageDelegate: com.shuli.reader.core.reader.animation.PageDelegate?,
+        chapterContent: CharSequence,
+        chapterContents: Map<Int, CharSequence>,
     ) {
         val renderSnapshot = snapshot as com.shuli.reader.feature.reader.render.ReaderRenderSnapshot
         val renderDiff = diff as com.shuli.reader.feature.reader.render.ReaderRenderDiff
-        applySnapshotInternal(renderSnapshot, renderDiff, pageDelegate)
+        applySnapshotInternal(renderSnapshot, renderDiff, pageDelegate, chapterContent, chapterContents)
     }
 
     /**
@@ -338,15 +444,31 @@ class ReaderCanvasView @JvmOverloads constructor(
         snapshot: com.shuli.reader.feature.reader.render.ReaderRenderSnapshot,
         diff: com.shuli.reader.feature.reader.render.ReaderRenderDiff,
         pageDelegate: com.shuli.reader.core.reader.animation.PageDelegate? = null,
+        chapterContent: CharSequence = "",
+        chapterContents: Map<Int, CharSequence> = emptyMap(),
     ) {
-        applySnapshotInternal(snapshot, diff, pageDelegate)
+        applySnapshotInternal(snapshot, diff, pageDelegate, chapterContent, chapterContents)
     }
 
     private fun applySnapshotInternal(
         snapshot: com.shuli.reader.feature.reader.render.ReaderRenderSnapshot,
         diff: com.shuli.reader.feature.reader.render.ReaderRenderDiff,
         pageDelegate: com.shuli.reader.core.reader.animation.PageDelegate? = null,
+        chapterContent: CharSequence = "",
+        chapterContents: Map<Int, CharSequence> = emptyMap(),
     ) {
+        // 章节正文经 applySnapshot 独立参数传入（不进 snapshot，避免 O(n) equals，见 docs/26 §7）。
+        // 空串表示「沿用已就位文本」：纯视觉刷新（章节未变）无需重传正文，不得用空串覆盖。
+        if (chapterContents.isNotEmpty()) {
+            chapterContentsByIndex.clear()
+            chapterContentsByIndex.putAll(chapterContents)
+        }
+        if (chapterContent.isNotEmpty()) {
+            this.chapterContent = chapterContent
+            this.chapterContentChapterIndex = snapshot.page.chapterIndex
+            chapterContentsByIndex[snapshot.page.chapterIndex] = chapterContent
+        }
+
         val layoutInput = snapshot.layout.input
         val v = snapshot.visual
         val sh = snapshot.shell
@@ -374,6 +496,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         visualParams.setEdgeTurnPageEnabled(sh.edgeTurnPage)
         visualParams.setEdgeWidthPercent(sh.edgeWidthPercent)
         this.leftZoneRatio = sh.leftZoneRatio
+        this.gestureConfig = sh.gestureConfig
         visualParams.setThemeColors(v.themeColors)
         if (pageDelegate != null) {
             setPageDelegate(pageDelegate)
@@ -488,16 +611,38 @@ class ReaderCanvasView @JvmOverloads constructor(
     // ── 页面旋转 / crossfade ──────────────────────────────────
 
     private fun fillPage(direction: PageDelegate.Direction) {
+        val beforeCurrent = currentPage
         when (direction) {
             PageDelegate.Direction.NEXT -> {
                 prevPage = currentPage
-                currentPage = nextPage
+                // 跨章翻页时 nextPage 可能还是 null（新章尚未加载完），保留 currentPage
+                // 避免出现 currentPage = null 导致的空白帧与下游 NPE。
+                val chosen = nextPage ?: currentPage
+                currentPage = chosen
                 nextPage = null
+                if (com.shuli.reader.BuildConfig.DEBUG) {
+                    android.util.Log.d(
+                        "ReaderCanvasView",
+                        "fillPage(NEXT): prev=${prevPage?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }} " +
+                            "beforeCurrent=${beforeCurrent?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }} " +
+                            "newCurrent=${chosen?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }}",
+                    )
+                }
             }
             PageDelegate.Direction.PREV -> {
                 nextPage = currentPage
-                currentPage = prevPage
+                // 跨章翻页时 prevPage 可能还是 null，保留 currentPage。
+                val chosen = prevPage ?: currentPage
+                currentPage = chosen
                 prevPage = null
+                if (com.shuli.reader.BuildConfig.DEBUG) {
+                    android.util.Log.d(
+                        "ReaderCanvasView",
+                        "fillPage(PREV): next=${nextPage?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }} " +
+                            "beforeCurrent=${beforeCurrent?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }} " +
+                            "newCurrent=${chosen?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }}",
+                    )
+                }
             }
             PageDelegate.Direction.NONE -> {}
         }
@@ -565,12 +710,40 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val current = currentPage ?: return
+        val current = currentPage
+        if (current == null) {
+            // C: currentPage 为空时（跨章翻页间隙、首次加载），用主题背景色整屏填充，
+            // 避免空白帧 / 残留旧 bitmap 闪烁。后续 snapshot 应用后会正常绘制。
+            canvas.drawColor(backgroundPaint.color)
+            return
+        }
+
+        val currentContent = contentForPage(current)
+
+        // 跨章硬闸：没有 currentPage 所属章节正文时，不能录制或播放 recorder。
+        // 相邻章正文已就位时允许跨章动画完整绘制；否则只画背景等待 snapshot 更新。
+        if (currentContent == null) {
+            canvas.drawColor(backgroundPaint.color)
+            if (com.shuli.reader.BuildConfig.DEBUG) {
+                android.util.Log.d(
+                    "ReaderCanvasView",
+                    "onDraw skip: missing content currentChapter=${current.chapterIndex} pi=${current.pageIndex}",
+                )
+            }
+            return
+        }
 
         if (current.canvasRecorder.needRecord() || current.shellRecorder.needRecord()) {
             pageBitmapCache.recordPage(
-                current, width, height, chapterContent, renderContext,
-                backgroundPaint, textPaint, selectionPaint,
+                page = current,
+                width = width,
+                height = height,
+                content = currentContent,
+                contentChapterIndex = current.chapterIndex,
+                renderContext = renderContext,
+                backgroundPaint = backgroundPaint,
+                textPaint = textPaint,
+                selectionPaint = selectionPaint,
             )
         }
 
@@ -583,24 +756,61 @@ class ReaderCanvasView @JvmOverloads constructor(
                 PageDelegate.State.IDLE -> false
             }
             val target = if (isPrevDirection) prevPage else nextPage
-            target?.let {
-                if (it.canvasRecorder.needRecord() || it.shellRecorder.needRecord()) {
-                    pageBitmapCache.recordPage(
-                        it, width, height, chapterContent, renderContext,
-                        backgroundPaint, textPaint, selectionPaint,
-                    )
-                }
-                it.recordComposite(width, height)
+            val drawableTarget = target?.let { page ->
+                contentForPage(page)?.let { content -> page to content }
             }
-            current.recordComposite(width, height)
-            delegate.onDraw(
-                canvas,
-                current.compositeRecorder,
-                target?.compositeRecorder ?: current.compositeRecorder,
-            )
+            if (target != null && drawableTarget == null) {
+                target.invalidateAll()
+                current.shellRecorder.draw(canvas)
+                current.canvasRecorder.draw(canvas)
+            } else {
+                drawableTarget?.let { (targetPage, targetContent) ->
+                    if (targetPage.canvasRecorder.needRecord() || targetPage.shellRecorder.needRecord()) {
+                        pageBitmapCache.recordPage(
+                            page = targetPage,
+                            width = width,
+                            height = height,
+                            content = targetContent,
+                            contentChapterIndex = targetPage.chapterIndex,
+                            renderContext = renderContext,
+                            backgroundPaint = backgroundPaint,
+                            textPaint = textPaint,
+                            selectionPaint = selectionPaint,
+                        )
+                    }
+                    targetPage.recordComposite(width, height)
+                }
+                current.recordComposite(width, height)
+                delegate.onDraw(
+                    canvas,
+                    current.compositeRecorder,
+                    drawableTarget?.first?.compositeRecorder ?: current.compositeRecorder,
+                )
+            }
         } else {
             current.shellRecorder.draw(canvas)
             current.canvasRecorder.draw(canvas)
+        }
+
+        // ── VIEW_INVALIDATE：色温滤镜（MULTIPLY，不进 recorder）──
+        if (colorTemperature < 6500f) {
+            val (r, g, b) = colorTemperatureToRgb(colorTemperature)
+            colorTempPaint.color = android.graphics.Color.rgb(r, g, b)
+            colorTempPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), colorTempPaint)
+            colorTempPaint.xfermode = null
+        }
+
+        // ── VIEW_INVALIDATE：聚焦线（drawLine，不进 recorder）──
+        if (focusLineEnabled && currentReadingLineY > 0f) {
+            focusLinePaint.color = accentColor
+            focusLinePaint.alpha = (0.2f * 255).toInt()
+            focusLinePaint.strokeWidth = 2f * resources.displayMetrics.density
+            canvas.drawLine(
+                overlayMarginLeft, currentReadingLineY,
+                width.toFloat() - overlayMarginRight, currentReadingLineY,
+                focusLinePaint,
+            )
         }
 
         oldPageBitmap?.let { bitmap ->

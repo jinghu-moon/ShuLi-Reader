@@ -76,7 +76,50 @@ fun ReaderUiState.toRenderInput(
         letterSpacing = prefs.letterSpacing,
         fontWeight = prefs.fontWeight,
         fontKey = prefs.readingFont,
+        gestureConfig = prefs.gestureConfig,
     )
+
+    // A1: 章内下一页为空时（当前章末页）用预加载的下一章首页兜底
+    // 必须双重判定：① 章内 getPage(pageIndex+1) 为 null ② currentPage 确实在 currentChapter.lastIndex
+    // 否则在 chapterIndex 已切换但 currentPage 仍指向旧章末页的瞬间，会把 N+1[0] 错误塞进 prevPage，
+    // 导致翻到下一章首页时动画闪回上一章首页。
+    val nextInChapter = currentChapter?.getPage(pageIndex + 1)
+    val isAtChapterEnd = currentPage != null &&
+        currentChapter != null &&
+        currentPage.chapterIndex == currentChapter.chapterIndex &&
+        currentPage.pageIndex >= currentChapter.lastIndex
+    val adjacentNextPage = nextChapterFirstPage?.takeIf { it.chapterIndex == chapterIndex + 1 }
+    val effectiveNextPage = if (nextInChapter == null && isAtChapterEnd) {
+        adjacentNextPage
+    } else {
+        nextInChapter
+    }
+
+    // A1: 章内上一页为空时（当前章首页）用预加载的上一章末页兜底，同样双重判定
+    val prevInChapter = currentChapter?.getPage(pageIndex - 1)
+    val isAtChapterStart = currentPage != null &&
+        currentChapter != null &&
+        currentPage.chapterIndex == currentChapter.chapterIndex &&
+        currentPage.pageIndex == 0
+    val adjacentPrevPage = prevChapterLastPage?.takeIf { it.chapterIndex == chapterIndex - 1 }
+    val effectivePrevPage = if (prevInChapter == null && isAtChapterStart) {
+        adjacentPrevPage
+    } else {
+        prevInChapter
+    }
+
+    if (com.shuli.reader.BuildConfig.DEBUG) {
+        android.util.Log.d(
+            "RenderInputMapper",
+            "ch=$chapterIndex pi=$pageIndex " +
+                "curPage[ch=${currentPage?.chapterIndex},pi=${currentPage?.pageIndex}] " +
+                "curChapter[ch=${currentChapter?.chapterIndex},last=${currentChapter?.lastIndex}] " +
+                "nextInChapter=${nextInChapter?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }} " +
+                "isAtEnd=$isAtChapterEnd effectiveNext=${effectiveNextPage?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }} " +
+                "prevInChapter=${prevInChapter?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }} " +
+                "isAtStart=$isAtChapterStart effectivePrev=${effectivePrevPage?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }}",
+        )
+    }
 
     val pageSnapshot = PageSnapshot(
         bookId = bookId,
@@ -84,8 +127,8 @@ fun ReaderUiState.toRenderInput(
         pageIndex = pageIndex,
         anchorByteOffset = anchorByteOffset,
         currentPage = currentPage,
-        nextPage = currentChapter?.getPage(pageIndex + 1),
-        prevPage = currentChapter?.getPage(pageIndex - 1),
+        nextPage = effectiveNextPage,
+        prevPage = effectivePrevPage,
         contentVersion = chapterIndex,
         pageRenderMode = pageRenderMode,
         pageAnimType = pageAnimType,
@@ -101,11 +144,22 @@ fun ReaderUiState.toRenderInput(
         overlayKey = OverlayKey(selectedRange, 0),
     )
 
+    val chapterContents = mutableMapOf<Int, CharSequence>()
+    currentChapter?.let { chapterContents[it.chapterIndex] = it.content }
+    if (effectiveNextPage != null && nextChapterContent != null) {
+        chapterContents[effectiveNextPage.chapterIndex] = nextChapterContent
+    }
+    if (effectivePrevPage != null && prevChapterContent != null) {
+        chapterContents[effectivePrevPage.chapterIndex] = prevChapterContent
+    }
+
     return ReaderRenderInput(
         page = pageSnapshot,
         settings = settingsSnapshot,
         overlay = overlaySnapshot,
         pageDelegate = pageDelegate,
+        chapterContent = currentChapter?.content ?: "",
+        chapterContents = chapterContents,
     )
 }
 
@@ -178,6 +232,7 @@ fun SnapshotDigestTuple.toFallbackRenderInput(
         letterSpacing = 0f,
         fontWeight = ReaderFontWeight.NORMAL,
         fontKey = "",
+        gestureConfig = com.shuli.reader.feature.reader.settings.GestureConfig(),
     )
 
     val pageSnapshot = PageSnapshot(

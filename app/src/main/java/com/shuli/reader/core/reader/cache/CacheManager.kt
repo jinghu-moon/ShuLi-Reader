@@ -64,6 +64,9 @@ class CacheManager(
         val titleSizeOffsetSp: Int = 4,
         val titleMarginTopDp: Float = 9f,
         val titleMarginBottomDp: Float = 60f,
+        // 内容清理选项
+        val removeEmptyLines: Boolean = false,
+        val preserveOriginalIndent: Boolean = false,
     )
 
     // 页面缓存（按条目数限容）

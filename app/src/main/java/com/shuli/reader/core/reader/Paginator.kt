@@ -202,15 +202,20 @@ class Paginator(
                 widthWindow = widthWindow,
                 availableWidth = if (isParagraphStart) availableWidth - indentWidth else availableWidth,
                 letterSpacingPx = config.letterSpacingPx,
-                wordSpacingPx = config.wordSpacingPx,
                 useZhLayout = config.useZhLayout,
             )
 
-            val line = buildLine(lineResult, textStart, currentY, lineHeight, isParagraphStart, indentWidth)
-            lines.add(line)
+            // 只有当行有实际内容时才创建行对象并增加行高
+            if (lineResult.charCount > 0) {
+                val line = buildLine(lineResult, textStart, currentY, lineHeight, isParagraphStart, indentWidth)
+                lines.add(line)
+                currentY += lineHeight
+            }
 
-            currentY += lineHeight
-            if (lineResult.isParagraphEnd) currentY += config.paragraphSpacing
+            // 段落结束时增加段间距（无论是否有实际内容）
+            if (lineResult.isParagraphEnd) {
+                currentY += config.paragraphSpacing
+            }
             currentOffset += skippedSpaces + lineResult.consumedChars
         }
 
@@ -223,7 +228,6 @@ class Paginator(
                 widthWindow = widthWindow,
                 availableWidth = availableWidth - indentWidth,
                 letterSpacingPx = config.letterSpacingPx,
-                wordSpacingPx = config.wordSpacingPx,
                 useZhLayout = config.useZhLayout,
             )
             lines.add(buildLine(lineResult, textStart, startY, lineHeight, true, indentWidth))
@@ -346,7 +350,6 @@ class Paginator(
         widthWindow: WidthWindow,
         availableWidth: Float,
         letterSpacingPx: Float = 0f,
-        wordSpacingPx: Float = 0f,
         useZhLayout: Boolean = false,
     ): LineResult {
         if (startOffset >= content.length) {
@@ -366,12 +369,10 @@ class Paginator(
         var charCount = 0
 
         for (i in 0 until lineEnd) {
-            val ch = content[startOffset + i]
             val width = widthWindow[startOffset + i]
             val spacing = if (charCount > 0) letterSpacingPx else 0f
-            val wordSpace = if (ch == ' ' && wordSpacingPx > 0f) wordSpacingPx else 0f
-            if (currentWidth + width + spacing + wordSpace > availableWidth) break
-            currentWidth += width + spacing + wordSpace
+            if (currentWidth + width + spacing > availableWidth) break
+            currentWidth += width + spacing
             charCount++
         }
 
@@ -410,7 +411,6 @@ class Paginator(
             var w = 0f
             for (i in 0 until charCount) {
                 w += widthWindow[startOffset + i]
-                if (content[startOffset + i] == ' ' && wordSpacingPx > 0f) w += wordSpacingPx
             }
             w + letterSpacingPx * (charCount - 1).coerceAtLeast(0)
         } else {

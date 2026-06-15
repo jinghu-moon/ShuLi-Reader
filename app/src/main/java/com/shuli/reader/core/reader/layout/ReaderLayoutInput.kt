@@ -39,7 +39,6 @@ data class ReaderLayoutInput(
     val useZhLayout: Boolean,
     val bottomJustify: Boolean,
     // v5.1 预留字段（Phase 1-4）
-    val wordSpacing: Float = 0f,
     val paragraphDivider: Boolean = false,
     val hyphenation: Int = 0,
     val vertical: Boolean = false,

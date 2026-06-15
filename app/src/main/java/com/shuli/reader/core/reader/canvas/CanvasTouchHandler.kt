@@ -76,7 +76,14 @@ class CanvasTouchHandler(context: Context) {
                     cb.onCenterClicked()
                     return true
                 }
-                return false
+
+                val zone = resolveTouchZone(x, y, w, h, leftRatio)
+                val config = cb.getGestureConfig()
+                val action = config.getAction(zone)
+                if (action != GestureAction.NONE) {
+                    cb.onAction(action, x, y)
+                }
+                return true
             }
         },
     )
@@ -160,6 +167,22 @@ class CanvasTouchHandler(context: Context) {
             }
         }
         return false
+    }
+
+    private fun resolveTouchZone(
+        x: Float, y: Float, w: Float, h: Float, leftRatio: Float,
+    ): TouchZone {
+        val col = when {
+            x <= w * leftRatio -> 0
+            x >= w * (1f - leftRatio) -> 2
+            else -> 1
+        }
+        val row = when {
+            y <= h / 3f -> 0
+            y >= h * 2f / 3f -> 2
+            else -> 1
+        }
+        return TouchZone.entries[row * 3 + col]
     }
 
     /** 标记开始文本选区手势（拦截后续触摸事件直到 UP/CANCEL） */

@@ -17,8 +17,9 @@ class BionicSegmentsTest {
     fun calculateBionicSegments_englishText_generatesCorrectSegments() {
         val segments = calculateBionicSegments("hello world")
         // "hello" → hel(bold) + lo(normal)
+        // " " → space(normal)
         // "world" → wor(bold) + ld(normal)
-        assertEquals(4, segments.size)
+        assertEquals(5, segments.size)
 
         assertEquals("hel", segments[0].text)
         assertTrue(segments[0].bold)
@@ -26,11 +27,14 @@ class BionicSegmentsTest {
         assertEquals("lo", segments[1].text)
         assertFalse(segments[1].bold)
 
-        assertEquals("wor", segments[2].text)
-        assertTrue(segments[2].bold)
+        assertEquals(" ", segments[2].text)
+        assertFalse(segments[2].bold)
 
-        assertEquals("ld", segments[3].text)
-        assertFalse(segments[3].bold)
+        assertEquals("wor", segments[3].text)
+        assertTrue(segments[3].bold)
+
+        assertEquals("ld", segments[4].text)
+        assertFalse(segments[4].bold)
     }
 
     // T-4.1.2: 纯中文文本不分割

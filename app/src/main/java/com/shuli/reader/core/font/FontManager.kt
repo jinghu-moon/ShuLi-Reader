@@ -45,7 +45,7 @@ class FontManager(val context: Context, val strings: AppStrings = AppStrings.ZhH
     }
 
     /** 列出所有已导入的字体 */
-    fun listFonts(): List<FontEntry> {
+    fun listFonts(locale: java.util.Locale? = null): List<FontEntry> {
         val dir = fontDir
         if (!dir.exists()) {
             android.util.Log.d(TAG, "listFonts: 目录不存在: ${dir.absolutePath}")
@@ -61,13 +61,14 @@ class FontManager(val context: Context, val strings: AppStrings = AppStrings.ZhH
             ?.sortedBy { it.name }
             ?.map { file ->
                 val id = file.nameWithoutExtension
-                FontEntry(id = id, name = id, file = file)
+                val displayName = TtfNameReader.readDisplayName(file, locale) ?: id
+                FontEntry(id = id, name = displayName, file = file)
             }
             ?: emptyList()
     }
 
     /** 导入字体文件，返回 FontEntry；失败抛异常 */
-    fun importFont(uri: Uri, displayName: String? = null): FontEntry {
+    fun importFont(uri: Uri, displayName: String? = null, locale: java.util.Locale? = null): FontEntry {
         val queriedName = queryDisplayName(uri)
         val fileName = displayName
             ?: queriedName
@@ -114,8 +115,9 @@ class FontManager(val context: Context, val strings: AppStrings = AppStrings.ZhH
         }
 
         val id = dest.nameWithoutExtension
-        android.util.Log.d(TAG, "importFont: 成功, id=$id, 文件名=${dest.name}")
-        return FontEntry(id = id, name = id, file = dest)
+        val fontName = TtfNameReader.readDisplayName(dest, locale) ?: id
+        android.util.Log.d(TAG, "importFont: 成功, id=$id, fontName=$fontName, 文件名=${dest.name}")
+        return FontEntry(id = id, name = fontName, file = dest)
     }
 
     /** 删除指定字体 */

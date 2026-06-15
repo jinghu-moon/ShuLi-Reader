@@ -28,7 +28,6 @@ data class ReaderLayoutConfig(
     val indent: Float,
     val density: Float = 3f,
     val letterSpacingPx: Float = 0f,
-    val wordSpacingPx: Float = 0f,
     val titleStyle: TitleStyleConfig = TitleStyleConfig(),
     val useZhLayout: Boolean = false,
     val bottomJustify: Boolean = false,

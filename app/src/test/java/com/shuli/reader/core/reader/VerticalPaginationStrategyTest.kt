@@ -30,7 +30,6 @@ class VerticalPaginationStrategyTest {
         marginRight = 24f,
         indent = 2f,
         letterSpacing = 0f,
-        wordSpacing = 0f,
         fontWeight = ReaderFontWeight.NORMAL,
         chineseConvert = ChineseConvert.NONE,
         usePanguSpacing = false,

@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>书里阅读器 · 点击区域设置预览</title>
+<style>
+:root {
+  --ink-50: #f6f4f0;
+  --ink-100: #eae5dc;
+  --ink-200: #d4ccc0;
+  --ink-300: #b9afa0;
+  --ink-500: #7d7162;
+  --ink-600: #5e5346;
+  --ink-700: #453b2e;
+  --ink-900: #1a130b;
+  --paper: #f4f1ea;
+  --paper-text: #262018;
+  --paper-muted: #8b8276;
+  --accent: #f5efe3;
+  --accent-strong: #fff8e8;
+  --scrim: rgba(12, 8, 4, 0.52);
+  --grid-line: rgba(255, 255, 255, 0.18);
+  --grid-fill: rgba(255, 255, 255, 0.035);
+  --grid-selected: rgba(255, 248, 232, 0.17);
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --font-sans: "HarmonyOS Sans SC", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+  --font-serif: "Source Han Serif SC", "Songti SC", "Noto Serif SC", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #ded8ce;
+  color: var(--ink-900);
+  font-family: var(--font-sans);
+}
+
+button {
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  cursor: pointer;
+}
+
+.stage {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(320px, 430px) minmax(260px, 340px);
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 32px;
+}
+
+.phone {
+  width: min(100%, 393px);
+  aspect-ratio: 393 / 852;
+  position: relative;
+  overflow: hidden;
+  border-radius: 34px;
+  background: var(--paper);
+  box-shadow: 0 24px 80px rgba(26, 19, 11, 0.26);
+}
+
+.status-bar {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  position: relative;
+  z-index: 2;
+  color: var(--paper-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.signal,
+.battery {
+  display: inline-block;
+  height: 12px;
+  border: 2px solid currentColor;
+}
+
+.signal {
+  width: 14px;
+  border-left-width: 4px;
+  transform: skew(-8deg);
+}
+
+.battery {
+  width: 25px;
+  border-radius: 4px;
+  position: relative;
+}
+
+.battery::before {
+  content: "";
+  width: 3px;
+  height: 6px;
+  position: absolute;
+  top: 1px;
+  right: -5px;
+  border-radius: 0 3px 3px 0;
+  background: currentColor;
+}
+
+.battery::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: 2px;
+  background: #6fcf97;
+}
+
+.reader {
+  position: absolute;
+  inset: 0;
+  padding: 54px 25px 28px;
+  color: var(--paper-text);
+  font-family: var(--font-serif);
+}
+
+.chapter {
+  margin: 0 0 22px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(38, 32, 24, 0.64);
+}
+
+.reader p {
+  margin: 0 0 22px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.98;
+  letter-spacing: 0;
+  text-align: justify;
+}
+
+.reader-footer {
+  position: absolute;
+  right: 25px;
+  bottom: 26px;
+  left: 25px;
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--paper-muted);
+}
+
+.edit-layer {
+  position: absolute;
+  inset: 40px 0 0;
+  z-index: 5;
+  color: #fff;
+  background: var(--scrim);
+}
+
+.editor-bar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px 0 20px;
+  background: rgba(26, 19, 11, 0.36);
+  backdrop-filter: blur(6px);
+}
+
+.editor-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.close-btn {
+  width: 40px;
+  height: 40px;
+  position: relative;
+  border-radius: 50%;
+}
+
+.close-btn::before,
+.close-btn::after {
+  content: "";
+  width: 26px;
+  height: 3px;
+  position: absolute;
+  top: 18px;
+  left: 7px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.close-btn::before {
+  transform: rotate(45deg);
+}
+
+.close-btn::after {
+  transform: rotate(-45deg);
+}
+
+.zone-grid {
+  height: calc(100% - 56px);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 1px;
+  padding: 1px;
+}
+
+.zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--grid-line);
+  background: var(--grid-fill);
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.zone.is-selected {
+  border-color: rgba(255, 248, 232, 0.78);
+  background: var(--grid-selected);
+  box-shadow: inset 0 0 0 1px rgba(255, 248, 232, 0.42);
+}
+
+.zone-index {
+  width: 18px;
+  height: 18px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+}
+
+.zone.is-selected .zone-index {
+  display: flex;
+}
+
+.zone-icon {
+  width: 28px;
+  height: 28px;
+  position: relative;
+  opacity: 0.96;
+}
+
+.zone-icon::before,
+.zone-icon::after {
+  content: "";
+  position: absolute;
+}
+
+.zone-icon.prev::before,
+.zone-icon.next::before {
+  width: 15px;
+  height: 15px;
+  top: 6px;
+  border-top: 3px solid currentColor;
+  border-left: 3px solid currentColor;
+}
+
+.zone-icon.prev::before {
+  left: 7px;
+  transform: rotate(-45deg);
+}
+
+.zone-icon.next::before {
+  right: 7px;
+  transform: rotate(135deg);
+}
+
+.zone-icon.toolbar::before,
+.zone-icon.menu::before {
+  width: 22px;
+  height: 3px;
+  top: 5px;
+  left: 3px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 8px 0 currentColor, 0 16px 0 currentColor;
+}
+
+.zone-icon.directory::before {
+  width: 21px;
+  height: 24px;
+  top: 2px;
+  left: 4px;
+  border: 3px solid currentColor;
+  border-radius: 4px;
+}
+
+.zone-icon.directory::after {
+  width: 3px;
+  height: 18px;
+  top: 5px;
+  left: 11px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.zone-icon.bookmark::before {
+  width: 18px;
+  height: 24px;
+  top: 2px;
+  left: 5px;
+  border-radius: 3px 3px 1px 1px;
+  background: currentColor;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 74%, 0 100%);
+}
+
+.zone-icon.theme::before {
+  width: 24px;
+  height: 24px;
+  top: 2px;
+  left: 2px;
+  border: 3px solid currentColor;
+  border-radius: 50%;
+}
+
+.zone-icon.theme::after {
+  width: 12px;
+  height: 24px;
+  top: 2px;
+  left: 14px;
+  border-radius: 0 999px 999px 0;
+  background: currentColor;
+}
+
+.zone-icon.immersive::before {
+  width: 24px;
+  height: 24px;
+  top: 2px;
+  left: 2px;
+  border: 3px solid currentColor;
+  border-radius: 4px;
+}
+
+.zone-icon.immersive::after {
+  width: 12px;
+  height: 12px;
+  top: 8px;
+  left: 8px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.zone-icon.scroll-up::before,
+.zone-icon.scroll-down::before {
+  width: 15px;
+  height: 15px;
+  left: 6px;
+  border-top: 3px solid currentColor;
+  border-left: 3px solid currentColor;
+}
+
+.zone-icon.scroll-up::before {
+  top: 8px;
+  transform: rotate(45deg);
+}
+
+.zone-icon.scroll-down::before {
+  top: 4px;
+  transform: rotate(225deg);
+}
+
+.zone-icon.none::before {
+  width: 24px;
+  height: 24px;
+  top: 2px;
+  left: 2px;
+  border: 3px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.58;
+}
+
+.zone-icon.none::after {
+  width: 26px;
+  height: 3px;
+  top: 13px;
+  left: 1px;
+  border-radius: 999px;
+  background: currentColor;
+  transform: rotate(-36deg);
+  opacity: 0.58;
+}
+
+.zone-label {
+  max-width: 100%;
+  padding: 0 8px;
+  overflow: hidden;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-pill {
+  position: absolute;
+  right: 12px;
+  bottom: 14px;
+  left: 12px;
+  z-index: 8;
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(26, 19, 11, 0.72);
+  color: #fff;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(10px);
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.status-value {
+  font-weight: 700;
+  color: #fff;
+}
+
+.zone-menu {
+  --anchor-x: 18px;
+  --anchor-y: 18px;
+  width: 166px;
+  max-height: 360px;
+  position: absolute;
+  z-index: 12;
+  overflow: auto;
+  border: 1px solid rgba(69, 59, 46, 0.14);
+  border-radius: 16px;
+  background: #fffaf0;
+  color: var(--ink-900);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.34);
+  transform-origin: var(--anchor-x) var(--anchor-y);
+  animation: menu-in 140ms ease-out;
+}
+
+.zone-menu::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  position: absolute;
+  top: var(--anchor-y);
+  left: var(--anchor-x);
+  z-index: 1;
+  border-radius: 50%;
+  background: var(--ink-700);
+  box-shadow: 0 0 0 5px rgba(69, 59, 46, 0.14);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.menu-title {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(69, 59, 46, 0.12);
+  background: rgba(255, 250, 240, 0.96);
+  color: var(--ink-600);
+  font-size: 12px;
+}
+
+.menu-title strong {
+  color: var(--ink-900);
+  font-size: 13px;
+}
+
+.menu-action {
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  color: var(--ink-900);
+  text-align: left;
+  background: transparent;
+}
+
+.menu-action + .menu-action {
+  border-top: 1px solid rgba(69, 59, 46, 0.08);
+}
+
+.menu-action.is-active {
+  color: #fff;
+  background: var(--ink-700);
+}
+
+.menu-action.is-active::after {
+  content: "";
+  width: 8px;
+  height: 14px;
+  margin-left: 10px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.home-indicator {
+  width: 118px;
+  height: 5px;
+  position: absolute;
+  right: 0;
+  bottom: 6px;
+  left: 0;
+  z-index: 10;
+  margin: auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.notes {
+  max-width: 340px;
+}
+
+.notes h1 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  line-height: 1.35;
+}
+
+.notes p {
+  margin: 0 0 18px;
+  color: var(--ink-600);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.notes-list {
+  display: grid;
+  gap: 10px;
+}
+
+.note {
+  padding: 14px 16px;
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-md);
+  background: rgba(246, 244, 240, 0.72);
+}
+
+.note strong {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+.note span {
+  display: block;
+  color: var(--ink-600);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@media (max-width: 760px) {
+  .stage {
+    grid-template-columns: 1fr;
+    padding: 20px 12px 28px;
+  }
+
+  .phone {
+    width: min(100%, 393px);
+    margin: 0 auto;
+  }
+
+  .notes {
+    width: min(100%, 393px);
+    margin: 0 auto;
+  }
+}
+</style>
+</head>
+<body>
+<main class="stage">
+  <section class="phone" aria-label="点击区域设置预览">
+    <div class="status-bar">
+      <span>9:25</span>
+      <div class="status-right" aria-hidden="true">
+        <span class="signal"></span>
+        <span>5G</span>
+        <span class="battery"></span>
+      </div>
+    </div>
+
+    <article class="reader">
+      <h2 class="chapter">第77章 科研整体呀</h2>
+      <p>他站起身，看了一下时间，已经是下午五点半了。</p>
+      <p>“不知不觉都这个点了。”张教授心里算了一下时间，距离早上他让孙翔他们去三楼实验室，已经过去差不多八个小时了。</p>
+      <p>“也不知道做的怎么样了。”他心里多少还是有些不放心的。</p>
+      <div class="reader-footer">
+        <span>点击图片方式</span>
+        <span>77 / 245</span>
+      </div>
+    </article>
+
+    <div class="edit-layer">
+      <header class="editor-bar">
+        <div class="editor-title">点击区域设置</div>
+        <button class="close-btn" type="button" aria-label="关闭"></button>
+      </header>
+
+      <div class="zone-grid" id="zoneGrid"></div>
+
+      <div class="zone-menu" id="zoneMenu" aria-label="动作菜单"></div>
+
+      <section class="status-pill" aria-label="当前点击区域状态">
+        <div class="status-row">
+          <span>当前区域</span>
+          <span class="status-value" id="currentZone">左上</span>
+        </div>
+        <div class="status-row">
+          <span>当前动作</span>
+          <span class="status-value" id="currentAction">上一页</span>
+        </div>
+      </section>
+    </div>
+
+    <div class="home-indicator"></div>
+  </section>
+
+  <aside class="notes">
+    <h1>点击区域编辑模式</h1>
+    <p>这个预览保留阅读内容作为上下文，用轻量网格表达热区。点击任意区域后，动作菜单会从该热区附近弹出，避免底部菜单割裂空间关系。</p>
+    <div class="notes-list">
+      <div class="note">
+        <strong>信息层级</strong>
+        <span>标题栏、热区、动作选择三层清晰分离，减少全屏遮罩的压迫感。</span>
+      </div>
+      <div class="note">
+        <strong>状态反馈</strong>
+        <span>当前区域使用浅色描边和背景高亮，底部只显示当前区域和动作状态。</span>
+      </div>
+      <div class="note">
+        <strong>动作覆盖</strong>
+        <span>动作项参考现有触控区域卡片，覆盖上一页、下一页、工具栏、目录、书签、主题、沉浸和滚动。</span>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<script>
+const zoneNames = [
+  "左上",
+  "上中",
+  "右上",
+  "左中",
+  "中间",
+  "右中",
+  "左下",
+  "下中",
+  "右下",
+];
+
+const actions = [
+  { key: "prev", label: "上一页" },
+  { key: "next", label: "下一页" },
+  { key: "toolbar", label: "工具栏" },
+  { key: "directory", label: "目录" },
+  { key: "bookmark", label: "书签" },
+  { key: "theme", label: "切主题" },
+  { key: "immersive", label: "沉浸" },
+  { key: "scroll-up", label: "上滚" },
+  { key: "scroll-down", label: "下滚" },
+  { key: "none", label: "无" },
+];
+
+const zoneActions = ["prev", "prev", "next", "prev", "toolbar", "next", "prev", "next", "next"];
+let selectedZone = 0;
+
+const zoneGrid = document.querySelector("#zoneGrid");
+const zoneMenu = document.querySelector("#zoneMenu");
+const editLayer = document.querySelector(".edit-layer");
+const currentZoneNode = document.querySelector("#currentZone");
+const currentActionNode = document.querySelector("#currentAction");
+
+function getAction(key) {
+  return actions.find((action) => action.key === key) || actions.find((action) => action.key === "none");
+}
+
+function renderZones() {
+  zoneGrid.innerHTML = "";
+  zoneActions.forEach((actionKey, index) => {
+    const action = getAction(actionKey);
+    const zone = document.createElement("button");
+    zone.type = "button";
+    zone.className = `zone${index === selectedZone ? " is-selected" : ""}`;
+    zone.setAttribute("aria-label", `${zoneNames[index]}：${action.label}`);
+    zone.innerHTML = `
+      <span class="zone-index" aria-hidden="true"></span>
+      <span class="zone-icon ${action.key}" aria-hidden="true"></span>
+      <span class="zone-label">${action.label}</span>
+    `;
+    zone.addEventListener("click", () => {
+      selectedZone = index;
+      render();
+    });
+    zoneGrid.appendChild(zone);
+  });
+}
+
+function renderActionMenu() {
+  const currentActionKey = zoneActions[selectedZone];
+  zoneMenu.innerHTML = `
+    <div class="menu-title">
+      <span>点击动作</span>
+      <strong>${zoneNames[selectedZone]}</strong>
+    </div>
+  `;
+
+  actions.forEach((action) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `menu-action${currentActionKey === action.key ? " is-active" : ""}`;
+    button.textContent = action.label;
+    button.setAttribute("aria-label", `设置${zoneNames[selectedZone]}为${action.label}`);
+    button.addEventListener("click", () => {
+      zoneActions[selectedZone] = action.key;
+      render();
+    });
+    zoneMenu.appendChild(button);
+  });
+}
+
+function positionActionMenu() {
+  const selectedZoneNode = zoneGrid.children[selectedZone];
+  if (!selectedZoneNode) return;
+
+  const layerRect = editLayer.getBoundingClientRect();
+  const zoneRect = selectedZoneNode.getBoundingClientRect();
+  const menuRect = zoneMenu.getBoundingClientRect();
+  const gutter = 10;
+  const barHeight = 56;
+  const offset = 12;
+  const centerX = zoneRect.left - layerRect.left + zoneRect.width / 2;
+  const centerY = zoneRect.top - layerRect.top + zoneRect.height / 2;
+  const maxLeft = layerRect.width - menuRect.width - gutter;
+  const maxTop = layerRect.height - menuRect.height - gutter;
+
+  let left = centerX + offset;
+  if (left > maxLeft) {
+    left = centerX - menuRect.width - offset;
+  }
+  if (left < gutter) {
+    left = centerX - menuRect.width / 2;
+  }
+  left = Math.min(Math.max(left, gutter), Math.max(gutter, maxLeft));
+
+  let top = centerY - 32;
+  top = Math.min(Math.max(top, barHeight + gutter), Math.max(barHeight + gutter, maxTop));
+
+  const anchorX = Math.min(Math.max(centerX - left, 16), menuRect.width - 16);
+  const anchorY = Math.min(Math.max(centerY - top, 16), menuRect.height - 16);
+
+  zoneMenu.style.left = `${left}px`;
+  zoneMenu.style.top = `${top}px`;
+  zoneMenu.style.setProperty("--anchor-x", `${anchorX}px`);
+  zoneMenu.style.setProperty("--anchor-y", `${anchorY}px`);
+}
+
+function render() {
+  const action = getAction(zoneActions[selectedZone]);
+  currentZoneNode.textContent = zoneNames[selectedZone];
+  currentActionNode.textContent = action.label;
+  renderZones();
+  renderActionMenu();
+  positionActionMenu();
+}
+
+window.addEventListener("resize", positionActionMenu);
+
+render();
+</script>
+</body>
+</html>

@@ -1,91 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  书里 InTale 前景层（书脊 + 七层扇页）
-  ─────────────────────────────────────────────────
-  viewport 108×108，对应 SVG v3 原稿 680×680（缩放系数 0.1588）
-  扇页旋转支点 (41.29, 74.65)，胶囊宽 36.85 / 高 2.54，rx 1.27
-  书脊位置 (34.15, 28.59) 宽 7.94 / 高 46.06，rx 1.91
-  所有几何均在中心 66dp 圆形安全区内，确保 Adaptive Icon 不被启动器裁切
+  书里 InTale — 浅色图标（无书架横线）
+  从 shuli_books_light_noshelf.svg 转换
+  viewport 680×680，圆角背景 + 三本书
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
+    android:viewportWidth="680"
+    android:viewportHeight="680">
 
-    <!-- 第 1 层扇页（最深 -82°，几乎垂直） -->
+    <!-- 外层缩放 0.88，为 adaptive icon 启动器裁切留出安全边距 -->
     <group
-        android:pivotX="41.29"
-        android:pivotY="74.65"
-        android:rotation="-82">
-        <path
-            android:fillColor="#453B2E"
-            android:pathData="M42.56,73.38 h34.31 a1.27,1.27 0 0 1 0,2.54 h-34.31 a1.27,1.27 0 0 1 0,-2.54 z" />
-    </group>
+        android:pivotX="340"
+        android:pivotY="340"
+        android:scaleX="0.88"
+        android:scaleY="0.88">
 
-    <!-- 第 2 层扇页 -70° -->
-    <group
-        android:pivotX="41.29"
-        android:pivotY="74.65"
-        android:rotation="-70">
-        <path
-            android:fillColor="#5E5346"
-            android:pathData="M42.56,73.38 h34.31 a1.27,1.27 0 0 1 0,2.54 h-34.31 a1.27,1.27 0 0 1 0,-2.54 z" />
-    </group>
-
-    <!-- 第 3 层扇页 -58° -->
-    <group
-        android:pivotX="41.29"
-        android:pivotY="74.65"
-        android:rotation="-58">
-        <path
-            android:fillColor="#7D7162"
-            android:pathData="M42.56,73.38 h34.31 a1.27,1.27 0 0 1 0,2.54 h-34.31 a1.27,1.27 0 0 1 0,-2.54 z" />
-    </group>
-
-    <!-- 第 4 层扇页 -46° -->
-    <group
-        android:pivotX="41.29"
-        android:pivotY="74.65"
-        android:rotation="-46">
-        <path
-            android:fillColor="#9C9082"
-            android:pathData="M42.56,73.38 h34.31 a1.27,1.27 0 0 1 0,2.54 h-34.31 a1.27,1.27 0 0 1 0,-2.54 z" />
-    </group>
-
-    <!-- 第 5 层扇页 -34° -->
-    <group
-        android:pivotX="41.29"
-        android:pivotY="74.65"
-        android:rotation="-34">
-        <path
-            android:fillColor="#B9AFA0"
-            android:pathData="M42.56,73.38 h34.31 a1.27,1.27 0 0 1 0,2.54 h-34.31 a1.27,1.27 0 0 1 0,-2.54 z" />
-    </group>
-
-    <!-- 第 6 层扇页 -22° -->
-    <group
-        android:pivotX="41.29"
-        android:pivotY="74.65"
-        android:rotation="-22">
-        <path
-            android:fillColor="#D4CCC0"
-            android:pathData="M42.56,73.38 h34.31 a1.27,1.27 0 0 1 0,2.54 h-34.31 a1.27,1.27 0 0 1 0,-2.54 z" />
-    </group>
-
-    <!-- 第 7 层扇页（最浅 -10°，接近水平） -->
-    <group
-        android:pivotX="41.29"
-        android:pivotY="74.65"
-        android:rotation="-10">
-        <path
-            android:fillColor="#EAE5DC"
-            android:pathData="M42.56,73.38 h34.31 a1.27,1.27 0 0 1 0,2.54 h-34.31 a1.27,1.27 0 0 1 0,-2.54 z" />
-    </group>
-
-    <!-- 书脊：覆盖扇页支点 (41.29, 74.65) 制造装订嵌入感 -->
+    <!-- 圆角背景 -->
     <path
-        android:fillColor="#3A3023"
-        android:pathData="M36.06,28.59 h4.12 a1.91,1.91 0 0 1 1.91,1.91 v42.24 a1.91,1.91 0 0 1 -1.91,1.91 h-4.12 a1.91,1.91 0 0 1 -1.91,-1.91 v-42.24 a1.91,1.91 0 0 1 1.91,-1.91 z" />
+        android:fillColor="#F6F4F0"
+        android:strokeColor="#B9AFA0"
+        android:strokeWidth="3"
+        android:pathData="M 196,80 L 484,80 Q 600,80 600,196 L 600,484 Q 600,600 484,600 L 196,600 Q 80,600 80,484 L 80,196 Q 80,80 196,80 Z" />
 
+    <!-- 书本组：translate(340,340) scale(0.85) translate(-340,-340) -->
+    <group
+        android:translateX="340"
+        android:translateY="340">
+        <group
+            android:scaleX="0.85"
+            android:scaleY="0.85">
+            <group
+                android:translateX="-340"
+                android:translateY="-340">
+
+                <!-- 书 1 -->
+                <path android:fillColor="#5E5346"
+                      android:pathData="M 145,148 L 230,148 Q 240,148 240,158 L 240,513 Q 240,523 230,523 L 145,523 Q 135,523 135,513 L 135,158 Q 135,148 145,148 Z" />
+                <path android:fillColor="#F6F4F0"
+                      android:pathData="M 135,240 H 240 V 260 H 135 V 240 Z" />
+
+                <!-- 书 2 -->
+                <path android:fillColor="#453B2E"
+                      android:pathData="M 280,168 L 365,168 Q 375,168 375,178 L 375,513 Q 375,523 365,523 L 280,523 Q 270,523 270,513 L 270,178 Q 270,168 280,168 Z" />
+                <path android:fillColor="#F6F4F0"
+                      android:pathData="M 270,402 H 375 V 422 H 270 V 402 Z" />
+
+                <!-- 书 3（顺时针倾斜 12°） -->
+                <group
+                    android:rotation="12"
+                    android:pivotX="472"
+                    android:pivotY="336">
+                    <path android:fillColor="#1A130B"
+                          android:pathData="M 430,148 L 515,148 Q 525,148 525,158 L 525,513 Q 525,523 515,523 L 430,523 Q 420,523 420,513 L 420,158 Q 420,148 430,148 Z" />
+                    <path android:fillColor="#F6F4F0"
+                          android:pathData="M 420,240 H 525 V 260 H 420 V 240 Z" />
+                    <path android:fillColor="#F6F4F0"
+                          android:pathData="M 420,392 H 525 V 412 H 420 V 392 Z" />
+                </group>
+
+            </group>
+        </group>
+    </group>
+
+    </group>
 </vector>

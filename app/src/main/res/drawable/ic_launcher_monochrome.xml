@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 书里 InTale — Monochrome layer (API 33+), no shelf -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="680"
+    android:viewportHeight="680">
+    <group
+        android:pivotX="340"
+        android:pivotY="340"
+        android:scaleX="0.88"
+        android:scaleY="0.88">
+        <group
+            android:translateX="340"
+            android:translateY="340">
+            <group
+                android:scaleX="0.85"
+                android:scaleY="0.85">
+                <group
+                    android:translateX="-340"
+                    android:translateY="-340">
+                    <path android:fillColor="#000000"
+                          android:pathData="M 145,148 L 230,148 Q 240,148 240,158 L 240,513 Q 240,523 230,523 L 145,523 Q 135,523 135,513 L 135,158 Q 135,148 145,148 Z" />
+                    <path android:fillColor="#000000"
+                          android:pathData="M 280,168 L 365,168 Q 375,168 375,178 L 375,513 Q 375,523 365,523 L 280,523 Q 270,523 270,513 L 270,178 Q 270,168 280,168 Z" />
+                    <group
+                        android:rotation="12"
+                        android:pivotX="472"
+                        android:pivotY="336">
+                        <path android:fillColor="#000000"
+                              android:pathData="M 430,148 L 515,148 Q 525,148 525,158 L 525,513 Q 525,523 515,523 L 430,523 Q 420,523 420,513 L 420,158 Q 420,148 430,148 Z" />
+                    </group>
+                </group>
+            </group>
+        </group>
+    </group>
+</vector>

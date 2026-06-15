@@ -285,6 +285,16 @@ object ReaderSettingRegistry {
             previewStrategy = PreviewStrategy.LIVE,
         ))
         add(SettingDefinition(
+            key = "preserve_original_indent",
+            defaultValue = false,
+            storageTier = StorageTier.BOTH,
+            scope = InvalidationScope.REFLOW,
+            recompositionTier = 3,
+            uiGroup = UiGroup.TEXT_LAYOUT,
+            includeInPreset = true,
+            previewStrategy = PreviewStrategy.ON_APPLY,
+        ))
+        add(SettingDefinition(
             key = "indent_unit",
             defaultValue = IndentUnit.CHARACTER,
             storageTier = StorageTier.BOTH,
@@ -317,16 +327,6 @@ object ReaderSettingRegistry {
         add(SettingDefinition(
             key = "margin_vertical",
             defaultValue = 48f,
-            storageTier = StorageTier.BOTH,
-            scope = InvalidationScope.REFLOW,
-            recompositionTier = 3,
-            uiGroup = UiGroup.TEXT_LAYOUT,
-            includeInPreset = true,
-            previewStrategy = PreviewStrategy.LIVE,
-        ))
-        add(SettingDefinition(
-            key = "word_spacing",
-            defaultValue = 0f,
             storageTier = StorageTier.BOTH,
             scope = InvalidationScope.REFLOW,
             recompositionTier = 3,
@@ -755,7 +755,17 @@ object ReaderSettingRegistry {
             previewStrategy = PreviewStrategy.LIVE,
         ))
         add(SettingDefinition(
-            key = "custom_accent_color",
+            key = "custom_title_color",
+            defaultValue = null as Int?,
+            storageTier = StorageTier.GLOBAL,
+            scope = InvalidationScope.CONTENT,
+            recompositionTier = 2,
+            uiGroup = UiGroup.THEME,
+            includeInPreset = false,
+            previewStrategy = PreviewStrategy.LIVE,
+        ))
+        add(SettingDefinition(
+            key = "custom_header_footer_color",
             defaultValue = null as Int?,
             storageTier = StorageTier.GLOBAL,
             scope = InvalidationScope.SHELL,

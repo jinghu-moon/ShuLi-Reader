@@ -39,7 +39,10 @@ fun calculateBionicSegments(text: String): List<BionicSegment> {
 
     for (match in wordRegex.findAll(text)) {
         val word = match.value
-        if (word.isBlank()) continue // 跳过空白，渲染层自行处理词间距
+        if (word.isBlank()) {
+            segments.add(BionicSegment(word, false))
+            continue
+        }
         if (isCjkWord(word)) {
             segments.add(BionicSegment(word, false))
         } else {

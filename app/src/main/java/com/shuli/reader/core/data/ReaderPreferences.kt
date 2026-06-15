@@ -3,6 +3,7 @@ package com.shuli.reader.core.data
 import com.shuli.reader.core.reader.FooterConfig
 import com.shuli.reader.core.reader.HeaderConfig
 import com.shuli.reader.core.reader.TitleStyleConfig
+import com.shuli.reader.feature.reader.settings.GestureConfig
 import com.shuli.reader.feature.reader.settings.ReaderSettingRegistry
 import kotlinx.serialization.Serializable
 
@@ -17,6 +18,7 @@ data class ReaderPreferences(
     val lineSpacing: Float = ReaderSettingRegistry.getDefault("line_spacing"),
     val paragraphSpacing: Float = ReaderSettingRegistry.getDefault("paragraph_spacing"),
     val indent: Float = ReaderSettingRegistry.getDefault("indent"),
+    val preserveOriginalIndent: Boolean = ReaderSettingRegistry.getDefault("preserve_original_indent"),
     val indentUnit: IndentUnit = ReaderSettingRegistry.getDefault("indent_unit"),
     val pageAnimType: PageAnimType = ReaderSettingRegistry.getDefault("page_anim_type"),
     val backgroundColor: ReaderTheme = ReaderSettingRegistry.getDefault("background_color"),
@@ -32,6 +34,7 @@ data class ReaderPreferences(
     val chineseConvert: ChineseConvert = ReaderSettingRegistry.getDefault("chinese_convert"),
     // 阶段五新增字段（无 Registry 条目的复合类型保留硬编码）
     val titleStyle: TitleStyleConfig = TitleStyleConfig(),
+    val titleFont: String = ReaderSettingRegistry.getDefault("title_font"),
     val header: HeaderConfig = HeaderConfig(),
     val footer: FooterConfig = FooterConfig(),
     val headerFooterAlpha: Float = ReaderSettingRegistry.getDefault("header_footer_alpha"),
@@ -71,11 +74,11 @@ data class ReaderPreferences(
     // P1: 自定义主题颜色
     val customBackgroundColor: Int? = ReaderSettingRegistry.getDefault("custom_background_color"),
     val customTextColor: Int? = ReaderSettingRegistry.getDefault("custom_text_color"),
-    val customAccentColor: Int? = ReaderSettingRegistry.getDefault("custom_accent_color"),
+    val customTitleColor: Int? = ReaderSettingRegistry.getDefault("custom_title_color"),
+    val customHeaderFooterColor: Int? = ReaderSettingRegistry.getDefault("custom_header_footer_color"),
     // ── v5.1 新增字段 ──
     val colorTemperature: Float = ReaderSettingRegistry.getDefault("color_temperature"),
     val focusLine: Boolean = ReaderSettingRegistry.getDefault("focus_line"),
-    val wordSpacing: Float = ReaderSettingRegistry.getDefault("word_spacing"),
     val paragraphDivider: Boolean = ReaderSettingRegistry.getDefault("paragraph_divider"),
     val marginTop: Float? = ReaderSettingRegistry.getDefault("margin_top"),
     val marginBottom: Float? = ReaderSettingRegistry.getDefault("margin_bottom"),
@@ -95,6 +98,8 @@ data class ReaderPreferences(
     val ttsTimer: Int = ReaderSettingRegistry.getDefault("tts_timer"),
     val eyeCareReminderInterval: Int = ReaderSettingRegistry.getDefault("eye_care_reminder_interval"),
     val backgroundTexture: String? = ReaderSettingRegistry.getDefault("background_texture"),
+    // 手势配置（类型安全：@Serializable GestureConfig）
+    val gestureConfig: GestureConfig = ReaderSettingRegistry.getDefault("gesture_config"),
 )
 
 /**
@@ -147,6 +152,7 @@ enum class ReaderTheme {
     LIGHT,    // 浅色
     DARK,     // 暗色
     PAPER,    // 纸质
+    GREEN,    // 护眼绿
     OLED,     // OLED
     CUSTOM,   // 自定义
 }
@@ -458,7 +464,6 @@ fun ReaderPreferences.toLayoutConfig(
         indent = indentPx,
         density = density,
         letterSpacingPx = letterSpacing * textSizePx,
-        wordSpacingPx = wordSpacing * textSizePx,
         titleStyle = titleStyle,
         useZhLayout = useZhLayout,
         bottomJustify = bottomJustify,
@@ -479,6 +484,7 @@ fun <T> ReaderPreferences.getValueByKey(key: String): T? = when (key) {
     "line_spacing" -> lineSpacing
     "paragraph_spacing" -> paragraphSpacing
     "indent" -> indent
+    "preserve_original_indent" -> preserveOriginalIndent
     "indent_unit" -> indentUnit
     "page_anim_type" -> pageAnimType
     "background_color" -> backgroundColor
@@ -518,10 +524,10 @@ fun <T> ReaderPreferences.getValueByKey(key: String): T? = when (key) {
     "left_zone_ratio" -> leftZoneRatio
     "custom_background_color" -> customBackgroundColor
     "custom_text_color" -> customTextColor
-    "custom_accent_color" -> customAccentColor
+    "custom_title_color" -> customTitleColor
+    "custom_header_footer_color" -> customHeaderFooterColor
     "color_temperature" -> colorTemperature
     "focus_line" -> focusLine
-    "word_spacing" -> wordSpacing
     "paragraph_divider" -> paragraphDivider
     "margin_top" -> marginTop
     "margin_bottom" -> marginBottom
@@ -543,7 +549,7 @@ fun <T> ReaderPreferences.getValueByKey(key: String): T? = when (key) {
     "title_style" -> null
     "header_visibility" -> header.visibility
     "footer_visibility" -> footer.visibility
-    "title_font" -> null
-    "gesture_config" -> null
+    "title_font" -> titleFont
+    "gesture_config" -> gestureConfig
     else -> null
 } as T?

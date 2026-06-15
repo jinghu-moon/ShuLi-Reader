@@ -20,7 +20,7 @@ import com.shuli.reader.ui.theme.toReaderColorScheme
  * 阅读器浮层面板类型
  */
 enum class OverlayPanel {
-    NONE, DIRECTORY, QUICK_SETTINGS
+    NONE, DIRECTORY, QUICK_SETTINGS, GESTURE_EDITOR
 }
 
 /**
@@ -36,6 +36,14 @@ data class ReaderUiState(
     val currentChapter: TextChapter? = null,
     val chapterIndex: Int = 0,
     val pageIndex: Int = 0,
+    /** 下一章的第一页（chapterIndex+1），用于跨章翻页时填充 nextPage 避免空白帧 */
+    val nextChapterFirstPage: TextPage? = null,
+    /** 下一章正文，用于跨章翻页动画录制目标页 */
+    val nextChapterContent: String? = null,
+    /** 上一章的最后一页（chapterIndex-1），用于跨章翻页时填充 prevPage 避免空白帧 */
+    val prevChapterLastPage: TextPage? = null,
+    /** 上一章正文，用于跨章翻页动画录制目标页 */
+    val prevChapterContent: String? = null,
     val totalPages: Int = 0,
     val totalChapters: Int = 0,
     val showToolbar: Boolean = false,
@@ -76,6 +84,7 @@ data class ReaderUiState(
 ) {
     val showDirectory: Boolean get() = overlayPanel == OverlayPanel.DIRECTORY
     val showQuickSettings: Boolean get() = overlayPanel == OverlayPanel.QUICK_SETTINGS
+    val showGestureEditor: Boolean get() = overlayPanel == OverlayPanel.GESTURE_EDITOR
 }
 
 /** 根据主题类型解析 ThemeColors，CUSTOM 主题使用自定义颜色值 */
@@ -83,8 +92,9 @@ internal fun resolveThemeColors(prefs: ReaderPreferences): ThemeColors {
     if (prefs.backgroundColor == ReaderTheme.CUSTOM) {
         val bg = prefs.customBackgroundColor ?: 0xFFF6F4F0.toInt()
         val text = prefs.customTextColor ?: 0xFF453B2E.toInt()
-        val accent = prefs.customAccentColor ?: 0xFF6B5B4E.toInt()
-        return resolveCustomColorScheme(bg, text, accent).toCanvasThemeColors()
+        val title = prefs.customTitleColor ?: text
+        val headerFooter = prefs.customHeaderFooterColor ?: text
+        return resolveCustomColorScheme(bg, text, title, headerFooter).toCanvasThemeColors()
     }
     return prefs.backgroundColor.toReaderColorScheme().toCanvasThemeColors()
 }

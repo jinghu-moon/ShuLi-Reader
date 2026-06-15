@@ -104,11 +104,12 @@ fun QuickSettingsSheet(
                 CustomThemePanel(
                     currentBg = uiState.readerPreferences.customBackgroundColor,
                     currentText = uiState.readerPreferences.customTextColor,
-                    currentAccent = uiState.readerPreferences.customAccentColor,
-                    onColorChange = { bg, text, accent ->
+                    currentTitle = uiState.readerPreferences.customTitleColor,
+                    currentHeaderFooter = uiState.readerPreferences.customHeaderFooterColor,
+                    onColorChange = { bg, text, title, headerFooter ->
                         dispatch(ReaderIntent.UpdateSetting(
                             ReaderSettingKey.CUSTOM_THEME_COLOR,
-                            ReaderSettingValue.CustomThemeColor(bg, text, accent),
+                            ReaderSettingValue.CustomThemeColor(bg, text, title, headerFooter),
                         ))
                     },
                 )

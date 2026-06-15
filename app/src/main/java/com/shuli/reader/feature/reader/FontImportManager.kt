@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 /**
  * 字体导入管理器（从 ReaderViewModel 拆出，SRP）
@@ -26,7 +27,7 @@ internal class FontImportManager(
             android.util.Log.w("FontManager", "loadCustomFonts: fontManager 为 null")
             return
         }
-        val fonts = fm.listFonts()
+        val fonts = fm.listFonts(currentAppLocale())
         android.util.Log.d("FontManager", "loadCustomFonts: 加载了 ${fonts.size} 个自定义字体")
         uiState.value = uiState.value.copy(customFonts = fonts)
     }
@@ -38,7 +39,7 @@ internal class FontImportManager(
         }
         scope.launch(Dispatchers.IO) {
             try {
-                val entry = fm.importFont(uri, displayName)
+                val entry = fm.importFont(uri, displayName, currentAppLocale())
                 android.util.Log.d("FontManager", "字体导入成功: id=${entry.id}, file=${entry.file.name}, size=${entry.file.length()}")
                 withContext(Dispatchers.Main) {
                     loadCustomFonts()
@@ -67,5 +68,12 @@ internal class FontImportManager(
         val fm = fontManager ?: return
         fm.deleteFontById(fontId)
         loadCustomFonts()
+    }
+
+    /** 根据当前应用语言设置返回对应 Locale，用于 name 表的本地化条目选择。 */
+    private fun currentAppLocale(): Locale = when (stringResolver()) {
+        is AppStrings.ZhHant -> Locale.TRADITIONAL_CHINESE   // zh-TW
+        is AppStrings.En -> Locale.ENGLISH                  // en
+        else -> Locale.SIMPLIFIED_CHINESE                   // zh-CN (默认)
     }
 }

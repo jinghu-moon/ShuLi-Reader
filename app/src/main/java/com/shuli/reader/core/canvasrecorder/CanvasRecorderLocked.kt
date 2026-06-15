@@ -14,7 +14,7 @@ class CanvasRecorderLocked(private val delegate: CanvasRecorder) :
 
     var lock: ReentrantLock? = ReentrantLock()
 
-    /** recycle() 后置位，后续 beginRecording/recordIfNeeded 直接短路，避免在已回收的 delegate 上操作。 */
+    /** recycle() 后置位；下一次 beginRecording() 会重新初始化底层资源并复活。 */
     @Volatile
     private var recycled: Boolean = false
 
@@ -31,6 +31,13 @@ class CanvasRecorderLocked(private val delegate: CanvasRecorder) :
     override fun beginRecording(width: Int, height: Int): Canvas {
         initLock()
         lock!!.lock()
+        // 复用即复活：recycle() 后页面对象可能被缓存复用并重新录制。
+        // delegate.beginRecording() 内部会 init() 重新取 Picture/RenderNode，
+        // 故此处复位 recycled，使 begin/end/draw 在新生命周期内保持对称——
+        // 否则 endRecording 会因 recycled 短路而跳过 picture.endRecording()，
+        // 导致 Picture 停留在 recording 状态，下一帧再 beginRecording 即抛
+        // "Picture already recording"。
+        recycled = false
         return delegate.beginRecording(width, height)
     }
 

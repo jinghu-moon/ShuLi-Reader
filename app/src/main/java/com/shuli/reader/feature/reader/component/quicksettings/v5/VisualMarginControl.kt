@@ -1,22 +1,19 @@
 package com.shuli.reader.feature.reader.component.quicksettings.v5
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,12 +22,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import com.shuli.reader.feature.reader.component.quicksettings.v5.controls.InkCircleButton
+import com.shuli.reader.feature.reader.component.quicksettings.v5.controls.InkToggle
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 
 /**
@@ -44,187 +45,216 @@ data class MarginValues(
 )
 
 /**
- * 四边距可视化控件。
+ * 四边距可视化控件（对应原型 §4.6.1 .margin-control）。
  *
- * 顶部显示缩略图（反映四边距比例），下方是 4 组步进器 + 同步开关。
+ * 中心为页面缩略图（实时反映四边距比例），四周环绕圆形步进器；
+ * 底部同步开关开启时，调上自动同步下、调左自动同步右。
+ *
+ * @param margins 当前四边距（dp）
+ * @param onMarginsChange 变化回调
+ * @param range 取值范围（dp）
+ * @param step 单次步进量（dp）
  */
 @Composable
 fun VisualMarginControl(
     margins: MarginValues,
     onMarginsChange: (MarginValues) -> Unit,
     modifier: Modifier = Modifier,
-    range: ClosedFloatingPointRange<Float> = 0f..120f,
-    step: Float = 6f,
+    range: ClosedFloatingPointRange<Float> = 0f..96f,
+    step: Float = 4f,
 ) {
-    val readerColors = LocalReaderColorScheme.current
-    var syncVertical by remember { mutableStateOf(false) }
-    var syncHorizontal by remember { mutableStateOf(false) }
+    val colors = LocalReaderColorScheme.current
+    var sync by remember { mutableStateOf(false) }
+
+    fun update(side: String, delta: Float) {
+        val next = when (side) {
+            "top" -> {
+                val v = (margins.top + delta).coerceIn(range)
+                margins.copy(top = v, bottom = if (sync) v else margins.bottom)
+            }
+            "bottom" -> {
+                val v = (margins.bottom + delta).coerceIn(range)
+                margins.copy(bottom = v, top = if (sync) v else margins.top)
+            }
+            "left" -> {
+                val v = (margins.left + delta).coerceIn(range)
+                margins.copy(left = v, right = if (sync) v else margins.right)
+            }
+            else -> {
+                val v = (margins.right + delta).coerceIn(range)
+                margins.copy(right = v, left = if (sync) v else margins.left)
+            }
+        }
+        onMarginsChange(next)
+    }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
+            .padding(vertical = 4.dp)
             .testTag("VisualMarginControl"),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        // 缩略图
-        MarginThumbnail(
-            margins = margins,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-                .padding(vertical = 8.dp)
-                .testTag("VisualMarginControl_Thumbnail"),
-        )
-
-        // 同步开关
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("↕ 同步", style = MaterialTheme.typography.labelSmall, color = readerColors.textSecondary)
-                Switch(
-                    checked = syncVertical,
-                    onCheckedChange = { syncVertical = it },
-                    modifier = Modifier.padding(start = 4.dp).testTag("VisualMarginControl_SyncV"),
-                )
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("↔ 同步", style = MaterialTheme.typography.labelSmall, color = readerColors.textSecondary)
-                Switch(
-                    checked = syncHorizontal,
-                    onCheckedChange = { syncHorizontal = it },
-                    modifier = Modifier.padding(start = 4.dp).testTag("VisualMarginControl_SyncH"),
-                )
-            }
-        }
-
         // 上
-        StepperSlider(
-            value = margins.top,
-            onValueChange = { newTop ->
-                onMarginsChange(
-                    margins.copy(
-                        top = newTop,
-                        bottom = if (syncVertical) newTop else margins.bottom,
-                    )
-                )
-            },
-            valueRange = range,
-            step = step,
+        MarginStepper(
             label = "上",
-            formatValue = { "${it.toInt()}dp" },
+            value = margins.top,
+            vertical = false,
+            onDec = { update("top", -step) },
+            onInc = { update("top", step) },
+            range = range,
             testTagPrefix = "MarginTop",
         )
+        // 左 | 缩略图 | 右
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            MarginStepper(
+                label = "左",
+                value = margins.left,
+                vertical = true,
+                onDec = { update("left", -step) },
+                onInc = { update("left", step) },
+                range = range,
+                testTagPrefix = "MarginLeft",
+            )
+            MarginThumbnail(
+                margins = margins,
+                range = range,
+                modifier = Modifier
+                    .size(width = 72.dp, height = 100.dp)
+                    .testTag("VisualMarginControl_Thumbnail"),
+            )
+            MarginStepper(
+                label = "右",
+                value = margins.right,
+                vertical = true,
+                onDec = { update("right", -step) },
+                onInc = { update("right", step) },
+                range = range,
+                testTagPrefix = "MarginRight",
+            )
+        }
         // 下
-        StepperSlider(
-            value = margins.bottom,
-            onValueChange = { newBottom ->
-                onMarginsChange(
-                    margins.copy(
-                        bottom = newBottom,
-                        top = if (syncVertical) newBottom else margins.top,
-                    )
-                )
-            },
-            valueRange = range,
-            step = step,
+        MarginStepper(
             label = "下",
-            formatValue = { "${it.toInt()}dp" },
+            value = margins.bottom,
+            vertical = false,
+            onDec = { update("bottom", -step) },
+            onInc = { update("bottom", step) },
+            range = range,
             testTagPrefix = "MarginBottom",
         )
-        // 左
-        StepperSlider(
-            value = margins.left,
-            onValueChange = { newLeft ->
-                onMarginsChange(
-                    margins.copy(
-                        left = newLeft,
-                        right = if (syncHorizontal) newLeft else margins.right,
-                    )
-                )
-            },
-            valueRange = range,
-            step = step,
-            label = "左",
-            formatValue = { "${it.toInt()}dp" },
-            testTagPrefix = "MarginLeft",
-        )
-        // 右
-        StepperSlider(
-            value = margins.right,
-            onValueChange = { newRight ->
-                onMarginsChange(
-                    margins.copy(
-                        right = newRight,
-                        left = if (syncHorizontal) newRight else margins.left,
-                    )
-                )
-            },
-            valueRange = range,
-            step = step,
-            label = "右",
-            formatValue = { "${it.toInt()}dp" },
-            testTagPrefix = "MarginRight",
-        )
+        // 同步开关
+        Row(
+            modifier = Modifier.padding(top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            InkToggle(
+                checked = sync,
+                onCheckedChange = {
+                    sync = it
+                    if (it) {
+                        onMarginsChange(margins.copy(bottom = margins.top, right = margins.left))
+                    }
+                },
+                modifier = Modifier.testTag("VisualMarginControl_Sync"),
+            )
+            Text(
+                text = "同步上下 / 左右",
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.textTertiary,
+            )
+        }
     }
 }
 
-/**
- * 缩略图：用矩形表示页面，四边距用彩色边线标示粗细。
- */
+@Composable
+private fun MarginStepper(
+    label: String,
+    value: Float,
+    vertical: Boolean,
+    onDec: () -> Unit,
+    onInc: () -> Unit,
+    range: ClosedFloatingPointRange<Float>,
+    testTagPrefix: String,
+) {
+    val colors = LocalReaderColorScheme.current
+    val valueText: @Composable () -> Unit = {
+        Text(
+            text = value.toInt().toString(),
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.textPrimary,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.width(28.dp).testTag("${testTagPrefix}_Value"),
+        )
+    }
+    val dec: @Composable () -> Unit = {
+        InkCircleButton("−", onDec, enabled = value > range.start + 0.0001f, size = 22.dp,
+            modifier = Modifier.testTag("${testTagPrefix}_Dec"))
+    }
+    val inc: @Composable () -> Unit = {
+        InkCircleButton("+", onInc, enabled = value < range.endInclusive - 0.0001f, size = 22.dp,
+            modifier = Modifier.testTag("${testTagPrefix}_Inc"))
+    }
+    if (vertical) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            inc()
+            valueText()
+            dec()
+            Text(label, style = MaterialTheme.typography.labelSmall, color = colors.textTertiary)
+        }
+    } else {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            dec()
+            valueText()
+            inc()
+            Text(label, style = MaterialTheme.typography.labelSmall, color = colors.textTertiary)
+        }
+    }
+}
+
 @Composable
 private fun MarginThumbnail(
     margins: MarginValues,
+    range: ClosedFloatingPointRange<Float>,
     modifier: Modifier = Modifier,
 ) {
-    val accent = LocalReaderColorScheme.current.accent
-    val textSecondary = LocalReaderColorScheme.current.textSecondary
-    val maxMargin = 120f
+    val colors = LocalReaderColorScheme.current
+    val maxV = range.endInclusive.coerceAtLeast(1f)
     Box(
         modifier = modifier
-            .aspectRatio(0.6f)
-            .background(Color.Transparent)
+            .clip(RoundedCornerShape(6.dp))
+            .background(colors.background)
+            .border(BorderStroke(1.dp, colors.divider), RoundedCornerShape(6.dp))
             .drawBehind {
-                val w = size.width
-                val h = size.height
-                val t = margins.top / maxMargin * h * 0.3f
-                val b = margins.bottom / maxMargin * h * 0.3f
-                val l = margins.left / maxMargin * w * 0.3f
-                val r = margins.right / maxMargin * w * 0.3f
-                // 外框
+                // 内层页面区域：按四边距比例内缩（比例上限 35%，保证可见）
+                val l = (margins.left / maxV) * size.width * 0.35f
+                val r = (margins.right / maxV) * size.width * 0.35f
+                val t = (margins.top / maxV) * size.height * 0.35f
+                val b = (margins.bottom / maxV) * size.height * 0.35f
+                val innerW = (size.width - l - r).coerceAtLeast(0f)
+                val innerH = (size.height - t - b).coerceAtLeast(0f)
                 drawRect(
-                    color = textSecondary.copy(alpha = 0.3f),
-                    size = size,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx()),
-                )
-                // 内容区域（白底）
-                drawRect(
-                    color = Color.White,
+                    color = colors.accent.copy(alpha = 0.12f),
                     topLeft = Offset(l, t),
-                    size = androidx.compose.ui.geometry.Size((w - l - r).coerceAtLeast(0f), (h - t - b).coerceAtLeast(0f)),
+                    size = Size(innerW, innerH),
                 )
-                // 四边距高亮边
-                val strokeW = 3.dp.toPx()
-                drawLine(accent, Offset(0f, t), Offset(w, t), strokeWidth = strokeW) // top
-                drawLine(accent, Offset(0f, h - b), Offset(w, h - b), strokeWidth = strokeW) // bottom
-                drawLine(accent, Offset(l, 0f), Offset(l, h), strokeWidth = strokeW) // left
-                drawLine(accent, Offset(w - r, 0f), Offset(w - r, h), strokeWidth = strokeW) // right
-                // 虚线表示文字行
-                val lineCount = 5
-                val lineHeight = (h - t - b) / (lineCount + 1)
-                val pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 4f))
-                for (i in 1..lineCount) {
-                    val y = t + lineHeight * i
-                    drawLine(
-                        color = textSecondary.copy(alpha = 0.4f),
-                        start = Offset(l + 4.dp.toPx(), y),
-                        end = Offset(w - r - 4.dp.toPx(), y),
-                        strokeWidth = 1.dp.toPx(),
-                        pathEffect = pathEffect,
-                    )
-                }
+                drawRect(
+                    color = colors.accent.copy(alpha = 0.5f),
+                    topLeft = Offset(l, t),
+                    size = Size(innerW, innerH),
+                    style = Stroke(width = 1.dp.toPx()),
+                )
             },
     )
 }

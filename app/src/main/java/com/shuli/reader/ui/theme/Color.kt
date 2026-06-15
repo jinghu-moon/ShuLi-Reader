@@ -14,6 +14,19 @@ val MoTuInk800 = Color(0xFF2C231A)
 val MoTuInk900 = Color(0xFF1A130B)
 val MoTuInk950 = Color(0xFF0C0804)
 
+// ── 护眼绿色系（#D7E3D7 浅豆沙绿底 + #142014 深墨绿字）──
+val BambooGreen50 = Color(0xFFEEF4EE)
+val BambooGreen100 = Color(0xFFD7E3D7)
+val BambooGreen200 = Color(0xFFB5C7B5)
+val BambooGreen300 = Color(0xFF8FA78F)
+val BambooGreen400 = Color(0xFF6C856C)
+val BambooGreen500 = Color(0xFF4F674F)
+val BambooGreen600 = Color(0xFF3A4E3A)
+val BambooGreen700 = Color(0xFF2C3C2C)
+val BambooGreen800 = Color(0xFF202C20)
+val BambooGreen900 = Color(0xFF142014)
+val BambooGreen950 = Color(0xFF0A120A)
+
 val AppBackground = MoTuInk50
 val AppSurface = Color(0xFFFFFFFF)
 val AppSurfaceVariant = MoTuInk100

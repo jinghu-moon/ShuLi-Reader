@@ -12,6 +12,7 @@ import com.shuli.reader.core.reader.model.TextPage
 import com.shuli.reader.core.reader.Paginator
 import com.shuli.reader.core.repository.BookContentRepository
 import com.shuli.reader.core.text.ChineseConverter
+import com.shuli.reader.core.text.ContentCleaner
 import com.shuli.reader.core.text.PanguSpacing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -68,7 +69,8 @@ class ChapterPaginationCoordinator(
         }
 
         val convertedText = applyChineseConvert(chapterText, prefs.chineseConvert)
-        val finalText = if (prefs.usePanguSpacing) PanguSpacing.insert(convertedText) else convertedText
+        val panguText = if (prefs.usePanguSpacing) PanguSpacing.insert(convertedText) else convertedText
+        val finalText = applyContentCleaning(panguText, prefs)
 
         val showHeader = prefs.header.visibility != HeaderVisibility.ALWAYS_HIDE
         val showFooter = prefs.footer.visibility != HeaderVisibility.ALWAYS_HIDE
@@ -109,10 +111,15 @@ class ChapterPaginationCoordinator(
         cacheManager.getChapter(cacheKey)?.let { cached ->
             android.util.Log.d(TAG, "openChapter[$index]: 缓存命中, pages=${cached.pageSize}")
             return scope.launch {
+                val displayTitle = if (prefs.cleanChapterTitle) {
+                    ContentCleaner.cleanChapterTitle(chapterMeta.title)
+                } else {
+                    chapterMeta.title
+                }
                 uiState.value = uiState.value.copy(
                     currentChapter = cached,
                     chapterIndex = index,
-                    chapterTitle = chapterMeta.title,
+                    chapterTitle = displayTitle,
                     totalPages = cached.pageSize,
                     chapterPageCounts = uiState.value.chapterPageCounts + (index to cached.pageSize),
                     isLoading = false,
@@ -157,7 +164,8 @@ class ChapterPaginationCoordinator(
 
                 val convertedText = applyChineseConvert(chapterText, uiState.value.readerPreferences.chineseConvert)
                 val panguPrefs = uiState.value.readerPreferences
-                val finalText = if (panguPrefs.usePanguSpacing) PanguSpacing.insert(convertedText) else convertedText
+                val panguText = if (panguPrefs.usePanguSpacing) PanguSpacing.insert(convertedText) else convertedText
+                val finalText = applyContentCleaning(panguText, panguPrefs)
 
                 val chapter = TextChapter(
                     chapterIndex = index,
@@ -208,10 +216,15 @@ class ChapterPaginationCoordinator(
                 }
 
                 val isReflow2 = uiState.value.currentPage != null
+                val displayTitle = if (uiState.value.readerPreferences.cleanChapterTitle) {
+                    ContentCleaner.cleanChapterTitle(chapterMeta.title)
+                } else {
+                    chapterMeta.title
+                }
                 uiState.value = uiState.value.copy(
                     currentChapter = chapter,
                     chapterIndex = index,
-                    chapterTitle = chapterMeta.title,
+                    chapterTitle = displayTitle,
                     currentPage = if (isReflow2) uiState.value.currentPage else null,
                     pageIndex = if (isReflow2) uiState.value.pageIndex else 0,
                     totalPages = if (isReflow2) uiState.value.totalPages else 0,
@@ -237,7 +250,11 @@ class ChapterPaginationCoordinator(
     /**
      * R7: 预加载相邻章节（异步，不阻塞当前流程）
      */
-    fun preloadAdjacentChapters(content: BookContent, currentIndex: Int) {
+    fun preloadAdjacentChapters(
+        content: BookContent,
+        currentIndex: Int,
+        onChapterPreloaded: (() -> Unit)? = null,
+    ) {
         val chapters = content.normalizeChapters()
         val config = layoutConfigFor(uiState.value.readerPreferences)
 
@@ -264,7 +281,8 @@ class ChapterPaginationCoordinator(
                 }
 
                 val convertedText = applyChineseConvert(chapterText, prefs.chineseConvert)
-                val finalText = if (prefs.usePanguSpacing) PanguSpacing.insert(convertedText) else convertedText
+                val panguText = if (prefs.usePanguSpacing) PanguSpacing.insert(convertedText) else convertedText
+                val finalText = applyContentCleaning(panguText, prefs)
 
                 val result = paginator.paginateChapter(
                     chapterIndex = index,
@@ -273,8 +291,37 @@ class ChapterPaginationCoordinator(
                     config = config,
                 )
                 cacheManager.putChapter(cacheKey, result)
+                onChapterPreloaded?.let { callback ->
+                    scope.launch { callback() }
+                }
             }
         }
+    }
+
+    /**
+     * 同步查询已缓存章节的指定页面。未命中返回 null。
+     *
+     * 用于跨章翻页前查询下一章首页 / 上一章末页，让 [com.shuli.reader.feature.reader.render.ReaderRenderInputMapper]
+     * 把 nextPage / prevPage 填上跨章页面，消除动画空白帧。
+     */
+    fun getCachedPage(chapterIndex: Int, pageIndex: Int): TextPage? {
+        val cached = getCachedChapter(chapterIndex) ?: return null
+        // 最后一页特殊处理：pageIndex < 0 时返回末页
+        return if (pageIndex < 0) cached.getPage(cached.lastIndex) else cached.getPage(pageIndex)
+    }
+
+    /**
+     * 同步查询已缓存章节。只读缓存，不触发加载或分页。
+     */
+    fun getCachedChapter(chapterIndex: Int): TextChapter? {
+        if (chapterIndex < 0) return null
+        val content = loadedBookContentProvider() ?: return null
+        val chapters = content.normalizeChapters()
+        if (chapterIndex >= chapters.size) return null
+        val config = layoutConfigFor(uiState.value.readerPreferences)
+        val prefs = uiState.value.readerPreferences
+        val cacheKey = buildCacheKey(chapterIndex, config, prefs)
+        return cacheManager.getChapter(cacheKey)
     }
 
     fun reflowCurrentChapter(preferences: ReaderPreferences) {
@@ -334,6 +381,8 @@ class ChapterPaginationCoordinator(
             titleSizeOffsetSp = prefs.titleStyle.sizeOffsetSp,
             titleMarginTopDp = prefs.titleStyle.marginTopDp,
             titleMarginBottomDp = prefs.titleStyle.marginBottomDp,
+            removeEmptyLines = prefs.removeEmptyLines,
+            preserveOriginalIndent = prefs.preserveOriginalIndent,
         )
     }
 
@@ -343,6 +392,21 @@ class ChapterPaginationCoordinator(
             ChineseConvert.SIMPLIFIED -> ChineseConverter.toSimplified(text)
             ChineseConvert.TRADITIONAL -> ChineseConverter.toTraditional(text)
         }
+    }
+
+    /**
+     * 应用内容清理：移除多余空行、保留原文缩进、清理章节标题等。
+     * 根据用户设置决定是否启用。
+     */
+    private fun applyContentCleaning(text: String, prefs: ReaderPreferences): String {
+        var result = text
+        if (prefs.removeEmptyLines) {
+            result = ContentCleaner.removeEmptyLines(result)
+        }
+        if (prefs.preserveOriginalIndent) {
+            result = ContentCleaner.preserveOriginalIndent(result)
+        }
+        return result
     }
 
     companion object {

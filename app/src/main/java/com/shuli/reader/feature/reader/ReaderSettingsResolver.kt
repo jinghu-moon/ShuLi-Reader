@@ -44,6 +44,7 @@ fun BookReaderPrefsOverrides.mergeOnto(global: ReaderPreferences): ReaderPrefere
         lineSpacing = this.lineSpacing ?: global.lineSpacing,
         paragraphSpacing = this.paragraphSpacing ?: global.paragraphSpacing,
         indent = this.indent ?: global.indent,
+        preserveOriginalIndent = this.preserveOriginalIndent ?: global.preserveOriginalIndent,
         indentUnit = this.indentUnit?.toIndentUnit() ?: global.indentUnit,
         pageAnimType = this.pageAnimType?.toPageAnimType() ?: global.pageAnimType,
         pageAnimSpeed = this.pageAnimSpeed?.let {
@@ -54,7 +55,8 @@ fun BookReaderPrefsOverrides.mergeOnto(global: ReaderPreferences): ReaderPrefere
         } ?: global.backgroundColor,
         customBackgroundColor = this.customBackgroundColor ?: global.customBackgroundColor,
         customTextColor = this.customTextColor ?: global.customTextColor,
-        customAccentColor = this.customAccentColor ?: global.customAccentColor,
+        customTitleColor = this.customTitleColor ?: global.customTitleColor,
+        customHeaderFooterColor = this.customHeaderFooterColor ?: global.customHeaderFooterColor,
         marginHorizontal = this.marginHorizontal ?: global.marginHorizontal,
         marginVertical = this.marginVertical ?: global.marginVertical,
         marginTop = this.marginTop ?: global.marginTop,
@@ -67,7 +69,6 @@ fun BookReaderPrefsOverrides.mergeOnto(global: ReaderPreferences): ReaderPrefere
         readingFont = this.readingFont ?: global.readingFont,
         optimizeRender = global.optimizeRender,
         letterSpacing = this.letterSpacing ?: global.letterSpacing,
-        wordSpacing = this.wordSpacing ?: global.wordSpacing,
         paragraphDivider = this.paragraphDivider ?: global.paragraphDivider,
         fontWeight = this.fontWeight?.toFontWeight() ?: global.fontWeight,
         textAlign = this.textAlign?.toTextAlign() ?: global.textAlign,
@@ -132,5 +133,6 @@ fun BookReaderPrefsOverrides.mergeOnto(global: ReaderPreferences): ReaderPrefere
         leftZoneRatio = this.leftZoneRatio ?: global.leftZoneRatio,
         focusLine = this.focusLine ?: global.focusLine,
         eyeCareReminderInterval = this.eyeCareReminderInterval ?: global.eyeCareReminderInterval,
+        gestureConfig = this.gestureConfig ?: global.gestureConfig,
     )
 }

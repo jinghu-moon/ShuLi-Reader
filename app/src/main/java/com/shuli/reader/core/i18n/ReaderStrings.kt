@@ -135,6 +135,8 @@ interface ReaderStrings {
     val removeEmptyLinesDesc: String
     val cleanChapterTitleLabel: String
     val cleanChapterTitleDesc: String
+    val preserveOriginalIndentLabel: String
+    val preserveOriginalIndentDesc: String
     val progressStyleLabel: String
     val progressStyleChapterFraction: String
     val progressStyleChapterPercent: String

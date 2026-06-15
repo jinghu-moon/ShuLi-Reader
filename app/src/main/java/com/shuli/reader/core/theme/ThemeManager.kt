@@ -66,7 +66,12 @@ class ThemeManager(
             name = "OLED",
         )
 
-        val BUILTIN_THEMES = listOf(PaperTheme, LightTheme, DarkTheme, OledTheme)
+        val GreenTheme = ReaderThemeId.GREEN.toLegacyTheme(
+            id = "green",
+            name = "Green",
+        )
+
+        val BUILTIN_THEMES = listOf(PaperTheme, LightTheme, DarkTheme, OledTheme, GreenTheme)
     }
 
     private fun getDefaultTheme(): ReaderTheme = PaperTheme

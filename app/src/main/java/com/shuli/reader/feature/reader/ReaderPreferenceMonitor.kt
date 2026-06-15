@@ -138,22 +138,22 @@ internal class ReaderPreferenceMonitor(
                         lineSpacing = flows[1] as Float,
                         paragraphSpacing = flows[2] as Float,
                         indent = flows[3] as Float,
-                        indentUnit = (flows[15] as String).toIndentUnit(),
-                        marginHorizontal = flows[4] as Float,
-                        marginVertical = flows[5] as Float,
-                        letterSpacing = flows[6] as Float,
-                        useZhLayout = flows[7] as Boolean,
-                        chineseConvert = (flows[8] as String).toChineseConvert(),
-                        usePanguSpacing = flows[13] as Boolean,
-                        bottomJustify = flows[14] as Boolean,
+                        indentUnit = (flows[4] as String).toIndentUnit(),
+                        marginHorizontal = flows[5] as Float,
+                        marginVertical = flows[6] as Float,
+                        letterSpacing = flows[7] as Float,
+                        useZhLayout = flows[8] as Boolean,
+                        chineseConvert = (flows[9] as String).toChineseConvert(),
+                        usePanguSpacing = flows[14] as Boolean,
+                        bottomJustify = flows[15] as Boolean,
                     ),
                     TitleStyleConfig(
-                        align = (flows[9] as String).toTitleAlign(),
-                        sizeOffsetSp = flows[10] as Int,
-                        marginTopDp = flows[11] as Float,
-                        marginBottomDp = flows[12] as Float,
+                        align = (flows[10] as String).toTitleAlign(),
+                        sizeOffsetSp = flows[11] as Int,
+                        marginTopDp = flows[12] as Float,
+                        marginBottomDp = flows[13] as Float,
                     ),
-                    flows[8] as String, // chineseConvert raw
+                    flows[9] as String, // chineseConvert raw
                 )
             }
                 .collectLatest { (layoutPrefs, titleStyle, chineseConvertRaw) ->
@@ -268,6 +268,7 @@ internal class ReaderPreferenceMonitor(
         scope.launch {
             combine(
                 userPreferences.brightness,
+                userPreferences.colorTemperature,
                 userPreferences.keepScreenOn,
                 userPreferences.volumeKeyTurnPage,
                 userPreferences.edgeTurnPage,
@@ -275,10 +276,11 @@ internal class ReaderPreferenceMonitor(
             ) { flows: Array<Any> ->
                 ReaderBehaviorPrefs(
                     brightness = flows[0] as Float,
-                    keepScreenOn = flows[1] as Boolean,
-                    volumeKeyTurnPage = flows[2] as Boolean,
-                    edgeTurnPage = flows[3] as Boolean,
-                    edgeWidthPercent = flows[4] as Float,
+                    colorTemperature = flows[1] as Float,
+                    keepScreenOn = flows[2] as Boolean,
+                    volumeKeyTurnPage = flows[3] as Boolean,
+                    edgeTurnPage = flows[4] as Boolean,
+                    edgeWidthPercent = flows[5] as Float,
                 )
             }
                 .collectLatest { behavior ->
@@ -286,6 +288,7 @@ internal class ReaderPreferenceMonitor(
                     uiState.value = uiState.value.copy(
                         readerPreferences = current.copy(
                             brightness = behavior.brightness,
+                            colorTemperature = behavior.colorTemperature,
                             keepScreenOn = behavior.keepScreenOn,
                             volumeKeyTurnPage = behavior.volumeKeyTurnPage,
                             edgeTurnPage = behavior.edgeTurnPage,
@@ -338,6 +341,7 @@ internal data class ReaderVisualPrefs(
  */
 internal data class ReaderBehaviorPrefs(
     val brightness: Float,
+    val colorTemperature: Float,
     val keepScreenOn: Boolean,
     val volumeKeyTurnPage: Boolean,
     val edgeTurnPage: Boolean,

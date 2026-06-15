@@ -165,6 +165,23 @@ internal class ReaderNavigationCoordinator(
 
     fun toggleQuickSettings() = toggleOverlay(OverlayPanel.QUICK_SETTINGS)
 
+    fun openGestureZoneEditor() {
+        toolbarAutoHideJob?.cancel()
+        uiState.value = uiState.value.copy(
+            showToolbar = false,
+            showSearch = false,
+            selectedRange = null,
+            overlayPanel = OverlayPanel.GESTURE_EDITOR,
+        )
+        clearSearchResults()
+    }
+
+    fun closeGestureZoneEditor() {
+        if (uiState.value.overlayPanel == OverlayPanel.GESTURE_EDITOR) {
+            uiState.value = uiState.value.copy(overlayPanel = OverlayPanel.NONE)
+        }
+    }
+
     private fun toggleOverlay(panel: OverlayPanel) {
         resetToolbarAutoHide()
         val current = uiState.value.overlayPanel

@@ -38,6 +38,8 @@ class ReaderPrefsLayersTest {
         assertEquals(prefs.textAlign, style.textAlign)
         assertEquals(prefs.backgroundColor, style.backgroundColor)
         assertEquals(prefs.bionicReading, style.bionicReading)
+        assertEquals(prefs.adFiltering, style.adFiltering)
+        assertEquals(prefs.titleFont, style.titleFont)
     }
 
     @Test
@@ -52,11 +54,8 @@ class ReaderPrefsLayersTest {
         assertEquals(prefs.marginBottom, layout.marginBottom)
         assertEquals(prefs.marginLeft, layout.marginLeft)
         assertEquals(prefs.marginRight, layout.marginRight)
-        assertEquals(prefs.wordSpacing, layout.wordSpacing, 0.001f)
         assertEquals(prefs.paragraphDivider, layout.paragraphDivider)
         assertEquals(prefs.dualPageMode, layout.dualPageMode)
-        assertEquals(prefs.pageAnimSpeed, layout.pageAnimSpeed)
-        assertEquals(prefs.orientationLock, layout.orientationLock)
     }
 
     @Test

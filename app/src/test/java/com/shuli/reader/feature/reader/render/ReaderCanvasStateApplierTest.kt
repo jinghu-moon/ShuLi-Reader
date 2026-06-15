@@ -154,7 +154,13 @@ class FakeReaderCanvasView : RenderApplierTarget {
         // no-op in test
     }
 
-    override fun applySnapshot(snapshot: Any, diff: Any, pageDelegate: com.shuli.reader.core.reader.animation.PageDelegate?) {
+    override fun applySnapshot(
+        snapshot: Any,
+        diff: Any,
+        pageDelegate: com.shuli.reader.core.reader.animation.PageDelegate?,
+        chapterContent: CharSequence,
+        chapterContents: Map<Int, CharSequence>,
+    ) {
         applyCount++
     }
 }

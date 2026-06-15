@@ -52,5 +52,11 @@ interface RenderApplierTarget {
      * [com.shuli.reader.feature.reader.render.ReaderRenderSnapshot] /
      * [com.shuli.reader.feature.reader.render.ReaderRenderDiff]。
      */
-    fun applySnapshot(snapshot: Any, diff: Any, pageDelegate: PageDelegate? = null)
+    fun applySnapshot(
+        snapshot: Any,
+        diff: Any,
+        pageDelegate: PageDelegate? = null,
+        chapterContent: CharSequence = "",
+        chapterContents: Map<Int, CharSequence> = emptyMap(),
+    )
 }

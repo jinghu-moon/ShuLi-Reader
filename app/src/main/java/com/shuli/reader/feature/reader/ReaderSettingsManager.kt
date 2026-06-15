@@ -133,7 +133,6 @@ internal class ReaderSettingsManager(
             marginLeft = p.marginLeft,
             marginRight = p.marginRight,
             letterSpacing = p.letterSpacing,
-            wordSpacing = p.wordSpacing,
             paragraphDivider = p.paragraphDivider,
             readingFont = p.readingFont,
             fontWeight = p.fontWeight.toStorageString(),
@@ -150,7 +149,8 @@ internal class ReaderSettingsManager(
             backgroundColor = p.backgroundColor.name,
             customBackgroundColor = p.customBackgroundColor,
             customTextColor = p.customTextColor,
-            customAccentColor = p.customAccentColor,
+            customTitleColor = p.customTitleColor,
+            customHeaderFooterColor = p.customHeaderFooterColor,
             brightness = p.brightness,
             colorTemperature = p.colorTemperature,
             backgroundTexture = p.backgroundTexture,
@@ -198,6 +198,7 @@ internal class ReaderSettingsManager(
             ttsVoice = p.ttsVoice,
             ttsAutoPage = p.ttsAutoPage,
             ttsTimer = p.ttsTimer,
+            gestureConfig = p.gestureConfig,
         )
     }
 
@@ -237,14 +238,16 @@ internal class ReaderSettingsManager(
     fun setCustomThemeColor(
         backgroundColor: Int? = uiState.value.readerPreferences.customBackgroundColor,
         textColor: Int? = uiState.value.readerPreferences.customTextColor,
-        accentColor: Int? = uiState.value.readerPreferences.customAccentColor,
+        titleColor: Int? = uiState.value.readerPreferences.customTitleColor,
+        headerFooterColor: Int? = uiState.value.readerPreferences.customHeaderFooterColor,
     ) {
         val currentPrefs = uiState.value.readerPreferences
         val newPrefs = currentPrefs.copy(
             backgroundColor = ReaderTheme.CUSTOM,
             customBackgroundColor = backgroundColor,
             customTextColor = textColor,
-            customAccentColor = accentColor,
+            customTitleColor = titleColor,
+            customHeaderFooterColor = headerFooterColor,
         )
         uiState.value = uiState.value.copy(
             readerPreferences = newPrefs,
@@ -253,7 +256,8 @@ internal class ReaderSettingsManager(
         // 持久化
         scope.launch { userPreferences?.setCustomBackgroundColor(backgroundColor) }
         scope.launch { userPreferences?.setCustomTextColor(textColor) }
-        scope.launch { userPreferences?.setCustomAccentColor(accentColor) }
+        scope.launch { userPreferences?.setCustomTitleColor(titleColor) }
+        scope.launch { userPreferences?.setCustomHeaderFooterColor(headerFooterColor) }
         scope.launch { userPreferences?.setBackgroundColor(ReaderTheme.CUSTOM.name) }
     }
 
@@ -262,7 +266,8 @@ internal class ReaderSettingsManager(
         val next = when (current) {
             ReaderTheme.LIGHT -> ReaderTheme.DARK
             ReaderTheme.DARK -> ReaderTheme.PAPER
-            ReaderTheme.PAPER -> ReaderTheme.LIGHT
+            ReaderTheme.PAPER -> ReaderTheme.GREEN
+            ReaderTheme.GREEN -> ReaderTheme.LIGHT
             ReaderTheme.OLED -> ReaderTheme.PAPER
             ReaderTheme.CUSTOM -> ReaderTheme.LIGHT
         }
@@ -368,9 +373,22 @@ internal class ReaderSettingsManager(
     fun setBrightness(brightness: Float, finished: Boolean = false) {
         resetToolbarAutoHide()
         updatePrefs(
-            { it.copy(brightness = brightness) },
-            { if (finished) it.setBrightness(brightness) },
+            transform = { it.copy(brightness = brightness) },
+            save = { it.setBrightness(brightness) },
             bookOverride = { o -> o.copy(brightness = brightness) },
+            persist = finished,
+        )
+    }
+
+    // ── 色温 ──────────────────────────────────────────────
+
+    fun setColorTemperature(temperature: Float, finished: Boolean = false) {
+        resetToolbarAutoHide()
+        updatePrefs(
+            transform = { it.copy(colorTemperature = temperature) },
+            save = { it.setColorTemperature(temperature) },
+            bookOverride = { o -> o.copy(colorTemperature = temperature) },
+            persist = finished,
         )
     }
 
@@ -575,6 +593,12 @@ internal class ReaderSettingsManager(
             bookOverride = { o -> o.copy(cleanChapterTitle = enabled) }, reflow = true)
     }
 
+    fun setPreserveOriginalIndent(enabled: Boolean) {
+        resetToolbarAutoHide()
+        updatePrefs({ it.copy(preserveOriginalIndent = enabled) }, { it.setPreserveOriginalIndent(enabled) },
+            bookOverride = { o -> o.copy(preserveOriginalIndent = enabled) }, reflow = true)
+    }
+
     fun setProgressStyle(style: ProgressStyle) {
         resetToolbarAutoHide()
         updatePrefs({ it.copy(progressStyle = style) }, { it.setProgressStyle(style.toStorageString()) },
@@ -617,6 +641,7 @@ internal class ReaderSettingsManager(
         save: suspend (UserPreferences) -> Unit,
         bookOverride: ((BookReaderPrefsOverrides) -> BookReaderPrefsOverrides)? = null,
         reflow: Boolean = false,
+        persist: Boolean = true,
     ) {
         val updated = transform(uiState.value.readerPreferences)
         uiState.value = uiState.value.copy(
@@ -624,6 +649,7 @@ internal class ReaderSettingsManager(
             isReflowing = reflow,
         )
         if (reflow) reflowCurrentChapter(updated)
+        if (!persist) return
         val currentScope = uiState.value.settingsScope
         if (currentScope == SettingsScope.BOOK && bookOverride != null) {
             saveBookOverrideField(uiState.value.bookId, bookOverride)
@@ -647,4 +673,70 @@ internal class ReaderSettingsManager(
         )
         if (reflow) reflowCurrentChapter(updated)
     }
+
+    // ── 批量接入的 Boolean / 简单类型持久化 setter ──
+    // 把原本走 updatePrefsGeneric（仅内存）的设置项一次性接入 DataStore + BookOverride。
+
+    fun setFocusLine(enabled: Boolean, reflow: Boolean = false) = updatePrefs(
+        transform = { it.copy(focusLine = enabled) },
+        save = { it.setFocusLine(enabled) },
+        bookOverride = { o -> o.copy(focusLine = enabled) },
+        reflow = reflow,
+    )
+
+    fun setBionicReading(enabled: Boolean, reflow: Boolean = false) = updatePrefs(
+        transform = { it.copy(bionicReading = enabled) },
+        save = { it.setBionicReading(enabled) },
+        bookOverride = { o -> o.copy(bionicReading = enabled) },
+        reflow = reflow,
+    )
+
+    fun setVerticalText(enabled: Boolean, reflow: Boolean = false) = updatePrefs(
+        transform = { it.copy(verticalText = enabled) },
+        save = { it.setVerticalText(enabled) },
+        bookOverride = { o -> o.copy(verticalText = enabled) },
+        reflow = reflow,
+    )
+
+    fun setHapticFeedback(enabled: Boolean, reflow: Boolean = false) = updatePrefs(
+        transform = { it.copy(hapticFeedback = enabled) },
+        save = { it.setHapticFeedback(enabled) },
+        bookOverride = { o -> o.copy(hapticFeedback = enabled) },
+        reflow = reflow,
+    )
+
+    fun setAdFiltering(enabled: Boolean, reflow: Boolean = false) = updatePrefs(
+        transform = { it.copy(adFiltering = enabled) },
+        save = { it.setAdFiltering(enabled) },
+        bookOverride = { o -> o.copy(adFiltering = enabled) },
+        reflow = reflow,
+    )
+
+    fun setParagraphDivider(enabled: Boolean, reflow: Boolean = false) = updatePrefs(
+        transform = { it.copy(paragraphDivider = enabled) },
+        save = { it.setParagraphDivider(enabled) },
+        bookOverride = { o -> o.copy(paragraphDivider = enabled) },
+        reflow = reflow,
+    )
+
+    fun setEyeCareReminderInterval(minutes: Int, reflow: Boolean = false) = updatePrefs(
+        transform = { it.copy(eyeCareReminderInterval = minutes) },
+        save = { it.setEyeCareReminderInterval(minutes) },
+        bookOverride = { o -> o.copy(eyeCareReminderInterval = minutes) },
+        reflow = reflow,
+    )
+
+    fun setBackgroundTexture(texture: String, reflow: Boolean = false) = updatePrefs(
+        transform = { it.copy(backgroundTexture = texture.ifEmpty { null }) },
+        save = { it.setBackgroundTexture(texture) },
+        bookOverride = { o -> o.copy(backgroundTexture = texture.ifEmpty { null }) },
+        reflow = reflow,
+    )
+
+    fun setOrientationLock(lock: com.shuli.reader.core.data.OrientationLock, reflow: Boolean = false) = updatePrefs(
+        transform = { it.copy(orientationLock = lock) },
+        save = { it.setOrientationLock(lock.name) },
+        bookOverride = { o -> o.copy(orientationLock = lock.name) },
+        reflow = reflow,
+    )
 }

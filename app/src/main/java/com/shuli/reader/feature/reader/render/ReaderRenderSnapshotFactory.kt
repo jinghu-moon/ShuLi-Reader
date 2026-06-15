@@ -16,6 +16,8 @@ data class ReaderRenderInput(
     val settings: ReaderSettingsSnapshot,
     val overlay: OverlaySnapshot,
     val pageDelegate: PageDelegate?,
+    val chapterContent: CharSequence = "",
+    val chapterContents: Map<Int, CharSequence> = emptyMap(),
 )
 
 /**
@@ -43,6 +45,8 @@ data class ReaderSettingsSnapshot(
     val letterSpacing: Float,
     val fontWeight: ReaderFontWeight,
     val fontKey: String,
+    val gestureConfig: com.shuli.reader.feature.reader.settings.GestureConfig =
+        com.shuli.reader.feature.reader.settings.GestureConfig(),
 )
 
 /**
@@ -110,6 +114,7 @@ class ReaderRenderSnapshotFactory {
             edgeTurnPage = settings.edgeTurnPage,
             edgeWidthPercent = settings.edgeWidthPercent,
             leftZoneRatio = settings.leftZoneRatio,
+            gestureConfig = settings.gestureConfig,
             shellKey = RenderKey(
                 textAlign = ReaderTextAlign.LEFT,
                 themeColors = settings.themeColors,

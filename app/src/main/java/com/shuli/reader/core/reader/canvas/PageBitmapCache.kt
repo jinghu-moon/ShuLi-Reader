@@ -33,11 +33,42 @@ class PageBitmapCache(
         w: Int,
         h: Int,
         content: CharSequence,
+        contentChapterIndex: Int,
         renderContext: RenderContext,
         backgroundPaint: Paint,
         textPaint: Paint,
         selectionPaint: Paint,
     ): Boolean {
+        // page 与 content 必须来自同一章。仅靠字符区间无法识别 ch2[0] + ch1 content
+        // 这种 offset 合法但语义错误的组合，会把下一章首页静默录成上一章首页。
+        if (page.chapterIndex != contentChapterIndex) {
+            if (com.shuli.reader.BuildConfig.DEBUG) {
+                android.util.Log.w(
+                    "PageBitmapCache",
+                    "skip record: page chapter=${page.chapterIndex} pi=${page.pageIndex} " +
+                        "contentChapter=$contentChapterIndex",
+                )
+            }
+            page.invalidateAll()
+            return false
+        }
+
+        // 跨章防御：page 的字符偏移必须落在 content 范围内。若 page 来自相邻章节而
+        // content 是当前章节正文，则 endCharOffset 可能 > content.length，drawText 会 IOOB。
+        // 这里不能 recycle：TextPage 会被章节缓存复用，recycle 后若没有立刻用正确 content
+        // 复录，会让后续绘制进入资源生命周期竞态。保持 dirty，等正确章节 content 到位后重录。
+        if (page.startCharOffset < 0 || page.endCharOffset > content.length) {
+            if (com.shuli.reader.BuildConfig.DEBUG) {
+                android.util.Log.w(
+                    "PageBitmapCache",
+                    "skip record: page chapter=${page.chapterIndex} pi=${page.pageIndex} " +
+                        "range=[${page.startCharOffset},${page.endCharOffset}) contentLen=${content.length}",
+                )
+            }
+            page.invalidateAll()
+            return false
+        }
+
         val shellDirty = page.shellRecorder.recordIfNeeded(w, h) {
             pageRenderer.renderShell(
                 canvas = this,
@@ -81,13 +112,14 @@ class PageBitmapCache(
         width: Int,
         height: Int,
         content: CharSequence,
+        contentChapterIndex: Int,
         renderContext: RenderContext,
         backgroundPaint: Paint,
         textPaint: Paint,
         selectionPaint: Paint,
     ) {
         if (width <= 0 || height <= 0) return
-        doRecordPage(page, width, height, content, renderContext, backgroundPaint, textPaint, selectionPaint)
+        doRecordPage(page, width, height, content, contentChapterIndex, renderContext, backgroundPaint, textPaint, selectionPaint)
     }
 
     /**
@@ -99,12 +131,13 @@ class PageBitmapCache(
         w: Int,
         h: Int,
         content: CharSequence,
+        contentChapterIndex: Int,
         renderContext: RenderContext,
         backgroundPaint: Paint,
         textPaint: Paint,
         selectionPaint: Paint,
     ): Boolean {
-        return doRecordPage(page, w, h, content, renderContext, backgroundPaint, textPaint, selectionPaint)
+        return doRecordPage(page, w, h, content, contentChapterIndex, renderContext, backgroundPaint, textPaint, selectionPaint)
     }
 
     /** 提交后台预渲染任务：录制 current/next/prev 三页，完成后触发重绘。 */
@@ -114,7 +147,7 @@ class PageBitmapCache(
         currentPage: TextPage?,
         nextPage: TextPage?,
         prevPage: TextPage?,
-        content: CharSequence,
+        chapterContents: Map<Int, CharSequence>,
         renderContext: RenderContext,
         backgroundPaint: Paint,
         textPaint: Paint,
@@ -124,14 +157,11 @@ class PageBitmapCache(
         if (width <= 0 || height <= 0) return
         renderThread.execute {
             var dirty = false
-            currentPage?.let {
-                if (recordPageOffMain(it, width, height, content, renderContext, backgroundPaint, textPaint, selectionPaint)) dirty = true
-            }
-            nextPage?.let {
-                if (recordPageOffMain(it, width, height, content, renderContext, backgroundPaint, textPaint, selectionPaint)) dirty = true
-            }
-            prevPage?.let {
-                if (recordPageOffMain(it, width, height, content, renderContext, backgroundPaint, textPaint, selectionPaint)) dirty = true
+            listOfNotNull(currentPage, nextPage, prevPage).forEach { page ->
+                val content = chapterContents[page.chapterIndex] ?: return@forEach
+                if (recordPageOffMain(page, width, height, content, page.chapterIndex, renderContext, backgroundPaint, textPaint, selectionPaint)) {
+                    dirty = true
+                }
             }
             if (dirty) postInvalidate()
         }

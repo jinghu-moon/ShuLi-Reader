@@ -24,7 +24,7 @@ class ReaderRenderOrchestrator(
         val gen = ++generation
         val nextSnapshot = snapshotFactory.build(input, generation = gen)
         val diff = ReaderRenderDiffCalculator.diff(currentSnapshot, nextSnapshot)
-        target.applySnapshot(nextSnapshot, diff, input.pageDelegate)
+        target.applySnapshot(nextSnapshot, diff, input.pageDelegate, input.chapterContent, input.chapterContents)
         currentSnapshot = nextSnapshot
     }
 
@@ -39,7 +39,7 @@ class ReaderRenderOrchestrator(
         if (generation != this.generation) return
         val nextSnapshot = snapshotFactory.build(input, generation = generation)
         val diff = ReaderRenderDiffCalculator.diff(currentSnapshot, nextSnapshot)
-        target.applySnapshot(nextSnapshot, diff, input.pageDelegate)
+        target.applySnapshot(nextSnapshot, diff, input.pageDelegate, input.chapterContent, input.chapterContents)
         currentSnapshot = nextSnapshot
     }
 
@@ -61,13 +61,13 @@ class ReaderRenderOrchestrator(
         if (elapsed > budgetMs && fallback != null) {
             val fallbackSnapshot = snapshotFactory.build(fallback, generation = gen)
             val diff = ReaderRenderDiffCalculator.diff(currentSnapshot, fallbackSnapshot)
-            target.applySnapshot(fallbackSnapshot, diff, fallback.pageDelegate)
+            target.applySnapshot(fallbackSnapshot, diff, fallback.pageDelegate, fallback.chapterContent, fallback.chapterContents)
             currentSnapshot = fallbackSnapshot
             return
         }
 
         val diff = ReaderRenderDiffCalculator.diff(currentSnapshot, nextSnapshot)
-        target.applySnapshot(nextSnapshot, diff, input.pageDelegate)
+        target.applySnapshot(nextSnapshot, diff, input.pageDelegate, input.chapterContent, input.chapterContents)
         currentSnapshot = nextSnapshot
     }
 

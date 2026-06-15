@@ -367,10 +367,14 @@ class ReaderViewModel(
             paginateChapterStreaming = { content, index, targetCharOffset, onDone ->
                 paginateChapterStreaming(content, index, targetCharOffset, onDone)
             },
-            preloadAdjacentChapters = { content, index -> preloadAdjacentChapters(content, index) },
+            preloadAdjacentChapters = { content, index ->
+                preloadAdjacentChapters(content, index)
+                // 异步预加载启动后，先同步查一次缓存（命中则立即填充；未命中由 onChapterLoaded 或下一次翻页兜底）
+                refreshCrossChapterPages()
+            },
             loadBookmarks = { bookmarkNotesManager.loadBookmarks() },
             loadNotes = { bookmarkNotesManager.loadNotes() },
-            onChapterLoaded = { },
+            onChapterLoaded = { refreshCrossChapterPages() },
             logPerf = { label, startMs -> logPerf(label, startMs) },
             byteToCharOffset = { byteToCharOffset(it) },
             charToByteOffset = { charToByteOffset(it) },
@@ -482,6 +486,8 @@ class ReaderViewModel(
             is ReaderIntent.ToggleToolbar -> navigationCoordinator.toggleToolbar()
             is ReaderIntent.ToggleDirectory -> navigationCoordinator.toggleDirectory()
             is ReaderIntent.ToggleQuickSettings -> navigationCoordinator.toggleQuickSettings()
+            is ReaderIntent.OpenGestureZoneEditor -> navigationCoordinator.openGestureZoneEditor()
+            is ReaderIntent.CloseGestureZoneEditor -> navigationCoordinator.closeGestureZoneEditor()
             is ReaderIntent.ToggleSearch -> navigationCoordinator.toggleSearch()
             is ReaderIntent.ClearSelection -> navigationCoordinator.clearTextSelection()
 
@@ -492,6 +498,11 @@ class ReaderViewModel(
 
             // ── 设置 ──
             is ReaderIntent.UpdateSetting -> dispatchSetting(intent.key, intent.value)
+            is ReaderIntent.UpdateContinuousSetting -> dispatchContinuousSetting(
+                intent.key,
+                intent.value,
+                intent.finished,
+            )
             is ReaderIntent.CycleTheme -> readerSettingsManager.cycleTheme()
             is ReaderIntent.ResetSettingsToDefault -> readerPresetManager.resetToDefault()
 
@@ -534,6 +545,29 @@ class ReaderViewModel(
             // ── 字体 ──
             is ReaderIntent.ImportFont -> fontImportManager.importFont(intent.uri)
             is ReaderIntent.DeleteFont -> fontImportManager.deleteFont(intent.fontKey)
+        }
+    }
+
+    /**
+     * 连续控件分发 —— 仅 BRIGHTNESS / COLOR_TEMPERATURE 支持 finished 标志，
+     * 其他键回退到 [dispatchSetting]（默认始终持久化）。
+     */
+    private fun dispatchContinuousSetting(
+        key: ReaderSettingKey,
+        value: ReaderSettingValue,
+        finished: Boolean,
+    ) {
+        val s = readerSettingsManager
+        when (key) {
+            ReaderSettingKey.BRIGHTNESS -> s.setBrightness(
+                (value as ReaderSettingValue.Float).value,
+                finished = finished,
+            )
+            ReaderSettingKey.COLOR_TEMPERATURE -> s.setColorTemperature(
+                (value as ReaderSettingValue.Float).value,
+                finished = finished,
+            )
+            else -> dispatchSetting(key, value)
         }
     }
 
@@ -596,23 +630,16 @@ class ReaderViewModel(
             ReaderSettingKey.LEFT_ZONE_RATIO -> s.setLeftZoneRatio((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.CUSTOM_THEME_COLOR -> {
                 val v = value as ReaderSettingValue.CustomThemeColor
-                s.setCustomThemeColor(v.backgroundColor, v.textColor, v.accentColor)
+                s.setCustomThemeColor(v.backgroundColor, v.textColor, v.titleColor, v.headerFooterColor)
             }
             // v5.1 Phase 1-4 新增设置（setter 待各 Phase 实现，暂用通用更新）
-            ReaderSettingKey.COLOR_TEMPERATURE -> s.updatePrefsGeneric(
-                { it.copy(colorTemperature = (value as ReaderSettingValue.Float).value) },
-                reflow = false,
+            ReaderSettingKey.COLOR_TEMPERATURE -> s.setColorTemperature(
+                (value as ReaderSettingValue.Float).value,
+                finished = true,
             )
-            ReaderSettingKey.FOCUS_LINE -> s.updatePrefsGeneric(
-                { it.copy(focusLine = (value as ReaderSettingValue.Bool).value) },
-                reflow = false,
-            )
-            ReaderSettingKey.WORD_SPACING -> s.updatePrefsGeneric(
-                { it.copy(wordSpacing = (value as ReaderSettingValue.Float).value) },
-                reflow = true,
-            )
-            ReaderSettingKey.PARAGRAPH_DIVIDER -> s.updatePrefsGeneric(
-                { it.copy(paragraphDivider = (value as ReaderSettingValue.Bool).value) },
+            ReaderSettingKey.FOCUS_LINE -> s.setFocusLine((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.PARAGRAPH_DIVIDER -> s.setParagraphDivider(
+                (value as ReaderSettingValue.Bool).value,
                 reflow = true,
             )
             ReaderSettingKey.MARGIN_TOP -> s.updatePrefsGeneric(
@@ -631,32 +658,26 @@ class ReaderViewModel(
                 { it.copy(marginRight = (value as ReaderSettingValue.Float).value) },
                 reflow = true,
             )
-            ReaderSettingKey.BIONIC_READING -> s.updatePrefsGeneric(
-                { it.copy(bionicReading = (value as ReaderSettingValue.Bool).value) },
+            ReaderSettingKey.BIONIC_READING -> s.setBionicReading(
+                (value as ReaderSettingValue.Bool).value,
                 reflow = true,
             )
-            ReaderSettingKey.VERTICAL_TEXT -> s.updatePrefsGeneric(
-                { it.copy(verticalText = (value as ReaderSettingValue.Bool).value) },
+            ReaderSettingKey.VERTICAL_TEXT -> s.setVerticalText(
+                (value as ReaderSettingValue.Bool).value,
                 reflow = true,
             )
             ReaderSettingKey.DUAL_PAGE_MODE -> s.updatePrefsGeneric(
                 { it.copy(dualPageMode = (value as ReaderSettingValue.DualPageMode).value) },
                 reflow = true,
             )
-            ReaderSettingKey.HAPTIC_FEEDBACK -> s.updatePrefsGeneric(
-                { it.copy(hapticFeedback = (value as ReaderSettingValue.Bool).value) },
-                reflow = false,
-            )
-            ReaderSettingKey.ORIENTATION_LOCK -> s.updatePrefsGeneric(
-                { it.copy(orientationLock = (value as ReaderSettingValue.OrientationLock).value) },
-                reflow = false,
-            )
+            ReaderSettingKey.HAPTIC_FEEDBACK -> s.setHapticFeedback((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.ORIENTATION_LOCK -> s.setOrientationLock((value as ReaderSettingValue.OrientationLock).value)
             ReaderSettingKey.PAGE_ANIM_SPEED -> s.updatePrefsGeneric(
                 { it.copy(pageAnimSpeed = (value as ReaderSettingValue.PageAnimSpeed).value) },
                 reflow = false,
             )
-            ReaderSettingKey.AD_FILTERING -> s.updatePrefsGeneric(
-                { it.copy(adFiltering = (value as ReaderSettingValue.Bool).value) },
+            ReaderSettingKey.AD_FILTERING -> s.setAdFiltering(
+                (value as ReaderSettingValue.Bool).value,
                 reflow = true,
             )
             ReaderSettingKey.TTS_VOICE -> s.updatePrefsGeneric(
@@ -671,12 +692,12 @@ class ReaderViewModel(
                 { it.copy(ttsTimer = (value as ReaderSettingValue.Int).value) },
                 reflow = false,
             )
-            ReaderSettingKey.EYE_CARE_REMINDER_INTERVAL -> s.updatePrefsGeneric(
-                { it.copy(eyeCareReminderInterval = (value as ReaderSettingValue.Int).value) },
-                reflow = false,
+            ReaderSettingKey.EYE_CARE_REMINDER_INTERVAL -> s.setEyeCareReminderInterval(
+                (value as ReaderSettingValue.Int).value,
             )
-            ReaderSettingKey.BACKGROUND_TEXTURE -> s.updatePrefsGeneric(
-                { it.copy(backgroundTexture = (value as ReaderSettingValue.Str).value) },
+            ReaderSettingKey.BACKGROUND_TEXTURE -> s.setBackgroundTexture((value as ReaderSettingValue.Str).value)
+            ReaderSettingKey.GESTURE_CONFIG -> s.updatePrefsGeneric(
+                { it.copy(gestureConfig = (value as ReaderSettingValue.GestureConfigValue).value) },
                 reflow = false,
             )
         }
@@ -760,6 +781,7 @@ class ReaderViewModel(
         readerSettingsManager.setTextAlign(prefs.textAlign)
         readerSettingsManager.setChineseConvert(prefs.chineseConvert)
         readerSettingsManager.setBrightness(prefs.brightness)
+        readerSettingsManager.setColorTemperature(prefs.colorTemperature)
         readerSettingsManager.setHeaderVisibility(prefs.header.visibility)
         readerSettingsManager.setHeaderLeft(prefs.header.left)
         readerSettingsManager.setHeaderCenter(prefs.header.center)
@@ -856,7 +878,56 @@ class ReaderViewModel(
     ): Job = chapterPaginationCoordinator.paginateChapterStreaming(content, index, targetCharOffset, onDone, onMergePageCounts)
 
     private fun preloadAdjacentChapters(content: BookContent, currentIndex: Int) =
-        chapterPaginationCoordinator.preloadAdjacentChapters(content, currentIndex)
+        chapterPaginationCoordinator.preloadAdjacentChapters(
+            content = content,
+            currentIndex = currentIndex,
+            onChapterPreloaded = { refreshCrossChapterPages() },
+        )
+
+    /**
+     * A1: 从章节缓存同步查询跨章相邻页，填充 uiState.nextChapterFirstPage / prevChapterLastPage。
+     *
+     * 命中 → 跨章翻页动画可直接使用这两个字段作为 nextPage / prevPage，无空白帧。
+     * 未命中 → 字段保持 null，由 ReaderCanvasView.fillPage 的 fallback（保留 currentPage）兜底。
+     *
+     * 调用时机：章节加载完成（onChapterLoaded）、预加载启动后（preloadAdjacentChapters）。
+     *
+     * 容错：缓存查询若抛异常（罕见，例如底层 Picture 资源被回收），吞掉并记日志，
+     * 不让防御性预取成为闪退源头。
+     */
+    private fun refreshCrossChapterPages() {
+        try {
+            val state = _uiState.value
+            val currentIndex = state.chapterIndex
+            val totalChapters = state.totalChapters
+            val nextChapter = if (currentIndex < totalChapters - 1) {
+                chapterPaginationCoordinator.getCachedChapter(currentIndex + 1)
+            } else null
+            val prevChapter = if (currentIndex > 0) {
+                chapterPaginationCoordinator.getCachedChapter(currentIndex - 1)
+            } else null
+            val nextPage = nextChapter?.getPage(0)
+            val prevPage = prevChapter?.getPage(prevChapter.lastIndex)
+            val nextContent = nextChapter?.content
+            val prevContent = prevChapter?.content
+            // 只在字段确实变化时才写 uiState，避免无谓的 recomposition
+            if (
+                state.nextChapterFirstPage !== nextPage ||
+                state.prevChapterLastPage !== prevPage ||
+                state.nextChapterContent !== nextContent ||
+                state.prevChapterContent !== prevContent
+            ) {
+                _uiState.value = state.copy(
+                    nextChapterFirstPage = nextPage,
+                    nextChapterContent = nextContent,
+                    prevChapterLastPage = prevPage,
+                    prevChapterContent = prevContent,
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("ReaderVM", "refreshCrossChapterPages failed", e)
+        }
+    }
 
     private fun reflowCurrentChapter(preferences: ReaderPreferences) =
         chapterPaginationCoordinator.reflowCurrentChapter(preferences)

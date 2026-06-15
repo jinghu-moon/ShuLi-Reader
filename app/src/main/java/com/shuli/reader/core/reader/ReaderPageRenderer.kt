@@ -336,13 +336,26 @@ class ReaderPageRenderer(
         recorder.recordIfNeeded(canvas.width, lineHeight) {
             val relativeBaseline = line.baseline - line.top
 
+            // C (defense-in-depth): 行偏移必须在 content 范围内；否则说明 page/content 不匹配
+            // （典型场景：跨章翻页时 prevPage/nextPage 拿到错章的 content），跳过绘制避免崩溃。
+            val start = line.startCharOffset
+            val end = line.endCharOffset
+            val len = ctx.content.length
+            if (start < 0 || end < start || end > len) {
+                android.util.Log.w(
+                    "ReaderPageRenderer",
+                    "skip out-of-bounds line: start=$start end=$end contentLen=$len pageChapter=${ctx.page.chapterIndex}",
+                )
+                return@recordIfNeeded
+            }
+
             // 判断是否需要两端对齐：JUSTIFY 模式且非段落末行
             val shouldJustify = textAlign == ReaderTextAlign.JUSTIFY && !line.isParagraphEnd
 
             if (shouldJustify && line.charWidths != null) {
                 drawTextJustified(line, startX, relativeBaseline, ctx)
             } else {
-                drawText(ctx.content, line.startCharOffset, line.endCharOffset, startX, relativeBaseline, ctx.textPaint)
+                drawText(ctx.content, start, end, startX, relativeBaseline, ctx.textPaint)
             }
         }
 

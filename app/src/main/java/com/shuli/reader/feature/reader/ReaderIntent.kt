@@ -37,6 +37,8 @@ sealed interface ReaderIntent {
     object ToggleToolbar : ReaderIntent
     object ToggleDirectory : ReaderIntent
     object ToggleQuickSettings : ReaderIntent
+    object OpenGestureZoneEditor : ReaderIntent
+    object CloseGestureZoneEditor : ReaderIntent
     object ToggleSearch : ReaderIntent
     object ClearSelection : ReaderIntent
 
@@ -51,6 +53,17 @@ sealed interface ReaderIntent {
     data class UpdateSetting(
         val key: ReaderSettingKey,
         val value: ReaderSettingValue,
+    ) : ReaderIntent
+    /**
+     * 连续控件（滑块 / 步进器）的设置更新。
+     *
+     * `finished = false`（拖拽中 / 按键中）→ 仅更新内存 uiState，DataStore / 书籍覆盖不写。
+     * `finished = true`（抬手 / 按键结束）→ 持久化。
+     */
+    data class UpdateContinuousSetting(
+        val key: ReaderSettingKey,
+        val value: ReaderSettingValue,
+        val finished: Boolean,
     ) : ReaderIntent
     object CycleTheme : ReaderIntent
     object ResetSettingsToDefault : ReaderIntent
@@ -122,12 +135,13 @@ enum class ReaderSettingKey {
     CUSTOM_THEME_COLOR,
     // v5.1 Phase 1-4 新增
     COLOR_TEMPERATURE, FOCUS_LINE,
-    WORD_SPACING, PARAGRAPH_DIVIDER,
+    PARAGRAPH_DIVIDER,
     MARGIN_TOP, MARGIN_BOTTOM, MARGIN_LEFT, MARGIN_RIGHT,
     BIONIC_READING, VERTICAL_TEXT, DUAL_PAGE_MODE,
     HAPTIC_FEEDBACK, ORIENTATION_LOCK, PAGE_ANIM_SPEED,
     AD_FILTERING, TTS_VOICE, TTS_AUTO_PAGE, TTS_TIMER,
     EYE_CARE_REMINDER_INTERVAL, BACKGROUND_TEXTURE,
+    GESTURE_CONFIG,
 }
 
 /**
@@ -154,6 +168,7 @@ sealed interface ReaderSettingValue {
     data class CustomThemeColor(
         val backgroundColor: kotlin.Int?,
         val textColor: kotlin.Int?,
-        val accentColor: kotlin.Int?,
+        val titleColor: kotlin.Int?,
+        val headerFooterColor: kotlin.Int?,
     ) : ReaderSettingValue
 }

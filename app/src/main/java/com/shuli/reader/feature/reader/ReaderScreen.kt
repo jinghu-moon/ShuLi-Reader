@@ -74,6 +74,7 @@ import com.shuli.reader.feature.bookshelf.component.BookDetailsSheet
 import com.shuli.reader.feature.bookshelf.component.BookDetailsTagActions
 import com.shuli.reader.feature.bookshelf.component.BookDetailsTagState
 import com.shuli.reader.feature.reader.effects.ReaderCanvasEffects
+import com.shuli.reader.feature.reader.component.quicksettings.v5.GestureZoneEditorOverlay
 import com.shuli.reader.feature.reader.render.toFallbackRenderInput
 import com.shuli.reader.feature.reader.render.toRenderInput
 import com.shuli.reader.feature.reader.overlays.ReaderBottomBar
@@ -154,11 +155,13 @@ fun ReaderScreen(
     // 内层返回：选区 > 各浮层 > 工具栏，依次回退
     BackHandler(
         enabled = uiState.selectedRange != null
+            || uiState.showGestureEditor
             || uiState.showDirectory
             || uiState.showQuickSettings
             || uiState.showToolbar,
     ) {
         when {
+            uiState.showGestureEditor -> dispatch(ReaderIntent.CloseGestureZoneEditor)
             uiState.selectedRange != null -> dispatch(ReaderIntent.ClearSelection)
             uiState.showDirectory -> dispatch(ReaderIntent.ToggleDirectory)
             uiState.showQuickSettings -> dispatch(ReaderIntent.ToggleQuickSettings)
@@ -216,6 +219,36 @@ fun ReaderScreen(
                                 viewModel.navigationCoordinator.selectText(range)
                             }
                             onCenterClicked = { dispatch(ReaderIntent.ToggleToolbar) }
+                            onGestureAction = { action ->
+                                when (action) {
+                                    com.shuli.reader.feature.reader.settings.GestureAction.PREV_PAGE ->
+                                        dispatch(ReaderIntent.TurnPage(PageDirection.PREV))
+                                    com.shuli.reader.feature.reader.settings.GestureAction.NEXT_PAGE ->
+                                        dispatch(ReaderIntent.TurnPage(PageDirection.NEXT))
+                                    com.shuli.reader.feature.reader.settings.GestureAction.SCROLL_UP ->
+                                        dispatch(ReaderIntent.TurnPage(PageDirection.PREV))
+                                    com.shuli.reader.feature.reader.settings.GestureAction.SCROLL_DOWN ->
+                                        dispatch(ReaderIntent.TurnPage(PageDirection.NEXT))
+                                    com.shuli.reader.feature.reader.settings.GestureAction.TOGGLE_TOOLBAR ->
+                                        dispatch(ReaderIntent.ToggleToolbar)
+                                    com.shuli.reader.feature.reader.settings.GestureAction.TOGGLE_DIRECTORY ->
+                                        dispatch(ReaderIntent.ToggleDirectory)
+                                    com.shuli.reader.feature.reader.settings.GestureAction.ADD_BOOKMARK ->
+                                        dispatch(ReaderIntent.AddBookmark())
+                                    com.shuli.reader.feature.reader.settings.GestureAction.TOGGLE_THEME ->
+                                        dispatch(ReaderIntent.CycleTheme)
+                                    com.shuli.reader.feature.reader.settings.GestureAction.TOGGLE_IMMERSIVE ->
+                                        dispatch(
+                                            ReaderIntent.UpdateSetting(
+                                                ReaderSettingKey.IMMERSIVE_MODE,
+                                                ReaderSettingValue.Bool(
+                                                    !viewModel.uiState.value.readerPreferences.immersiveMode,
+                                                ),
+                                            )
+                                        )
+                                    com.shuli.reader.feature.reader.settings.GestureAction.NONE -> { /* no-op */ }
+                                }
+                            }
                         }
                     },
                     update = { view ->
@@ -305,6 +338,21 @@ fun ReaderScreen(
                             .align(Alignment.BottomCenter)
                             .navigationBarsPadding()
                             .padding(ReaderDimens.PaddingMedium),
+                    )
+                }
+
+                if (uiState.showGestureEditor) {
+                    GestureZoneEditorOverlay(
+                        config = uiState.readerPreferences.gestureConfig,
+                        onConfigChange = { config ->
+                            dispatch(
+                                ReaderIntent.UpdateSetting(
+                                    ReaderSettingKey.GESTURE_CONFIG,
+                                    ReaderSettingValue.GestureConfigValue(config),
+                                ),
+                            )
+                        },
+                        onDismiss = { dispatch(ReaderIntent.CloseGestureZoneEditor) },
                     )
                 }
             }

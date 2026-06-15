@@ -62,7 +62,6 @@ internal object ReaderLayoutHasher {
         sb.append(input.useZhLayout).append('|')
         sb.append(input.bottomJustify).append('|')
         // v5.1 预留字段（一次性加入 hash，避免后续多次 bump VERSION）
-        sb.append(input.wordSpacing).append('|')
         sb.append(input.paragraphDivider).append('|')
         sb.append(input.hyphenation).append('|')
         sb.append(input.vertical).append('|')

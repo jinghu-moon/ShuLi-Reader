@@ -43,7 +43,7 @@ data class ChromePrefs(
     val headerFontSizeRatio: Float,
     val footerFontSizeRatio: Float,
     val backgroundTexture: String?,
-    val customAccentColor: Int?,
+    val customHeaderFooterColor: Int?,
 )
 
 data class StylePrefs(
@@ -58,7 +58,9 @@ data class StylePrefs(
     val autoNightMode: Boolean,
     val customBackgroundColor: Int?,
     val customTextColor: Int?,
+    val customTitleColor: Int?,
     val titleFont: String,
+    val adFiltering: Boolean,
 )
 
 data class LayoutPrefs(
@@ -74,18 +76,15 @@ data class LayoutPrefs(
     val marginBottom: Float?,
     val marginLeft: Float?,
     val marginRight: Float?,
-    val wordSpacing: Float,
     val paragraphDivider: Boolean,
     val bottomJustify: Boolean,
     val maxPageWidth: Float,
     val removeEmptyLines: Boolean,
     val cleanChapterTitle: Boolean,
+    val preserveOriginalIndent: Boolean,
     val epubOverrideStyle: Boolean,
-    val adFiltering: Boolean,
     val verticalText: Boolean,
     val dualPageMode: DualPageMode,
-    val pageAnimSpeed: PageAnimSpeed,
-    val orientationLock: OrientationLock,
 )
 
 fun ReaderPreferences.toOverlayPrefs(): OverlayPrefs = OverlayPrefs(
@@ -105,7 +104,7 @@ fun ReaderPreferences.toChromePrefs(): ChromePrefs = ChromePrefs(
     headerFontSizeRatio = headerFontSizeRatio,
     footerFontSizeRatio = footerFontSizeRatio,
     backgroundTexture = backgroundTexture,
-    customAccentColor = customAccentColor,
+    customHeaderFooterColor = customHeaderFooterColor,
 )
 
 fun ReaderPreferences.toStylePrefs(): StylePrefs = StylePrefs(
@@ -120,7 +119,9 @@ fun ReaderPreferences.toStylePrefs(): StylePrefs = StylePrefs(
     autoNightMode = autoNightMode,
     customBackgroundColor = customBackgroundColor,
     customTextColor = customTextColor,
-    titleFont = "",
+    customTitleColor = customTitleColor,
+    titleFont = titleFont,
+    adFiltering = adFiltering,
 )
 
 fun ReaderPreferences.toLayoutPrefs(): LayoutPrefs = LayoutPrefs(
@@ -136,18 +137,15 @@ fun ReaderPreferences.toLayoutPrefs(): LayoutPrefs = LayoutPrefs(
     marginBottom = marginBottom,
     marginLeft = marginLeft,
     marginRight = marginRight,
-    wordSpacing = wordSpacing,
     paragraphDivider = paragraphDivider,
     bottomJustify = bottomJustify,
     maxPageWidth = maxPageWidth,
     removeEmptyLines = removeEmptyLines,
     cleanChapterTitle = cleanChapterTitle,
+    preserveOriginalIndent = preserveOriginalIndent,
     epubOverrideStyle = epubOverrideStyle,
-    adFiltering = adFiltering,
     verticalText = verticalText,
     dualPageMode = dualPageMode,
-    pageAnimSpeed = pageAnimSpeed,
-    orientationLock = orientationLock,
 )
 
 /**

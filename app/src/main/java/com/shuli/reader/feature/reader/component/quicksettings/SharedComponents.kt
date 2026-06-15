@@ -273,8 +273,9 @@ internal fun ExpandableSection(
 internal fun CustomThemePanel(
     currentBg: Int?,
     currentText: Int?,
-    currentAccent: Int?,
-    onColorChange: (bg: Int?, text: Int?, accent: Int?) -> Unit,
+    currentTitle: Int?,
+    currentHeaderFooter: Int?,
+    onColorChange: (bg: Int?, text: Int?, title: Int?, headerFooter: Int?) -> Unit,
 ) {
     val readerColors = LocalReaderColorScheme.current
     val strings = LocalAppStrings.current
@@ -301,15 +302,25 @@ internal fun CustomThemePanel(
         0xFFE0E0E0.toInt(),  // 浅灰白
         0xFFC5CAE9.toInt(),  // 浅蓝紫
     )
-    val accentColors = listOf(
-        0xFF6B5B4E.toInt(),  // 棕色（默认）
-        0xFF1976D2.toInt(),  // 蓝色
-        0xFF388E3C.toInt(),  // 绿色
-        0xFFD32F2F.toInt(),  // 红色
-        0xFF7B1FA2.toInt(),  // 紫色
-        0xFFFF8F00.toInt(),  // 琥珀
-        0xFF00838F.toInt(),  // 青色
-        0xFF5D4037.toInt(),  // 深棕
+    val titleColors = listOf(
+        0xFF1A237E.toInt(),  // 深靛蓝
+        0xFF311B92.toInt(),  // 深紫
+        0xFF880E4F.toInt(),  // 深粉
+        0xFFB71C1C.toInt(),  // 深红
+        0xFFE65100.toInt(),  // 深橙
+        0xFF33691E.toInt(),  // 深绿
+        0xFF3E2723.toInt(),  // 深棕
+        0xFF000000.toInt(),  // 黑色
+    )
+    val headerFooterColors = listOf(
+        0xFF757575.toInt(),  // 中灰
+        0xFF9E9E9E.toInt(),  // 浅灰
+        0xFF616161.toInt(),  // 深灰
+        0xFF546E7A.toInt(),  // 蓝灰
+        0xFF6D4C41.toInt(),  // 棕灰
+        0xFF558B2F.toInt(),  // 橄榄绿
+        0xFF00695C.toInt(),  // 深青
+        0xFF37474F.toInt(),  // 暗蓝灰
     )
 
     Column(
@@ -329,21 +340,28 @@ internal fun CustomThemePanel(
             label = strings.reader.customThemeBg,
             colors = bgColors,
             selectedColor = currentBg ?: 0xFFF6F4F0.toInt(),
-            onSelect = { onColorChange(it, currentText, currentAccent) },
+            onSelect = { onColorChange(it, currentText, currentTitle, currentHeaderFooter) },
         )
         // 正文色
         ColorSwatchRow(
             label = strings.reader.customThemeText,
             colors = textColors,
             selectedColor = currentText ?: 0xFF453B2E.toInt(),
-            onSelect = { onColorChange(currentBg, it, currentAccent) },
+            onSelect = { onColorChange(currentBg, it, currentTitle, currentHeaderFooter) },
         )
-        // 强调色
+        // 标题色
         ColorSwatchRow(
-            label = strings.reader.customThemeAccent,
-            colors = accentColors,
-            selectedColor = currentAccent ?: 0xFF6B5B4E.toInt(),
-            onSelect = { onColorChange(currentBg, currentText, it) },
+            label = "标题色",
+            colors = titleColors,
+            selectedColor = currentTitle ?: 0xFF1A237E.toInt(),
+            onSelect = { onColorChange(currentBg, currentText, it, currentHeaderFooter) },
+        )
+        // 页眉页脚色
+        ColorSwatchRow(
+            label = "页眉页脚色",
+            colors = headerFooterColors,
+            selectedColor = currentHeaderFooter ?: 0xFF757575.toInt(),
+            onSelect = { onColorChange(currentBg, currentText, currentTitle, it) },
         )
     }
 }

@@ -53,6 +53,22 @@ class ReaderRenderOrchestratorTest {
         assertEquals(2, fakeTarget.applyCount)
     }
 
+    @Test
+    fun apply_passesChapterContentToTarget() {
+        // 章节正文经 applySnapshot 独立参数透传到 Canvas（不进 snapshot，见 docs/26 §7）
+        val input = createDefaultRenderInput().copy(chapterContent = "第一章 章节正文")
+        orchestrator.apply(fakeTarget, input)
+        assertEquals("第一章 章节正文", fakeTarget.lastChapterContent)
+    }
+
+    @Test
+    fun apply_passesChapterContentsToTarget() {
+        val contents = mapOf(1 to "第一章", 2 to "第二章")
+        val input = createDefaultRenderInput().copy(chapterContents = contents)
+        orchestrator.apply(fakeTarget, input)
+        assertEquals(contents, fakeTarget.lastChapterContents)
+    }
+
     // ── reserveGeneration() + applyAsync() 异步场景 ──
 
     @Test
@@ -122,6 +138,8 @@ class ReaderRenderOrchestratorTest {
 
 private class FakeOrchestratorTarget : RenderApplierTarget {
     var applyCount = 0
+    var lastChapterContent: CharSequence = ""
+    var lastChapterContents: Map<Int, CharSequence> = emptyMap()
 
     override fun setPage(
         page: TextPage,
@@ -137,8 +155,16 @@ private class FakeOrchestratorTarget : RenderApplierTarget {
     override fun rebuildPageDelegate() {}
     override fun submitRenderTask() {}
 
-    override fun applySnapshot(snapshot: Any, diff: Any, pageDelegate: PageDelegate?) {
+    override fun applySnapshot(
+        snapshot: Any,
+        diff: Any,
+        pageDelegate: PageDelegate?,
+        chapterContent: CharSequence,
+        chapterContents: Map<Int, CharSequence>,
+    ) {
         applyCount++
+        lastChapterContent = chapterContent
+        lastChapterContents = chapterContents
     }
 }
 

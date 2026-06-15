@@ -18,6 +18,9 @@ data class ReaderRenderSnapshot(
     val shell: ShellSnapshot,
     val overlay: OverlaySnapshot,
 )
+// 注：章节正文不进 snapshot。50KB+ 文本参与 data class equals 会引入 O(n) 比较，
+// 且 diff 已由 PageSnapshot.contentVersion（O(1)）表达。正文经 applySnapshot 独立参数传入。
+// 见 docs/26-reader-first-frame-stability.md §7。
 
 data class PageSnapshot(
     val bookId: Long,
@@ -59,6 +62,8 @@ data class ShellSnapshot(
     val edgeTurnPage: Boolean = true,
     val edgeWidthPercent: Float = 0.33f,
     val leftZoneRatio: Float = 0.33f,
+    val gestureConfig: com.shuli.reader.feature.reader.settings.GestureConfig =
+        com.shuli.reader.feature.reader.settings.GestureConfig(),
     val shellKey: RenderKey,
 )
 

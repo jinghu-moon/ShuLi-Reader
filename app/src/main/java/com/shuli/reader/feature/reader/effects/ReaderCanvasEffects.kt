@@ -21,23 +21,25 @@ import com.shuli.reader.feature.reader.ReaderViewModel
 import kotlin.math.roundToInt
 
 /**
- * 阅读器 Canvas 副作用组 —— 仅保留生命周期与电量采集。
+ * 阅读器 Canvas 副作用组 —— 仅保留生命周期、电量采集与少数 Canvas 直写参数。
  *
- * **视觉参数同步已迁移到 `ReaderRenderOrchestrator` + `applySnapshot` 单向数据流**：
+ * **多数视觉参数同步已迁移到 `ReaderRenderOrchestrator` + `applySnapshot` 单向数据流**：
  * 排版 / 外观 / 行为设置通过 [com.shuli.reader.feature.reader.render.ReaderRenderInput]
  * → `ReaderRenderSnapshotFactory.buildShellSnapshot` → `ReaderCanvasView.applySnapshot`
  * 统一应用，不再在此处用 `LaunchedEffect` 逐个 setter 调用。
  *
- * 本文件只保留：
+ * 仍留在此处的：
  * - 密度同步（[ReaderViewModel.setDensity]）
  * - 亮度 / 屏幕常亮（Activity window 副作用，非 Canvas）
+ * - **色温滤镜**（VIEW_INVALIDATE 类，直接调用 `ReaderCanvasView.setColorTemperature`，
+ *   不经过 render snapshot；`applySnapshot` 的 onDraw 会按新值叠加 MULTIPLY 矩形）
  * - 电量广播采集（Screen 层运行时数据，注入 snapshot 的 ShellSnapshot）
  * - 生命周期暂停/恢复（阅读会话）
  */
 @Composable
 internal fun ReaderCanvasEffects(
     viewModel: ReaderViewModel,
-    @Suppress("UNUSED_PARAMETER") canvasView: ReaderCanvasView?,
+    canvasView: ReaderCanvasView?,
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
@@ -75,6 +77,12 @@ internal fun ReaderCanvasEffects(
                 window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
         }
+    }
+
+    // 色温滤镜（MULTIPLY 叠加到 Canvas，6500K 时由 CanvasView 自动短路跳过）
+    val colorTemperature = uiState.readerPreferences.colorTemperature
+    LaunchedEffect(colorTemperature) {
+        canvasView?.setColorTemperature(colorTemperature)
     }
 
     // 生命周期：暂停/恢复

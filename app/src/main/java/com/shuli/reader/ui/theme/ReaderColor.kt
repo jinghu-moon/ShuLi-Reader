@@ -72,6 +72,19 @@ val ReaderOledColorScheme = ReaderColorScheme(
     highlight = Color(0x559C9082),
 )
 
+val ReaderGreenColorScheme = ReaderColorScheme(
+    background = BambooGreen100,
+    surface = BambooGreen50,
+    textPrimary = BambooGreen900,
+    textSecondary = BambooGreen600,
+    textTertiary = BambooGreen400,
+    accent = BambooGreen500,
+    divider = BambooGreen300,
+    overlay = Color(0xEBD7E3D7),
+    selection = Color(0x332C3C2C),
+    highlight = Color(0x668FA78F),
+)
+
 val LocalReaderColorScheme = staticCompositionLocalOf { ReaderPaperColorScheme }
 
 fun ReaderTheme.toReaderColorScheme(): ReaderColorScheme {
@@ -79,6 +92,7 @@ fun ReaderTheme.toReaderColorScheme(): ReaderColorScheme {
         ReaderTheme.LIGHT -> ReaderLightColorScheme
         ReaderTheme.DARK -> ReaderDarkColorScheme
         ReaderTheme.PAPER -> ReaderPaperColorScheme
+        ReaderTheme.GREEN -> ReaderGreenColorScheme
         ReaderTheme.OLED -> ReaderOledColorScheme
         ReaderTheme.CUSTOM -> ReaderPaperColorScheme // fallback，实际由 resolveCustomColorScheme 处理
     }
@@ -93,25 +107,26 @@ fun ReaderTheme.toReaderColorScheme(): ReaderColorScheme {
 fun resolveCustomColorScheme(
     backgroundColor: Int,
     textColor: Int,
-    accentColor: Int,
+    titleColor: Int,
+    headerFooterColor: Int,
 ): ReaderColorScheme {
     val bg = Color(backgroundColor)
     val text = Color(textColor)
-    val accent = Color(accentColor)
-    // 根据背景亮度判断深浅模式，自动派生辅助色
+    val title = Color(titleColor)
+    val headerFooter = Color(headerFooterColor)
     val bgLuminance = bg.luminance()
     val isDark = bgLuminance < 0.5f
     return ReaderColorScheme(
         background = bg,
         surface = if (isDark) bg.lighten(0.08f) else bg.darken(0.04f),
         textPrimary = text,
-        textSecondary = text.copy(alpha = if (isDark) 0.7f else 0.6f),
-        textTertiary = text.copy(alpha = if (isDark) 0.5f else 0.4f),
-        accent = accent,
+        textSecondary = headerFooter,
+        textTertiary = headerFooter.copy(alpha = if (isDark) 0.7f else 0.6f),
+        accent = title,
         divider = text.copy(alpha = if (isDark) 0.15f else 0.12f),
         overlay = bg.copy(alpha = 0.9f),
-        selection = accent.copy(alpha = 0.2f),
-        highlight = accent.copy(alpha = 0.4f),
+        selection = title.copy(alpha = 0.2f),
+        highlight = title.copy(alpha = 0.4f),
     )
 }
 

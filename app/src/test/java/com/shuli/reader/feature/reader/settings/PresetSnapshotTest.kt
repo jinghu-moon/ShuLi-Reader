@@ -147,7 +147,6 @@ class PresetSnapshotTest {
             "indent" to "indent",
             "indent_unit" to "indentUnit",
             "letter_spacing" to "letterSpacing",
-            "word_spacing" to "wordSpacing",
             "paragraph_divider" to "paragraphDivider",
             "reading_font" to "readingFont",
             "font_weight" to "fontWeight",

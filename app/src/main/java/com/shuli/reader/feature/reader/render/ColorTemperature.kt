@@ -9,7 +9,7 @@ import kotlin.math.pow
  * 基于 Tanner Helland 的近似算法，将 1000K–40000K 色温映射为 (R, G, B) 三元组。
  * 用于阅读器色温叠加层的 MULTIPLY 混合模式渲染。
  *
- * @param temperature 色温值，单位 Kelvin（推荐范围 2000–6500）
+ * @param temperature 色温值，单位 Kelvin（UI 滑块范围 3000–6500，算法接受 1000–40000）
  * @return Triple(R, G, B)，各分量 0–255
  */
 fun colorTemperatureToRgb(temperature: Float): Triple<Int, Int, Int> {
