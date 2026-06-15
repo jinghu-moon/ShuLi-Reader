@@ -44,7 +44,10 @@ class CanvasRecorderLocked(private val delegate: CanvasRecorder) :
     override fun endRecording() {
         val l = lock ?: return
         try {
-            if (!recycled) delegate.endRecording()
+            // 无论 recycled 状态如何，都必须调用 endRecording() 确保 Picture 结束录制
+            delegate.endRecording()
+        } catch (_: IllegalStateException) {
+            // 已经结束录制，忽略
         } finally {
             if (l.isHeldByCurrentThread) l.unlock()
         }
@@ -74,6 +77,12 @@ class CanvasRecorderLocked(private val delegate: CanvasRecorder) :
         try {
             if (!recycled) {
                 recycled = true
+                // 确保先结束录制再回收
+                try {
+                    delegate.endRecording()
+                } catch (_: IllegalStateException) {
+                    // 已经结束录制，忽略
+                }
                 delegate.recycle()
             }
         } finally {

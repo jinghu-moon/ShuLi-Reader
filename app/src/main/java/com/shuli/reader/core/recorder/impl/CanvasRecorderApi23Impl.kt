@@ -28,12 +28,15 @@ class CanvasRecorderApi23Impl : BaseCanvasRecorder() {
 
     override fun beginRecording(width: Int, height: Int): Canvas {
         initPicture()
-        val pic = picture ?: throw IllegalStateException("picture is null after init")
-        // 确保 Picture 不在录制状态
+        var pic = picture ?: throw IllegalStateException("picture is null after init")
+        // 确保 Picture 不在录制状态，如果无法结束则丢弃并获取新的
         try {
             pic.endRecording()
         } catch (_: IllegalStateException) {
-            // 已经结束录制，忽略
+            // Picture 处于异常状态，丢弃并获取新的
+            picturePool.recycle(pic)
+            pic = picturePool.obtain()
+            picture = pic
         }
         return pic.beginRecording(width, height)
     }
