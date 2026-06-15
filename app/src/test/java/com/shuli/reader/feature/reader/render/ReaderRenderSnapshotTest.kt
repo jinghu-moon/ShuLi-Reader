@@ -4,9 +4,9 @@ import com.shuli.reader.core.data.ChineseConvert
 import com.shuli.reader.core.data.ReaderFontWeight
 import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.data.ThemeColors
-import com.shuli.reader.core.reader.SlotResolution
-import com.shuli.reader.core.reader.TitleStyleConfig
-import com.shuli.reader.core.reader.animation.PageDelegateFactory
+import com.shuli.reader.core.reader.model.SlotResolution
+import com.shuli.reader.core.reader.model.TitleStyleConfig
+import com.shuli.reader.core.reader.engine.animation.PageDelegateFactory
 import com.shuli.reader.core.reader.layout.ReaderLayoutInput
 import com.shuli.reader.core.reader.layout.createDefaultLayoutInput
 import com.shuli.reader.core.reader.model.PageRenderMode

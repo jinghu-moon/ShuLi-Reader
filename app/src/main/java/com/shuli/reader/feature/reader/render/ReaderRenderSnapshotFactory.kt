@@ -3,9 +3,9 @@ package com.shuli.reader.feature.reader.render
 import com.shuli.reader.core.data.ReaderFontWeight
 import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.data.ThemeColors
-import com.shuli.reader.core.reader.SlotResolution
-import com.shuli.reader.core.reader.TitleStyleConfig
-import com.shuli.reader.core.reader.animation.PageDelegate
+import com.shuli.reader.core.reader.model.SlotResolution
+import com.shuli.reader.core.reader.model.TitleStyleConfig
+import com.shuli.reader.core.reader.engine.animation.PageDelegate
 import com.shuli.reader.core.reader.layout.ReaderLayoutInput
 
 /**

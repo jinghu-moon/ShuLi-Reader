@@ -7,9 +7,6 @@ package com.shuli.reader.feature.reader.settings
  * 关闭某开关后：UI 入口隐藏 + 逻辑路径跳过，但 DataStore 中存储的用户配置保留。
  */
 object ReaderFeatureFlags {
-    /** V5 设置面板（BottomSheetScaffold 双态 + TabRow + SettingsCard） */
-    @Volatile var SETTINGS_PANEL_V5_ENABLED: Boolean = true
-
     /** 色温调节（VIEW_INVALIDATE scope） */
     @Volatile var COLOR_TEMPERATURE_ENABLED: Boolean = true
 

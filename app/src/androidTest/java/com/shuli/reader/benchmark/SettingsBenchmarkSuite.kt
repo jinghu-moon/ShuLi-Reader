@@ -1,8 +1,8 @@
 package com.shuli.reader.benchmark
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.shuli.reader.core.reader.Paginator
-import com.shuli.reader.core.reader.TextMeasurer
+import com.shuli.reader.core.reader.engine.Paginator
+import com.shuli.reader.core.reader.text.TextMeasurer
 import com.shuli.reader.core.reader.model.PageSize
 import com.shuli.reader.core.reader.model.ReaderLayoutConfig
 import com.shuli.reader.core.reader.text.AdFilterProcessor

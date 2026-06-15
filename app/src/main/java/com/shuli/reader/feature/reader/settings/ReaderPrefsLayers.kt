@@ -28,7 +28,6 @@ import com.shuli.reader.core.data.ReaderTheme
 
 data class OverlayPrefs(
     val colorTemperature: Float,
-    val focusLine: Boolean,
     val brightness: Float,
 )
 
@@ -55,7 +54,6 @@ data class StylePrefs(
     val usePanguSpacing: Boolean,
     val bionicReading: Boolean,
     val backgroundColor: ReaderTheme,
-    val autoNightMode: Boolean,
     val customBackgroundColor: Int?,
     val customTextColor: Int?,
     val customTitleColor: Int?,
@@ -89,7 +87,6 @@ data class LayoutPrefs(
 
 fun ReaderPreferences.toOverlayPrefs(): OverlayPrefs = OverlayPrefs(
     colorTemperature = colorTemperature,
-    focusLine = focusLine,
     brightness = brightness,
 )
 
@@ -116,7 +113,6 @@ fun ReaderPreferences.toStylePrefs(): StylePrefs = StylePrefs(
     usePanguSpacing = usePanguSpacing,
     bionicReading = bionicReading,
     backgroundColor = backgroundColor,
-    autoNightMode = autoNightMode,
     customBackgroundColor = customBackgroundColor,
     customTextColor = customTextColor,
     customTitleColor = customTitleColor,
@@ -158,7 +154,7 @@ fun ReaderPreferences.toLayoutPrefs(): LayoutPrefs = LayoutPrefs(
  */
 fun validateTierAlignment(): List<String> {
     val mismatches = mutableListOf<String>()
-    val tier0Keys = setOf("color_temperature", "focus_line", "brightness")
+    val tier0Keys = setOf("color_temperature", "brightness")
     val tier1Keys = setOf(
         "header_visibility", "footer_visibility", "header_footer_alpha",
         "show_progress", "progress_style", "show_header_line", "show_footer_line",

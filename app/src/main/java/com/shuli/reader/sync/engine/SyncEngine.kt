@@ -1,16 +1,16 @@
 package com.shuli.reader.sync.engine
 
-import com.shuli.reader.sync.conflict.BookState
-import com.shuli.reader.sync.conflict.BookmarkDto
-import com.shuli.reader.sync.conflict.ConflictResolver
-import com.shuli.reader.sync.conflict.DeviceInfo
-import com.shuli.reader.sync.conflict.UserPreferences
-import com.shuli.reader.sync.manifest.ManifestManager
+import com.shuli.reader.sync.engine.conflict.BookState
+import com.shuli.reader.sync.engine.conflict.BookmarkDto
+import com.shuli.reader.sync.engine.conflict.ConflictResolver
+import com.shuli.reader.sync.engine.conflict.DeviceInfo
+import com.shuli.reader.sync.engine.conflict.UserPreferences
+import com.shuli.reader.sync.engine.manifest.ManifestManager
 import com.shuli.reader.sync.network.webdav.WebDavRateLimitException
-import com.shuli.reader.sync.state.SyncState
-import com.shuli.reader.sync.state.SyncStateMachine
-import com.shuli.reader.sync.throttle.RateLimitHandler
-import com.shuli.reader.sync.transport.SyncTransport
+import com.shuli.reader.sync.engine.state.SyncState
+import com.shuli.reader.sync.engine.state.SyncStateMachine
+import com.shuli.reader.sync.network.throttle.RateLimitHandler
+import com.shuli.reader.sync.network.transport.SyncTransport
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json

@@ -1,8 +1,8 @@
 package com.shuli.reader.core.reader.layout
 
 import com.shuli.reader.core.data.IndentUnit
-import com.shuli.reader.core.reader.SimpleTextMeasurer
-import com.shuli.reader.core.reader.TextMeasurer
+import com.shuli.reader.core.reader.text.SimpleTextMeasurer
+import com.shuli.reader.core.reader.text.TextMeasurer
 import com.shuli.reader.core.reader.model.PageSize
 import com.shuli.reader.core.reader.model.ReaderLayoutConfig
 
@@ -39,6 +39,8 @@ internal object ReaderTextMeasurerFactory {
             titleStyle = input.titleStyle,
             useZhLayout = input.useZhLayout,
             bottomJustify = input.bottomJustify,
+            headerMarginTop = input.headerMarginTopDp * input.density,
+            footerMarginBottom = input.footerMarginBottomDp * input.density,
         )
     }
 }

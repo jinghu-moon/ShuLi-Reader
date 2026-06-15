@@ -2,7 +2,7 @@ package com.shuli.reader.feature.reader.settings
 
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.data.getValueByKey
-import com.shuli.reader.core.reader.TitleStyleConfig
+import com.shuli.reader.core.reader.model.TitleStyleConfig
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -150,8 +150,8 @@ data class PresetSnapshot(
                 verticalText = (values["vertical_text"] as? Boolean) ?: false,
                 dualPageMode = (values["dual_page_mode"] as? com.shuli.reader.core.data.DualPageMode)?.name ?: "AUTO",
                 adFiltering = (values["ad_filtering"] as? Boolean) ?: false,
-                headerVisibility = (values["header_visibility"] as? com.shuli.reader.core.reader.HeaderVisibility)?.name ?: "HIDE_WHEN_STATUS_BAR",
-                footerVisibility = (values["footer_visibility"] as? com.shuli.reader.core.reader.HeaderVisibility)?.name ?: "HIDE_WHEN_STATUS_BAR",
+                headerVisibility = (values["header_visibility"] as? com.shuli.reader.core.reader.model.HeaderVisibility)?.name ?: "HIDE_WHEN_STATUS_BAR",
+                footerVisibility = (values["footer_visibility"] as? com.shuli.reader.core.reader.model.HeaderVisibility)?.name ?: "HIDE_WHEN_STATUS_BAR",
                 headerFooterAlpha = (values["header_footer_alpha"] as? Float) ?: 0.4f,
                 showProgress = (values["show_progress"] as? Boolean) ?: true,
                 progressStyle = (values["progress_style"] as? com.shuli.reader.core.data.ProgressStyle)?.name ?: "CHAPTER_FRACTION",

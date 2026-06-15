@@ -1,0 +1,29 @@
+package com.shuli.reader.sync.engine.state
+
+/**
+ * 同步状态枚举（T-04）
+ *
+ * 状态转换图（§6.1）：
+ * - IDLE → SCANNING
+ * - SCANNING → DOWNLOADING, FAILED
+ * - DOWNLOADING → MERGING, FAILED
+ * - MERGING → UPLOADING, SUCCESS, FAILED
+ * - UPLOADING → SUCCESS, RATE_LIMITED, FAILED
+ * - SUCCESS → IDLE
+ * - FAILED → IDLE
+ * - RATE_LIMITED → WAITING_RETRY
+ * - WAITING_RETRY → SCANNING
+ * - CRYPTO_LOCKED → IDLE
+ */
+enum class SyncState {
+    IDLE,
+    SCANNING,
+    DOWNLOADING,
+    MERGING,
+    UPLOADING,
+    SUCCESS,
+    FAILED,
+    RATE_LIMITED,
+    WAITING_RETRY,
+    CRYPTO_LOCKED,
+}

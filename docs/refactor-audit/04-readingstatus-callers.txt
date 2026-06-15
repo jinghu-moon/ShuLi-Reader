@@ -1,0 +1,26 @@
+# ReadingStatus 调用点清单
+# 生成时间: 2026-06-15
+# §1.5 标记：跨 bookshelf/reader/stats/repository 使用，第一阶段保留
+# 后期迁入 core/data/model 时，本清单即为修改范围
+# 共 20 个文件
+
+feature/reader/ReaderViewModel.kt
+feature/stats/StatsViewModel.kt
+feature/bookshelf/model/BookItem.kt
+feature/bookshelf/BookshelfViewModel.kt
+feature/stats/StatsScreen.kt
+feature/stats/StatsRepository.kt
+feature/stats/component/ReadingStatusChart.kt
+feature/bookshelf/BookshelfSorting.kt
+core/repository/ReadingProgressRepository.kt
+feature/bookshelf/component/BookCompactList.kt
+feature/bookshelf/component/BookDetailsSheet.kt
+feature/bookshelf/BookshelfOverlays.kt
+core/i18n/BookshelfStringsImpl.kt
+core/i18n/BookshelfStrings.kt
+feature/bookshelf/BookshelfDialogs.kt
+feature/bookshelf/component/BookActionMenu.kt
+feature/bookshelf/export/BookDataExporter.kt
+feature/bookshelf/component/SortBottomSheet.kt
+core/database/entity/BookEntity.kt
+core/reading/ReadingStatus.kt

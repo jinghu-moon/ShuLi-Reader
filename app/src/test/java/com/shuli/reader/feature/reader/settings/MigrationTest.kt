@@ -41,7 +41,6 @@ class MigrationTest {
 
         // 验证新字段有正确的默认值（来自 Registry）
         assertEquals(6500f, prefs.colorTemperature, 0.001f)
-        assertEquals(false, prefs.focusLine)
         assertEquals(false, prefs.paragraphDivider)
         assertNull(prefs.marginTop)
         assertNull(prefs.marginBottom)

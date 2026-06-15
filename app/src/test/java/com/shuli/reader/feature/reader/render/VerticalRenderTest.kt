@@ -4,9 +4,9 @@ import com.shuli.reader.core.data.ChineseConvert
 import com.shuli.reader.core.data.ReaderFontWeight
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.data.toLayoutConfig
-import com.shuli.reader.core.reader.Paginator
-import com.shuli.reader.core.reader.SimpleTextMeasurer
-import com.shuli.reader.core.reader.VerticalPaginationStrategy
+import com.shuli.reader.core.reader.engine.Paginator
+import com.shuli.reader.core.reader.text.SimpleTextMeasurer
+import com.shuli.reader.core.reader.engine.VerticalPaginationStrategy
 import com.shuli.reader.core.reader.model.PageSize
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

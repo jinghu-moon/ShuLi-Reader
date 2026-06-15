@@ -107,8 +107,6 @@ class UserPreferences(
         val KEY_CUSTOM_HEADER_FOOTER_COLOR = intPreferencesKey("custom_header_footer_color")
         val KEY_PROGRESS_STYLE = stringPreferencesKey("progress_style")
         // P2 新增
-        val KEY_AUTO_NIGHT_MODE = booleanPreferencesKey("auto_night_mode")
-        val KEY_FOCUS_LINE = booleanPreferencesKey("focus_line")
         val KEY_BIONIC_READING = booleanPreferencesKey("bionic_reading")
         val KEY_VERTICAL_TEXT = booleanPreferencesKey("vertical_text")
         val KEY_HAPTIC_FEEDBACK = booleanPreferencesKey("haptic_feedback")
@@ -222,8 +220,6 @@ class UserPreferences(
     val preserveOriginalIndent: Flow<Boolean> = dataStore.data.map { it[KEY_PRESERVE_ORIGINAL_INDENT] ?: false }.distinctUntilChanged()
     val progressStyle: Flow<String> = dataStore.data.map { it[KEY_PROGRESS_STYLE] ?: "chapter_fraction" }.distinctUntilChanged()
     // P2 新增
-    val autoNightMode: Flow<Boolean> = dataStore.data.map { it[KEY_AUTO_NIGHT_MODE] ?: false }.distinctUntilChanged()
-    val focusLine: Flow<Boolean> = dataStore.data.map { it[KEY_FOCUS_LINE] ?: false }.distinctUntilChanged()
     val bionicReading: Flow<Boolean> = dataStore.data.map { it[KEY_BIONIC_READING] ?: false }.distinctUntilChanged()
     val verticalText: Flow<Boolean> = dataStore.data.map { it[KEY_VERTICAL_TEXT] ?: false }.distinctUntilChanged()
     val hapticFeedback: Flow<Boolean> = dataStore.data.map { it[KEY_HAPTIC_FEEDBACK] ?: false }.distinctUntilChanged()
@@ -336,8 +332,6 @@ class UserPreferences(
     suspend fun setPreserveOriginalIndent(value: Boolean) = dataStore.edit { it[KEY_PRESERVE_ORIGINAL_INDENT] = value }
     suspend fun setProgressStyle(value: String) = dataStore.edit { it[KEY_PROGRESS_STYLE] = value }
     // P2 新增
-    suspend fun setAutoNightMode(value: Boolean) = dataStore.edit { it[KEY_AUTO_NIGHT_MODE] = value }
-    suspend fun setFocusLine(value: Boolean) = dataStore.edit { it[KEY_FOCUS_LINE] = value }
     suspend fun setBionicReading(value: Boolean) = dataStore.edit { it[KEY_BIONIC_READING] = value }
     suspend fun setVerticalText(value: Boolean) = dataStore.edit { it[KEY_VERTICAL_TEXT] = value }
     suspend fun setHapticFeedback(value: Boolean) = dataStore.edit { it[KEY_HAPTIC_FEEDBACK] = value }

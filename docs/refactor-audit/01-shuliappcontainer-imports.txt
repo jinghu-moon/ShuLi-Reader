@@ -1,0 +1,26 @@
+# ShuLiAppContainer.kt import 清单
+# 生成时间: 2026-06-15
+# 任何被此容器引用的类，移动后必须同步修改此文件 import
+# 共 13 条 import + 5 条内联全限定名
+
+import com.shuli.reader.core.data.UserPreferences
+import com.shuli.reader.core.database.ShuLiDatabase
+import com.shuli.reader.core.parser.ByteWindowReader
+import com.shuli.reader.core.parser.EpubParser
+import com.shuli.reader.core.parser.StreamDecoder
+import com.shuli.reader.core.parser.TxtParser
+import com.shuli.reader.core.repository.BookContentRepository
+import com.shuli.reader.core.repository.BookImportRepository
+import com.shuli.reader.core.repository.BookQueryRepository
+import com.shuli.reader.core.repository.FolderRepository
+import com.shuli.reader.core.repository.ReadingProgressRepository
+import com.shuli.reader.core.repository.SearchIndexRepository
+import com.shuli.reader.core.repository.TagRepository
+
+# 内联全限定名引用（非 import，但移动后也需同步）:
+# - com.shuli.reader.feature.stats.StatsRepository (line 92)
+# - com.shuli.reader.core.cover.CoverPrewarmer (line 137)
+# - com.shuli.reader.core.sync.WebDavSyncManager (line 141)
+# - com.shuli.reader.core.sync.ProgressRemote (line 142)
+# - com.shuli.reader.core.sync.WebDavConfig (line 147)
+# - com.shuli.reader.core.sync.WebDavClient (line 156)

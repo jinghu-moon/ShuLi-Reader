@@ -1,7 +1,6 @@
 package com.shuli.reader.feature.reader.component
 
 import android.provider.Settings
-import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -38,6 +38,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 
 @Composable
@@ -69,14 +70,15 @@ fun VerticalBrightnessSlider(
 
     Column(
         modifier = modifier
-            .width(44.dp)
-            .padding(vertical = 16.dp),
+            .width(20.dp)
+            .padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // 顶部图标/数字切换区
         Box(
             modifier = Modifier
-                .size(36.dp)
+                .height(20.dp)
+                .width(24.dp)
                 .clip(CircleShape)
                 .clickable {
                     // 点击切换自动/手动，点击操作即为完成
@@ -88,35 +90,31 @@ fun VerticalBrightnessSlider(
                 },
             contentAlignment = Alignment.Center
         ) {
-            Crossfade(
-                targetState = if (isAuto && !isDragging) "icon" else "text",
-                label = "AutoIconCrossfade"
-            ) { state ->
-                if (state == "icon") {
-                    Icon(
-                        imageVector = Icons.Outlined.BrightnessAuto,
-                        contentDescription = "Auto Brightness",
-                        tint = readerColors.textPrimary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                } else {
-                    Text(
-                        text = "$displayPercent",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                        color = if (isDragging) readerColors.accent else readerColors.textPrimary
-                    )
-                }
-            }
+            // 同时放置，通过 alpha 切换，避免布局跳动
+            Icon(
+                imageVector = Icons.Outlined.BrightnessAuto,
+                contentDescription = "Auto Brightness",
+                tint = readerColors.textPrimary,
+                modifier = Modifier
+                    .size(16.dp)
+                    .graphicsLayer { alpha = if (isAuto && !isDragging) 1f else 0f }
+            )
+            Text(
+                text = "$displayPercent",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold),
+                color = if (isDragging) readerColors.accent else readerColors.textPrimary,
+                modifier = Modifier.graphicsLayer { alpha = if (isAuto && !isDragging) 0f else 1f }
+            )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         // 垂直滑块轨道
         Canvas(
             modifier = Modifier
-                .width(28.dp)
+                .width(12.dp)
                 .weight(1f)
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(6.dp))
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown()
@@ -175,7 +173,7 @@ fun VerticalBrightnessSlider(
             // 滑块圆点 (Thumb)
             drawCircle(
                 color = if (isAuto) readerColors.textSecondary else readerColors.accent,
-                radius = radius - 4.dp.toPx(),
+                radius = radius - 2.dp.toPx(),
                 center = Offset(trackW / 2f, centerY)
             )
         }

@@ -1,15 +1,16 @@
 package com.shuli.reader.feature.reader
 
 import com.shuli.reader.MainDispatcherRule
+import com.shuli.reader.feature.reader.screen.ReaderViewModel
 import com.shuli.reader.core.data.PageAnimType
 import com.shuli.reader.core.data.ReaderTheme
 import com.shuli.reader.core.data.UserPreferences
 import com.shuli.reader.core.database.entity.BookEntity
 import com.shuli.reader.core.parser.model.BookContent
 import com.shuli.reader.core.parser.model.Chapter
-import com.shuli.reader.core.reader.Paginator
-import com.shuli.reader.core.reader.TextMeasurer
-import com.shuli.reader.core.reader.animation.PageDelegateFactory
+import com.shuli.reader.core.reader.engine.Paginator
+import com.shuli.reader.core.reader.text.TextMeasurer
+import com.shuli.reader.core.reader.engine.animation.PageDelegateFactory
 import com.shuli.reader.core.reader.model.SelectionRange
 import com.shuli.reader.core.repository.BookContentRepository
 import com.shuli.reader.core.repository.BookQueryRepository
@@ -480,7 +481,7 @@ class ReaderViewModelTest {
 
     private suspend fun readerViewModelWithContent(
         content: String,
-        paginator: Paginator = Paginator(com.shuli.reader.core.reader.SimpleTextMeasurer()),
+        paginator: Paginator = Paginator(com.shuli.reader.core.reader.text.SimpleTextMeasurer()),
     ): ReaderViewModel {
         val bookContentRepository = mockk<BookContentRepository>()
         val bookQueryRepository = mockk<BookQueryRepository>()

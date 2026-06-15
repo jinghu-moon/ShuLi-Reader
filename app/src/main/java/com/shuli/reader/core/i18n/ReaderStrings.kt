@@ -144,8 +144,6 @@ interface ReaderStrings {
     val progressStyleBookFraction: String
     val progressStyleBookPercent: String
     // P2 设置项
-    val autoNightModeLabel: String
-    val autoNightModeDesc: String
     val autoPageTurnLabel: String
     val autoPageTurnDesc: String
     val autoPageTurnIntervalLabel: String

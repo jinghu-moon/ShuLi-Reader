@@ -2,8 +2,8 @@ package com.shuli.reader.feature.reader.settings
 
 import com.shuli.reader.core.data.DualPageMode
 import com.shuli.reader.core.data.ReaderPreferences
-import com.shuli.reader.core.reader.HyphenationEngine
-import com.shuli.reader.core.reader.HyphenationMode
+import com.shuli.reader.core.reader.text.HyphenationEngine
+import com.shuli.reader.core.reader.text.HyphenationMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

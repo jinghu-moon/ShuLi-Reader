@@ -59,16 +59,6 @@ object ReaderSettingRegistry {
             previewStrategy = PreviewStrategy.LIVE,
         ))
         add(SettingDefinition(
-            key = "focus_line",
-            defaultValue = false,
-            storageTier = StorageTier.BOTH,
-            scope = InvalidationScope.VIEW_INVALIDATE,
-            recompositionTier = 0,
-            uiGroup = UiGroup.VISUAL_AIDS,
-            includeInPreset = false,
-            previewStrategy = PreviewStrategy.LIVE,
-        ))
-        add(SettingDefinition(
             key = "brightness",
             defaultValue = -1f,
             storageTier = StorageTier.BOTH,
@@ -376,16 +366,6 @@ object ReaderSettingRegistry {
             includeInPreset = false,
             previewStrategy = PreviewStrategy.LIVE,
         ))
-        add(SettingDefinition(
-            key = "auto_night_mode",
-            defaultValue = false,
-            storageTier = StorageTier.GLOBAL,
-            scope = InvalidationScope.CONTENT,
-            recompositionTier = 2,
-            uiGroup = UiGroup.THEME,
-            includeInPreset = false,
-            previewStrategy = PreviewStrategy.ON_APPLY,
-        ))
 
         // ── 翻页（PAGE_DELEGATE scope）──
         add(SettingDefinition(
@@ -622,7 +602,7 @@ object ReaderSettingRegistry {
         ))
         add(SettingDefinition(
             key = "title_style",
-            defaultValue = com.shuli.reader.core.reader.TitleStyleConfig(),
+            defaultValue = com.shuli.reader.core.reader.model.TitleStyleConfig(),
             storageTier = StorageTier.BOTH,
             scope = InvalidationScope.CONTENT,
             recompositionTier = 2,

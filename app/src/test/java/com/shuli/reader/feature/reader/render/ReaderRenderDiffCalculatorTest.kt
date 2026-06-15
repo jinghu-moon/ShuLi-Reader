@@ -2,7 +2,7 @@ package com.shuli.reader.feature.reader.render
 
 import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.data.ThemeColors
-import com.shuli.reader.core.reader.animation.PageDelegateFactory
+import com.shuli.reader.core.reader.engine.animation.PageDelegateFactory
 import com.shuli.reader.core.reader.model.SelectionRange
 import com.shuli.reader.core.reader.model.TextPage
 import org.junit.Assert.assertFalse

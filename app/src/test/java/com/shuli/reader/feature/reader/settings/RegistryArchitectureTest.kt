@@ -93,7 +93,6 @@ class RegistryArchitectureTest {
 
         // Overlay 类不应在预设中
         assertFalse("colorTemperature 不应在预设中", "color_temperature" in presetKeys)
-        assertFalse("focusLine 不应在预设中", "focus_line" in presetKeys)
         assertFalse("brightness 不应在预设中", "brightness" in presetKeys)
 
         // 行为类不应在预设中

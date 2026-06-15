@@ -1,0 +1,16 @@
+# 重构基线计数
+# 生成时间: 2026-06-15
+# §9 量化标准对照用
+
+feature/reader/ 根目录 .kt 文件数:  19  (目标 < 5)
+ReaderViewModel.kt import 行数:     57  (目标 < 70) ✓
+component/quicksettings/v5/ 存在:   True  (目标 False)
+component/quicksettings/ 旧文件数:  6  (目标 0)
+
+V5 / QuickSettingsSheet / SETTINGS_PANEL_V5_ENABLED 命中数:
+  (P0.5 完成后应全部为 0)
+  V5 后缀类名/文件名命中(main):  2  (SettingsPanelV5 函数名 + testTag)
+  SETTINGS_PANEL_V5_ENABLED 命中(main):  2  (ReaderFeatureFlags.kt:11 + ReaderOverlayPanels.kt:60)
+  QuickSettingsSheet 命中(main):  3  (QuickSettingsSheet.kt:64 + ReaderOverlayPanels.kt:10,66)
+  V5 后缀命中(test):  10  (ReaderFeatureFlagsTest.kt)
+  V5 后缀命中(androidTest):  3  (QuickSettingsPanelTest.kt)

@@ -4,12 +4,12 @@ import com.shuli.reader.core.data.ReaderFontWeight
 import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.data.ThemeColors
 import com.shuli.reader.core.database.dao.SnapshotDigestTuple
-import com.shuli.reader.core.reader.SlotResolution
-import com.shuli.reader.core.reader.TitleStyleConfig
-import com.shuli.reader.core.reader.animation.PageDelegate
+import com.shuli.reader.core.reader.model.SlotResolution
+import com.shuli.reader.core.reader.model.TitleStyleConfig
+import com.shuli.reader.core.reader.engine.animation.PageDelegate
 import com.shuli.reader.core.reader.layout.ReaderLayoutInput
 import com.shuli.reader.core.reader.model.PageRenderMode
-import com.shuli.reader.feature.reader.ReaderUiState
+import com.shuli.reader.feature.reader.screen.ReaderUiState
 
 /**
  * 将 [ReaderUiState] 映射为 [ReaderRenderInput]。
@@ -47,8 +47,10 @@ fun ReaderUiState.toRenderInput(
         indent = prefs.indent,
         indentUnit = prefs.indentUnit,
         titleStyle = prefs.titleStyle,
-        headerVisibleForLayout = prefs.header.visibility != com.shuli.reader.core.reader.HeaderVisibility.ALWAYS_HIDE,
-        footerVisibleForLayout = prefs.footer.visibility != com.shuli.reader.core.reader.HeaderVisibility.ALWAYS_HIDE,
+        headerVisibleForLayout = prefs.header.visibility != com.shuli.reader.core.reader.model.HeaderVisibility.ALWAYS_HIDE,
+        footerVisibleForLayout = prefs.footer.visibility != com.shuli.reader.core.reader.model.HeaderVisibility.ALWAYS_HIDE,
+        headerMarginTopDp = prefs.header.marginTop,
+        footerMarginBottomDp = prefs.footer.marginBottom,
         chineseConvert = prefs.chineseConvert,
         usePanguSpacing = prefs.usePanguSpacing,
         useZhLayout = prefs.useZhLayout,
@@ -245,7 +247,7 @@ fun SnapshotDigestTuple.toFallbackRenderInput(
         prevPage = null,
         contentVersion = chapterIndex,
         pageRenderMode = PageRenderMode.SEQUENTIAL,
-        pageAnimType = com.shuli.reader.core.reader.animation.PageDelegateFactory.PageAnimType.HORIZONTAL,
+        pageAnimType = com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.HORIZONTAL,
         canTurnPrev = false,
         canTurnNext = false,
     )

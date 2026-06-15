@@ -174,12 +174,6 @@ class ReaderSettingRegistryTest {
     }
 
     @Test
-    fun focusLine_isViewInvalidateScope() {
-        val def = ReaderSettingRegistry.getDefinition<Boolean>("focus_line")
-        assertEquals(InvalidationScope.VIEW_INVALIDATE, def.scope)
-    }
-
-    @Test
     fun hapticFeedback_isNoneScope() {
         val def = ReaderSettingRegistry.getDefinition<Boolean>("haptic_feedback")
         assertEquals(InvalidationScope.NONE, def.scope)

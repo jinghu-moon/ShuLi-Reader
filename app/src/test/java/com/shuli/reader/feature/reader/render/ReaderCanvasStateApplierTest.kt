@@ -1,6 +1,6 @@
 package com.shuli.reader.feature.reader.render
 
-import com.shuli.reader.core.reader.RenderApplierTarget
+import com.shuli.reader.core.reader.engine.RenderApplierTarget
 import com.shuli.reader.core.reader.model.PageRenderMode
 import com.shuli.reader.core.reader.model.TextPage
 import org.junit.Assert.assertEquals
@@ -157,7 +157,7 @@ class FakeReaderCanvasView : RenderApplierTarget {
     override fun applySnapshot(
         snapshot: Any,
         diff: Any,
-        pageDelegate: com.shuli.reader.core.reader.animation.PageDelegate?,
+        pageDelegate: com.shuli.reader.core.reader.engine.animation.PageDelegate?,
         chapterContent: CharSequence,
         chapterContents: Map<Int, CharSequence>,
     ) {

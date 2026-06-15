@@ -139,8 +139,6 @@ internal data object ZhHansReader : ReaderStrings {
     override val progressStyleBookFraction = "全书页码"
     override val progressStyleBookPercent = "全书百分比"
     // P2 设置项
-    override val autoNightModeLabel = "自动夜间模式"
-    override val autoNightModeDesc = "跟随系统暗色模式自动切换主题"
     override val autoPageTurnLabel = "自动翻页"
     override val autoPageTurnDesc = "按固定间隔自动翻页"
     override val autoPageTurnIntervalLabel = "翻页间隔"
@@ -338,8 +336,6 @@ internal data object ZhHantReader : ReaderStrings {
     override val progressStyleBookFraction = "全書頁碼"
     override val progressStyleBookPercent = "全書百分比"
     // P2 設定項
-    override val autoNightModeLabel = "自動夜間模式"
-    override val autoNightModeDesc = "跟隨系統暗色模式自動切換主題"
     override val autoPageTurnLabel = "自動翻頁"
     override val autoPageTurnDesc = "按固定間隔自動翻頁"
     override val autoPageTurnIntervalLabel = "翻頁間隔"
@@ -537,8 +533,6 @@ internal data object EnReader : ReaderStrings {
     override val progressStyleBookFraction = "Book Pages"
     override val progressStyleBookPercent = "Book Percent"
     // P2 settings
-    override val autoNightModeLabel = "Auto Night Mode"
-    override val autoNightModeDesc = "Follow system dark mode to switch theme"
     override val autoPageTurnLabel = "Auto Page Turn"
     override val autoPageTurnDesc = "Automatically turn pages at fixed intervals"
     override val autoPageTurnIntervalLabel = "Turn Interval"

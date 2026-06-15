@@ -25,8 +25,8 @@ import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.bookshelf.BookshelfScreen
 import com.shuli.reader.feature.bookshelf.BookshelfViewModel
 import androidx.compose.ui.platform.LocalContext
-import com.shuli.reader.feature.reader.ReaderScreen
-import com.shuli.reader.feature.reader.ReaderViewModel
+import com.shuli.reader.feature.reader.screen.ReaderScreen
+import com.shuli.reader.feature.reader.screen.ReaderViewModel
 import com.shuli.reader.core.font.FontManager
 import com.shuli.reader.feature.settings.SettingsEvent
 import com.shuli.reader.feature.settings.SettingsScreen

@@ -1,7 +1,7 @@
 // Part of T-39 导出对话框
 package com.shuli.reader.feature.settings
 
-import com.shuli.reader.sync.export.ExportOptions
+import com.shuli.reader.sync.backup.ExportOptions
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

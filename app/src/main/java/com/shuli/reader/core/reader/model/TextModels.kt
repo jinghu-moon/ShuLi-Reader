@@ -1,9 +1,9 @@
 package com.shuli.reader.core.reader.model
 
-import com.shuli.reader.core.canvasrecorder.CanvasRecorder
-import com.shuli.reader.core.canvasrecorder.CanvasRecorderFactory
-import com.shuli.reader.core.canvasrecorder.record
-import com.shuli.reader.core.reader.TitleStyleConfig
+import com.shuli.reader.core.recorder.CanvasRecorder
+import com.shuli.reader.core.recorder.CanvasRecorderFactory
+import com.shuli.reader.core.recorder.record
+import com.shuli.reader.core.reader.model.TitleStyleConfig
 
 /**
  * 页面尺寸配置

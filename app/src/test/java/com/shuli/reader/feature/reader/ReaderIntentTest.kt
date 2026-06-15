@@ -1,4 +1,8 @@
 package com.shuli.reader.feature.reader
+import com.shuli.reader.feature.reader.screen.PageDirection
+import com.shuli.reader.feature.reader.screen.ReaderSettingKey
+import com.shuli.reader.feature.reader.screen.ReaderSettingValue
+import com.shuli.reader.feature.reader.screen.ReaderIntent
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

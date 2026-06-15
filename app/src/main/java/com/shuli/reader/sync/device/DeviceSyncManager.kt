@@ -1,6 +1,6 @@
 package com.shuli.reader.sync.device
 
-import com.shuli.reader.sync.transport.SyncTransport
+import com.shuli.reader.sync.network.transport.SyncTransport
 import kotlinx.serialization.json.Json
 
 /**

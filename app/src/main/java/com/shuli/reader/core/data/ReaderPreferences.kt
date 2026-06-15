@@ -1,8 +1,8 @@
 package com.shuli.reader.core.data
 
-import com.shuli.reader.core.reader.FooterConfig
-import com.shuli.reader.core.reader.HeaderConfig
-import com.shuli.reader.core.reader.TitleStyleConfig
+import com.shuli.reader.core.reader.model.FooterConfig
+import com.shuli.reader.core.reader.model.HeaderConfig
+import com.shuli.reader.core.reader.model.TitleStyleConfig
 import com.shuli.reader.feature.reader.settings.GestureConfig
 import com.shuli.reader.feature.reader.settings.ReaderSettingRegistry
 import kotlinx.serialization.Serializable
@@ -65,7 +65,6 @@ data class ReaderPreferences(
     // P1: 进度显示样式
     val progressStyle: ProgressStyle = ReaderSettingRegistry.getDefault("progress_style"),
     // P2: 低频增强
-    val autoNightMode: Boolean = ReaderSettingRegistry.getDefault("auto_night_mode"),
     val autoPageTurn: Boolean = ReaderSettingRegistry.getDefault("auto_page_turn"),
     val autoPageTurnInterval: Float = ReaderSettingRegistry.getDefault("auto_page_turn_interval"),
     val epubOverrideStyle: Boolean = ReaderSettingRegistry.getDefault("epub_override_style"),
@@ -78,7 +77,6 @@ data class ReaderPreferences(
     val customHeaderFooterColor: Int? = ReaderSettingRegistry.getDefault("custom_header_footer_color"),
     // ── v5.1 新增字段 ──
     val colorTemperature: Float = ReaderSettingRegistry.getDefault("color_temperature"),
-    val focusLine: Boolean = ReaderSettingRegistry.getDefault("focus_line"),
     val paragraphDivider: Boolean = ReaderSettingRegistry.getDefault("paragraph_divider"),
     val marginTop: Float? = ReaderSettingRegistry.getDefault("margin_top"),
     val marginBottom: Float? = ReaderSettingRegistry.getDefault("margin_bottom"),
@@ -193,13 +191,13 @@ data class ThemeColors(
 /**
  * PageAnimType 转换为 PageDelegateFactory.PageAnimType
  */
-fun PageAnimType.toFactoryType(): com.shuli.reader.core.reader.animation.PageDelegateFactory.PageAnimType {
+fun PageAnimType.toFactoryType(): com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType {
     return when (this) {
-        PageAnimType.NONE -> com.shuli.reader.core.reader.animation.PageDelegateFactory.PageAnimType.NONE
-        PageAnimType.COVER -> com.shuli.reader.core.reader.animation.PageDelegateFactory.PageAnimType.COVER
-        PageAnimType.HORIZONTAL -> com.shuli.reader.core.reader.animation.PageDelegateFactory.PageAnimType.HORIZONTAL
-        PageAnimType.SIMULATION -> com.shuli.reader.core.reader.animation.PageDelegateFactory.PageAnimType.SIMULATION
-        PageAnimType.SCROLL -> com.shuli.reader.core.reader.animation.PageDelegateFactory.PageAnimType.SCROLL
+        PageAnimType.NONE -> com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.NONE
+        PageAnimType.COVER -> com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.COVER
+        PageAnimType.HORIZONTAL -> com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.HORIZONTAL
+        PageAnimType.SIMULATION -> com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.SIMULATION
+        PageAnimType.SCROLL -> com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.SCROLL
     }
 }
 
@@ -289,83 +287,83 @@ fun ChineseConvert.toStorageString(): String {
 /**
  * 从字符串转换为 HeaderVisibility
  */
-fun String.toHeaderVisibility(): com.shuli.reader.core.reader.HeaderVisibility {
+fun String.toHeaderVisibility(): com.shuli.reader.core.reader.model.HeaderVisibility {
     return when (this) {
-        "always_show" -> com.shuli.reader.core.reader.HeaderVisibility.ALWAYS_SHOW
-        "always_hide" -> com.shuli.reader.core.reader.HeaderVisibility.ALWAYS_HIDE
-        "hide_when_status_bar" -> com.shuli.reader.core.reader.HeaderVisibility.HIDE_WHEN_STATUS_BAR
-        else -> com.shuli.reader.core.reader.HeaderVisibility.HIDE_WHEN_STATUS_BAR
+        "always_show" -> com.shuli.reader.core.reader.model.HeaderVisibility.ALWAYS_SHOW
+        "always_hide" -> com.shuli.reader.core.reader.model.HeaderVisibility.ALWAYS_HIDE
+        "hide_when_status_bar" -> com.shuli.reader.core.reader.model.HeaderVisibility.HIDE_WHEN_STATUS_BAR
+        else -> com.shuli.reader.core.reader.model.HeaderVisibility.HIDE_WHEN_STATUS_BAR
     }
 }
 
 /**
  * HeaderVisibility 转换为字符串
  */
-fun com.shuli.reader.core.reader.HeaderVisibility.toStorageString(): String {
+fun com.shuli.reader.core.reader.model.HeaderVisibility.toStorageString(): String {
     return when (this) {
-        com.shuli.reader.core.reader.HeaderVisibility.ALWAYS_SHOW -> "always_show"
-        com.shuli.reader.core.reader.HeaderVisibility.ALWAYS_HIDE -> "always_hide"
-        com.shuli.reader.core.reader.HeaderVisibility.HIDE_WHEN_STATUS_BAR -> "hide_when_status_bar"
+        com.shuli.reader.core.reader.model.HeaderVisibility.ALWAYS_SHOW -> "always_show"
+        com.shuli.reader.core.reader.model.HeaderVisibility.ALWAYS_HIDE -> "always_hide"
+        com.shuli.reader.core.reader.model.HeaderVisibility.HIDE_WHEN_STATUS_BAR -> "hide_when_status_bar"
     }
 }
 
 /**
  * 从字符串转换为 SlotContent
  */
-fun String.toSlotContent(): com.shuli.reader.core.reader.SlotContent {
+fun String.toSlotContent(): com.shuli.reader.core.reader.model.SlotContent {
     return when (this) {
-        "none" -> com.shuli.reader.core.reader.SlotContent.NONE
-        "chapter_title" -> com.shuli.reader.core.reader.SlotContent.CHAPTER_TITLE
-        "book_title" -> com.shuli.reader.core.reader.SlotContent.BOOK_TITLE
-        "page_number" -> com.shuli.reader.core.reader.SlotContent.CHAPTER_PROGRESS_FRACTION
-        "chapter_progress_percent" -> com.shuli.reader.core.reader.SlotContent.CHAPTER_PROGRESS_PERCENT
-        "book_progress_fraction" -> com.shuli.reader.core.reader.SlotContent.BOOK_PROGRESS_FRACTION
-        "progress" -> com.shuli.reader.core.reader.SlotContent.BOOK_PROGRESS_PERCENT
-        "time" -> com.shuli.reader.core.reader.SlotContent.TIME
-        "battery" -> com.shuli.reader.core.reader.SlotContent.BATTERY
-        "date" -> com.shuli.reader.core.reader.SlotContent.DATE
-        else -> com.shuli.reader.core.reader.SlotContent.NONE
+        "none" -> com.shuli.reader.core.reader.model.SlotContent.NONE
+        "chapter_title" -> com.shuli.reader.core.reader.model.SlotContent.CHAPTER_TITLE
+        "book_title" -> com.shuli.reader.core.reader.model.SlotContent.BOOK_TITLE
+        "page_number" -> com.shuli.reader.core.reader.model.SlotContent.CHAPTER_PROGRESS_FRACTION
+        "chapter_progress_percent" -> com.shuli.reader.core.reader.model.SlotContent.CHAPTER_PROGRESS_PERCENT
+        "book_progress_fraction" -> com.shuli.reader.core.reader.model.SlotContent.BOOK_PROGRESS_FRACTION
+        "progress" -> com.shuli.reader.core.reader.model.SlotContent.BOOK_PROGRESS_PERCENT
+        "time" -> com.shuli.reader.core.reader.model.SlotContent.TIME
+        "battery" -> com.shuli.reader.core.reader.model.SlotContent.BATTERY
+        "date" -> com.shuli.reader.core.reader.model.SlotContent.DATE
+        else -> com.shuli.reader.core.reader.model.SlotContent.NONE
     }
 }
 
 /**
  * 字符串转换为 TitleAlign
  */
-fun String.toTitleAlign(): com.shuli.reader.core.reader.TitleAlign {
+fun String.toTitleAlign(): com.shuli.reader.core.reader.model.TitleAlign {
     return when (this) {
-        "left" -> com.shuli.reader.core.reader.TitleAlign.LEFT
-        "center" -> com.shuli.reader.core.reader.TitleAlign.CENTER
-        "hidden" -> com.shuli.reader.core.reader.TitleAlign.HIDDEN
-        else -> com.shuli.reader.core.reader.TitleAlign.CENTER
+        "left" -> com.shuli.reader.core.reader.model.TitleAlign.LEFT
+        "center" -> com.shuli.reader.core.reader.model.TitleAlign.CENTER
+        "hidden" -> com.shuli.reader.core.reader.model.TitleAlign.HIDDEN
+        else -> com.shuli.reader.core.reader.model.TitleAlign.CENTER
     }
 }
 
 /**
  * TitleAlign 转换为字符串
  */
-fun com.shuli.reader.core.reader.TitleAlign.toStorageString(): String {
+fun com.shuli.reader.core.reader.model.TitleAlign.toStorageString(): String {
     return when (this) {
-        com.shuli.reader.core.reader.TitleAlign.LEFT -> "left"
-        com.shuli.reader.core.reader.TitleAlign.CENTER -> "center"
-        com.shuli.reader.core.reader.TitleAlign.HIDDEN -> "hidden"
+        com.shuli.reader.core.reader.model.TitleAlign.LEFT -> "left"
+        com.shuli.reader.core.reader.model.TitleAlign.CENTER -> "center"
+        com.shuli.reader.core.reader.model.TitleAlign.HIDDEN -> "hidden"
     }
 }
 
 /**
  * SlotContent 转换为字符串
  */
-fun com.shuli.reader.core.reader.SlotContent.toStorageString(): String {
+fun com.shuli.reader.core.reader.model.SlotContent.toStorageString(): String {
     return when (this) {
-        com.shuli.reader.core.reader.SlotContent.NONE -> "none"
-        com.shuli.reader.core.reader.SlotContent.CHAPTER_TITLE -> "chapter_title"
-        com.shuli.reader.core.reader.SlotContent.BOOK_TITLE -> "book_title"
-        com.shuli.reader.core.reader.SlotContent.CHAPTER_PROGRESS_FRACTION -> "page_number"
-        com.shuli.reader.core.reader.SlotContent.CHAPTER_PROGRESS_PERCENT -> "chapter_progress_percent"
-        com.shuli.reader.core.reader.SlotContent.BOOK_PROGRESS_FRACTION -> "book_progress_fraction"
-        com.shuli.reader.core.reader.SlotContent.BOOK_PROGRESS_PERCENT -> "progress"
-        com.shuli.reader.core.reader.SlotContent.TIME -> "time"
-        com.shuli.reader.core.reader.SlotContent.BATTERY -> "battery"
-        com.shuli.reader.core.reader.SlotContent.DATE -> "date"
+        com.shuli.reader.core.reader.model.SlotContent.NONE -> "none"
+        com.shuli.reader.core.reader.model.SlotContent.CHAPTER_TITLE -> "chapter_title"
+        com.shuli.reader.core.reader.model.SlotContent.BOOK_TITLE -> "book_title"
+        com.shuli.reader.core.reader.model.SlotContent.CHAPTER_PROGRESS_FRACTION -> "page_number"
+        com.shuli.reader.core.reader.model.SlotContent.CHAPTER_PROGRESS_PERCENT -> "chapter_progress_percent"
+        com.shuli.reader.core.reader.model.SlotContent.BOOK_PROGRESS_FRACTION -> "book_progress_fraction"
+        com.shuli.reader.core.reader.model.SlotContent.BOOK_PROGRESS_PERCENT -> "progress"
+        com.shuli.reader.core.reader.model.SlotContent.TIME -> "time"
+        com.shuli.reader.core.reader.model.SlotContent.BATTERY -> "battery"
+        com.shuli.reader.core.reader.model.SlotContent.DATE -> "date"
     }
 }
 
@@ -517,7 +515,6 @@ fun <T> ReaderPreferences.getValueByKey(key: String): T? = when (key) {
     "remove_empty_lines" -> removeEmptyLines
     "clean_chapter_title" -> cleanChapterTitle
     "progress_style" -> progressStyle
-    "auto_night_mode" -> autoNightMode
     "auto_page_turn" -> autoPageTurn
     "auto_page_turn_interval" -> autoPageTurnInterval
     "epub_override_style" -> epubOverrideStyle
@@ -527,7 +524,6 @@ fun <T> ReaderPreferences.getValueByKey(key: String): T? = when (key) {
     "custom_title_color" -> customTitleColor
     "custom_header_footer_color" -> customHeaderFooterColor
     "color_temperature" -> colorTemperature
-    "focus_line" -> focusLine
     "paragraph_divider" -> paragraphDivider
     "margin_top" -> marginTop
     "margin_bottom" -> marginBottom

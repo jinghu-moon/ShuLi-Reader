@@ -138,13 +138,13 @@ class ShuLiAppContainer(
         com.shuli.reader.core.cover.CoverPrewarmer(bookQueryRepository, appContext)
     }
 
-    val syncManager: com.shuli.reader.core.sync.WebDavSyncManager by lazy {
-        val remote = object : com.shuli.reader.core.sync.ProgressRemote {
+    val syncManager: com.shuli.reader.sync.engine.WebDavSyncManager by lazy {
+        val remote = object : com.shuli.reader.sync.engine.ProgressRemote {
             @Volatile
-            private var currentClient: Pair<com.shuli.reader.core.sync.WebDavConfig, com.shuli.reader.core.sync.WebDavClient>? = null
+            private var currentClient: Pair<com.shuli.reader.sync.network.webdav.WebDavConfig, com.shuli.reader.sync.network.webdav.WebDavClient>? = null
 
-            private suspend fun getClient(): com.shuli.reader.core.sync.WebDavClient {
-                val config = com.shuli.reader.core.sync.WebDavConfig(
+            private suspend fun getClient(): com.shuli.reader.sync.network.webdav.WebDavClient {
+                val config = com.shuli.reader.sync.network.webdav.WebDavConfig(
                     userPreferences.webdavUrl.first(),
                     userPreferences.webdavUser.first(),
                     userPreferences.webdavPassword.first()
@@ -153,7 +153,7 @@ class ShuLiAppContainer(
                 if (cached != null && cached.first == config) {
                     return cached.second
                 }
-                val client = com.shuli.reader.core.sync.WebDavClient(config)
+                val client = com.shuli.reader.sync.network.webdav.WebDavClient(config)
                 currentClient = config to client
                 return client
             }
@@ -166,7 +166,7 @@ class ShuLiAppContainer(
                 return getClient().get(path).body
             }
         }
-        com.shuli.reader.core.sync.WebDavSyncManager(remote)
+        com.shuli.reader.sync.engine.WebDavSyncManager(remote)
     }
 }
 

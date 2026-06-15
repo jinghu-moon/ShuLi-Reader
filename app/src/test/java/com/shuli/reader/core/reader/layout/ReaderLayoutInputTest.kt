@@ -3,7 +3,7 @@ package com.shuli.reader.core.reader.layout
 import com.shuli.reader.core.data.ChineseConvert
 import com.shuli.reader.core.data.IndentUnit
 import com.shuli.reader.core.data.ReaderFontWeight
-import com.shuli.reader.core.reader.TitleStyleConfig
+import com.shuli.reader.core.reader.model.TitleStyleConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test

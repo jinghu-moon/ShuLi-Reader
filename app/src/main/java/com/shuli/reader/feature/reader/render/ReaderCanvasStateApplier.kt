@@ -1,6 +1,6 @@
 package com.shuli.reader.feature.reader.render
 
-import com.shuli.reader.core.reader.RenderApplierTarget
+import com.shuli.reader.core.reader.engine.RenderApplierTarget
 
 /**
  * 按 diff scopes 分发 Canvas 失效操作。

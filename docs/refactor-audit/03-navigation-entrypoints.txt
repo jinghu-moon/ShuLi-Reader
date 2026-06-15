@@ -1,0 +1,15 @@
+# 导航入口扫描
+# 生成时间: 2026-06-15
+# 模式: composable("route") | NavController | NavHost | navigate( | NavGraphBuilder
+# 任何 Screen 移动时必须同步这些注册点
+#
+# 结论：项目未使用 Jetpack Navigation Compose (NavHost / composable)
+# 导航方式：MainActivity.kt 中使用 sealed class ActiveScreen + when 表达式实现手动导航
+# 入口定义点：
+#   MainActivity.kt:44-49  sealed class ActiveScreen { Bookshelf, Stats, Settings, Reader(bookId) }
+#   MainActivity.kt:189-254 when(screen) 分发到 BookshelfScreen / StatsScreen / SettingsScreen / ReaderScreen
+#
+# 移动 ReaderScreen / BookshelfScreen / StatsScreen / SettingsScreen 时必须同步:
+#   1. MainActivity.kt import
+#   2. ActiveScreen sealed class (如有参数变化)
+#   3. when 分支中的 Screen composable 调用

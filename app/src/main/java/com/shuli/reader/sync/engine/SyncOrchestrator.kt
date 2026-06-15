@@ -1,6 +1,6 @@
 package com.shuli.reader.sync.engine
 
-import com.shuli.reader.sync.transport.SyncTransport
+import com.shuli.reader.sync.network.transport.SyncTransport
 
 /**
  * 同步编排器（T-23）

@@ -2,7 +2,7 @@ package com.shuli.reader.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.shuli.reader.sync.export.ExportOptions
+import com.shuli.reader.sync.backup.ExportOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow

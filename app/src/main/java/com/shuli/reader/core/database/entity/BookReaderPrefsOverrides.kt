@@ -84,7 +84,6 @@ data class BookReaderPrefsOverrides(
     val leftZoneRatio: Float? = null,
     val autoPageTurn: Boolean? = null,
     val autoPageTurnInterval: Float? = null,
-    val autoNightMode: Boolean? = null,
     val epubOverrideStyle: Boolean? = null,
     val hapticFeedback: Boolean? = null,
     val orientationLock: String? = null,
@@ -98,7 +97,6 @@ data class BookReaderPrefsOverrides(
     val dualPageMode: String? = null,
 
     // ── 辅助 ──
-    val focusLine: Boolean? = null,
     val eyeCareReminderInterval: Int? = null,
 
     // ── 手势（类型安全：@Serializable GestureConfig，非 JSON String）──

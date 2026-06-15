@@ -83,7 +83,7 @@ private fun TextPage.markAllRecordersClean() {
         .forEach { it.markClean() }
 }
 
-private fun com.shuli.reader.core.canvasrecorder.CanvasRecorder.markClean() {
+private fun com.shuli.reader.core.recorder.CanvasRecorder.markClean() {
     // CanvasRecorderLocked 通过 by delegate 持有私有 delegate 字段，
     // isDirty 在委托目标（BaseCanvasRecorder 及其子类）上。
     var target: Any = this

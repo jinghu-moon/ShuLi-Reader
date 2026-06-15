@@ -1,11 +1,11 @@
 package com.shuli.reader.core.data
 
-import com.shuli.reader.core.reader.FooterConfig
-import com.shuli.reader.core.reader.HeaderConfig
-import com.shuli.reader.core.reader.HeaderVisibility
-import com.shuli.reader.core.reader.SlotContent
-import com.shuli.reader.core.reader.TitleAlign
-import com.shuli.reader.core.reader.TitleStyleConfig
+import com.shuli.reader.core.reader.model.FooterConfig
+import com.shuli.reader.core.reader.model.HeaderConfig
+import com.shuli.reader.core.reader.model.HeaderVisibility
+import com.shuli.reader.core.reader.model.SlotContent
+import com.shuli.reader.core.reader.model.TitleAlign
+import com.shuli.reader.core.reader.model.TitleStyleConfig
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Test

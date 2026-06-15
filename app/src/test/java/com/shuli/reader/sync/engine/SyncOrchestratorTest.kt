@@ -1,8 +1,8 @@
 package com.shuli.reader.sync.engine
 
-import com.shuli.reader.sync.transport.LocalFileTransport
-import com.shuli.reader.sync.transport.SyncTransport
-import com.shuli.reader.sync.transport.WebDavTransport
+import com.shuli.reader.sync.network.transport.LocalFileTransport
+import com.shuli.reader.sync.network.transport.SyncTransport
+import com.shuli.reader.sync.network.transport.WebDavTransport
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest

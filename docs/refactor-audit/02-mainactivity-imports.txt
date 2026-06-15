@@ -1,0 +1,21 @@
+﻿# MainActivity.kt import 清单
+# 生成时间: 2026-06-15 12:54:10
+# 顶层入口。移动被引用类时必须同步此文件
+# 共 16 条
+
+import com.shuli.reader.core.i18n.AppStrings
+import com.shuli.reader.core.i18n.LocalAppStrings
+import com.shuli.reader.feature.bookshelf.BookshelfScreen
+import com.shuli.reader.feature.bookshelf.BookshelfViewModel
+import com.shuli.reader.feature.reader.ReaderScreen
+import com.shuli.reader.feature.reader.ReaderViewModel
+import com.shuli.reader.core.font.FontManager
+import com.shuli.reader.feature.settings.SettingsEvent
+import com.shuli.reader.feature.settings.SettingsScreen
+import com.shuli.reader.feature.settings.SettingsViewModel
+import com.shuli.reader.feature.stats.StatsScreen
+import com.shuli.reader.feature.stats.StatsViewModel
+import com.shuli.reader.ui.theme.ReadingFont
+import com.shuli.reader.ui.theme.ShuLiTheme
+import com.shuli.reader.ui.theme.Typography
+import com.shuli.reader.ui.theme.withFontFamily

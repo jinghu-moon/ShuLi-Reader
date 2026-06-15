@@ -16,11 +16,11 @@ import com.shuli.reader.core.database.entity.BookmarkEntity
 import com.shuli.reader.core.database.entity.NoteEntity
 import com.shuli.reader.core.database.entity.ReadingProgressEntity
 import com.shuli.reader.core.i18n.LocalAppStrings
-import com.shuli.reader.sync.export.BackupExporter
-import com.shuli.reader.sync.export.BackupImporter
-import com.shuli.reader.sync.export.ExportDatabase
-import com.shuli.reader.sync.export.ImportDatabase
-import com.shuli.reader.sync.export.ImportStrategy
+import com.shuli.reader.sync.backup.BackupExporter
+import com.shuli.reader.sync.backup.BackupImporter
+import com.shuli.reader.sync.backup.ExportDatabase
+import com.shuli.reader.sync.backup.ImportDatabase
+import com.shuli.reader.sync.backup.ImportStrategy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -40,11 +40,11 @@ internal fun SubScreenNavigation(
     when (currentSubScreen) {
         is SettingsSubScreen.Sync -> {
             val syncSummaryViewModel = remember {
-                com.shuli.reader.ui.settings.sync.SyncSummaryViewModel(
-                    stateMachine = com.shuli.reader.sync.state.SyncStateMachine()
+                com.shuli.reader.feature.sync.settings.SyncSummaryViewModel(
+                    stateMachine = com.shuli.reader.sync.engine.state.SyncStateMachine()
                 )
             }
-            com.shuli.reader.ui.settings.sync.SyncSettingsScreen(
+            com.shuli.reader.feature.sync.settings.SyncSettingsScreen(
                 viewModel = syncSummaryViewModel,
                 onBackClick = { onSubScreenChange(null) },
                 onNavigateToCloudSync = { onSubScreenChange(SettingsSubScreen.CloudSync) },
@@ -56,11 +56,11 @@ internal fun SubScreenNavigation(
         }
         is SettingsSubScreen.CloudSync -> {
             val cloudSyncViewModel = remember {
-                com.shuli.reader.ui.settings.sync.CloudSyncSettingsViewModel(
+                com.shuli.reader.feature.sync.settings.CloudSyncSettingsViewModel(
                     userPreferences = appContainer?.userPreferences
                 )
             }
-            com.shuli.reader.ui.settings.sync.CloudSyncSettingsScreen(
+            com.shuli.reader.feature.sync.settings.CloudSyncSettingsScreen(
                 viewModel = cloudSyncViewModel,
                 onBackClick = { onSubScreenChange(SettingsSubScreen.Sync) },
                 onNavigateToEncryption = { onSubScreenChange(SettingsSubScreen.Encryption) },
@@ -70,27 +70,27 @@ internal fun SubScreenNavigation(
         }
         is SettingsSubScreen.Encryption -> {
             val encryptionViewModel = remember {
-                com.shuli.reader.ui.settings.crypto.EncryptionManagementViewModel()
+                com.shuli.reader.feature.settings.crypto.EncryptionManagementViewModel()
             }
-            com.shuli.reader.ui.settings.crypto.EncryptionManagementScreen(
+            com.shuli.reader.feature.settings.crypto.EncryptionManagementScreen(
                 viewModel = encryptionViewModel,
                 onBackClick = { onSubScreenChange(SettingsSubScreen.Sync) },
             )
         }
         is SettingsSubScreen.Devices -> {
             val devicesViewModel = remember {
-                com.shuli.reader.ui.devices.DeviceManagementViewModel()
+                com.shuli.reader.feature.sync.devices.DeviceManagementViewModel()
             }
-            com.shuli.reader.ui.devices.DeviceManagementScreen(
+            com.shuli.reader.feature.sync.devices.DeviceManagementScreen(
                 viewModel = devicesViewModel,
                 onBackClick = { onSubScreenChange(SettingsSubScreen.Sync) },
             )
         }
         is SettingsSubScreen.Logs -> {
             val logsViewModel = remember {
-                com.shuli.reader.ui.log.SyncLogViewModel()
+                com.shuli.reader.feature.sync.log.SyncLogViewModel()
             }
-            com.shuli.reader.ui.log.SyncLogScreen(
+            com.shuli.reader.feature.sync.log.SyncLogScreen(
                 viewModel = logsViewModel,
                 onBackClick = { onSubScreenChange(SettingsSubScreen.Sync) },
             )
@@ -98,7 +98,7 @@ internal fun SubScreenNavigation(
         is SettingsSubScreen.Export -> {
             var showExportSheet by remember { mutableStateOf(true) }
             if (showExportSheet) {
-                com.shuli.reader.ui.export.ExportBottomSheet(
+                com.shuli.reader.feature.bookshelf.export.ui.ExportBottomSheet(
                     onDismiss = {
                         showExportSheet = false
                         onSubScreenChange(SettingsSubScreen.Sync)
@@ -137,7 +137,7 @@ private fun LocalBackupNavigation(
     var exportResult by remember { mutableStateOf<String?>(null) }
     var importResult by remember { mutableStateOf<String?>(null) }
 
-    com.shuli.reader.ui.export.LocalBackupScreen(
+    com.shuli.reader.feature.bookshelf.export.ui.LocalBackupScreen(
         onBackClick = onBackClick,
         onExport = { options ->
             if (!isExporting && appContainer != null) {

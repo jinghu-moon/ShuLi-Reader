@@ -1,7 +1,7 @@
 package com.shuli.reader.sync.device
 
-import com.shuli.reader.sync.transport.SyncTransport
-import com.shuli.reader.sync.transport.TransportResourceInfo
+import com.shuli.reader.sync.network.transport.SyncTransport
+import com.shuli.reader.sync.network.transport.TransportResourceInfo
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk

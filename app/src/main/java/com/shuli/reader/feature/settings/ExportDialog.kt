@@ -25,7 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.shuli.reader.core.i18n.LocalAppStrings
-import com.shuli.reader.sync.export.ExportOptions
+import com.shuli.reader.sync.backup.ExportOptions
 
 /**
  * 导出对话框。

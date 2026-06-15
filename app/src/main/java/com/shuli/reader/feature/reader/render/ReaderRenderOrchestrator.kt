@@ -1,6 +1,6 @@
 package com.shuli.reader.feature.reader.render
 
-import com.shuli.reader.core.reader.RenderApplierTarget
+import com.shuli.reader.core.reader.engine.RenderApplierTarget
 
 /**
  * 唯一 Snapshot Owner。Canvas 只做 renderer，不做 store。

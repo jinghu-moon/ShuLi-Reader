@@ -3,7 +3,7 @@ package com.shuli.reader.core.reader.layout
 import com.shuli.reader.core.data.ChineseConvert
 import com.shuli.reader.core.data.IndentUnit
 import com.shuli.reader.core.data.ReaderFontWeight
-import com.shuli.reader.core.reader.TitleStyleConfig
+import com.shuli.reader.core.reader.model.TitleStyleConfig
 
 /**
  * 分页器的完整布局输入。
@@ -34,6 +34,8 @@ data class ReaderLayoutInput(
     val titleStyle: TitleStyleConfig,
     val headerVisibleForLayout: Boolean,
     val footerVisibleForLayout: Boolean,
+    val headerMarginTopDp: Float = 48f,
+    val footerMarginBottomDp: Float = 48f,
     val chineseConvert: ChineseConvert,
     val usePanguSpacing: Boolean,
     val useZhLayout: Boolean,

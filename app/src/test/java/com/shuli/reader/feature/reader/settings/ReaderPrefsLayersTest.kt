@@ -12,7 +12,6 @@ class ReaderPrefsLayersTest {
         val prefs = ReaderPreferences()
         val overlay = prefs.toOverlayPrefs()
         assertEquals(prefs.colorTemperature, overlay.colorTemperature, 0.001f)
-        assertEquals(prefs.focusLine, overlay.focusLine)
         assertEquals(prefs.brightness, overlay.brightness, 0.001f)
         // hapticFeedback 和 eyeCareReminderInterval 属于 tier -1（不参与重组），不在 OverlayPrefs 中
     }

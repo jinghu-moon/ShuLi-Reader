@@ -1,6 +1,6 @@
 package com.shuli.reader.core.data
 
-import com.shuli.reader.core.reader.animation.PageDelegateFactory
+import com.shuli.reader.core.reader.engine.animation.PageDelegateFactory
 import com.shuli.reader.ui.theme.toCanvasThemeColors
 import com.shuli.reader.ui.theme.toReaderColorScheme
 import org.junit.Assert.assertEquals
