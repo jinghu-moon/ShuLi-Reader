@@ -10,7 +10,8 @@ import android.graphics.RectF
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
-import com.shuli.reader.core.recorder.CanvasRecorderFactory
+import com.shuli.reader.core.reader.engine.cache.LineKey
+import com.shuli.reader.core.reader.engine.cache.PageKey
 import com.shuli.reader.core.recorder.recordIfNeeded
 import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.reader.model.SelectionRange
@@ -172,8 +173,8 @@ class ReaderPageRenderer(
         val density = page.density
 
         // 1. 绘制正文文本（per-line CanvasRecorder 优化）
-        for (line in page.lines) {
-            drawLineWithRecorder(canvas, line, ctx)
+        for ((lineIndex, line) in page.lines.withIndex()) {
+            drawLineWithRecorder(canvas, line, lineIndex, ctx)
         }
 
         // 2. 绘制章节标题（仅首页）
@@ -183,7 +184,7 @@ class ReaderPageRenderer(
     /**
      * 渲染覆盖层：笔记高亮、选区高亮。
      *
-     * 独立录制在 [com.shuli.reader.core.reader.model.TextPage.overlayRecorder] 中，
+     * 独立录制在 overlay layer 中（由 PageRenderStateStore 管理），
      * 选区变化时仅 overlay 失效，正文不重录（§10 分层 recorder）。
      */
     fun renderOverlay(
@@ -330,9 +331,10 @@ class ReaderPageRenderer(
      * 使用 per-line CanvasRecorder 绘制单行文本
      * 选区高亮变化时仅重画受影响的行，而非整页
      */
-    private fun drawLineWithRecorder(canvas: Canvas, line: TextLine, ctx: PageRenderContext) {
-        val recorder = line.canvasRecorder
-            ?: CanvasRecorderFactory.create().also { line.canvasRecorder = it }
+    private fun drawLineWithRecorder(canvas: Canvas, line: TextLine, lineIndex: Int, ctx: PageRenderContext) {
+        val pageKey = PageKey(ctx.page.chapterIndex, ctx.page.pageIndex, ctx.page.startCharOffset, ctx.page.endCharOffset)
+        val lineKey = LineKey(pageKey, lineIndex)
+        val recorder = ctx.renderStateStore.getLineRecorder(lineKey)
 
         val lineHeight = (line.bottom - line.top).toInt()
         val startX = ctx.page.marginHorizontal + line.startXOffset

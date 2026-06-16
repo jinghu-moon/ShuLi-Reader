@@ -1,6 +1,7 @@
 package com.shuli.reader.core.reader.engine
 
 import android.graphics.Paint
+import com.shuli.reader.core.reader.engine.cache.PageRenderStateStore
 import com.shuli.reader.core.reader.model.TextPage
 
 /**
@@ -20,4 +21,6 @@ class PageRenderContext(
     val letterSpacingPx: Float,
     /** 可用内容宽度（减去左右 margin） */
     val availableWidth: Float,
+    /** 渲染状态 store，提供行级 recorder */
+    val renderStateStore: PageRenderStateStore,
 )

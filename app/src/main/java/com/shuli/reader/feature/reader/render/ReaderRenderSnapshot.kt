@@ -64,6 +64,7 @@ data class ShellSnapshot(
     val leftZoneRatio: Float = 0.33f,
     val gestureConfig: com.shuli.reader.feature.reader.settings.GestureConfig =
         com.shuli.reader.feature.reader.settings.GestureConfig(),
+    val colorTemperature: Float = 6500f,
     val shellKey: RenderKey,
 )
 

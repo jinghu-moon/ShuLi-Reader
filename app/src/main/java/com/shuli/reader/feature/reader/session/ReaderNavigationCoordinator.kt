@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -57,10 +58,13 @@ internal class ReaderNavigationCoordinator(
         val chapter = state.currentChapter ?: return
 
         if (state.pageIndex < chapter.lastIndex) {
-            uiState.value = state.copy(
-                pageIndex = state.pageIndex + 1,
-                currentPage = chapter.getPage(state.pageIndex + 1),
-            )
+            uiState.update {
+                val ch = it.currentChapter ?: return@update it
+                it.copy(
+                    pageIndex = it.pageIndex + 1,
+                    currentPage = ch.getPage(it.pageIndex + 1),
+                )
+            }
             saveReadingProgress(false)
         } else if (state.chapterIndex < state.totalChapters - 1) {
             openChapter(state.chapterIndex + 1, false, -1L)
@@ -76,10 +80,13 @@ internal class ReaderNavigationCoordinator(
         val chapter = state.currentChapter ?: return
 
         if (state.pageIndex > 0) {
-            uiState.value = state.copy(
-                pageIndex = state.pageIndex - 1,
-                currentPage = chapter.getPage(state.pageIndex - 1),
-            )
+            uiState.update {
+                val ch = it.currentChapter ?: return@update it
+                it.copy(
+                    pageIndex = it.pageIndex - 1,
+                    currentPage = ch.getPage(it.pageIndex - 1),
+                )
+            }
             saveReadingProgress(false)
         } else if (state.chapterIndex > 0) {
             openChapter(state.chapterIndex - 1, true, -1L)
@@ -95,45 +102,51 @@ internal class ReaderNavigationCoordinator(
         val safe = pageIndex.coerceIn(0, chapter.lastIndex)
         if (safe == uiState.value.pageIndex) return
 
-        uiState.value = uiState.value.copy(
-            pageIndex = safe,
-            currentPage = chapter.getPage(safe),
-            pageRenderMode = PageRenderMode.JUMP,
-            selectedRange = null,
-        )
+        uiState.update {
+            val ch = it.currentChapter ?: return@update it
+            it.copy(
+                pageIndex = safe,
+                currentPage = ch.getPage(safe),
+                pageRenderMode = PageRenderMode.JUMP,
+                selectedRange = null,
+            )
+        }
         saveReadingProgress(true)
         scope.launch {
             delay(16)
-            uiState.value = uiState.value.copy(pageRenderMode = PageRenderMode.SEQUENTIAL)
+            uiState.update { it.copy(pageRenderMode = PageRenderMode.SEQUENTIAL) }
         }
     }
 
     // ── Scrub（进度条拖动） ──────────────────────────────────────
 
     fun startPageScrub() {
-        uiState.value = uiState.value.copy(pageRenderMode = PageRenderMode.SCRUBBING)
+        uiState.update { it.copy(pageRenderMode = PageRenderMode.SCRUBBING) }
     }
 
     fun scrubToPage(pageIndex: Int) {
         val chapter = uiState.value.currentChapter ?: return
         val safe = pageIndex.coerceIn(0, chapter.lastIndex)
-        uiState.value = uiState.value.copy(pageIndex = safe)
+        uiState.update { it.copy(pageIndex = safe) }
         scrubChannel.trySend(safe)
     }
 
     private fun emitScrubFrame(pageIndex: Int) {
-        val chapter = uiState.value.currentChapter ?: return
-        uiState.value = uiState.value.copy(currentPage = chapter.getPage(pageIndex))
+        uiState.update {
+            val chapter = it.currentChapter ?: return@update it
+            it.copy(currentPage = chapter.getPage(pageIndex))
+        }
     }
 
     fun commitPageScrub() {
-        val state = uiState.value
-        val pi = state.pageIndex
-        val chapter = state.currentChapter ?: return
-        uiState.value = state.copy(
-            currentPage = chapter.getPage(pi),
-            pageRenderMode = PageRenderMode.SEQUENTIAL,
-        )
+        uiState.update { state ->
+            val pi = state.pageIndex
+            val chapter = state.currentChapter ?: return@update state
+            state.copy(
+                currentPage = chapter.getPage(pi),
+                pageRenderMode = PageRenderMode.SEQUENTIAL,
+            )
+        }
         saveReadingProgress(true)
     }
 
@@ -142,10 +155,7 @@ internal class ReaderNavigationCoordinator(
     fun toggleToolbar() {
         toolbarAutoHideJob?.cancel()
         val showing = !uiState.value.showToolbar
-        uiState.value = uiState.value.copy(
-            showToolbar = showing,
-            overlayPanel = OverlayPanel.NONE,
-        )
+        uiState.update { it.copy(showToolbar = showing, overlayPanel = OverlayPanel.NONE) }
         if (showing) startToolbarAutoHide()
     }
 
@@ -153,7 +163,7 @@ internal class ReaderNavigationCoordinator(
         toolbarAutoHideJob?.cancel()
         toolbarAutoHideJob = scope.launch {
             delay(TOOLBAR_AUTO_HIDE_DELAY_MS)
-            uiState.value = uiState.value.copy(showToolbar = false)
+            uiState.update { it.copy(showToolbar = false) }
         }
     }
 
@@ -169,46 +179,44 @@ internal class ReaderNavigationCoordinator(
 
     fun openGestureZoneEditor() {
         toolbarAutoHideJob?.cancel()
-        uiState.value = uiState.value.copy(
-            showToolbar = false,
-            showSearch = false,
-            selectedRange = null,
-            overlayPanel = OverlayPanel.GESTURE_EDITOR,
-        )
+        uiState.update {
+            it.copy(
+                showToolbar = false,
+                showSearch = false,
+                selectedRange = null,
+                overlayPanel = OverlayPanel.GESTURE_EDITOR,
+            )
+        }
         clearSearchResults()
     }
 
     fun closeGestureZoneEditor() {
-        if (uiState.value.overlayPanel == OverlayPanel.GESTURE_EDITOR) {
-            uiState.value = uiState.value.copy(overlayPanel = OverlayPanel.NONE)
+        uiState.update {
+            if (it.overlayPanel == OverlayPanel.GESTURE_EDITOR) it.copy(overlayPanel = OverlayPanel.NONE) else it
         }
     }
 
     private fun toggleOverlay(panel: OverlayPanel) {
         resetToolbarAutoHide()
-        val current = uiState.value.overlayPanel
-        uiState.value = uiState.value.copy(
-            overlayPanel = if (current == panel) OverlayPanel.NONE else panel
-        )
+        uiState.update {
+            it.copy(overlayPanel = if (it.overlayPanel == panel) OverlayPanel.NONE else panel)
+        }
     }
 
     fun toggleMenu() {
-        uiState.value = uiState.value.copy(showMenu = !uiState.value.showMenu)
+        uiState.update { it.copy(showMenu = !it.showMenu) }
     }
 
     fun toggleSearch() {
         val showing = !uiState.value.showSearch
-        uiState.value = uiState.value.copy(
-            showSearch = showing,
-            overlayPanel = OverlayPanel.NONE,
-        )
+        uiState.update { it.copy(showSearch = showing, overlayPanel = OverlayPanel.NONE) }
         if (!showing) clearSearchResults()
     }
 
     // ── 翻页动画 ──────────────────────────────────────────────
 
     fun setPageAnimType(type: PageDelegateFactory.PageAnimType, setPageDelegate: (PageDelegate) -> Unit) {
-        uiState.value = uiState.value.copy(pageAnimType = type)
+        uiState.update { it.copy(pageAnimType = type) }
         setPageDelegate(PageDelegateFactory.create(type))
     }
 
@@ -223,13 +231,11 @@ internal class ReaderNavigationCoordinator(
     // ── 文本选择 ──────────────────────────────────────────────
 
     fun selectText(range: SelectionRange) {
-        uiState.value = uiState.value.copy(selectedRange = range)
-        uiState.value.currentPage?.invalidate()
+        uiState.update { it.copy(selectedRange = range) }
     }
 
     fun clearTextSelection() {
-        uiState.value = uiState.value.copy(selectedRange = null)
-        uiState.value.currentPage?.invalidate()
+        uiState.update { it.copy(selectedRange = null) }
     }
 
     // ── 释放 ──────────────────────────────────────────────

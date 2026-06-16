@@ -47,6 +47,7 @@ data class ReaderSettingsSnapshot(
     val fontKey: String,
     val gestureConfig: com.shuli.reader.feature.reader.settings.GestureConfig =
         com.shuli.reader.feature.reader.settings.GestureConfig(),
+    val colorTemperature: Float = 6500f,
 )
 
 /**
@@ -115,6 +116,7 @@ class ReaderRenderSnapshotFactory {
             edgeWidthPercent = settings.edgeWidthPercent,
             leftZoneRatio = settings.leftZoneRatio,
             gestureConfig = settings.gestureConfig,
+            colorTemperature = settings.colorTemperature,
             shellKey = RenderKey(
                 textAlign = ReaderTextAlign.LEFT,
                 themeColors = settings.themeColors,

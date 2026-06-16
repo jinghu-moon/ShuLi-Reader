@@ -60,7 +60,11 @@ class CanvasRecorderLocked(private val delegate: CanvasRecorder) :
     }
 
     override fun endRecording() {
-        if (recycled) return
+        if (recycled) {
+            // recycled 路径：结束 dummy 录制（如果有），避免 dummyPicture 卡在 recording 状态
+            try { dummyPicture.endRecording() } catch (_: IllegalStateException) {}
+            return
+        }
         val l = lock ?: return
         try {
             delegate.endRecording()
@@ -105,6 +109,8 @@ class CanvasRecorderLocked(private val delegate: CanvasRecorder) :
                 }
                 delegate.recycle()
             }
+            // 统一结束 dummy 录制（如果有后台线程在 recycled 后调用了 beginRecording）
+            try { dummyPicture.endRecording() } catch (_: IllegalStateException) {}
         } finally {
             if (l.isHeldByCurrentThread) l.unlock()
         }

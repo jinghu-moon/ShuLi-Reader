@@ -28,7 +28,6 @@ internal class CanvasVisualParamsManager(
     private val pageRenderer: ReaderPageRenderer,
     private val fontManager: FontManager,
     private val onInvalidate: () -> Unit,
-    private val onSubmitRenderTask: () -> Unit,
     private val onPagesInvalidate: () -> Unit,
 ) {
     private var currentFontKey: String = ""
@@ -92,7 +91,7 @@ internal class CanvasVisualParamsManager(
         renderContext.showHeaderLine = showHeaderLine
         renderContext.showFooterLine = showFooterLine
         onPagesInvalidate()
-        onSubmitRenderTask()
+
         onInvalidate()
     }
 
@@ -132,7 +131,7 @@ internal class CanvasVisualParamsManager(
     fun setTextAlign(align: ReaderTextAlign) {
         pageRenderer.setTextAlign(align)
         onPagesInvalidate()
-        onSubmitRenderTask()
+
         onInvalidate()
     }
 
@@ -147,7 +146,7 @@ internal class CanvasVisualParamsManager(
         if (textPaint.typeface == typeface) return
         textPaint.typeface = typeface
         onPagesInvalidate()
-        onSubmitRenderTask()
+
         onInvalidate()
     }
 
@@ -193,7 +192,7 @@ internal class CanvasVisualParamsManager(
         }
         if (invalidateContent && paintChanged) {
             onPagesInvalidate()
-            onSubmitRenderTask()
+    
             onInvalidate()
         }
     }
@@ -250,7 +249,7 @@ internal class CanvasVisualParamsManager(
         footerPaint.color = footerColor
         progressPaint.color = progressColor
         selectionPaint.color = progressColor.withAlpha(SELECTION_ALPHA)
-        onSubmitRenderTask()
+
         onInvalidate()
     }
 
@@ -294,7 +293,7 @@ internal class CanvasVisualParamsManager(
         if (!changed) return
         apply()
         onPagesInvalidate()
-        onSubmitRenderTask()
+
         onInvalidate()
     }
 

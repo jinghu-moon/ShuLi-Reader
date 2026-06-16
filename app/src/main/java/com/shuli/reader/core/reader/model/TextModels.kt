@@ -1,8 +1,5 @@
 package com.shuli.reader.core.reader.model
 
-import com.shuli.reader.core.recorder.CanvasRecorder
-import com.shuli.reader.core.recorder.CanvasRecorderFactory
-import com.shuli.reader.core.recorder.record
 import com.shuli.reader.core.reader.model.TitleStyleConfig
 
 /**
@@ -54,10 +51,7 @@ data class TextColumn(
  * 不持有文本内容，通过 [startCharOffset, endCharOffset) 引用 TextChapter.content。
  * 渲染时由 PageRenderContext 提供 content。
  *
- * 支持 per-line CanvasRecorder：选区/TTS 高亮变化时仅重画受影响的行。
- *
- * ⚠️ data class 的 copy() 会丢失 @Transient canvasRecorder 引用，
- *    请勿对 TextLine 使用 copy()，如需不可变副本请手动构造。
+ * Phase 2a: 行级 recorder 由 PageRenderStateStore 管理，TextLine 不再持有任何渲染资源。
  */
 data class TextLine(
     /** 行在 content 中的起始偏移（含） */
@@ -85,10 +79,6 @@ data class TextLine(
      */
     val charWidths: FloatArray? = null,
 ) {
-    /** 每行独立的渲染缓存，选区/TTS 变化时仅 invalidate 受影响行 */
-    @Transient
-    var canvasRecorder: CanvasRecorder? = null
-
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is TextLine) return false
@@ -114,17 +104,6 @@ data class TextLine(
         return result
     }
 
-    /** 标记本行 recorder 失效 */
-    fun invalidateSelf() {
-        canvasRecorder?.invalidate()
-    }
-
-    /** 释放本行 recorder */
-    fun recycleRecorder() {
-        canvasRecorder?.recycle()
-        canvasRecorder = null
-    }
-
     /**
      * 判断本行是否与选区相交
      */
@@ -136,8 +115,10 @@ data class TextLine(
 /**
  * 文本页
  *
- * 非 data class：每页持有独立的 CanvasRecorder 用于渲染缓存，
- * equals/hashCode 使用引用比较，copy 不再需要。
+ * Phase 2a: 纯分页模型，不持有任何渲染资源。
+ * recorder 由 PageRenderStateStore 统一管理。
+ *
+ * 非 data class：equals/hashCode 使用引用比较。
  */
 class TextPage(
     val startCharOffset: Int,
@@ -158,84 +139,6 @@ class TextPage(
     val headerMarginTop: Float = 48f,
     val footerMarginBottom: Float = 48f,
 ) {
-    /** 内容渲染缓存（文本、标题），排版变化时重录。 */
-    @Transient
-    val canvasRecorder: CanvasRecorder = CanvasRecorderFactory.create(locked = true)
-
-    /**
-     * 内容层 recorder 别名（§23.5 重命名方向）。
-     * 与 [canvasRecorder] 引用同一实例；过渡期保留旧名以兼容现有调用点。
-     */
-    @Transient
-    val contentRecorder: CanvasRecorder = canvasRecorder
-
-    /** 壳层渲染缓存（背景、页眉、页脚、电池、进度条），排版变化时保持不变。 */
-    @Transient
-    val shellRecorder: CanvasRecorder = CanvasRecorderFactory.create(locked = true)
-
-    /** 覆盖层渲染缓存（选区、TTS、笔记），高频变化时独立重录，不污染正文。 */
-    @Transient
-    val overlayRecorder: CanvasRecorder = CanvasRecorderFactory.create(locked = true)
-
-    /** 合并渲染缓存（壳层+内容层+覆盖层叠加），翻页动画时使用。 */
-    @Transient
-    val compositeRecorder: CanvasRecorder = CanvasRecorderFactory.create(locked = true)
-
-    /**
-     * 录制合并 recorder：先壳层后内容层再覆盖层叠加。
-     * 仅在翻页动画触发时调用，静止状态不产生开销。
-     */
-    fun recordComposite(width: Int, height: Int) {
-        if (!compositeRecorder.needRecord()) return
-        compositeRecorder.record(width, height) {
-            shellRecorder.draw(this)
-            canvasRecorder.draw(this)
-            overlayRecorder.draw(this)
-        }
-    }
-
-    /** 标记内容 recorder 及所有行级 recorder 失效，下次绘制时会重录。 */
-    fun invalidate() {
-        canvasRecorder.invalidate()
-        compositeRecorder.invalidate()
-        lines.forEach { it.invalidateSelf() }
-    }
-
-    /** [invalidate] 的语义别名，与 contentRecorder 重命名对齐。 */
-    fun invalidateContent() {
-        invalidate()
-    }
-
-    /** 标记壳层 recorder 失效。 */
-    fun invalidateShell() {
-        shellRecorder.invalidate()
-        compositeRecorder.invalidate()
-    }
-
-    /** 标记覆盖层 recorder 失效（选区、TTS、笔记变化时调用）。 */
-    fun invalidateOverlay() {
-        overlayRecorder.invalidate()
-        compositeRecorder.invalidate()
-    }
-
-    /** 标记内容 + 壳层 + 覆盖层 + 所有行级 recorder 失效。 */
-    fun invalidateAll() {
-        canvasRecorder.invalidate()
-        shellRecorder.invalidate()
-        overlayRecorder.invalidate()
-        compositeRecorder.invalidate()
-        lines.forEach { it.invalidateSelf() }
-    }
-
-    /** 释放所有 recorder。 */
-    fun recycleRecorders() {
-        canvasRecorder.recycle()
-        shellRecorder.recycle()
-        overlayRecorder.recycle()
-        compositeRecorder.recycle()
-        lines.forEach { it.recycleRecorder() }
-    }
-
     override fun equals(other: Any?): Boolean = this === other
     override fun hashCode(): Int = System.identityHashCode(this)
 

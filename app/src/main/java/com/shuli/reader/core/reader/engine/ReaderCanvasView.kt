@@ -5,6 +5,8 @@ import com.shuli.reader.core.reader.model.TitleStyleConfig
 import com.shuli.reader.core.reader.engine.input.CanvasTouchHandler
 import com.shuli.reader.core.reader.engine.selection.CanvasTextSelection
 import com.shuli.reader.core.reader.engine.cache.PageBitmapCache
+import com.shuli.reader.core.reader.engine.cache.PageKey
+import com.shuli.reader.core.reader.engine.cache.PageRenderStateStore
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
@@ -102,12 +104,19 @@ class ReaderCanvasView @JvmOverloads constructor(
     private var nextPage: TextPage? = null
     private var prevPage: TextPage? = null
 
+    // Phase 5: key-diff 驱动失效 — 存储上次 apply 的 key，用于精确判断
+    private var lastAppliedContentKey: Any? = null
+    private var lastAppliedShellKey: Any? = null
+    private var lastAppliedOverlayKey: Any? = null
+    private var lastAppliedLayoutKey: Any? = null
+    private var lastAppliedCurrentPage: TextPage? = null
+
     // 章节文本
     private var chapterContent: CharSequence = ""
     /** chapterContent 来自哪一章。setPageInternal 用它检测跨章切换。 */
     private var chapterContentChapterIndex: Int = -1
     /** 当前及相邻章节正文。录制任意 page 时必须按 page.chapterIndex 取正文。 */
-    private val chapterContentsByIndex = mutableMapOf<Int, CharSequence>()
+    private var chapterContentsByIndex: Map<Int, CharSequence> = emptyMap()
 
     // 排版变化 crossfade 动画
     private var oldPageBitmap: Bitmap? = null
@@ -120,6 +129,26 @@ class ReaderCanvasView @JvmOverloads constructor(
     private val pageRenderer = ReaderPageRenderer(textPaint, headerPaint, footerPaint, progressPaint)
 
     // ── 拆分委托 ──────────────────────────────────────────────
+
+    /** Phase 2a: recorder 唯一 owner，TextPage 不再持有 recorder */
+    internal val renderStateStore = PageRenderStateStore()
+
+    /** 从 TextPage 生成 PageKey（用于 store 索引） */
+    private fun TextPage.toKey() = PageKey(
+        chapterIndex = chapterIndex,
+        pageIndex = pageIndex,
+        startCharOffset = startCharOffset,
+        endCharOffset = endCharOffset,
+    )
+
+    /** 返回当前活跃的页面 key 集合（current + next + prev） */
+    private fun activePageKeys(): Set<PageKey> {
+        val keys = mutableSetOf<PageKey>()
+        currentPage?.let { keys.add(it.toKey()) }
+        nextPage?.let { keys.add(it.toKey()) }
+        prevPage?.let { keys.add(it.toKey()) }
+        return keys
+    }
 
     private val pageBitmapCache = PageBitmapCache(pageRenderer)
 
@@ -137,12 +166,11 @@ class ReaderCanvasView @JvmOverloads constructor(
         pageRenderer = pageRenderer,
         fontManager = fontManager,
         onInvalidate = { invalidate() },
-        onSubmitRenderTask = { submitRenderTask() },
         onPagesInvalidate = {
             // TTS/选区/笔记变化仅失效 overlay 层，正文不重录（§10 分层 recorder）
-            currentPage?.invalidateOverlay()
-            nextPage?.invalidateOverlay()
-            prevPage?.invalidateOverlay()
+            currentPage?.let { renderStateStore.getPageState(it.toKey()).invalidateOverlay() }
+            nextPage?.let { renderStateStore.getPageState(it.toKey()).invalidateOverlay() }
+            prevPage?.let { renderStateStore.getPageState(it.toKey()).invalidateOverlay() }
         },
     )
 
@@ -171,7 +199,7 @@ class ReaderCanvasView @JvmOverloads constructor(
                 if (range != null) {
                     renderContext.selectedRange = range
                     beginTextSelection()
-                    page.invalidate()
+                    renderStateStore.getPageState(page.toKey()).invalidateContent()
                     invalidate()
                     onTextSelected?.invoke(range)
                 }
@@ -180,22 +208,6 @@ class ReaderCanvasView @JvmOverloads constructor(
     }
 
     // ── 回调 ──────────────────────────────────────────────────
-
-    internal fun setBatteryLevel(level: Int) {
-        if (renderContext.batteryLevel == level) return
-        renderContext.batteryLevel = level
-        currentPage?.invalidateShell()
-        nextPage?.invalidateShell()
-        prevPage?.invalidateShell()
-        submitRenderTask()
-        invalidate()
-    }
-
-    internal fun setColorTemperature(temperature: Float) {
-        if (colorTemperature == temperature) return
-        colorTemperature = temperature
-        invalidate()
-    }
 
     // 翻页动画委托
     private var pageDelegate: PageDelegate? = null
@@ -231,22 +243,25 @@ class ReaderCanvasView @JvmOverloads constructor(
             currentPage = currentPage,
             nextPage = nextPage,
             prevPage = prevPage,
+            renderStateStore = renderStateStore,
             chapterContents = snapshotChapterContents(),
             renderContext = renderContext,
             backgroundPaint = backgroundPaint,
             textPaint = textPaint,
             selectionPaint = selectionPaint,
+            headerPaint = headerPaint,
+            footerPaint = footerPaint,
+            progressPaint = progressPaint,
             postInvalidate = { postInvalidate() },
-            generation = renderContext.generation,  // PR-4: 传入 generation 用于过期校验
+            generation = renderContext.generation,
         )
     }
 
     private fun snapshotChapterContents(): Map<Int, CharSequence> {
-        val snapshot = chapterContentsByIndex.toMutableMap()
         if (chapterContentChapterIndex >= 0) {
-            snapshot[chapterContentChapterIndex] = chapterContent
+            return chapterContentsByIndex + (chapterContentChapterIndex to chapterContent)
         }
-        return snapshot
+        return chapterContentsByIndex
     }
 
     private fun contentForPage(page: TextPage): CharSequence? {
@@ -257,32 +272,65 @@ class ReaderCanvasView @JvmOverloads constructor(
     // ── RenderApplierTarget：scope-only invalidation ─────────────
 
     override fun invalidateContentOnly() {
-        currentPage?.invalidate()
-        nextPage?.invalidate()
-        prevPage?.invalidate()
+        currentPage?.let { renderStateStore.getPageState(it.toKey()).invalidateContent() }
+        nextPage?.let { renderStateStore.getPageState(it.toKey()).invalidateContent() }
+        prevPage?.let { renderStateStore.getPageState(it.toKey()).invalidateContent() }
     }
 
     override fun invalidateShellOnly() {
-        currentPage?.invalidateShell()
-        nextPage?.invalidateShell()
-        prevPage?.invalidateShell()
+        currentPage?.let { renderStateStore.getPageState(it.toKey()).invalidateShell() }
+        nextPage?.let { renderStateStore.getPageState(it.toKey()).invalidateShell() }
+        prevPage?.let { renderStateStore.getPageState(it.toKey()).invalidateShell() }
     }
 
     override fun invalidateOverlayOnly() {
-        currentPage?.invalidateOverlay()
-        nextPage?.invalidateOverlay()
-        prevPage?.invalidateOverlay()
+        currentPage?.let { renderStateStore.getPageState(it.toKey()).invalidateOverlay() }
+        nextPage?.let { renderStateStore.getPageState(it.toKey()).invalidateOverlay() }
+        prevPage?.let { renderStateStore.getPageState(it.toKey()).invalidateOverlay() }
     }
 
     override fun invalidateAllPages() {
-        currentPage?.invalidateAll()
-        nextPage?.invalidateAll()
-        prevPage?.invalidateAll()
+        currentPage?.let { renderStateStore.getPageState(it.toKey()).invalidateAll() }
+        nextPage?.let { renderStateStore.getPageState(it.toKey()).invalidateAll() }
+        prevPage?.let { renderStateStore.getPageState(it.toKey()).invalidateAll() }
     }
 
     override fun rebuildPageDelegate() {
         // pageDelegate 已由 applySnapshot 在进入 Applier 之前通过 setPageDelegate 设置；
         // 此方法仅作语义标记，使测试可验证 PAGE_DELEGATE scope 分发。
+    }
+
+    /**
+     * Phase 5: key-diff 驱动精确失效。
+     *
+     * 替代大部分 scope-based invalidation：比较新旧 key，只有 key 变化才 invalidate 对应层。
+     * 页面身份变化（currentPage 引用改变）时强制 invalidate 新页面的 content。
+     */
+    fun applyKeyDiff(contentKey: Any?, shellKey: Any?, overlayKey: Any?, layoutKey: Any? = null) {
+        // 页面身份变化：新页面的 recorder 是空的，强制失效
+        if (currentPage !== lastAppliedCurrentPage && currentPage != null) {
+            renderStateStore.getPageState(currentPage!!.toKey()).invalidateContent()
+        }
+
+        // 排版参数变化（字号/行距/边距等）：页面尚未 reflow 时 contentKey 不变，
+        // 但 Paint 已更新，必须强制 content 失效以用新参数重录。
+        val layoutChanged = layoutKey != null && layoutKey != lastAppliedLayoutKey
+        if (layoutChanged) {
+            currentPage?.let { renderStateStore.getPageState(it.toKey()).invalidateContent() }
+        }
+
+        // 对每个活跃页面执行 key-diff
+        val pages = listOfNotNull(currentPage, nextPage, prevPage)
+        for (page in pages) {
+            renderStateStore.getPageState(page.toKey())
+                .applyKeyDiff(contentKey, shellKey, overlayKey)
+        }
+
+        lastAppliedContentKey = contentKey
+        lastAppliedShellKey = shellKey
+        lastAppliedOverlayKey = overlayKey
+        lastAppliedLayoutKey = layoutKey
+        lastAppliedCurrentPage = currentPage
     }
 
     // ── 页面设置 ──────────────────────────────────────────────
@@ -321,21 +369,10 @@ class ReaderCanvasView @JvmOverloads constructor(
             startLayoutCrossfade()
         }
 
-        // M4: 回收不再引用的旧页面的 RenderNode/Picture 资源
+        // Phase 2a: 回收不再引用的旧页面的 render state
         if (changed) {
-            val oldCurrent = currentPage
-            val oldNext = nextPage
-            val oldPrev = prevPage
-            val newPages = setOfNotNull<Any>(page, next, prev)
-            if (oldCurrent != null && oldCurrent !== page && oldCurrent !in newPages) {
-                oldCurrent.recycleRecorders()
-            }
-            if (oldNext != null && oldNext !== next && oldNext !in newPages) {
-                oldNext.recycleRecorders()
-            }
-            if (oldPrev != null && oldPrev !== prev && oldPrev !in newPages) {
-                oldPrev.recycleRecorders()
-            }
+            // 先更新页面引用，再回收不活跃的 state
+            // （recycleUnused 基于 activePageKeys 判断，所以需要先设新值）
         }
 
         // M4+: 跨章检测 —— 新 page 来自不同章节时，当前 chapterContent 是旧章正文。
@@ -354,21 +391,20 @@ class ReaderCanvasView @JvmOverloads constructor(
         if (content.isNotEmpty()) {
             chapterContent = content
             chapterContentChapterIndex = incomingChapterIdx
-            chapterContentsByIndex[incomingChapterIdx] = content
+            chapterContentsByIndex = chapterContentsByIndex + (incomingChapterIdx to content)
         }
 
         if (chapterSwitched && chapterContentChapterIndex != incomingChapterIdx) {
             // 新章 content 尚未就位（applySnapshot 还没跑），先把 recorder 标脏，
-            // 阻止 draw 时使用 PicturePool 残留的旧 Picture。
+            // 阻止 draw 时使用残留的旧 Picture。
             if (com.shuli.reader.BuildConfig.DEBUG) {
                 android.util.Log.d(
                     "ReaderCanvasView",
                     "chapterSwitch invalidate: prev=$previousChapterIdx incoming=$incomingChapterIdx contentChapter=$chapterContentChapterIndex",
                 )
             }
-            page.canvasRecorder.invalidate()
-            page.shellRecorder.invalidate()
-            page.compositeRecorder.invalidate()
+            val newState = renderStateStore.getPageState(page.toKey())
+            newState.invalidateAll()
         }
         when (mode) {
             PageRenderMode.SEQUENTIAL -> {
@@ -380,6 +416,11 @@ class ReaderCanvasView @JvmOverloads constructor(
                 prevPage = null
                 pageDelegate?.abort()
             }
+        }
+
+        // Phase 2a: 页面引用更新后，回收不活跃的 render state
+        if (changed) {
+            renderStateStore.recycleUnused(activePageKeys())
         }
 
         pageDelegate?.confirmPageSettled()
@@ -435,13 +476,12 @@ class ReaderCanvasView @JvmOverloads constructor(
         // 章节正文经 applySnapshot 独立参数传入（不进 snapshot，避免 O(n) equals，见 docs/26 §7）。
         // 空串表示「沿用已就位文本」：纯视觉刷新（章节未变）无需重传正文，不得用空串覆盖。
         if (chapterContents.isNotEmpty()) {
-            chapterContentsByIndex.clear()
-            chapterContentsByIndex.putAll(chapterContents)
+            chapterContentsByIndex = chapterContents.toMap()
         }
         if (chapterContent.isNotEmpty()) {
             this.chapterContent = chapterContent
             this.chapterContentChapterIndex = snapshot.page.chapterIndex
-            chapterContentsByIndex[snapshot.page.chapterIndex] = chapterContent
+            chapterContentsByIndex = chapterContentsByIndex + (snapshot.page.chapterIndex to chapterContent)
         }
 
         val layoutInput = snapshot.layout.input
@@ -474,6 +514,9 @@ class ReaderCanvasView @JvmOverloads constructor(
         visualParams.setEdgeWidthPercent(sh.edgeWidthPercent)
         this.leftZoneRatio = sh.leftZoneRatio
         this.gestureConfig = sh.gestureConfig
+        if (this.colorTemperature != sh.colorTemperature) {
+            this.colorTemperature = sh.colorTemperature
+        }
         visualParams.setThemeColors(v.themeColors)
         if (pageDelegate != null) {
             setPageDelegate(pageDelegate)
@@ -482,6 +525,15 @@ class ReaderCanvasView @JvmOverloads constructor(
         // 2. 按 diff 范围精确失效：委托给 ReaderCanvasStateApplier
         com.shuli.reader.feature.reader.render.ReaderCanvasStateApplier()
             .apply(this, snapshot, diff)
+
+        // Phase 5: key-diff 驱动精确失效（补充 scope-based invalidation）
+        applyKeyDiff(
+            contentKey = v.contentKey,
+            shellKey = sh.shellKey,
+            overlayKey = snapshot.overlay.overlayKey,
+            layoutKey = snapshot.layout.layoutKey,
+        )
+
         invalidate()
     }
 
@@ -520,7 +572,23 @@ class ReaderCanvasView @JvmOverloads constructor(
         pageDelegate = actualDelegate
         actualDelegate?.setCallback(object : PageDelegate.Callback {
             override fun onPageChanged(direction: PageDelegate.Direction) {
-                fillPage(direction)
+                actualDelegate.abort()
+                // Synchronously swap page references so the static draw path
+                // immediately shows the correct page (avoids one-frame flicker).
+                // The snapshot flow will validate on the next apply.
+                when (direction) {
+                    PageDelegate.Direction.NEXT -> {
+                        prevPage = currentPage
+                        currentPage = nextPage ?: currentPage
+                        nextPage = null
+                    }
+                    PageDelegate.Direction.PREV -> {
+                        nextPage = currentPage
+                        currentPage = prevPage ?: currentPage
+                        prevPage = null
+                    }
+                    PageDelegate.Direction.NONE -> {}
+                }
                 onPageChanged?.invoke(direction)
             }
 
@@ -575,7 +643,9 @@ class ReaderCanvasView @JvmOverloads constructor(
         progressColor: Int,
     ) {
         visualParams.setTheme(backgroundColor, textColor, headerColor, footerColor, progressColor)
-        pageBitmapCache.invalidateAllRecorders(currentPage, nextPage, prevPage)
+        currentPage?.let { renderStateStore.getPageState(it.toKey()).invalidateAll() }
+        nextPage?.let { renderStateStore.getPageState(it.toKey()).invalidateAll() }
+        prevPage?.let { renderStateStore.getPageState(it.toKey()).invalidateAll() }
     }
 
     internal fun setThemeColors(colors: ThemeColors) = visualParams.setThemeColors(colors)
@@ -587,44 +657,6 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     // ── 页面旋转 / crossfade ──────────────────────────────────
 
-    private fun fillPage(direction: PageDelegate.Direction) {
-        val beforeCurrent = currentPage
-        when (direction) {
-            PageDelegate.Direction.NEXT -> {
-                prevPage = currentPage
-                // 跨章翻页时 nextPage 可能还是 null（新章尚未加载完），保留 currentPage
-                // 避免出现 currentPage = null 导致的空白帧与下游 NPE。
-                val chosen = nextPage ?: currentPage
-                currentPage = chosen
-                nextPage = null
-                if (com.shuli.reader.BuildConfig.DEBUG) {
-                    android.util.Log.d(
-                        "ReaderCanvasView",
-                        "fillPage(NEXT): prev=${prevPage?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }} " +
-                            "beforeCurrent=${beforeCurrent?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }} " +
-                            "newCurrent=${chosen?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }}",
-                    )
-                }
-            }
-            PageDelegate.Direction.PREV -> {
-                nextPage = currentPage
-                // 跨章翻页时 prevPage 可能还是 null，保留 currentPage。
-                val chosen = prevPage ?: currentPage
-                currentPage = chosen
-                prevPage = null
-                if (com.shuli.reader.BuildConfig.DEBUG) {
-                    android.util.Log.d(
-                        "ReaderCanvasView",
-                        "fillPage(PREV): next=${nextPage?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }} " +
-                            "beforeCurrent=${beforeCurrent?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }} " +
-                            "newCurrent=${chosen?.let { "[ch=${it.chapterIndex},pi=${it.pageIndex}]" }}",
-                    )
-                }
-            }
-            PageDelegate.Direction.NONE -> {}
-        }
-    }
-
     private fun startLayoutCrossfade() {
         val w = width
         val h = height
@@ -633,7 +665,7 @@ class ReaderCanvasView @JvmOverloads constructor(
 
         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val captureCanvas = Canvas(bitmap)
-        cur.canvasRecorder.draw(captureCanvas)
+        renderStateStore.getPageState(cur.toKey()).content.draw(captureCanvas)
 
         crossfadeAnimator?.cancel()
         oldPageBitmap?.recycle()
@@ -670,7 +702,10 @@ class ReaderCanvasView @JvmOverloads constructor(
     override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
         super.onSizeChanged(width, height, oldWidth, oldHeight)
         if (width != oldWidth || height != oldHeight) {
-            pageBitmapCache.invalidateAllRecorders(currentPage, nextPage, prevPage)
+            // 尺寸变化时失效所有活跃页面的 recorder
+            currentPage?.let { renderStateStore.getPageState(it.toKey()).invalidateAll() }
+            nextPage?.let { renderStateStore.getPageState(it.toKey()).invalidateAll() }
+            prevPage?.let { renderStateStore.getPageState(it.toKey()).invalidateAll() }
             submitRenderTask()
         }
     }
@@ -679,9 +714,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         crossfadeAnimator?.cancel()
         oldPageBitmap?.recycle()
         oldPageBitmap = null
-        currentPage?.recycleRecorders()
-        nextPage?.recycleRecorders()
-        prevPage?.recycleRecorders()
+        renderStateStore.clear()
         super.onDetachedFromWindow()
     }
 
@@ -710,9 +743,12 @@ class ReaderCanvasView @JvmOverloads constructor(
             return
         }
 
-        if (current.canvasRecorder.needRecord() || current.shellRecorder.needRecord()) {
+        val currentState = renderStateStore.getPageState(current.toKey())
+
+        if (currentState.content.needRecord() || currentState.shell.needRecord()) {
             pageBitmapCache.recordPage(
                 page = current,
+                renderState = currentState,
                 width = width,
                 height = height,
                 content = currentContent,
@@ -721,6 +757,7 @@ class ReaderCanvasView @JvmOverloads constructor(
                 backgroundPaint = backgroundPaint,
                 textPaint = textPaint,
                 selectionPaint = selectionPaint,
+                renderStateStore = renderStateStore,
             )
         }
 
@@ -737,14 +774,17 @@ class ReaderCanvasView @JvmOverloads constructor(
                 contentForPage(page)?.let { content -> page to content }
             }
             if (target != null && drawableTarget == null) {
-                target.invalidateAll()
-                current.shellRecorder.draw(canvas)
-                current.canvasRecorder.draw(canvas)
+                val targetState = renderStateStore.getPageState(target.toKey())
+                targetState.invalidateAll()
+                currentState.shell.draw(canvas)
+                currentState.content.draw(canvas)
             } else {
                 drawableTarget?.let { (targetPage, targetContent) ->
-                    if (targetPage.canvasRecorder.needRecord() || targetPage.shellRecorder.needRecord()) {
+                    val targetState = renderStateStore.getPageState(targetPage.toKey())
+                    if (targetState.content.needRecord() || targetState.shell.needRecord()) {
                         pageBitmapCache.recordPage(
                             page = targetPage,
+                            renderState = targetState,
                             width = width,
                             height = height,
                             content = targetContent,
@@ -753,20 +793,23 @@ class ReaderCanvasView @JvmOverloads constructor(
                             backgroundPaint = backgroundPaint,
                             textPaint = textPaint,
                             selectionPaint = selectionPaint,
+                            renderStateStore = renderStateStore,
                         )
                     }
-                    targetPage.recordComposite(width, height)
+                    targetState.recordComposite(width, height)
                 }
-                current.recordComposite(width, height)
+                currentState.recordComposite(width, height)
                 delegate.onDraw(
                     canvas,
-                    current.compositeRecorder,
-                    drawableTarget?.first?.compositeRecorder ?: current.compositeRecorder,
+                    currentState.composite,
+                    drawableTarget?.let { renderStateStore.getPageState(it.first.toKey()).composite }
+                        ?: currentState.composite,
                 )
             }
         } else {
-            current.shellRecorder.draw(canvas)
-            current.canvasRecorder.draw(canvas)
+            currentState.shell.draw(canvas)
+            currentState.content.draw(canvas)
+            currentState.overlay.draw(canvas)
         }
 
         // ── VIEW_INVALIDATE：色温滤镜（MULTIPLY，不进 recorder）──

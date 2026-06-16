@@ -13,8 +13,6 @@ import android.graphics.Picture
 import android.graphics.RenderNode
 import android.os.Build
 import androidx.annotation.RequiresApi
-import com.shuli.reader.core.recorder.internal.synchronizedPool
-import com.shuli.reader.core.recorder.pools.RenderNodePool
 
 /**
  * API 29+ 实现：Picture + RenderNode。
@@ -22,8 +20,8 @@ import com.shuli.reader.core.recorder.pools.RenderNodePool
  * Picture 不再池化（PR-1）：AOSP Picture 有严格的状态机（beginRecording/endRecording 必须成对），
  * 池化会导致 recording 状态跨实例污染。每次 init 直接 new Picture()。
  *
- * RenderNode 仍保留池化：创建成本较高（涉及 native 分配），且 draw() 时 lazy flush（PR-2）
- * 确保 flush 只发生在 UI 线程。
+ * RenderNode 不再池化（Phase 1.1）：RenderNode 是 UI 线程图形宿主，跨实例共享会引入
+ * 并发访问 display list 的风险。每实例自持 RenderNode，recycle 时直接置 null。
  */
 @RequiresApi(Build.VERSION_CODES.Q)
 class CanvasRecorderApi29Impl : BaseCanvasRecorder() {
@@ -39,7 +37,7 @@ class CanvasRecorderApi29Impl : BaseCanvasRecorder() {
 
     private fun init() {
         if (renderNode == null) {
-            renderNode = renderNodePool.obtain()
+            renderNode = RenderNode("CanvasRecorder")
         }
         if (picture == null) {
             // PR-1: 直接创建，不从池中获取
@@ -101,16 +99,11 @@ class CanvasRecorderApi29Impl : BaseCanvasRecorder() {
         } catch (_: IllegalStateException) {
             // 已经结束录制，忽略
         }
-        renderNode?.let { renderNodePool.recycle(it) }
+        // Phase 1.1: RenderNode 不回池，直接丢弃等待 GC
         renderNode = null
         // PR-1: Picture 不回池，直接丢弃等待 GC
         picture = null
         renderNodeDirty = true
-    }
-
-    companion object {
-        // PR-1: 移除 picturePool
-        private val renderNodePool = RenderNodePool().synchronizedPool()
     }
 
 }

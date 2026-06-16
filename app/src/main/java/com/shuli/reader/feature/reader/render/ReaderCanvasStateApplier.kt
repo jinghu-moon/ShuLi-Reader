@@ -25,7 +25,6 @@ class ReaderCanvasStateApplier {
         // REFLOW 显式触发 reflow 级别全失效
         if (InvalidationScope.REFLOW in diff.scopes) {
             target.invalidateAllPages()
-            target.submitRenderTask()
         }
 
         val expanded = if (InvalidationScope.REFLOW in diff.scopes) {
@@ -34,6 +33,7 @@ class ReaderCanvasStateApplier {
             diff.scopes
         }
 
+        // 先执行所有 invalidation，不提交后台任务
         expanded.sortedBy { it.order }.forEach { scope ->
             when (scope) {
                 InvalidationScope.PAGE_DELEGATE -> {
@@ -47,19 +47,15 @@ class ReaderCanvasStateApplier {
                         prev = snapshot.page.prevPage,
                         mode = snapshot.page.pageRenderMode,
                     )
-                    target.submitRenderTask()
                 }
                 InvalidationScope.CONTENT -> {
                     target.invalidateContentOnly()
-                    target.submitRenderTask()
                 }
                 InvalidationScope.SHELL -> {
                     target.invalidateShellOnly()
-                    target.submitRenderTask()
                 }
                 InvalidationScope.OVERLAY -> {
                     target.invalidateOverlayOnly()
-                    target.submitRenderTask()
                 }
                 InvalidationScope.REFLOW -> {
                     // REFLOW 已在上方显式处理
@@ -72,5 +68,8 @@ class ReaderCanvasStateApplier {
                 }
             }
         }
+
+        // Phase 1.7: 统一提交一次后台任务（而非每个 scope 各提交一次）
+        target.submitRenderTask()
     }
 }

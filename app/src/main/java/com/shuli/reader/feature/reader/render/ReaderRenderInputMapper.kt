@@ -79,6 +79,7 @@ fun ReaderUiState.toRenderInput(
         fontWeight = prefs.fontWeight,
         fontKey = prefs.readingFont,
         gestureConfig = prefs.gestureConfig,
+        colorTemperature = prefs.colorTemperature,
     )
 
     // A1: 章内下一页为空时（当前章末页）用预加载的下一章首页兜底
@@ -235,6 +236,7 @@ fun SnapshotDigestTuple.toFallbackRenderInput(
         fontWeight = ReaderFontWeight.NORMAL,
         fontKey = "",
         gestureConfig = com.shuli.reader.feature.reader.settings.GestureConfig(),
+        colorTemperature = 6500f,
     )
 
     val pageSnapshot = PageSnapshot(

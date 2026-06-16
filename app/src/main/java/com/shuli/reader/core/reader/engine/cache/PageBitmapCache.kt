@@ -1,12 +1,15 @@
 package com.shuli.reader.core.reader.engine.cache
 
-import android.graphics.Canvas
 import android.graphics.Paint
-import com.shuli.reader.core.recorder.CanvasRecorder
 import com.shuli.reader.core.recorder.recordIfNeeded
+import com.shuli.reader.core.reader.engine.PaintSnapshot
 import com.shuli.reader.core.reader.engine.PageRenderContext
 import com.shuli.reader.core.reader.engine.ReaderPageRenderer
 import com.shuli.reader.core.reader.engine.RenderContext
+import com.shuli.reader.core.reader.engine.RenderContextSnapshot
+import com.shuli.reader.core.reader.engine.StatelessReaderPageRenderer
+import com.shuli.reader.core.reader.engine.createPaintSnapshot
+import com.shuli.reader.core.reader.engine.freeze
 import com.shuli.reader.core.reader.model.TextPage
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -14,8 +17,9 @@ import java.util.concurrent.Executors
 /**
  * 页面录制与缓存管理。
  *
- * 封装 CanvasRecorder 的录制策略：主线程兜底录制、后台预渲染三页、
- * 壳层/内容层分离录制。从 ReaderCanvasView 拆出，独立演进缓存策略。
+ * Phase 2a: recorder 从 TextPage 移到 PageRenderStateStore。
+ * Phase 3: submitRenderTask 在主线程冻结 RenderContext 和 Paint 快照，
+ *          后台线程只使用不可变数据 + StatelessReaderPageRenderer。
  *
  * PR-4: submitRenderTask() 接入 generation token，丢弃过期后台任务。
  */
@@ -28,10 +32,11 @@ class PageBitmapCache(
     }
 
     /**
-     * 录制页面的公共实现。壳层和内容分别录制，返回 true 表示实际产生了录制。
+     * 主线程同步录制页面。使用可变的 RenderContext 和 Paint（安全，因为主线程串行执行）。
      */
     fun doRecordPage(
         page: TextPage,
+        renderState: PageRenderState,
         w: Int,
         h: Int,
         content: CharSequence,
@@ -40,9 +45,8 @@ class PageBitmapCache(
         backgroundPaint: Paint,
         textPaint: Paint,
         selectionPaint: Paint,
+        renderStateStore: PageRenderStateStore,
     ): Boolean {
-        // page 与 content 必须来自同一章。仅靠字符区间无法识别 ch2[0] + ch1 content
-        // 这种 offset 合法但语义错误的组合，会把下一章首页静默录成上一章首页。
         if (page.chapterIndex != contentChapterIndex) {
             if (com.shuli.reader.BuildConfig.DEBUG) {
                 android.util.Log.w(
@@ -51,14 +55,10 @@ class PageBitmapCache(
                         "contentChapter=$contentChapterIndex",
                 )
             }
-            page.invalidateAll()
+            renderState.invalidateAll()
             return false
         }
 
-        // 跨章防御：page 的字符偏移必须落在 content 范围内。若 page 来自相邻章节而
-        // content 是当前章节正文，则 endCharOffset 可能 > content.length，drawText 会 IOOB。
-        // 这里不能 recycle：TextPage 会被章节缓存复用，recycle 后若没有立刻用正确 content
-        // 复录，会让后续绘制进入资源生命周期竞态。保持 dirty，等正确章节 content 到位后重录。
         if (page.startCharOffset < 0 || page.endCharOffset > content.length) {
             if (com.shuli.reader.BuildConfig.DEBUG) {
                 android.util.Log.w(
@@ -67,11 +67,11 @@ class PageBitmapCache(
                         "range=[${page.startCharOffset},${page.endCharOffset}) contentLen=${content.length}",
                 )
             }
-            page.invalidateAll()
+            renderState.invalidateAll()
             return false
         }
 
-        val shellDirty = page.shellRecorder.recordIfNeeded(w, h) {
+        val shellDirty = renderState.shell.recordIfNeeded(w, h) {
             pageRenderer.renderShell(
                 canvas = this,
                 page = page,
@@ -86,17 +86,18 @@ class PageBitmapCache(
                 showFooterLine = renderContext.showFooterLine,
             )
         }
-        val contentDirty = page.canvasRecorder.recordIfNeeded(w, h) {
+        val contentDirty = renderState.content.recordIfNeeded(w, h) {
             val ctx = PageRenderContext(
                 content = content,
                 page = page,
                 textPaint = textPaint,
                 letterSpacingPx = textPaint.letterSpacing * textPaint.textSize,
                 availableWidth = page.pageSize.width - page.marginHorizontal * 2,
+                renderStateStore = renderStateStore,
             )
             pageRenderer.renderContent(canvas = this, ctx = ctx)
         }
-        val overlayDirty = page.overlayRecorder.recordIfNeeded(w, h) {
+        val overlayDirty = renderState.overlay.recordIfNeeded(w, h) {
             pageRenderer.renderOverlay(
                 canvas = this,
                 page = page,
@@ -108,9 +109,10 @@ class PageBitmapCache(
         return shellDirty || contentDirty || overlayDirty
     }
 
-    /** 主线程同步录制单页（兜底用）。 */
+    /** 主线程同步录制单页（onDraw 兜底路径）。 */
     fun recordPage(
         page: TextPage,
+        renderState: PageRenderState,
         width: Int,
         height: Int,
         content: CharSequence,
@@ -119,36 +121,18 @@ class PageBitmapCache(
         backgroundPaint: Paint,
         textPaint: Paint,
         selectionPaint: Paint,
+        renderStateStore: PageRenderStateStore,
     ) {
         if (width <= 0 || height <= 0) return
-        doRecordPage(page, width, height, content, contentChapterIndex, renderContext, backgroundPaint, textPaint, selectionPaint)
+        doRecordPage(page, renderState, width, height, content, contentChapterIndex, renderContext, backgroundPaint, textPaint, selectionPaint, renderStateStore)
     }
 
     /**
-     * 后台线程录制页面。CanvasRecorderLocked 内部 ReentrantLock 保证线程安全。
-     * 返回 true 表示实际产生了录制（即 recorder 之前是脏的）。
-     */
-    fun recordPageOffMain(
-        page: TextPage,
-        w: Int,
-        h: Int,
-        content: CharSequence,
-        contentChapterIndex: Int,
-        renderContext: RenderContext,
-        backgroundPaint: Paint,
-        textPaint: Paint,
-        selectionPaint: Paint,
-    ): Boolean {
-        return doRecordPage(page, w, h, content, contentChapterIndex, renderContext, backgroundPaint, textPaint, selectionPaint)
-    }
-
-    /**
-     * 提交后台预渲染任务：录制 current/next/prev 三页，完成后触发重绘。
+     * 提交后台预渲染任务。
      *
-     * PR-4: 增加 generation 参数，任务开始时校验是否过期。
-     * 如果 generation 不匹配（说明有新的渲染事务），直接丢弃本次任务。
-     *
-     * @param generation 渲染事务 generation，从 ReaderRenderOrchestrator 获取
+     * Phase 3: 在主线程冻结 RenderContext 和 Paint 快照，
+     * 后台线程使用 StatelessReaderPageRenderer + 不可变数据，
+     * 彻底消除跨线程共享可变状态。
      */
     fun submitRenderTask(
         width: Int,
@@ -156,30 +140,52 @@ class PageBitmapCache(
         currentPage: TextPage?,
         nextPage: TextPage?,
         prevPage: TextPage?,
+        renderStateStore: PageRenderStateStore,
         chapterContents: Map<Int, CharSequence>,
         renderContext: RenderContext,
         backgroundPaint: Paint,
         textPaint: Paint,
         selectionPaint: Paint,
+        headerPaint: Paint,
+        footerPaint: Paint,
+        progressPaint: Paint,
         postInvalidate: () -> Unit,
         generation: Long = -1L,
     ) {
         if (width <= 0 || height <= 0) return
+
+        // ── 主线程：冻结所有数据 ──────────────────────────────
+        val contextSnapshot = renderContext.freeze()
+        val paintSnapshot = createPaintSnapshot(
+            textPaint = textPaint,
+            backgroundPaint = backgroundPaint,
+            selectionPaint = selectionPaint,
+            headerPaint = headerPaint,
+            footerPaint = footerPaint,
+            progressPaint = progressPaint,
+        )
+        val statelessRenderer = StatelessReaderPageRenderer(paintSnapshot)
+
+        // 在主线程解析 PageRenderState（后台线程不访问 store）
+        val tasks = listOfNotNull(currentPage, nextPage, prevPage).mapNotNull { page ->
+            val content = chapterContents[page.chapterIndex] ?: return@mapNotNull null
+            val key = PageKey(page.chapterIndex, page.pageIndex, page.startCharOffset, page.endCharOffset)
+            val state = renderStateStore.getPageState(key)
+            Triple(page, content, state)
+        }
+
+        // ── 后台线程：只使用不可变数据 ────────────────────────
         renderThread.execute {
-            // PR-4: 校验 generation，过期任务直接丢弃
-            if (generation >= 0 && generation != renderContext.generation) {
-                if (com.shuli.reader.BuildConfig.DEBUG) {
-                    android.util.Log.d(
-                        "PageBitmapCache",
-                        "skip expired render task: task.generation=$generation current=${renderContext.generation}",
-                    )
-                }
+            if (generation >= 0 && generation != contextSnapshot.generation) {
                 return@execute
             }
             var dirty = false
-            listOfNotNull(currentPage, nextPage, prevPage).forEach { page ->
-                val content = chapterContents[page.chapterIndex] ?: return@forEach
-                if (recordPageOffMain(page, width, height, content, page.chapterIndex, renderContext, backgroundPaint, textPaint, selectionPaint)) {
+            tasks.forEach { (page, content, state) ->
+                if (doRecordPageStateless(
+                        page, state, width, height, content, page.chapterIndex,
+                        contextSnapshot, paintSnapshot, statelessRenderer, renderStateStore,
+                    )
+                ) {
                     dirty = true
                 }
             }
@@ -187,10 +193,59 @@ class PageBitmapCache(
         }
     }
 
-    /** 使所有页面 recorder 失效（字体/主题/尺寸等全局变化时使用） */
-    fun invalidateAllRecorders(currentPage: TextPage?, nextPage: TextPage?, prevPage: TextPage?) {
-        currentPage?.invalidateAll()
-        nextPage?.invalidateAll()
-        prevPage?.invalidateAll()
+    /**
+     * 后台线程录制页面。只使用不可变快照，不接触任何主线程可变状态。
+     */
+    private fun doRecordPageStateless(
+        page: TextPage,
+        renderState: PageRenderState,
+        w: Int,
+        h: Int,
+        content: CharSequence,
+        contentChapterIndex: Int,
+        ctxSnapshot: RenderContextSnapshot,
+        paintSnapshot: PaintSnapshot,
+        renderer: StatelessReaderPageRenderer,
+        renderStateStore: PageRenderStateStore,
+    ): Boolean {
+        if (page.chapterIndex != contentChapterIndex) {
+            renderState.invalidateAll()
+            return false
+        }
+
+        if (page.startCharOffset < 0 || page.endCharOffset > content.length) {
+            renderState.invalidateAll()
+            return false
+        }
+
+        val shellDirty = renderState.shell.recordIfNeeded(w, h) {
+            renderer.renderShell(
+                canvas = this,
+                page = page,
+                ctx = ctxSnapshot,
+                backgroundPaint = paintSnapshot.background,
+            )
+        }
+        val contentDirty = renderState.content.recordIfNeeded(w, h) {
+            val ctx = PageRenderContext(
+                content = content,
+                page = page,
+                textPaint = paintSnapshot.text,
+                letterSpacingPx = paintSnapshot.text.letterSpacing * paintSnapshot.text.textSize,
+                availableWidth = page.pageSize.width - page.marginHorizontal * 2,
+                renderStateStore = renderStateStore,
+            )
+            renderer.renderContent(canvas = this, ctx = ctx)
+        }
+        val overlayDirty = renderState.overlay.recordIfNeeded(w, h) {
+            renderer.renderOverlay(
+                canvas = this,
+                page = page,
+                selectedRange = ctxSnapshot.selectedRange,
+                selectionPaint = paintSnapshot.selection,
+                noteRanges = ctxSnapshot.noteRanges,
+            )
+        }
+        return shellDirty || contentDirty || overlayDirty
     }
 }

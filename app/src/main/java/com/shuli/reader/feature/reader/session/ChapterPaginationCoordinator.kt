@@ -18,8 +18,10 @@ import com.shuli.reader.core.text.PanguSpacing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -117,24 +119,28 @@ class ChapterPaginationCoordinator(
                 } else {
                     chapterMeta.title
                 }
-                uiState.value = uiState.value.copy(
-                    currentChapter = cached,
-                    chapterIndex = index,
-                    chapterTitle = displayTitle,
-                    totalPages = cached.pageSize,
-                    chapterPageCounts = uiState.value.chapterPageCounts + (index to cached.pageSize),
-                    isLoading = false,
-                    isReflowing = false,
-                )
+                uiState.update { state ->
+                    state.copy(
+                        currentChapter = cached,
+                        chapterIndex = index,
+                        chapterTitle = displayTitle,
+                        totalPages = cached.pageSize,
+                        chapterPageCounts = state.chapterPageCounts + (index to cached.pageSize),
+                        isLoading = false,
+                        isReflowing = false,
+                    )
+                }
                 val startPage = if (targetCharOffset > 0) {
                     cached.getPageIndexByCharIndex(targetCharOffset)
                 } else {
                     0
                 }
-                uiState.value = uiState.value.copy(
-                    pageIndex = startPage,
-                    currentPage = cached.getPage(startPage),
-                )
+                uiState.update { state ->
+                    state.copy(
+                        pageIndex = startPage,
+                        currentPage = cached.getPage(startPage),
+                    )
+                }
                 persistPageCounts()
                 onDone?.invoke()
             }
@@ -145,7 +151,7 @@ class ChapterPaginationCoordinator(
         return scope.launch {
             val isReflow = uiState.value.currentPage != null
             if (!isReflow) {
-                uiState.value = uiState.value.copy(isLoading = true)
+                uiState.update { it.copy(isLoading = true) }
             }
 
             try {
@@ -176,38 +182,36 @@ class ChapterPaginationCoordinator(
 
                 chapter.layoutListener = object : TextChapter.LayoutListener {
                     override fun onPageReady(pageIndex: Int, page: TextPage) {
-                        val currentState = uiState.value
-                        if (currentState.chapterIndex != index) return
+                        uiState.update { currentState ->
+                            if (currentState.chapterIndex != index) return@update currentState
 
-                        val isChapterSwitch = currentState.currentPage?.chapterIndex?.let { it != index } ?: false
-                        if (pageIndex == 0 && (currentState.currentPage == null || currentState.isReflowing || isChapterSwitch)) {
-                            uiState.value = currentState.copy(
-                                currentPage = page,
-                                pageIndex = 0,
-                            )
-                        } else if (targetCharOffset > 0 &&
-                            page.startCharOffset <= targetCharOffset &&
-                            targetCharOffset < page.endCharOffset
-                        ) {
-                            uiState.value = uiState.value.copy(
-                                currentPage = page,
-                                pageIndex = pageIndex,
-                            )
+                            val isChapterSwitch = currentState.currentPage?.chapterIndex?.let { it != index } ?: false
+                            if (pageIndex == 0 && (currentState.currentPage == null || currentState.isReflowing || isChapterSwitch)) {
+                                currentState.copy(currentPage = page, pageIndex = 0)
+                            } else if (targetCharOffset > 0 &&
+                                page.startCharOffset <= targetCharOffset &&
+                                targetCharOffset < page.endCharOffset
+                            ) {
+                                currentState.copy(currentPage = page, pageIndex = pageIndex)
+                            } else {
+                                currentState
+                            }
                         }
                     }
 
                     override fun onLayoutCompleted() {
-                        val currentState = uiState.value
-                        if (currentState.chapterIndex != index) return
-                        val mergedPageCounts = onMergePageCounts?.invoke(currentState.chapterPageCounts, chapter.pageSize)
-                            ?: currentState.chapterPageCounts
-                        uiState.value = currentState.copy(
-                            totalPages = chapter.pageSize,
-                            chapterPageCounts = mergedPageCounts + (index to chapter.pageSize),
-                            isLoading = false,
-                            isReflowing = false,
-                            layoutVersion = currentState.layoutVersion + 1,
-                        )
+                        uiState.update { currentState ->
+                            if (currentState.chapterIndex != index) return@update currentState
+                            val mergedPageCounts = onMergePageCounts?.invoke(currentState.chapterPageCounts, chapter.pageSize)
+                                ?: currentState.chapterPageCounts
+                            currentState.copy(
+                                totalPages = chapter.pageSize,
+                                chapterPageCounts = mergedPageCounts + (index to chapter.pageSize),
+                                isLoading = false,
+                                isReflowing = false,
+                                layoutVersion = currentState.layoutVersion + 1,
+                            )
+                        }
                         cacheManager.putChapter(cacheKey, chapter)
                         persistPageCounts()
                         if (com.shuli.reader.BuildConfig.DEBUG) {
@@ -222,14 +226,16 @@ class ChapterPaginationCoordinator(
                 } else {
                     chapterMeta.title
                 }
-                uiState.value = uiState.value.copy(
-                    currentChapter = chapter,
-                    chapterIndex = index,
-                    chapterTitle = displayTitle,
-                    currentPage = if (isReflow2) uiState.value.currentPage else null,
-                    pageIndex = if (isReflow2) uiState.value.pageIndex else 0,
-                    totalPages = if (isReflow2) uiState.value.totalPages else 0,
-                )
+                uiState.update { state ->
+                    state.copy(
+                        currentChapter = chapter,
+                        chapterIndex = index,
+                        chapterTitle = displayTitle,
+                        currentPage = if (isReflow2) state.currentPage else null,
+                        pageIndex = if (isReflow2) state.pageIndex else 0,
+                        totalPages = if (isReflow2) state.totalPages else 0,
+                    )
+                }
 
                 val showHeader = uiState.value.readerPreferences.header.visibility != HeaderVisibility.ALWAYS_HIDE
                 val showFooter = uiState.value.readerPreferences.footer.visibility != HeaderVisibility.ALWAYS_HIDE
@@ -240,10 +246,7 @@ class ChapterPaginationCoordinator(
 
                 onDone?.invoke()
             } catch (e: Exception) {
-                uiState.value = uiState.value.copy(
-                    isLoading = false,
-                    error = e.message,
-                )
+                uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }
@@ -336,7 +339,12 @@ class ChapterPaginationCoordinator(
         onReflowStart(computeLayoutHash(preferences))
 
         reflowJob?.cancel()
+        // Phase 1.6: 取消旧 reflow 时重置 isReflowing，避免被取消的 reflow 永远不会设 false
+        uiState.update { it.copy(isReflowing = false) }
         reflowJob = scope.launch {
+            delay(150)  // Phase 1.6: debounce — 合并连续设置变更为一次 reflow
+            uiState.update { it.copy(isReflowing = true) }
+
             cacheManager.clearBook(state.bookId.toString())
 
             val mergeFn: (Map<Int, Int>, Int) -> Map<Int, Int> = { oldMap, newPageSize ->

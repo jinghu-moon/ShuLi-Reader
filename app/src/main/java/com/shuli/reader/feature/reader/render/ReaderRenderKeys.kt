@@ -35,6 +35,25 @@ data class OverlayKey(
     val noteRangesHash: Int,
 )
 
+/**
+ * 影响壳层录制的完整缓存 key。
+ *
+ * 覆盖 renderShell() 读取的全部参数：页眉页脚槽位、主题色、透明度、
+ * 分割线、字号比例、进度条、电量。任一字段变化均触发壳层重录。
+ */
+data class ShellRenderKey(
+    val headerSlots: SlotResolution,
+    val footerSlots: SlotResolution,
+    val themeColors: ThemeColors,
+    val showProgress: Boolean,
+    val headerFooterAlpha: Float,
+    val showHeaderLine: Boolean,
+    val showFooterLine: Boolean,
+    val headerFontSizeRatio: Float,
+    val footerFontSizeRatio: Float,
+    val batteryLevel: Int,
+)
+
 internal object ReaderLayoutHasher {
     fun hash(input: ReaderLayoutInput): LayoutKey {
         val sb = StringBuilder()
