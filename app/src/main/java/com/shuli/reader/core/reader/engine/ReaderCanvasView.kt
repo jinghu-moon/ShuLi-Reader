@@ -639,19 +639,6 @@ class ReaderCanvasView @JvmOverloads constructor(
     internal fun clearSelection() = visualParams.clearSelection()
     internal fun setNoteRanges(ranges: List<Pair<SelectionRange, String?>>) = visualParams.setNoteRanges(ranges)
 
-    internal fun setTheme(
-        backgroundColor: Int,
-        textColor: Int,
-        headerColor: Int,
-        footerColor: Int,
-        progressColor: Int,
-    ) {
-        visualParams.setTheme(backgroundColor, textColor, headerColor, footerColor, progressColor)
-        currentPage?.let { renderStateStore.getPageState(it.toKey()).invalidateAll() }
-        nextPage?.let { renderStateStore.getPageState(it.toKey()).invalidateAll() }
-        prevPage?.let { renderStateStore.getPageState(it.toKey()).invalidateAll() }
-    }
-
     internal fun setThemeColors(colors: ThemeColors) = visualParams.setThemeColors(colors)
 
     internal fun setEdgeTurnPageEnabled(enabled: Boolean) = visualParams.setEdgeTurnPageEnabled(enabled)
