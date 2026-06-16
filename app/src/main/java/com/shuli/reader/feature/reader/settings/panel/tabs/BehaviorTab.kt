@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.shuli.reader.core.data.OrientationLock
 import com.shuli.reader.core.data.ReaderPreferences
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.reader.settings.panel.SelectRow
 import com.shuli.reader.feature.reader.settings.panel.SettingRow
 import com.shuli.reader.feature.reader.settings.panel.SettingsCard
@@ -34,17 +35,18 @@ fun BehaviorTab(
     onOpenGestureZoneEditor: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current.reader
     Column(modifier = modifier.fillMaxWidth()) {
         // ── 翻页 ──
-        SettingsCard(title = "翻页") {
+        SettingsCard(title = strings.pageTurnCard) {
             SwitchRow(
-                label = "音量键翻页",
+                label = strings.volumeKeyTurnPageLabel,
                 checked = prefs.volumeKeyTurnPage,
                 onCheckedChange = { onSettingChanged("volume_key_turn_page", it) },
             )
             SwitchRow(
-                label = "边缘翻页",
-                sublabel = "触摸屏幕边缘区域翻页",
+                label = strings.edgeTurnPageLabel,
+                sublabel = strings.edgeTurnPageShortDesc,
                 checked = prefs.edgeTurnPage,
                 onCheckedChange = { onSettingChanged("edge_turn_page", it) },
                 topDivider = true,
@@ -55,13 +57,13 @@ fun BehaviorTab(
                     onValueChange = { onSettingChanged("edge_width_percent", it) },
                     valueRange = 0.1f..0.5f,
                     step = 0.05f,
-                    label = "边缘宽度",
+                    label = strings.edgeWidthLabel,
                     formatValue = { "%.0f%%".format(it * 100) },
                     testTagPrefix = "Slider_EdgeWidth",
                 )
             }
             SwitchRow(
-                label = "自动翻页",
+                label = strings.autoPageTurnLabel,
                 checked = prefs.autoPageTurn,
                 onCheckedChange = { onSettingChanged("auto_page_turn", it) },
                 topDivider = true,
@@ -72,7 +74,7 @@ fun BehaviorTab(
                     onValueChange = { onSettingChanged("auto_page_turn_interval", it) },
                     valueRange = 5f..60f,
                     step = 5f,
-                    label = "翻页间隔",
+                    label = strings.autoPageTurnIntervalLabel,
                     formatValue = { "%.0fs".format(it) },
                     testTagPrefix = "Slider_AutoTurnInterval",
                 )
@@ -80,13 +82,13 @@ fun BehaviorTab(
         }
 
         // ── 触控区域 ──
-        SettingsCard(title = "触控区域") {
+        SettingsCard(title = strings.touchZoneCard) {
             TouchZoneEditorEntry(
                 config = gestureConfig,
                 onClick = onOpenGestureZoneEditor,
             )
             SwitchRow(
-                label = "振动反馈",
+                label = strings.hapticFeedbackLabel,
                 checked = prefs.hapticFeedback,
                 onCheckedChange = { onSettingChanged("haptic_feedback", it) },
                 topDivider = true,
@@ -96,23 +98,23 @@ fun BehaviorTab(
                 onValueChange = { onSettingChanged("left_zone_ratio", it) },
                 valueRange = 0.2f..0.5f,
                 step = 0.05f,
-                label = "左侧热区比例",
+                label = strings.leftZoneRatioLabel,
                 formatValue = { "%.0f%%".format(it * 100) },
                 testTagPrefix = "Slider_LeftZone",
             )
         }
 
         // ── 护眼 ──
-        SettingsCard(title = "护眼") {
+        SettingsCard(title = strings.eyeCareCard) {
             SelectRow(
-                label = "护眼提醒",
-                sublabel = "基于翻页活动计时",
+                label = strings.eyeCareReminderLabel,
+                sublabel = strings.eyeCareReminderDesc,
                 options = listOf(
-                    0 to "关闭",
-                    15 to "15 分钟",
-                    30 to "30 分钟",
-                    45 to "45 分钟",
-                    60 to "60 分钟",
+                    0 to strings.offLabel,
+                    15 to strings.minutes15,
+                    30 to strings.minutes30,
+                    45 to strings.minutes45,
+                    60 to strings.minutes60,
                 ),
                 selected = prefs.eyeCareReminderInterval,
                 onSelect = { onSettingChanged("eye_care_reminder_interval", it) },
@@ -120,25 +122,25 @@ fun BehaviorTab(
         }
 
         // ── 通用 ──
-        SettingsCard(title = "通用") {
+        SettingsCard(title = strings.generalCard) {
             SwitchRow(
-                label = "沉浸模式",
-                sublabel = "隐藏状态栏和导航栏",
+                label = strings.immersiveModeLabel,
+                sublabel = strings.immersiveModeDesc,
                 checked = prefs.immersiveMode,
                 onCheckedChange = { onSettingChanged("immersive_mode", it) },
             )
             SwitchRow(
-                label = "保持亮屏",
+                label = strings.keepScreenOnShortLabel,
                 checked = prefs.keepScreenOn,
                 onCheckedChange = { onSettingChanged("keep_screen_on", it) },
                 topDivider = true,
             )
             SelectRow(
-                label = "屏幕方向",
+                label = strings.orientationLockLabel,
                 options = listOf(
-                    OrientationLock.SYSTEM to "跟随系统",
-                    OrientationLock.PORTRAIT to "竖屏锁定",
-                    OrientationLock.LANDSCAPE to "横屏锁定",
+                    OrientationLock.SYSTEM to strings.brightnessFollowSystem,
+                    OrientationLock.PORTRAIT to strings.portraitLockLabel,
+                    OrientationLock.LANDSCAPE to strings.landscapeLockLabel,
                 ),
                 selected = prefs.orientationLock,
                 onSelect = { onSettingChanged("orientation_lock", it) },
@@ -154,16 +156,17 @@ private fun TouchZoneEditorEntry(
     onClick: () -> Unit,
 ) {
     val colors = LocalReaderColorScheme.current
+    val strings = LocalAppStrings.current.reader
     SettingRow(
-        label = "点击区域设置",
-        sublabel = "当前中间区域：${config.middleCenter.label()}",
+        label = strings.gestureZoneSettingsLabel,
+        sublabel = "${strings.currentMiddleZonePrefix}${config.middleCenter.label(strings)}",
         modifier = Modifier
             .clickable(onClick = onClick)
             .testTag("OpenGestureZoneEditor"),
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-            contentDescription = "进入",
+            contentDescription = strings.enterLabel,
             tint = colors.textTertiary,
         )
     }

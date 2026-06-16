@@ -195,6 +195,156 @@ internal data object ZhHansReader : ReaderStrings {
     override val chapterReadTimeLabel = "阅读时长"
     override val chapterRead = "已读"
     override val chapterUnread = "未读"
+
+    // P1: 设置面板 Tab i18n
+    // TypeAndFontTab
+    override val basicTypesettingCard = "基础排版"
+    override val marginTopLabel = "上边距"
+    override val marginBottomLabel = "下边距"
+    override val marginLeftLabel = "左边距"
+    override val marginRightLabel = "右边距"
+    override val syncMarginsLabel = "同步上下 / 左右"
+    override val maxPageWidthUnlimitedShort = "不限"
+    override val fontCardTitle = "字体"
+    override val advancedTypesettingCard = "高级排版"
+    override val fontWeightMediumFull = "中等"
+    override val textAlignJustifyFull = "两端对齐"
+    override val panguSpacingLabel = "盘古之白"
+    override val bottomJustifyDesc = "均匀分布行间距"
+    override val paragraphDividerLabel = "段间分隔线"
+    override val bionicReadingDesc = "仿生阅读加粗"
+    override val chineseConvertFullLabel = "简繁转换"
+    override val chineseConvertNoneFull = "不转换"
+    override val usePanguSpacingFullLabel = "中英文间自动加空格"
+    override val removeEmptyLinesShortLabel = "去除空行"
+    override val cleanChapterTitleShortLabel = "清理章节标题"
+    override val preserveOriginalIndentShortDesc = "不覆盖TXT文件的行首缩进"
+    override val epubOverrideStyleShortLabel = "覆盖 EPUB 样式"
+    override val epubOverrideStyleShortDesc = "强制使用阅读器排版"
+
+    // AppearanceTab
+    override val headerFooterCard = "页眉页脚"
+    override val visibilityLabel = "可见性"
+    override val displayAlwaysShowShort = "常驻"
+    override val colorTemperatureLabel = "色温"
+    override val displayModeCard = "显示模式"
+    override val dualPageModeLabel = "双页模式"
+    override val autoLabel = "自动"
+    override val singlePageLabel = "单页"
+    override val dualPageLabel = "双页"
+    override val backgroundTextureLabel = "背景纹理"
+    override val solidColorLabel = "纯色"
+    override val linenTextureLabel = "仿麻"
+    override val gridTextureLabel = "米格"
+    override val pageAnimSpeedLabel = "翻页动画速度"
+    override val pageAnimSpeedFast = "快 (100ms)"
+    override val pageAnimSpeedNormal = "标准 (250ms)"
+    override val pageAnimSpeedSlow = "慢 (400ms)"
+    override val pageAnimTypeLabel = "翻页动画类型"
+    override val pageAnimTypeHorizontal = "水平滑动"
+    override val pageAnimTypeScroll = "连续滚动"
+
+    // BehaviorTab
+    override val pageTurnCard = "翻页"
+    override val volumeKeyTurnPageLabel = "音量键翻页"
+    override val edgeTurnPageShortDesc = "触摸屏幕边缘区域翻页"
+    override val touchZoneCard = "触控区域"
+    override val hapticFeedbackLabel = "振动反馈"
+    override val eyeCareCard = "护眼"
+    override val eyeCareReminderLabel = "护眼提醒"
+    override val eyeCareReminderDesc = "基于翻页活动计时"
+    override val offLabel = "关闭"
+    override val minutes15 = "15 分钟"
+    override val minutes30 = "30 分钟"
+    override val minutes45 = "45 分钟"
+    override val minutes60 = "60 分钟"
+    override val generalCard = "通用"
+    override val keepScreenOnShortLabel = "保持亮屏"
+    override val orientationLockLabel = "屏幕方向"
+    override val portraitLockLabel = "竖屏锁定"
+    override val landscapeLockLabel = "横屏锁定"
+    override val gestureZoneSettingsLabel = "点击区域设置"
+    override val currentMiddleZonePrefix = "当前中间区域："
+    override val enterLabel = "进入"
+    override val headerSeparatorLineLabel = "页眉分隔线"
+    override val footerSeparatorLineLabel = "页脚分隔线"
+
+    // P2: 其他设置面板组件 i18n
+    // SlotMatrix
+    override val slotBlankLabel = "留白"
+    override val slotChapterShort = "章节"
+    override val slotChapterPercentShort = "章节%"
+    override val slotBookShort = "全书"
+    override val slotBookPercentShort = "全书%"
+    override val infoGroupLabel = "信息"
+    override val progressGroupLabel = "进度"
+    override val expandLabel = "展开"
+
+    // CustomThemeDialog
+    override val customThemeTitle = "自定义主题"
+    override val customThemeTextColor = "正文色"
+    override val customThemeTitleColor = "标题色"
+    override val customThemeHeaderFooterColor = "页眉页脚色"
+    override val selectColorTitle = "选择颜色"
+    override val brightnessLabel = "亮度"
+
+    // GestureZoneGrid
+    override val gestureNone = "无"
+    override val gesturePrevPage = "上一页"
+    override val gestureNextPage = "下一页"
+    override val gestureToolbar = "工具栏"
+    override val gestureDirectory = "目录"
+    override val gestureBookmark = "书签"
+    override val gestureTheme = "切主题"
+    override val gestureImmersive = "沉浸"
+    override val gestureScrollUp = "上滚"
+    override val gestureScrollDown = "下滚"
+    override val tapZoneSelectAction = "点击区域选择动作"
+    override val pageTurnGroup = "翻页"
+    override val readingGroup = "阅读"
+
+    // GestureZoneEditorOverlay
+    override val gestureZoneEditorTitle = "点击区域设置"
+    override val closeLabel = "关闭"
+
+    // VisualMarginControl
+    override val marginTopShort = "上"
+    override val marginLeftShort = "左"
+    override val marginRightShort = "右"
+    override val marginBottomShort = "下"
+
+    // ThemeSwatchRow
+    override val themeLabel = "主题"
+    override val selectedLabel = "已选中"
+
+    // ReaderSettingsPeek
+    override val darkModeLabel = "深色模式"
+    override val lightModeLabel = "浅色模式"
+    override val eyeCareModeLabel = "护眼模式"
+    override val landscapeLockShortLabel = "横屏锁定"
+    override val scopeGlobalShort = "全局"
+    override val scopeBookShort = "本书"
+
+    // ReaderSettingsPanel
+    override val clearBookSettings = "清除本书设置"
+    override val resetToDefaultShort = "恢复默认"
+
+    // ReaderSettingsCard
+    override val collapseLabel = "收起"
+
+    // FontPreviewRow
+    override val fontPreviewSample = "天地玄黄 宇宙洪荒"
+    override val fontHarmonyShort = "鸿蒙"
+    override val fontSystemShort = "系统"
+    override val deleteFontTitle = "删除字体"
+    override val deleteFontConfirm = { name: String -> "确认删除字体「$name」？" }
+    override val deleteLabel = "删除"
+    override val cancelLabel = "取消"
+
+    // SettingsTab
+    override val settingsTabTypeAndFont = "排版"
+    override val settingsTabAppearance = "显示"
+    override val settingsTabBehavior = "行为"
 }
 
 /** 繁体中文 — 阅读器显示、快捷设置、目录/书签/笔记字符串 */
@@ -392,6 +542,156 @@ internal data object ZhHantReader : ReaderStrings {
     override val chapterReadTimeLabel = "閱讀時長"
     override val chapterRead = "已讀"
     override val chapterUnread = "未讀"
+
+    // P1: 設定面板 Tab i18n
+    // TypeAndFontTab
+    override val basicTypesettingCard = "基礎排版"
+    override val marginTopLabel = "上邊距"
+    override val marginBottomLabel = "下邊距"
+    override val marginLeftLabel = "左邊距"
+    override val marginRightLabel = "右邊距"
+    override val syncMarginsLabel = "同步上下 / 左右"
+    override val maxPageWidthUnlimitedShort = "不限"
+    override val fontCardTitle = "字體"
+    override val advancedTypesettingCard = "進階排版"
+    override val fontWeightMediumFull = "中等"
+    override val textAlignJustifyFull = "兩端對齊"
+    override val panguSpacingLabel = "盤古之白"
+    override val bottomJustifyDesc = "均勻分佈行間距"
+    override val paragraphDividerLabel = "段間分隔線"
+    override val bionicReadingDesc = "仿生閱讀加粗"
+    override val chineseConvertFullLabel = "簡繁轉換"
+    override val chineseConvertNoneFull = "不轉換"
+    override val usePanguSpacingFullLabel = "中英文間自動加空格"
+    override val removeEmptyLinesShortLabel = "去除空行"
+    override val cleanChapterTitleShortLabel = "清理章節標題"
+    override val preserveOriginalIndentShortDesc = "不覆蓋TXT檔案的行首縮排"
+    override val epubOverrideStyleShortLabel = "覆蓋 EPUB 樣式"
+    override val epubOverrideStyleShortDesc = "強制使用閱讀器排版"
+
+    // AppearanceTab
+    override val headerFooterCard = "頁眉頁腳"
+    override val visibilityLabel = "可見性"
+    override val displayAlwaysShowShort = "常駐"
+    override val colorTemperatureLabel = "色溫"
+    override val displayModeCard = "顯示模式"
+    override val dualPageModeLabel = "雙頁模式"
+    override val autoLabel = "自動"
+    override val singlePageLabel = "單頁"
+    override val dualPageLabel = "雙頁"
+    override val backgroundTextureLabel = "背景紋理"
+    override val solidColorLabel = "純色"
+    override val linenTextureLabel = "仿麻"
+    override val gridTextureLabel = "米格"
+    override val pageAnimSpeedLabel = "翻頁動畫速度"
+    override val pageAnimSpeedFast = "快 (100ms)"
+    override val pageAnimSpeedNormal = "標準 (250ms)"
+    override val pageAnimSpeedSlow = "慢 (400ms)"
+    override val pageAnimTypeLabel = "翻頁動畫類型"
+    override val pageAnimTypeHorizontal = "水平滑動"
+    override val pageAnimTypeScroll = "連續滾動"
+
+    // BehaviorTab
+    override val pageTurnCard = "翻頁"
+    override val volumeKeyTurnPageLabel = "音量鍵翻頁"
+    override val edgeTurnPageShortDesc = "觸摸螢幕邊緣區域翻頁"
+    override val touchZoneCard = "觸控區域"
+    override val hapticFeedbackLabel = "振動反饋"
+    override val eyeCareCard = "護眼"
+    override val eyeCareReminderLabel = "護眼提醒"
+    override val eyeCareReminderDesc = "基於翻頁活動計時"
+    override val offLabel = "關閉"
+    override val minutes15 = "15 分鐘"
+    override val minutes30 = "30 分鐘"
+    override val minutes45 = "45 分鐘"
+    override val minutes60 = "60 分鐘"
+    override val generalCard = "通用"
+    override val keepScreenOnShortLabel = "保持亮屏"
+    override val orientationLockLabel = "螢幕方向"
+    override val portraitLockLabel = "豎屏鎖定"
+    override val landscapeLockLabel = "橫屏鎖定"
+    override val gestureZoneSettingsLabel = "點擊區域設定"
+    override val currentMiddleZonePrefix = "當前中間區域："
+    override val enterLabel = "進入"
+    override val headerSeparatorLineLabel = "頁眉分隔線"
+    override val footerSeparatorLineLabel = "頁腳分隔線"
+
+    // P2: 其他設定面板元件 i18n
+    // SlotMatrix
+    override val slotBlankLabel = "留白"
+    override val slotChapterShort = "章節"
+    override val slotChapterPercentShort = "章節%"
+    override val slotBookShort = "全書"
+    override val slotBookPercentShort = "全書%"
+    override val infoGroupLabel = "資訊"
+    override val progressGroupLabel = "進度"
+    override val expandLabel = "展開"
+
+    // CustomThemeDialog
+    override val customThemeTitle = "自訂主題"
+    override val customThemeTextColor = "正文色"
+    override val customThemeTitleColor = "標題色"
+    override val customThemeHeaderFooterColor = "頁眉頁腳色"
+    override val selectColorTitle = "選擇顏色"
+    override val brightnessLabel = "亮度"
+
+    // GestureZoneGrid
+    override val gestureNone = "無"
+    override val gesturePrevPage = "上一頁"
+    override val gestureNextPage = "下一頁"
+    override val gestureToolbar = "工具列"
+    override val gestureDirectory = "目錄"
+    override val gestureBookmark = "書籤"
+    override val gestureTheme = "切主題"
+    override val gestureImmersive = "沉浸"
+    override val gestureScrollUp = "上滾"
+    override val gestureScrollDown = "下滾"
+    override val tapZoneSelectAction = "點擊區域選擇動作"
+    override val pageTurnGroup = "翻頁"
+    override val readingGroup = "閱讀"
+
+    // GestureZoneEditorOverlay
+    override val gestureZoneEditorTitle = "點擊區域設定"
+    override val closeLabel = "關閉"
+
+    // VisualMarginControl
+    override val marginTopShort = "上"
+    override val marginLeftShort = "左"
+    override val marginRightShort = "右"
+    override val marginBottomShort = "下"
+
+    // ThemeSwatchRow
+    override val themeLabel = "主題"
+    override val selectedLabel = "已選中"
+
+    // ReaderSettingsPeek
+    override val darkModeLabel = "深色模式"
+    override val lightModeLabel = "淺色模式"
+    override val eyeCareModeLabel = "護眼模式"
+    override val landscapeLockShortLabel = "橫屏鎖定"
+    override val scopeGlobalShort = "全域"
+    override val scopeBookShort = "本書"
+
+    // ReaderSettingsPanel
+    override val clearBookSettings = "清除本書設定"
+    override val resetToDefaultShort = "恢復預設"
+
+    // ReaderSettingsCard
+    override val collapseLabel = "收起"
+
+    // FontPreviewRow
+    override val fontPreviewSample = "天地玄黃 宇宙洪荒"
+    override val fontHarmonyShort = "鴻蒙"
+    override val fontSystemShort = "系統"
+    override val deleteFontTitle = "刪除字型"
+    override val deleteFontConfirm = { name: String -> "確認刪除字型「$name」？" }
+    override val deleteLabel = "刪除"
+    override val cancelLabel = "取消"
+
+    // SettingsTab
+    override val settingsTabTypeAndFont = "排版"
+    override val settingsTabAppearance = "顯示"
+    override val settingsTabBehavior = "行為"
 }
 
 /** English — Reader display, quick settings, directory/bookmarks/notes strings */
@@ -589,4 +889,154 @@ internal data object EnReader : ReaderStrings {
     override val chapterReadTimeLabel = "Read time"
     override val chapterRead = "Read"
     override val chapterUnread = "Unread"
+
+    // P1: Settings Panel Tab i18n
+    // TypeAndFontTab
+    override val basicTypesettingCard = "Basic Typesetting"
+    override val marginTopLabel = "Top Margin"
+    override val marginBottomLabel = "Bottom Margin"
+    override val marginLeftLabel = "Left Margin"
+    override val marginRightLabel = "Right Margin"
+    override val syncMarginsLabel = "Sync Top/Bottom & Left/Right"
+    override val maxPageWidthUnlimitedShort = "Unlimited"
+    override val fontCardTitle = "Font"
+    override val advancedTypesettingCard = "Advanced Typesetting"
+    override val fontWeightMediumFull = "Medium"
+    override val textAlignJustifyFull = "Justify"
+    override val panguSpacingLabel = "Pangu Spacing"
+    override val bottomJustifyDesc = "Distribute line spacing evenly"
+    override val paragraphDividerLabel = "Paragraph Divider"
+    override val bionicReadingDesc = "Bionic reading bold"
+    override val chineseConvertFullLabel = "Chinese Convert"
+    override val chineseConvertNoneFull = "No Convert"
+    override val usePanguSpacingFullLabel = "Auto space between CJK and Latin"
+    override val removeEmptyLinesShortLabel = "Remove Empty Lines"
+    override val cleanChapterTitleShortLabel = "Clean Chapter Title"
+    override val preserveOriginalIndentShortDesc = "Don't override TXT file indentation"
+    override val epubOverrideStyleShortLabel = "Override EPUB Style"
+    override val epubOverrideStyleShortDesc = "Force reader typesetting"
+
+    // AppearanceTab
+    override val headerFooterCard = "Header & Footer"
+    override val visibilityLabel = "Visibility"
+    override val displayAlwaysShowShort = "Always"
+    override val colorTemperatureLabel = "Color Temperature"
+    override val displayModeCard = "Display Mode"
+    override val dualPageModeLabel = "Dual Page Mode"
+    override val autoLabel = "Auto"
+    override val singlePageLabel = "Single"
+    override val dualPageLabel = "Dual"
+    override val backgroundTextureLabel = "Background Texture"
+    override val solidColorLabel = "Solid"
+    override val linenTextureLabel = "Linen"
+    override val gridTextureLabel = "Grid"
+    override val pageAnimSpeedLabel = "Page Anim Speed"
+    override val pageAnimSpeedFast = "Fast (100ms)"
+    override val pageAnimSpeedNormal = "Normal (250ms)"
+    override val pageAnimSpeedSlow = "Slow (400ms)"
+    override val pageAnimTypeLabel = "Page Anim Type"
+    override val pageAnimTypeHorizontal = "Horizontal"
+    override val pageAnimTypeScroll = "Continuous Scroll"
+
+    // BehaviorTab
+    override val pageTurnCard = "Page Turn"
+    override val volumeKeyTurnPageLabel = "Volume Key Turn Page"
+    override val edgeTurnPageShortDesc = "Touch screen edge to turn page"
+    override val touchZoneCard = "Touch Zone"
+    override val hapticFeedbackLabel = "Haptic Feedback"
+    override val eyeCareCard = "Eye Care"
+    override val eyeCareReminderLabel = "Eye Care Reminder"
+    override val eyeCareReminderDesc = "Based on page turn activity"
+    override val offLabel = "Off"
+    override val minutes15 = "15 min"
+    override val minutes30 = "30 min"
+    override val minutes45 = "45 min"
+    override val minutes60 = "60 min"
+    override val generalCard = "General"
+    override val keepScreenOnShortLabel = "Keep Screen On"
+    override val orientationLockLabel = "Screen Orientation"
+    override val portraitLockLabel = "Portrait Lock"
+    override val landscapeLockLabel = "Landscape Lock"
+    override val gestureZoneSettingsLabel = "Tap Zone Settings"
+    override val currentMiddleZonePrefix = "Current middle zone: "
+    override val enterLabel = "Enter"
+    override val headerSeparatorLineLabel = "Header Separator"
+    override val footerSeparatorLineLabel = "Footer Separator"
+
+    // P2: Other settings panel components i18n
+    // SlotMatrix
+    override val slotBlankLabel = "Blank"
+    override val slotChapterShort = "Chapter"
+    override val slotChapterPercentShort = "Ch%"
+    override val slotBookShort = "Book"
+    override val slotBookPercentShort = "Book%"
+    override val infoGroupLabel = "Info"
+    override val progressGroupLabel = "Progress"
+    override val expandLabel = "Expand"
+
+    // CustomThemeDialog
+    override val customThemeTitle = "Custom Theme"
+    override val customThemeTextColor = "Text Color"
+    override val customThemeTitleColor = "Title Color"
+    override val customThemeHeaderFooterColor = "Header/Footer Color"
+    override val selectColorTitle = "Select Color"
+    override val brightnessLabel = "Brightness"
+
+    // GestureZoneGrid
+    override val gestureNone = "None"
+    override val gesturePrevPage = "Prev Page"
+    override val gestureNextPage = "Next Page"
+    override val gestureToolbar = "Toolbar"
+    override val gestureDirectory = "Directory"
+    override val gestureBookmark = "Bookmark"
+    override val gestureTheme = "Theme"
+    override val gestureImmersive = "Immersive"
+    override val gestureScrollUp = "Scroll Up"
+    override val gestureScrollDown = "Scroll Down"
+    override val tapZoneSelectAction = "Tap zone to select action"
+    override val pageTurnGroup = "Page Turn"
+    override val readingGroup = "Reading"
+
+    // GestureZoneEditorOverlay
+    override val gestureZoneEditorTitle = "Tap Zone Settings"
+    override val closeLabel = "Close"
+
+    // VisualMarginControl
+    override val marginTopShort = "Top"
+    override val marginLeftShort = "Left"
+    override val marginRightShort = "Right"
+    override val marginBottomShort = "Bottom"
+
+    // ThemeSwatchRow
+    override val themeLabel = "Theme"
+    override val selectedLabel = "Selected"
+
+    // ReaderSettingsPeek
+    override val darkModeLabel = "Dark Mode"
+    override val lightModeLabel = "Light Mode"
+    override val eyeCareModeLabel = "Eye Care"
+    override val landscapeLockShortLabel = "Landscape Lock"
+    override val scopeGlobalShort = "Global"
+    override val scopeBookShort = "Book"
+
+    // ReaderSettingsPanel
+    override val clearBookSettings = "Clear Book Settings"
+    override val resetToDefaultShort = "Reset Default"
+
+    // ReaderSettingsCard
+    override val collapseLabel = "Collapse"
+
+    // FontPreviewRow
+    override val fontPreviewSample = "The quick brown fox"
+    override val fontHarmonyShort = "Harmony"
+    override val fontSystemShort = "System"
+    override val deleteFontTitle = "Delete Font"
+    override val deleteFontConfirm = { name: String -> "Delete font \"$name\"?" }
+    override val deleteLabel = "Delete"
+    override val cancelLabel = "Cancel"
+
+    // SettingsTab
+    override val settingsTabTypeAndFont = "Typeset"
+    override val settingsTabAppearance = "Display"
+    override val settingsTabBehavior = "Behavior"
 }

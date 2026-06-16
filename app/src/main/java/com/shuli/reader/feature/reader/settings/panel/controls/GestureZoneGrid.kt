@@ -35,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import com.shuli.reader.core.i18n.LocalAppStrings
+import com.shuli.reader.core.i18n.ReaderStrings
 import com.shuli.reader.feature.reader.settings.GestureAction
 import com.shuli.reader.feature.reader.settings.GestureConfig
 import com.shuli.reader.feature.reader.settings.TouchZone
@@ -58,18 +60,18 @@ private val READING_GESTURE_ACTIONS = listOf(
     GestureAction.NONE,
 )
 
-/** 动作中文短标签。 */
-internal fun GestureAction.label(): String = when (this) {
-    GestureAction.NONE -> "无"
-    GestureAction.PREV_PAGE -> "上一页"
-    GestureAction.NEXT_PAGE -> "下一页"
-    GestureAction.TOGGLE_TOOLBAR -> "工具栏"
-    GestureAction.TOGGLE_DIRECTORY -> "目录"
-    GestureAction.ADD_BOOKMARK -> "书签"
-    GestureAction.TOGGLE_THEME -> "切主题"
-    GestureAction.TOGGLE_IMMERSIVE -> "沉浸"
-    GestureAction.SCROLL_UP -> "上滚"
-    GestureAction.SCROLL_DOWN -> "下滚"
+/** 动作短标签（i18n）。 */
+internal fun GestureAction.label(strings: ReaderStrings): String = when (this) {
+    GestureAction.NONE -> strings.gestureNone
+    GestureAction.PREV_PAGE -> strings.gesturePrevPage
+    GestureAction.NEXT_PAGE -> strings.gestureNextPage
+    GestureAction.TOGGLE_TOOLBAR -> strings.gestureToolbar
+    GestureAction.TOGGLE_DIRECTORY -> strings.gestureDirectory
+    GestureAction.ADD_BOOKMARK -> strings.gestureBookmark
+    GestureAction.TOGGLE_THEME -> strings.gestureTheme
+    GestureAction.TOGGLE_IMMERSIVE -> strings.gestureImmersive
+    GestureAction.SCROLL_UP -> strings.gestureScrollUp
+    GestureAction.SCROLL_DOWN -> strings.gestureScrollDown
 }
 
 /** 九宫格行序（与 [TouchZone] 对应）。 */
@@ -131,7 +133,7 @@ fun GestureZoneGrid(
         }
         if (showHint) {
             Text(
-                text = "点击区域选择动作",
+                text = LocalAppStrings.current.reader.tapZoneSelectAction,
                 style = MaterialTheme.typography.labelSmall,
                 color = colors.textTertiary,
                 textAlign = TextAlign.Center,
@@ -195,13 +197,14 @@ private fun GestureZoneButton(
             ) { expanded = true },
         contentAlignment = Alignment.Center,
     ) {
+        val strings = LocalAppStrings.current.reader
         Row(
             modifier = Modifier.padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
             Text(
-                text = action.label(),
+                text = action.label(strings),
                 style = MaterialTheme.typography.labelSmall,
                 color = cellText,
                 fontWeight = FontWeight.Medium,
@@ -211,7 +214,7 @@ private fun GestureZoneButton(
             )
             Icon(
                 imageVector = Icons.Outlined.ExpandMore,
-                contentDescription = "展开",
+                contentDescription = strings.expandLabel,
                 tint = iconTint,
                 modifier = Modifier.size(14.dp),
             )
@@ -253,23 +256,23 @@ private fun GestureActionMenu(
         selected = current,
         sections = listOf(
             InkDropdownSection(
-                title = "翻页",
+                title = LocalAppStrings.current.reader.pageTurnGroup,
                 columns = 3,
                 options = PAGE_GESTURE_ACTIONS.map { action ->
                     InkDropdownOption(
                         value = action,
-                        label = action.label(),
+                        label = action.label(LocalAppStrings.current.reader),
                         testTag = "GestureAction_${action.name}",
                     )
                 },
             ),
             InkDropdownSection(
-                title = "阅读",
+                title = LocalAppStrings.current.reader.readingGroup,
                 columns = 3,
                 options = READING_GESTURE_ACTIONS.map { action ->
                     InkDropdownOption(
                         value = action,
-                        label = action.label(),
+                        label = action.label(LocalAppStrings.current.reader),
                         testTag = "GestureAction_${action.name}",
                     )
                 },

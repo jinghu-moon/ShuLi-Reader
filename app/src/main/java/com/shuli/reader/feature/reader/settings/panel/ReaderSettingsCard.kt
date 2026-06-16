@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 
 /**
@@ -129,9 +130,10 @@ fun SettingsCard(
                     Box { headerTrailing() }
                 }
                 if (collapsible) {
+                    val strings = LocalAppStrings.current.reader
                     Icon(
                         imageVector = Icons.Outlined.ExpandMore,
-                        contentDescription = if (expanded) "收起" else "展开",
+                        contentDescription = if (expanded) strings.collapseLabel else strings.expandLabel,
                         tint = colors.textTertiary,
                         modifier = Modifier
                             .rotate(if (expanded) 180f else 0f)

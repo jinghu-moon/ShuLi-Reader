@@ -213,6 +213,8 @@ private fun bridgeSettingChange(key: String, value: Any): ReaderIntent? {
         "footer_right" -> slot(ReaderSettingKey.FOOTER_RIGHT)
         "header_margin_top" -> f(ReaderSettingKey.HEADER_MARGIN_TOP)
         "footer_margin_bottom" -> f(ReaderSettingKey.FOOTER_MARGIN_BOTTOM)
+        "header_font_size_ratio" -> f(ReaderSettingKey.HEADER_FONT_SIZE_RATIO)
+        "footer_font_size_ratio" -> f(ReaderSettingKey.FOOTER_FONT_SIZE_RATIO)
         "header_footer_alpha" -> f(ReaderSettingKey.HEADER_FOOTER_ALPHA)
         "show_header_line" -> b(ReaderSettingKey.SHOW_HEADER_LINE)
         "show_footer_line" -> b(ReaderSettingKey.SHOW_FOOTER_LINE)

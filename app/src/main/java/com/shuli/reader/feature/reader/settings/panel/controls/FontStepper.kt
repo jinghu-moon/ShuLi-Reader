@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.testTag
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 
 /**
@@ -48,7 +49,7 @@ fun FontStepper(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "字号",
+            text = LocalAppStrings.current.reader.defaultFontSize,
             style = MaterialTheme.typography.bodyMedium,
             color = colors.textSecondary,
         )

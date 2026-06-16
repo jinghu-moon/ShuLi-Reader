@@ -18,6 +18,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.shuli.reader.core.i18n.LocalAppStrings
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,7 +58,7 @@ fun ThemeSwatchRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "主题",
+            text = LocalAppStrings.current.reader.themeLabel,
             style = MaterialTheme.typography.bodyMedium,
             color = colors.textPrimary,
             modifier = Modifier.padding(end = 12.dp),
@@ -99,7 +100,7 @@ fun ThemeSwatchRow(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Add,
-                    contentDescription = "自定义颜色",
+                    contentDescription = LocalAppStrings.current.reader.customThemeLabel,
                     tint = colors.textSecondary,
                     modifier = Modifier.size(18.dp),
                 )

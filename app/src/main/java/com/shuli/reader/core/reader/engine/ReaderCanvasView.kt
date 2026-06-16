@@ -237,6 +237,7 @@ class ReaderCanvasView @JvmOverloads constructor(
             textPaint = textPaint,
             selectionPaint = selectionPaint,
             postInvalidate = { postInvalidate() },
+            generation = renderContext.generation,  // PR-4: 传入 generation 用于过期校验
         )
     }
 
@@ -448,6 +449,8 @@ class ReaderCanvasView @JvmOverloads constructor(
         val sh = snapshot.shell
 
         // 1. 始终应用全部视觉参数（幂等操作，值未变时各 setter 内部跳过）
+        // PR-4: 将 snapshot 的 generation 传递给 renderContext，用于后台任务过期校验
+        renderContext.generation = snapshot.generation
         visualParams.updatePaintSnapshot(
             textSize = layoutInput.fontSizeSp * layoutInput.density,
             letterSpacing = layoutInput.letterSpacing,

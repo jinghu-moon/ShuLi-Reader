@@ -1,5 +1,7 @@
 package com.shuli.reader.feature.reader.settings
 
+import com.shuli.reader.core.i18n.ReaderStrings
+
 /**
  * 设置面板的顶层 Tab 分类（v5.1 §0b.2）。
  *
@@ -45,11 +47,11 @@ enum class SettingsTab(val groups: List<UiGroup>) {
             covered == UiGroup.entries.toSet()
         }
 
-        /** Tab 显示名（用于 TabRow，本地化由 AppStrings 在上层替换）。 */
-        fun displayName(tab: SettingsTab): String = when (tab) {
-            TYPE_AND_FONT -> "字体排版"
-            APPEARANCE -> "外观显示"
-            BEHAVIOR -> "行为交互"
+        /** Tab 显示名（用于 TabRow，支持 i18n）。 */
+        fun displayName(tab: SettingsTab, strings: ReaderStrings? = null): String = when (tab) {
+            TYPE_AND_FONT -> strings?.settingsTabTypeAndFont ?: "字体排版"
+            APPEARANCE -> strings?.settingsTabAppearance ?: "外观显示"
+            BEHAVIOR -> strings?.settingsTabBehavior ?: "行为交互"
         }
     }
 }

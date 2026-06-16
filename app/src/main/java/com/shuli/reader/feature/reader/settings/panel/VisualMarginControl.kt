@@ -28,6 +28,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import com.shuli.reader.core.i18n.LocalAppStrings
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.shuli.reader.feature.reader.settings.panel.controls.InkCircleButton
@@ -96,9 +97,10 @@ fun VisualMarginControl(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        val strings = LocalAppStrings.current.reader
         // 上
         MarginStepper(
-            label = "上",
+            label = strings.marginTopShort,
             value = margins.top,
             vertical = false,
             onDec = { update("top", -step) },
@@ -112,7 +114,7 @@ fun VisualMarginControl(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             MarginStepper(
-                label = "左",
+                label = strings.marginLeftShort,
                 value = margins.left,
                 vertical = true,
                 onDec = { update("left", -step) },
@@ -128,7 +130,7 @@ fun VisualMarginControl(
                     .testTag("VisualMarginControl_Thumbnail"),
             )
             MarginStepper(
-                label = "右",
+                label = strings.marginRightShort,
                 value = margins.right,
                 vertical = true,
                 onDec = { update("right", -step) },
@@ -139,7 +141,7 @@ fun VisualMarginControl(
         }
         // 下
         MarginStepper(
-            label = "下",
+            label = strings.marginBottomShort,
             value = margins.bottom,
             vertical = false,
             onDec = { update("bottom", -step) },
@@ -164,7 +166,7 @@ fun VisualMarginControl(
                 modifier = Modifier.testTag("VisualMarginControl_Sync"),
             )
             Text(
-                text = "同步上下 / 左右",
+                text = strings.syncMarginsLabel,
                 style = MaterialTheme.typography.labelSmall,
                 color = colors.textTertiary,
             )

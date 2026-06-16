@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.data.ReaderTheme
 import com.shuli.reader.core.font.FontManager
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.reader.settings.SettingsScope
 import com.shuli.reader.feature.reader.settings.panel.tabs.AppearanceTab
 import com.shuli.reader.feature.reader.settings.panel.tabs.BehaviorTab
@@ -162,7 +163,7 @@ internal fun ReaderSettingsSheetContent(
                         onClick = { onTabChange(index) },
                         text = {
                             Text(
-                                SettingsTab.displayName(tab),
+                                SettingsTab.displayName(tab, LocalAppStrings.current.reader),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
                             )
@@ -216,9 +217,10 @@ internal fun ReaderSettingsSheetContent(
                     }
 
                     // ── 恢复默认 / 清除本书设置 ──
+                    val strings = LocalAppStrings.current.reader
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        text = if (settingsScope == SettingsScope.BOOK && hasBookOverrides) "清除本书设置" else "恢复默认",
+                        text = if (settingsScope == SettingsScope.BOOK && hasBookOverrides) strings.clearBookSettings else strings.resetToDefaultShort,
                         style = MaterialTheme.typography.labelMedium,
                         color = readerColors.textTertiary,
                         modifier = Modifier

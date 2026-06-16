@@ -16,6 +16,7 @@ import com.shuli.reader.core.data.ReaderFontWeight
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.font.FontManager
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.reader.settings.panel.SelectRow
 import com.shuli.reader.feature.reader.settings.panel.SettingsCard
 import com.shuli.reader.feature.reader.settings.panel.SwitchRow
@@ -38,15 +39,16 @@ fun TypeAndFontTab(
     onDeleteFont: (String) -> Unit = {},
 ) {
     val colors = LocalReaderColorScheme.current
+    val strings = LocalAppStrings.current.reader
     Column(modifier = modifier.fillMaxWidth()) {
         // ── 基础排版 ──
-        SettingsCard(title = "基础排版") {
+        SettingsCard(title = strings.basicTypesettingCard) {
             InkStepperSlider(
                 value = prefs.fontSize,
                 onValueChange = { onSettingChanged("font_size", it) },
                 valueRange = 12f..32f,
                 step = 1f,
-                label = "字号",
+                label = strings.defaultFontSize,
                 formatValue = { "${it.toInt()}" },
                 testTagPrefix = "Slider_FontSize",
             )
@@ -55,7 +57,7 @@ fun TypeAndFontTab(
                 onValueChange = { onSettingChanged("line_spacing", it) },
                 valueRange = 1.0f..2.5f,
                 step = 0.1f,
-                label = "行距",
+                label = strings.defaultLineSpacing,
                 testTagPrefix = "Slider_LineSpacing",
             )
             InkStepperSlider(
@@ -63,7 +65,7 @@ fun TypeAndFontTab(
                 onValueChange = { onSettingChanged("paragraph_spacing", it) },
                 valueRange = 0.5f..2.0f,
                 step = 0.1f,
-                label = "段距",
+                label = strings.paragraphSpacing,
                 testTagPrefix = "Slider_ParaSpacing",
             )
             InkStepperSlider(
@@ -71,7 +73,7 @@ fun TypeAndFontTab(
                 onValueChange = { onSettingChanged("indent", it) },
                 valueRange = 0f..4f,
                 step = 0.5f,
-                label = "缩进",
+                label = strings.firstLineIndent,
                 formatValue = { "%.1f".format(it) },
                 testTagPrefix = "Slider_Indent",
             )
@@ -80,7 +82,7 @@ fun TypeAndFontTab(
                 onValueChange = { onSettingChanged("letter_spacing", it) },
                 valueRange = 0f..0.2f,
                 step = 0.01f,
-                label = "字距",
+                label = strings.letterSpacingLabel,
                 formatValue = { "%.2f".format(it) },
                 testTagPrefix = "Slider_LetterSpacing",
             )
@@ -98,7 +100,7 @@ fun TypeAndFontTab(
                 },
                 valueRange = 0f..96f,
                 step = 4f,
-                label = "上边距",
+                label = strings.marginTopLabel,
                 formatValue = { "${it.toInt()}" },
                 testTagPrefix = "Slider_MarginTop",
             )
@@ -110,7 +112,7 @@ fun TypeAndFontTab(
                 },
                 valueRange = 0f..96f,
                 step = 4f,
-                label = "下边距",
+                label = strings.marginBottomLabel,
                 formatValue = { "${it.toInt()}" },
                 testTagPrefix = "Slider_MarginBottom",
             )
@@ -122,7 +124,7 @@ fun TypeAndFontTab(
                 },
                 valueRange = 0f..96f,
                 step = 4f,
-                label = "左边距",
+                label = strings.marginLeftLabel,
                 formatValue = { "${it.toInt()}" },
                 testTagPrefix = "Slider_MarginLeft",
             )
@@ -134,12 +136,12 @@ fun TypeAndFontTab(
                 },
                 valueRange = 0f..96f,
                 step = 4f,
-                label = "右边距",
+                label = strings.marginRightLabel,
                 formatValue = { "${it.toInt()}" },
                 testTagPrefix = "Slider_MarginRight",
             )
             SwitchRow(
-                label = "同步上下 / 左右",
+                label = strings.syncMarginsLabel,
                 checked = marginSync.value,
                 onCheckedChange = { sync ->
                     marginSync.value = sync
@@ -154,9 +156,9 @@ fun TypeAndFontTab(
                 onValueChange = { onSettingChanged("max_page_width", it) },
                 valueRange = 0f..900f,
                 step = 50f,
-                label = "最大页宽",
-                sublabel = "0 表示不限制",
-                formatValue = { if (it <= 0f) "不限" else "${it.toInt()}" },
+                label = strings.maxPageWidthLabel,
+                sublabel = strings.maxPageWidthUnlimited,
+                formatValue = { if (it <= 0f) strings.maxPageWidthUnlimitedShort else "${it.toInt()}" },
                 testTagPrefix = "Slider_MaxPageWidth",
             )
         }
@@ -166,13 +168,13 @@ fun TypeAndFontTab(
             contract = ActivityResultContracts.OpenDocument(),
         ) { uri -> uri?.let { onImportFont(it) } }
         SettingsCard(
-            title = "字体",
+            title = strings.fontCardTitle,
             headerTrailing = {
                 TextButton(
                     onClick = { fontLauncher.launch(arrayOf("font/ttf", "font/otf", "application/octet-stream")) },
                     modifier = Modifier.testTag("Font_ImportButton"),
                 ) {
-                    Text(text = "导入字体", color = colors.accent)
+                    Text(text = strings.importFont, color = colors.accent)
                 }
             },
         ) {
@@ -187,22 +189,22 @@ fun TypeAndFontTab(
                 },
             )
             SelectRow(
-                label = "字重",
+                label = strings.fontWeightLabel,
                 options = listOf(
-                    ReaderFontWeight.LIGHT to "细",
-                    ReaderFontWeight.NORMAL to "常规",
-                    ReaderFontWeight.MEDIUM to "中等",
-                    ReaderFontWeight.BOLD to "粗",
+                    ReaderFontWeight.LIGHT to strings.fontWeightLight,
+                    ReaderFontWeight.NORMAL to strings.fontWeightNormal,
+                    ReaderFontWeight.MEDIUM to strings.fontWeightMediumFull,
+                    ReaderFontWeight.BOLD to strings.fontWeightBold,
                 ),
                 selected = prefs.fontWeight,
                 onSelect = { onSettingChanged("font_weight", it) },
                 topDivider = true,
             )
             SelectRow(
-                label = "对齐",
+                label = strings.textAlignLabel,
                 options = listOf(
-                    ReaderTextAlign.LEFT to "左对齐",
-                    ReaderTextAlign.JUSTIFY to "两端对齐",
+                    ReaderTextAlign.LEFT to strings.textAlignLeft,
+                    ReaderTextAlign.JUSTIFY to strings.textAlignJustifyFull,
                 ),
                 selected = prefs.textAlign,
                 onSelect = { onSettingChanged("text_align", it) },
@@ -211,66 +213,66 @@ fun TypeAndFontTab(
         }
 
         // ── 高级排版（可折叠）──
-        SettingsCard(title = "高级排版", collapsible = true, initiallyExpanded = false) {
+        SettingsCard(title = strings.advancedTypesettingCard, collapsible = true, initiallyExpanded = false) {
             SelectRow(
-                label = "简繁转换",
+                label = strings.chineseConvertFullLabel,
                 options = listOf(
-                    ChineseConvert.NONE to "不转换",
-                    ChineseConvert.SIMPLIFIED to "简体",
-                    ChineseConvert.TRADITIONAL to "繁体",
+                    ChineseConvert.NONE to strings.chineseConvertNoneFull,
+                    ChineseConvert.SIMPLIFIED to strings.chineseConvertSimplified,
+                    ChineseConvert.TRADITIONAL to strings.chineseConvertTraditional,
                 ),
                 selected = prefs.chineseConvert,
                 onSelect = { onSettingChanged("chinese_convert", it) },
             )
             SwitchRow(
-                label = "盘古之白",
-                sublabel = "中英文间自动加空格",
+                label = strings.panguSpacingLabel,
+                sublabel = strings.usePanguSpacingFullLabel,
                 checked = prefs.usePanguSpacing,
                 onCheckedChange = { onSettingChanged("use_pangu_spacing", it) },
                 topDivider = true,
             )
             SwitchRow(
-                label = "底部对齐",
-                sublabel = "均匀分布行间距",
+                label = strings.bottomJustifyLabel,
+                sublabel = strings.bottomJustifyDesc,
                 checked = prefs.bottomJustify,
                 onCheckedChange = { onSettingChanged("bottom_justify", it) },
                 topDivider = true,
             )
             SwitchRow(
-                label = "去除空行",
+                label = strings.removeEmptyLinesShortLabel,
                 checked = prefs.removeEmptyLines,
                 onCheckedChange = { onSettingChanged("remove_empty_lines", it) },
                 topDivider = true,
             )
             SwitchRow(
-                label = "段间分隔线",
+                label = strings.paragraphDividerLabel,
                 checked = prefs.paragraphDivider,
                 onCheckedChange = { onSettingChanged("paragraph_divider", it) },
                 topDivider = true,
             )
             SwitchRow(
                 label = "Bionic Reading",
-                sublabel = "仿生阅读加粗",
+                sublabel = strings.bionicReadingDesc,
                 checked = prefs.bionicReading,
                 onCheckedChange = { onSettingChanged("bionic_reading", it) },
                 topDivider = true,
             )
             SwitchRow(
-                label = "清理章节标题",
+                label = strings.cleanChapterTitleShortLabel,
                 checked = prefs.cleanChapterTitle,
                 onCheckedChange = { onSettingChanged("clean_chapter_title", it) },
                 topDivider = true,
             )
             SwitchRow(
-                label = "保留原文缩进",
-                sublabel = "不覆盖TXT文件的行首缩进",
+                label = strings.preserveOriginalIndentLabel,
+                sublabel = strings.preserveOriginalIndentShortDesc,
                 checked = prefs.preserveOriginalIndent,
                 onCheckedChange = { onSettingChanged("preserve_original_indent", it) },
                 topDivider = true,
             )
             SwitchRow(
-                label = "覆盖 EPUB 样式",
-                sublabel = "强制使用阅读器排版",
+                label = strings.epubOverrideStyleShortLabel,
+                sublabel = strings.epubOverrideStyleShortDesc,
                 checked = prefs.epubOverrideStyle,
                 onCheckedChange = { onSettingChanged("epub_override_style", it) },
                 topDivider = true,

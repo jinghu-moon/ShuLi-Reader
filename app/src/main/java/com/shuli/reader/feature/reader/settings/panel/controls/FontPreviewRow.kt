@@ -29,10 +29,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shuli.reader.core.font.FontManager
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 import com.shuli.reader.ui.theme.ReadingFont
-
-private const val FONT_PREVIEW_SAMPLE = "天地玄黄 宇宙洪荒"
 
 private data class FontRowItem(
     val key: String,
@@ -60,11 +59,12 @@ fun FontPreviewRow(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalReaderColorScheme.current
+    val strings = LocalAppStrings.current.reader
 
     val items = remember(customFonts) {
         buildList {
-            add(FontRowItem("harmony", "鸿蒙", ReadingFont, null))
-            add(FontRowItem("system", "系统", FontFamily.Default, null))
+            add(FontRowItem("harmony", strings.fontHarmonyShort, ReadingFont, null))
+            add(FontRowItem("system", strings.fontSystemShort, FontFamily.Default, null))
             customFonts.forEach { entry ->
                 add(
                     FontRowItem(
@@ -83,19 +83,19 @@ fun FontPreviewRow(
     if (fontToDelete != null) {
         AlertDialog(
             onDismissRequest = { fontToDelete = null },
-            title = { Text("删除字体") },
-            text = { Text("确认删除字体「${fontToDelete?.name}」？") },
+            title = { Text(strings.deleteFontTitle) },
+            text = { Text(strings.deleteFontConfirm(fontToDelete?.name ?: "")) },
             confirmButton = {
                 TextButton(onClick = {
                     fontToDelete?.let { entry -> onDelete(entry) }
                     fontToDelete = null
                 }) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
+                    Text(strings.deleteLabel, color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { fontToDelete = null }) {
-                    Text("取消")
+                    Text(strings.cancelLabel)
                 }
             }
         )
@@ -130,7 +130,7 @@ fun FontPreviewRow(
                     modifier = Modifier.padding(end = 12.dp),
                 )
                 Text(
-                    text = FONT_PREVIEW_SAMPLE,
+                    text = strings.fontPreviewSample,
                     fontFamily = item.family,
                     fontSize = 15.sp,
                     color = colors.textSecondary,

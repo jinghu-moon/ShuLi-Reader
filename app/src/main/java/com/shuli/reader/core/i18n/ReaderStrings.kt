@@ -212,4 +212,154 @@ interface ReaderStrings {
     val chapterReadTimeLabel: String
     val chapterRead: String
     val chapterUnread: String
+
+    // P1: 设置面板 Tab i18n
+    // TypeAndFontTab
+    val basicTypesettingCard: String
+    val marginTopLabel: String
+    val marginBottomLabel: String
+    val marginLeftLabel: String
+    val marginRightLabel: String
+    val syncMarginsLabel: String
+    val maxPageWidthUnlimitedShort: String
+    val fontCardTitle: String
+    val advancedTypesettingCard: String
+    val fontWeightMediumFull: String
+    val textAlignJustifyFull: String
+    val panguSpacingLabel: String
+    val bottomJustifyDesc: String
+    val paragraphDividerLabel: String
+    val bionicReadingDesc: String
+    val chineseConvertFullLabel: String
+    val chineseConvertNoneFull: String
+    val usePanguSpacingFullLabel: String
+    val removeEmptyLinesShortLabel: String
+    val cleanChapterTitleShortLabel: String
+    val preserveOriginalIndentShortDesc: String
+    val epubOverrideStyleShortLabel: String
+    val epubOverrideStyleShortDesc: String
+
+    // AppearanceTab
+    val headerFooterCard: String
+    val visibilityLabel: String
+    val displayAlwaysShowShort: String
+    val colorTemperatureLabel: String
+    val displayModeCard: String
+    val dualPageModeLabel: String
+    val autoLabel: String
+    val singlePageLabel: String
+    val dualPageLabel: String
+    val backgroundTextureLabel: String
+    val solidColorLabel: String
+    val linenTextureLabel: String
+    val gridTextureLabel: String
+    val pageAnimSpeedLabel: String
+    val pageAnimSpeedFast: String
+    val pageAnimSpeedNormal: String
+    val pageAnimSpeedSlow: String
+    val pageAnimTypeLabel: String
+    val pageAnimTypeHorizontal: String
+    val pageAnimTypeScroll: String
+
+    // BehaviorTab
+    val pageTurnCard: String
+    val volumeKeyTurnPageLabel: String
+    val edgeTurnPageShortDesc: String
+    val touchZoneCard: String
+    val hapticFeedbackLabel: String
+    val eyeCareCard: String
+    val eyeCareReminderLabel: String
+    val eyeCareReminderDesc: String
+    val offLabel: String
+    val minutes15: String
+    val minutes30: String
+    val minutes45: String
+    val minutes60: String
+    val generalCard: String
+    val keepScreenOnShortLabel: String
+    val orientationLockLabel: String
+    val portraitLockLabel: String
+    val landscapeLockLabel: String
+    val gestureZoneSettingsLabel: String
+    val currentMiddleZonePrefix: String
+    val enterLabel: String
+    val headerSeparatorLineLabel: String
+    val footerSeparatorLineLabel: String
+
+    // P2: 其他设置面板组件 i18n
+    // SlotMatrix
+    val slotBlankLabel: String
+    val slotChapterShort: String
+    val slotChapterPercentShort: String
+    val slotBookShort: String
+    val slotBookPercentShort: String
+    val infoGroupLabel: String
+    val progressGroupLabel: String
+    val expandLabel: String
+
+    // CustomThemeDialog
+    val customThemeTitle: String
+    val customThemeTextColor: String
+    val customThemeTitleColor: String
+    val customThemeHeaderFooterColor: String
+    val selectColorTitle: String
+    val brightnessLabel: String
+
+    // GestureZoneGrid
+    val gestureNone: String
+    val gesturePrevPage: String
+    val gestureNextPage: String
+    val gestureToolbar: String
+    val gestureDirectory: String
+    val gestureBookmark: String
+    val gestureTheme: String
+    val gestureImmersive: String
+    val gestureScrollUp: String
+    val gestureScrollDown: String
+    val tapZoneSelectAction: String
+    val pageTurnGroup: String
+    val readingGroup: String
+
+    // GestureZoneEditorOverlay
+    val gestureZoneEditorTitle: String
+    val closeLabel: String
+
+    // VisualMarginControl
+    val marginTopShort: String
+    val marginLeftShort: String
+    val marginRightShort: String
+    val marginBottomShort: String
+
+    // ThemeSwatchRow
+    val themeLabel: String
+    val selectedLabel: String
+
+    // ReaderSettingsPeek
+    val darkModeLabel: String
+    val lightModeLabel: String
+    val eyeCareModeLabel: String
+    val landscapeLockShortLabel: String
+    val scopeGlobalShort: String
+    val scopeBookShort: String
+
+    // ReaderSettingsPanel
+    val clearBookSettings: String
+    val resetToDefaultShort: String
+
+    // ReaderSettingsCard
+    val collapseLabel: String
+
+    // FontPreviewRow
+    val fontPreviewSample: String
+    val fontHarmonyShort: String
+    val fontSystemShort: String
+    val deleteFontTitle: String
+    val deleteFontConfirm: (String) -> String
+    val deleteLabel: String
+    val cancelLabel: String
+
+    // SettingsTab
+    val settingsTabTypeAndFont: String
+    val settingsTabAppearance: String
+    val settingsTabBehavior: String
 }

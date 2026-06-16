@@ -23,4 +23,6 @@ class RenderContext {
     var noteRanges: List<Pair<SelectionRange, Paint>> = emptyList()
     var showHeaderLine: Boolean = false
     var showFooterLine: Boolean = false
+    /** PR-4: 渲染事务 generation，用于校验后台任务是否过期 */
+    var generation: Long = -1L
 }

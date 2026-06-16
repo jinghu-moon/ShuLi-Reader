@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.reader.settings.panel.controls.GestureZoneGrid
 import com.shuli.reader.feature.reader.settings.GestureConfig
 
@@ -54,7 +55,7 @@ fun GestureZoneEditorOverlay(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                text = "点击区域设置",
+                text = LocalAppStrings.current.reader.gestureZoneEditorTitle,
                 style = MaterialTheme.typography.titleLarge,
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
@@ -65,7 +66,7 @@ fun GestureZoneEditorOverlay(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Close,
-                    contentDescription = "关闭",
+                    contentDescription = LocalAppStrings.current.reader.closeLabel,
                     tint = Color.White,
                 )
             }

@@ -16,6 +16,8 @@ import java.util.concurrent.Executors
  *
  * 封装 CanvasRecorder 的录制策略：主线程兜底录制、后台预渲染三页、
  * 壳层/内容层分离录制。从 ReaderCanvasView 拆出，独立演进缓存策略。
+ *
+ * PR-4: submitRenderTask() 接入 generation token，丢弃过期后台任务。
  */
 class PageBitmapCache(
     private val pageRenderer: ReaderPageRenderer,
@@ -140,7 +142,14 @@ class PageBitmapCache(
         return doRecordPage(page, w, h, content, contentChapterIndex, renderContext, backgroundPaint, textPaint, selectionPaint)
     }
 
-    /** 提交后台预渲染任务：录制 current/next/prev 三页，完成后触发重绘。 */
+    /**
+     * 提交后台预渲染任务：录制 current/next/prev 三页，完成后触发重绘。
+     *
+     * PR-4: 增加 generation 参数，任务开始时校验是否过期。
+     * 如果 generation 不匹配（说明有新的渲染事务），直接丢弃本次任务。
+     *
+     * @param generation 渲染事务 generation，从 ReaderRenderOrchestrator 获取
+     */
     fun submitRenderTask(
         width: Int,
         height: Int,
@@ -153,9 +162,20 @@ class PageBitmapCache(
         textPaint: Paint,
         selectionPaint: Paint,
         postInvalidate: () -> Unit,
+        generation: Long = -1L,
     ) {
         if (width <= 0 || height <= 0) return
         renderThread.execute {
+            // PR-4: 校验 generation，过期任务直接丢弃
+            if (generation >= 0 && generation != renderContext.generation) {
+                if (com.shuli.reader.BuildConfig.DEBUG) {
+                    android.util.Log.d(
+                        "PageBitmapCache",
+                        "skip expired render task: task.generation=$generation current=${renderContext.generation}",
+                    )
+                }
+                return@execute
+            }
             var dirty = false
             listOfNotNull(currentPage, nextPage, prevPage).forEach { page ->
                 val content = chapterContents[page.chapterIndex] ?: return@forEach

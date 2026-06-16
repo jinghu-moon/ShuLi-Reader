@@ -7,16 +7,26 @@
 package com.shuli.reader.core.recorder
 
 import android.graphics.Canvas
+import android.graphics.Picture
 import java.util.concurrent.locks.ReentrantLock
 
+/**
+ * 线程安全装饰器：为 [CanvasRecorder] 加锁 + 终态保护。
+ *
+ * PR-3a: recycle() 后不再允许复活。beginRecording() 在 recycled 状态下返回 dummy Canvas，
+ * 避免后台线程因 TOCTOU 竞态条件崩溃。
+ */
 class CanvasRecorderLocked(private val delegate: CanvasRecorder) :
     CanvasRecorder by delegate {
 
     var lock: ReentrantLock? = ReentrantLock()
 
-    /** recycle() 后置位；下一次 beginRecording() 会重新初始化底层资源并复活。 */
+    /** recycle() 后置位，不可逆。 */
     @Volatile
     private var recycled: Boolean = false
+
+    /** dummy Picture，用于在 recycled 状态下返回无害的 Canvas */
+    private val dummyPicture = Picture()
 
     private fun initLock() {
         if (lock == null) {
@@ -28,23 +38,31 @@ class CanvasRecorderLocked(private val delegate: CanvasRecorder) :
         }
     }
 
+    /**
+     * PR-3a: recycled 后返回 dummy Canvas，不抛异常。
+     *
+     * 后台线程可能在 recycle() 之前提交了渲染任务，任务执行时 recorder 已被 recycle。
+     * 此时返回 dummy Canvas 让任务"录制"到空 Picture，避免崩溃。
+     */
     override fun beginRecording(width: Int, height: Int): Canvas {
+        if (recycled) {
+            // 返回 dummy Canvas，后续 endRecording/draw 都是 no-op
+            return dummyPicture.beginRecording(width, height)
+        }
         initLock()
         lock!!.lock()
-        // 复用即复活：recycle() 后页面对象可能被缓存复用并重新录制。
-        // delegate.beginRecording() 内部会 init() 重新取 Picture/RenderNode，
-        // 故此处复位 recycled，使 begin/end/draw 在新生命周期内保持对称——
-        // 否则 endRecording 会因 recycled 短路而跳过 picture.endRecording()，
-        // 导致 Picture 停留在 recording 状态，下一帧再 beginRecording 即抛
-        // "Picture already recording"。
-        recycled = false
+        // double-check：获取锁后可能已被 recycle
+        if (recycled) {
+            lock!!.unlock()
+            return dummyPicture.beginRecording(width, height)
+        }
         return delegate.beginRecording(width, height)
     }
 
     override fun endRecording() {
+        if (recycled) return
         val l = lock ?: return
         try {
-            // 无论 recycled 状态如何，都必须调用 endRecording() 确保 Picture 结束录制
             delegate.endRecording()
         } catch (_: IllegalStateException) {
             // 已经结束录制，忽略
@@ -71,13 +89,15 @@ class CanvasRecorderLocked(private val delegate: CanvasRecorder) :
 
     override fun isRecycled(): Boolean = recycled
 
+    /**
+     * 回收资源。调用后此实例不可再使用（终态）。
+     */
     override fun recycle() {
         val l = lock ?: return
         l.lock()
         try {
             if (!recycled) {
                 recycled = true
-                // 确保先结束录制再回收
                 try {
                     delegate.endRecording()
                 } catch (_: IllegalStateException) {
@@ -88,7 +108,6 @@ class CanvasRecorderLocked(private val delegate: CanvasRecorder) :
         } finally {
             if (l.isHeldByCurrentThread) l.unlock()
         }
-        // 不再置 lock = null：后续录制调用仍需锁来序列化，否则会和 render 线程竞速。
     }
 
 }

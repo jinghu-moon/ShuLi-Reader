@@ -44,6 +44,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import com.shuli.reader.core.i18n.LocalAppStrings
+import com.shuli.reader.core.i18n.ReaderStrings
 import com.shuli.reader.core.reader.model.SlotContent
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 
@@ -61,17 +63,17 @@ data class SlotDisplay(
 /**
  * 默认 [SlotContent] → [SlotDisplay] 映射。
  */
-fun defaultSlotDisplays(): Map<SlotContent, SlotDisplay> = mapOf(
-    SlotContent.NONE to SlotDisplay("留白", " "),
-    SlotContent.CHAPTER_TITLE to SlotDisplay("章节"),
-    SlotContent.BOOK_TITLE to SlotDisplay("书名"),
-    SlotContent.CHAPTER_PROGRESS_FRACTION to SlotDisplay("章节", "12/18"),
-    SlotContent.CHAPTER_PROGRESS_PERCENT to SlotDisplay("章节%", "67%"),
-    SlotContent.BOOK_PROGRESS_FRACTION to SlotDisplay("全书", "3/5"),
-    SlotContent.BOOK_PROGRESS_PERCENT to SlotDisplay("全书%", "68%"),
-    SlotContent.TIME to SlotDisplay("时间", "9:41"),
-    SlotContent.BATTERY to SlotDisplay("电量", "86%"),
-    SlotContent.DATE to SlotDisplay("日期", "6/14"),
+fun defaultSlotDisplays(strings: ReaderStrings): Map<SlotContent, SlotDisplay> = mapOf(
+    SlotContent.NONE to SlotDisplay(strings.slotBlankLabel, " "),
+    SlotContent.CHAPTER_TITLE to SlotDisplay(strings.slotChapterTitle),
+    SlotContent.BOOK_TITLE to SlotDisplay(strings.slotBookTitle),
+    SlotContent.CHAPTER_PROGRESS_FRACTION to SlotDisplay(strings.slotChapterShort, "12/18"),
+    SlotContent.CHAPTER_PROGRESS_PERCENT to SlotDisplay(strings.slotChapterPercentShort, "67%"),
+    SlotContent.BOOK_PROGRESS_FRACTION to SlotDisplay(strings.slotBookShort, "3/5"),
+    SlotContent.BOOK_PROGRESS_PERCENT to SlotDisplay(strings.slotBookPercentShort, "68%"),
+    SlotContent.TIME to SlotDisplay(strings.slotTime, "9:41"),
+    SlotContent.BATTERY to SlotDisplay(strings.slotBattery, "86%"),
+    SlotContent.DATE to SlotDisplay(strings.slotDate, "6/14"),
 )
 
 /**
@@ -88,9 +90,10 @@ fun SlotMatrix(
     onFooterSlotChange: (Int, SlotContent) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    allOptions: List<Pair<SlotContent, SlotDisplay>> = defaultSlotDisplays().entries
-        .map { it.key to it.value },
+    allOptions: List<Pair<SlotContent, SlotDisplay>>? = null,
 ) {
+    val strings = LocalAppStrings.current.reader
+    val resolvedOptions = allOptions ?: defaultSlotDisplays(strings).entries.map { it.key to it.value }
     val alpha = if (enabled) 1f else 0.38f
     Column(
         modifier = modifier
@@ -101,19 +104,19 @@ fun SlotMatrix(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         MatrixRow(
-            label = "页眉",
+            label = strings.headerLabel,
             slots = headerSlots,
             rowTag = "SlotMatrix_Header",
             onSlotChange = onHeaderSlotChange,
-            allOptions = allOptions,
+            allOptions = resolvedOptions,
             enabled = enabled,
         )
         MatrixRow(
-            label = "页脚",
+            label = strings.footerLabel,
             slots = footerSlots,
             rowTag = "SlotMatrix_Footer",
             onSlotChange = onFooterSlotChange,
-            allOptions = allOptions,
+            allOptions = resolvedOptions,
             enabled = enabled,
         )
     }
@@ -166,10 +169,11 @@ private fun SlotButton(
     enabled: Boolean = true,
 ) {
     val colors = LocalReaderColorScheme.current
+    val strings = LocalAppStrings.current.reader
     var expanded by remember { mutableStateOf(false) }
     val isEmpty = content == SlotContent.NONE
     val display = allOptions.firstOrNull { it.first == content }?.second
-    val labelText = display?.label ?: "留白"
+    val labelText = display?.label ?: strings.slotBlankLabel
 
     val shape = RoundedCornerShape(8.dp)
 
@@ -221,7 +225,7 @@ private fun SlotButton(
                 )
                 Icon(
                     imageVector = Icons.Outlined.ExpandMore,
-                    contentDescription = "展开",
+                    contentDescription = strings.expandLabel,
                     tint = if (isEmpty) colors.textTertiary else colors.textSecondary,
                     modifier = Modifier.size(14.dp),
                 )
@@ -273,6 +277,7 @@ private fun SlotPickerContent(
     allOptions: List<Pair<SlotContent, SlotDisplay>>,
     onSelect: (SlotContent) -> Unit,
 ) {
+    val strings = LocalAppStrings.current.reader
     val infoOptions = allOptions.filter {
         it.first == SlotContent.NONE ||
             it.first == SlotContent.CHAPTER_TITLE ||
@@ -289,9 +294,9 @@ private fun SlotPickerContent(
     }
 
     Column(modifier = Modifier.width(240.dp)) {
-        PickerGroupLabel("信息")
+        PickerGroupLabel(strings.infoGroupLabel)
         PickerGrid(options = infoOptions, current = current, onSelect = onSelect)
-        PickerGroupLabel("进度")
+        PickerGroupLabel(strings.progressGroupLabel)
         PickerGrid(options = progressOptions, current = current, onSelect = onSelect)
     }
 }

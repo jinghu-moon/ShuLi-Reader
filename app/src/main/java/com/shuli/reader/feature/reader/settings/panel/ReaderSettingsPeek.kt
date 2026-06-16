@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.shuli.reader.core.data.OrientationLock
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.data.ReaderTheme
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.reader.settings.SettingsScope
 import com.shuli.reader.feature.reader.settings.panel.controls.onAccentColor
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
@@ -78,12 +79,13 @@ fun SettingsPeekContent(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                val strings = LocalAppStrings.current.reader
                 // 两态主题切换：浅色 → 深色 → 浅色
                 val isDark = prefs.backgroundColor == ReaderTheme.DARK || prefs.backgroundColor == ReaderTheme.OLED
                 val (themeIcon, themeDesc) = if (isDark) {
-                    Icons.Outlined.Brightness2 to "深色模式"
+                    Icons.Outlined.Brightness2 to strings.darkModeLabel
                 } else {
-                    Icons.Outlined.LightMode to "浅色模式"
+                    Icons.Outlined.LightMode to strings.lightModeLabel
                 }
                 IconButton(
                     onClick = {
@@ -115,7 +117,7 @@ fun SettingsPeekContent(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Visibility,
-                        contentDescription = "护眼模式",
+                        contentDescription = strings.eyeCareModeLabel,
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -135,7 +137,7 @@ fun SettingsPeekContent(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.ScreenRotation,
-                        contentDescription = "横屏锁定",
+                        contentDescription = strings.landscapeLockShortLabel,
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -184,8 +186,9 @@ private fun ScopeSegment(
             .testTag("SettingsPeek_ScopeSegment"),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        ScopeChip("全局", scope == SettingsScope.GLOBAL) { onScopeChange(SettingsScope.GLOBAL) }
-        ScopeChip("本书", scope == SettingsScope.BOOK) { onScopeChange(SettingsScope.BOOK) }
+        val strings = LocalAppStrings.current.reader
+        ScopeChip(strings.scopeGlobalShort, scope == SettingsScope.GLOBAL) { onScopeChange(SettingsScope.GLOBAL) }
+        ScopeChip(strings.scopeBookShort, scope == SettingsScope.BOOK) { onScopeChange(SettingsScope.BOOK) }
     }
 }
 

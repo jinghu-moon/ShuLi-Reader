@@ -16,6 +16,7 @@ import com.shuli.reader.core.data.DualPageMode
 import com.shuli.reader.core.data.PageAnimSpeed
 import com.shuli.reader.core.data.PageAnimType
 import com.shuli.reader.core.data.ReaderPreferences
+import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.core.reader.model.HeaderVisibility
 import com.shuli.reader.feature.reader.settings.panel.DividerSwitchRow
 import com.shuli.reader.feature.reader.settings.panel.SelectRow
@@ -38,12 +39,13 @@ fun AppearanceTab(
     onContinuousSettingChanged: (String, Any, Boolean) -> Unit = { _, _, _ -> },
 ) {
     val colors = LocalReaderColorScheme.current
+    val strings = LocalAppStrings.current.reader
     val isHidden = prefs.header.visibility == HeaderVisibility.ALWAYS_HIDE &&
         prefs.footer.visibility == HeaderVisibility.ALWAYS_HIDE
 
     Column(modifier = modifier.fillMaxWidth()) {
         // ── 页眉页脚 ──
-        SettingsCard(title = "页眉页脚") {
+        SettingsCard(title = strings.headerFooterCard) {
             VisibilityDropdown(
                 headerVisibility = prefs.header.visibility,
                 footerVisibility = prefs.footer.visibility,
@@ -67,7 +69,7 @@ fun AppearanceTab(
                 onValueChangeFinished = { onContinuousSettingChanged("header_margin_top", it, true) },
                 valueRange = 0f..100f,
                 step = 4f,
-                label = "页眉上边距",
+                label = strings.headerMarginTop,
                 formatValue = { "%.0f dp".format(it) },
                 testTagPrefix = "Slider_HeaderMarginTop",
                 enabled = !isHidden,
@@ -78,10 +80,31 @@ fun AppearanceTab(
                 onValueChangeFinished = { onContinuousSettingChanged("footer_margin_bottom", it, true) },
                 valueRange = 0f..100f,
                 step = 4f,
-                label = "页脚下边距",
+                label = strings.footerMarginBottom,
                 formatValue = { "%.0f dp".format(it) },
                 testTagPrefix = "Slider_FooterMarginBottom",
                 topDivider = true,
+                enabled = !isHidden,
+            )
+            InkStepperSlider(
+                value = prefs.headerFontSizeRatio,
+                onValueChange = { onSettingChanged("header_font_size_ratio", it) },
+                valueRange = 0.5f..1.5f,
+                step = 0.1f,
+                label = strings.headerFontSizeLabel,
+                formatValue = { "%.1fx".format(it) },
+                testTagPrefix = "Slider_HeaderFontSize",
+                topDivider = true,
+                enabled = !isHidden,
+            )
+            InkStepperSlider(
+                value = prefs.footerFontSizeRatio,
+                onValueChange = { onSettingChanged("footer_font_size_ratio", it) },
+                valueRange = 0.5f..1.5f,
+                step = 0.1f,
+                label = strings.footerFontSizeLabel,
+                formatValue = { "%.1fx".format(it) },
+                testTagPrefix = "Slider_FooterFontSize",
                 enabled = !isHidden,
             )
             InkStepperSlider(
@@ -89,21 +112,21 @@ fun AppearanceTab(
                 onValueChange = { onSettingChanged("header_footer_alpha", it) },
                 valueRange = 0.1f..1.0f,
                 step = 0.1f,
-                label = "透明度",
+                label = strings.opacityLabel,
                 formatValue = { "%.0f%%".format(it * 100) },
                 testTagPrefix = "Slider_HeaderFooterAlpha",
                 topDivider = true,
                 enabled = !isHidden,
             )
             DividerSwitchRow(
-                label = "页眉分隔线",
+                label = strings.headerSeparatorLineLabel,
                 checked = prefs.showHeaderLine,
                 onCheckedChange = { onSettingChanged("show_header_line", it) },
                 topDivider = true,
                 enabled = !isHidden,
             )
             DividerSwitchRow(
-                label = "页脚分隔线",
+                label = strings.footerSeparatorLineLabel,
                 checked = prefs.showFooterLine,
                 onCheckedChange = { onSettingChanged("show_footer_line", it) },
                 enabled = !isHidden,
@@ -111,7 +134,7 @@ fun AppearanceTab(
         }
 
         // ── 色温 ──
-        SettingsCard(title = "色温") {
+        SettingsCard(title = strings.colorTemperatureLabel) {
             InkStepperSlider(
                 value = prefs.colorTemperature,
                 onValueChange = { onContinuousSettingChanged("color_temperature", it, false) },
@@ -120,7 +143,7 @@ fun AppearanceTab(
                 },
                 valueRange = 2000f..6500f,
                 step = 100f,
-                label = "色温",
+                label = strings.colorTemperatureLabel,
                 formatValue = { "%.0fK".format(it) },
                 fillBrush = Brush.horizontalGradient(listOf(Color(0xFFFF8C00), colors.accent)),
                 testTagPrefix = "Slider_ColorTemp",
@@ -128,48 +151,48 @@ fun AppearanceTab(
         }
 
         // ── 显示模式 ──
-        SettingsCard(title = "显示模式") {
+        SettingsCard(title = strings.displayModeCard) {
             SelectRow(
-                label = "双页模式",
+                label = strings.dualPageModeLabel,
                 options = listOf(
-                    DualPageMode.AUTO to "自动",
-                    DualPageMode.SINGLE to "单页",
-                    DualPageMode.DUAL to "双页",
+                    DualPageMode.AUTO to strings.autoLabel,
+                    DualPageMode.SINGLE to strings.singlePageLabel,
+                    DualPageMode.DUAL to strings.dualPageLabel,
                 ),
                 selected = prefs.dualPageMode,
                 onSelect = { onSettingChanged("dual_page_mode", it) },
             )
             SelectRow(
-                label = "背景纹理",
+                label = strings.backgroundTextureLabel,
                 options = listOf(
-                    "" to "纯色",
+                    "" to strings.solidColorLabel,
                     "kraft" to "Kraft 纸",
-                    "linen" to "仿麻",
-                    "grid" to "米格",
+                    "linen" to strings.linenTextureLabel,
+                    "grid" to strings.gridTextureLabel,
                 ),
                 selected = prefs.backgroundTexture ?: "",
                 onSelect = { onSettingChanged("background_texture", it) },
                 topDivider = true,
             )
             SelectRow(
-                label = "翻页动画速度",
+                label = strings.pageAnimSpeedLabel,
                 options = listOf(
-                    PageAnimSpeed.FAST to "快 (100ms)",
-                    PageAnimSpeed.NORMAL to "标准 (250ms)",
-                    PageAnimSpeed.SLOW to "慢 (400ms)",
+                    PageAnimSpeed.FAST to strings.pageAnimSpeedFast,
+                    PageAnimSpeed.NORMAL to strings.pageAnimSpeedNormal,
+                    PageAnimSpeed.SLOW to strings.pageAnimSpeedSlow,
                 ),
                 selected = prefs.pageAnimSpeed,
                 onSelect = { onSettingChanged("page_anim_speed", it) },
                 topDivider = true,
             )
             SelectRow(
-                label = "翻页动画类型",
+                label = strings.pageAnimTypeLabel,
                 options = listOf(
-                    PageAnimType.HORIZONTAL to "水平滑动",
-                    PageAnimType.COVER to "覆盖",
-                    PageAnimType.SIMULATION to "仿真",
-                    PageAnimType.SCROLL to "连续滚动",
-                    PageAnimType.NONE to "无动画",
+                    PageAnimType.HORIZONTAL to strings.pageAnimTypeHorizontal,
+                    PageAnimType.COVER to strings.pageAnimOverlay,
+                    PageAnimType.SIMULATION to strings.pageAnimSimulation,
+                    PageAnimType.SCROLL to strings.pageAnimTypeScroll,
+                    PageAnimType.NONE to strings.pageAnimNone,
                 ),
                 selected = prefs.pageAnimType,
                 onSelect = { onSettingChanged("page_anim_type", it) },
@@ -194,6 +217,8 @@ private fun VisibilityDropdown(
     onHeaderChange: (HeaderVisibility) -> Unit,
     onFooterChange: (HeaderVisibility) -> Unit,
 ) {
+    val strings = LocalAppStrings.current.reader
+
     // 计算当前模式
     val derivedMode: HeaderVisibility = when {
         headerVisibility == HeaderVisibility.ALWAYS_HIDE &&
@@ -212,11 +237,11 @@ private fun VisibilityDropdown(
     }
 
     SelectRow(
-        label = "可见性",
+        label = strings.visibilityLabel,
         options = listOf(
-            HeaderVisibility.ALWAYS_HIDE to "隐藏",
-            HeaderVisibility.HIDE_WHEN_STATUS_BAR to "跟随状态栏",
-            HeaderVisibility.ALWAYS_SHOW to "常驻",
+            HeaderVisibility.ALWAYS_HIDE to strings.displayAlwaysHide,
+            HeaderVisibility.HIDE_WHEN_STATUS_BAR to strings.displayFollowStatusBar,
+            HeaderVisibility.ALWAYS_SHOW to strings.displayAlwaysShowShort,
         ),
         selected = selectedMode,
         onSelect = { mode ->

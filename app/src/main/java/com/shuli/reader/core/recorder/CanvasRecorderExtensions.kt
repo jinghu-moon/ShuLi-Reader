@@ -15,6 +15,8 @@ inline fun CanvasRecorder.recordIfNeeded(
     height: Int,
     block: Canvas.() -> Unit
 ): Boolean {
+    // PR-3a: 已回收的 recorder 跳过录制
+    if (isRecycled()) return false
     if (!needRecord()) return false
     record(width, height, block)
     return true

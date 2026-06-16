@@ -98,7 +98,6 @@ internal fun ChapterList(
     LazyColumn(
         state = listState,
         modifier = modifier
-            .then(Modifier.heightIn(max = 400.dp))
             .testTag(UiTestTags.READER_DIRECTORY_CHAPTER_LIST),
     ) {
         items(chapters.size) { index ->
@@ -131,7 +130,7 @@ internal fun ChapterList(
                             fontSize = (MaterialTheme.typography.bodyLarge.fontSize.value - 2).sp,
                         ),
                         color = if (index == currentIndex) readerColors.accent else readerColors.textPrimary,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                     if (index == currentIndex) {

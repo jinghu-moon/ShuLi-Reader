@@ -6,11 +6,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.shuli.reader.feature.reader.screen.ReaderIntent
 import com.shuli.reader.feature.reader.screen.ReaderUiState
-import com.shuli.reader.feature.reader.component.DirectoryDialog
+import com.shuli.reader.feature.reader.component.DirectoryDrawer
 import com.shuli.reader.feature.reader.settings.panel.ReaderSettingsModal
 
 /**
- * 目录弹窗 + 快捷设置面板的组装层。
+ * 目录侧边抽屉 + 快捷设置面板的组装层。
  *
  * 所有用户操作通过 [dispatch] 发送 [ReaderIntent]，不直接访问 ViewModel。
  */
@@ -19,9 +19,9 @@ internal fun ReaderOverlayPanels(
     uiState: ReaderUiState,
     dispatch: (ReaderIntent) -> Unit,
 ) {
-    // 目录对话框
+    // 目录侧边抽屉
     if (uiState.showDirectory) {
-        DirectoryDialog(
+        DirectoryDrawer(
             chapters = uiState.chapterTitles,
             currentChapterIndex = uiState.chapterIndex,
             chapterWordCounts = uiState.chapterWordCounts,

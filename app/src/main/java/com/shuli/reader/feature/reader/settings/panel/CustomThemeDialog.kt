@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.shuli.reader.core.i18n.LocalAppStrings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -132,18 +133,20 @@ fun CustomThemeDialog(
         titleContentColor = readerColors.textPrimary,
         textContentColor = readerColors.textPrimary,
         title = {
+            val strings = LocalAppStrings.current.reader
             Text(
-                text = "自定义主题",
+                text = strings.customThemeTitle,
                 style = MaterialTheme.typography.headlineSmall,
             )
         },
         text = {
+            val strings = LocalAppStrings.current.reader
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 ColorSwatchRow(
-                    label = "背景色",
+                    label = strings.customThemeBg,
                     presets = backgroundColorPresets,
                     selected = bgColor,
                     onSelect = { bgColor = it },
@@ -155,7 +158,7 @@ fun CustomThemeDialog(
                     testTag = "BgColor",
                 )
                 ColorSwatchRow(
-                    label = "正文色",
+                    label = strings.customThemeTextColor,
                     presets = textColorPresets,
                     selected = textColor,
                     onSelect = { textColor = it },
@@ -167,7 +170,7 @@ fun CustomThemeDialog(
                     testTag = "TextColor",
                 )
                 ColorSwatchRow(
-                    label = "标题色",
+                    label = strings.customThemeTitleColor,
                     presets = titleColorPresets,
                     selected = titleColor,
                     onSelect = { titleColor = it },
@@ -179,7 +182,7 @@ fun CustomThemeDialog(
                     testTag = "TitleColor",
                 )
                 ColorSwatchRow(
-                    label = "页眉页脚色",
+                    label = strings.customThemeHeaderFooterColor,
                     presets = headerFooterColorPresets,
                     selected = headerFooterColor,
                     onSelect = { headerFooterColor = it },
@@ -197,7 +200,7 @@ fun CustomThemeDialog(
                 onClick = { onConfirm(bgColor, textColor, titleColor, headerFooterColor) },
                 modifier = Modifier.testTag("CustomThemeConfirm"),
             ) {
-                Text("确定", color = readerColors.accent)
+                Text(LocalAppStrings.current.reader.confirmAction, color = readerColors.accent)
             }
         },
         dismissButton = {
@@ -205,7 +208,7 @@ fun CustomThemeDialog(
                 onClick = onDismiss,
                 modifier = Modifier.testTag("CustomThemeCancel"),
             ) {
-                Text("取消", color = readerColors.textSecondary)
+                Text(LocalAppStrings.current.reader.cancelAction, color = readerColors.textSecondary)
             }
         },
         modifier = Modifier.testTag("CustomThemeDialog"),
@@ -303,7 +306,7 @@ private fun ColorSwatchRow(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Add,
-                    contentDescription = "自定义颜色",
+                    contentDescription = LocalAppStrings.current.reader.customThemeLabel,
                     tint = readerColors.textSecondary,
                     modifier = Modifier.size(18.dp),
                 )
@@ -347,7 +350,7 @@ private fun HueColorPickerDialog(
         textContentColor = readerColors.textPrimary,
         title = {
             Text(
-                text = "选择颜色",
+                text = LocalAppStrings.current.reader.selectColorTitle,
                 style = MaterialTheme.typography.headlineSmall,
             )
         },
@@ -370,7 +373,7 @@ private fun HueColorPickerDialog(
 
                 // 亮度滑块
                 Text(
-                    text = "亮度",
+                    text = LocalAppStrings.current.reader.brightnessLabel,
                     style = MaterialTheme.typography.bodySmall,
                     color = readerColors.textSecondary,
                     modifier = Modifier
@@ -417,7 +420,7 @@ private fun HueColorPickerDialog(
                 onClick = { onConfirm(currentColorInt) },
                 modifier = Modifier.testTag("HuePickerConfirm"),
             ) {
-                Text("确定", color = readerColors.accent)
+                Text(LocalAppStrings.current.reader.confirmAction, color = readerColors.accent)
             }
         },
         dismissButton = {
@@ -425,7 +428,7 @@ private fun HueColorPickerDialog(
                 onClick = onDismiss,
                 modifier = Modifier.testTag("HuePickerCancel"),
             ) {
-                Text("取消", color = readerColors.textSecondary)
+                Text(LocalAppStrings.current.reader.cancelAction, color = readerColors.textSecondary)
             }
         },
         modifier = Modifier.testTag("HueColorPickerDialog"),
