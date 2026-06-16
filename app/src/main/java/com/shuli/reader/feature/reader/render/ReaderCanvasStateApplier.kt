@@ -34,6 +34,7 @@ class ReaderCanvasStateApplier {
         }
 
         // 先执行所有 invalidation，不提交后台任务
+        // Phase 5: CONTENT/SHELL/OVERLAY 由 key-diff 驱动，此处只处理 PAGE/PAGE_DELEGATE/REFLOW
         expanded.sortedBy { it.order }.forEach { scope ->
             when (scope) {
                 InvalidationScope.PAGE_DELEGATE -> {
@@ -48,15 +49,6 @@ class ReaderCanvasStateApplier {
                         mode = snapshot.page.pageRenderMode,
                     )
                 }
-                InvalidationScope.CONTENT -> {
-                    target.invalidateContentOnly()
-                }
-                InvalidationScope.SHELL -> {
-                    target.invalidateShellOnly()
-                }
-                InvalidationScope.OVERLAY -> {
-                    target.invalidateOverlayOnly()
-                }
                 InvalidationScope.REFLOW -> {
                     // REFLOW 已在上方显式处理
                 }
@@ -65,6 +57,12 @@ class ReaderCanvasStateApplier {
                 }
                 InvalidationScope.NONE -> {
                     // 行为标志，不影响 Canvas
+                }
+                // Phase 5: CONTENT/SHELL/OVERLAY 已由 key-diff 驱动，不再处理
+                InvalidationScope.CONTENT,
+                InvalidationScope.SHELL,
+                InvalidationScope.OVERLAY -> {
+                    // 已由 applyKeyDiff 处理
                 }
             }
         }

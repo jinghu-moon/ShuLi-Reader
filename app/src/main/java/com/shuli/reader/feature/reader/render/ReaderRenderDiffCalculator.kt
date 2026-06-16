@@ -17,9 +17,7 @@ internal object ReaderRenderDiffCalculator {
             return ReaderRenderDiff(
                 setOf(
                     InvalidationScope.PAGE,
-                    InvalidationScope.CONTENT,
-                    InvalidationScope.SHELL,
-                    InvalidationScope.OVERLAY,
+                    // Phase 5: CONTENT/SHELL/OVERLAY 由 key-diff 驱动，不再通过 scope 失效
                 )
             )
         }
@@ -35,8 +33,7 @@ internal object ReaderRenderDiffCalculator {
 
         if (oldCurrentPage == null && newCurrentPage != null) {
             scopes += InvalidationScope.PAGE
-            scopes += InvalidationScope.CONTENT
-            scopes += InvalidationScope.SHELL
+            // Phase 5: CONTENT/SHELL 由 key-diff 驱动
         }
 
         if (old.page != new.page && oldCurrentPage != null && newCurrentPage != null) {
@@ -51,20 +48,7 @@ internal object ReaderRenderDiffCalculator {
             scopes += InvalidationScope.REFLOW
         }
 
-        if (old.visual != new.visual) {
-            scopes += InvalidationScope.CONTENT
-            if (old.visual.themeColors != new.visual.themeColors) {
-                scopes += InvalidationScope.SHELL
-            }
-        }
-
-        if (old.shell != new.shell) {
-            scopes += InvalidationScope.SHELL
-        }
-
-        if (old.overlay != new.overlay) {
-            scopes += InvalidationScope.OVERLAY
-        }
+        // Phase 5: visual/shell/overlay 变化由 key-diff 驱动，不再通过 scope 失效
 
         if (old.page.pageAnimType != new.page.pageAnimType) {
             scopes += InvalidationScope.PAGE_DELEGATE

@@ -146,6 +146,13 @@ class PageRenderStateStore {
         return lineStates.getOrPut(key) { CanvasRecorderFactory.create() }
     }
 
+    /** 失效指定页面的所有行 recorder（排版参数变化时调用） */
+    fun invalidateLinesFor(pageKey: PageKey) {
+        lineStates.forEach { (lineKey, recorder) ->
+            if (lineKey.pageKey == pageKey) recorder.invalidate()
+        }
+    }
+
     /** 回收不在活跃集合中的页面和行 recorder */
     fun recycleUnused(activeKeys: Set<PageKey>) {
         val toRemove = pageStates.keys - activeKeys

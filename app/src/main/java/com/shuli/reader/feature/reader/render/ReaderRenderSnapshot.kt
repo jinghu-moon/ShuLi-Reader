@@ -65,7 +65,7 @@ data class ShellSnapshot(
     val gestureConfig: com.shuli.reader.feature.reader.settings.GestureConfig =
         com.shuli.reader.feature.reader.settings.GestureConfig(),
     val colorTemperature: Float = 6500f,
-    val shellKey: RenderKey,
+    val shellKey: ShellRenderKey,
 )
 
 data class OverlaySnapshot(

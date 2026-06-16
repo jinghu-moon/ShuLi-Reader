@@ -24,8 +24,11 @@ interface RenderApplierTarget {
         mode: PageRenderMode,
     )
 
+    @Deprecated("Phase 5: 由 key-diff 驱动，不再通过 scope 失效", level = DeprecationLevel.WARNING)
     fun invalidateContentOnly()
+    @Deprecated("Phase 5: 由 key-diff 驱动，不再通过 scope 失效", level = DeprecationLevel.WARNING)
     fun invalidateShellOnly()
+    @Deprecated("Phase 5: 由 key-diff 驱动，不再通过 scope 失效", level = DeprecationLevel.WARNING)
     fun invalidateOverlayOnly()
 
     /**

@@ -117,12 +117,17 @@ class ReaderRenderSnapshotFactory {
             leftZoneRatio = settings.leftZoneRatio,
             gestureConfig = settings.gestureConfig,
             colorTemperature = settings.colorTemperature,
-            shellKey = RenderKey(
-                textAlign = ReaderTextAlign.LEFT,
+            shellKey = ShellRenderKey(
+                headerSlots = settings.headerSlots,
+                footerSlots = settings.footerSlots,
                 themeColors = settings.themeColors,
-                titleStyle = settings.titleStyle,
                 showProgress = settings.showProgress,
                 headerFooterAlpha = settings.headerFooterAlpha,
+                showHeaderLine = settings.showHeaderLine,
+                showFooterLine = settings.showFooterLine,
+                headerFontSizeRatio = settings.headerFontSizeRatio,
+                footerFontSizeRatio = settings.footerFontSizeRatio,
+                batteryLevel = settings.batteryLevel,
             ),
         )
     }

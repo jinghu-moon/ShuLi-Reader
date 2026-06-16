@@ -134,7 +134,18 @@ fun createDefaultShellSnapshot(
     batteryLevel = batteryLevel,
     showProgress = true,
     headerFooterAlpha = 0.4f,
-    shellKey = RenderKey(ReaderTextAlign.LEFT, ThemeColors(0, 0, 0, 0, 0, 0), TitleStyleConfig(), true, 0.4f),
+    shellKey = ShellRenderKey(
+        headerSlots = SlotResolution(left = headerText),
+        footerSlots = SlotResolution(left = footerText),
+        themeColors = ThemeColors(0, 0, 0, 0, 0, 0),
+        showProgress = true,
+        headerFooterAlpha = 0.4f,
+        showHeaderLine = false,
+        showFooterLine = false,
+        headerFontSizeRatio = 1f,
+        footerFontSizeRatio = 1f,
+        batteryLevel = batteryLevel,
+    ),
 )
 
 fun createDefaultOverlaySnapshot(

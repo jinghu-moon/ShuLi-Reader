@@ -313,10 +313,14 @@ class ReaderCanvasView @JvmOverloads constructor(
         }
 
         // 排版参数变化（字号/行距/边距等）：页面尚未 reflow 时 contentKey 不变，
-        // 但 Paint 已更新，必须强制 content 失效以用新参数重录。
+        // 但 Paint 已更新，必须强制 content + 行级 recorder 失效以用新参数重录。
         val layoutChanged = layoutKey != null && layoutKey != lastAppliedLayoutKey
         if (layoutChanged) {
-            currentPage?.let { renderStateStore.getPageState(it.toKey()).invalidateContent() }
+            currentPage?.let {
+                val key = it.toKey()
+                renderStateStore.getPageState(key).invalidateContent()
+                renderStateStore.invalidateLinesFor(key)
+            }
         }
 
         // 对每个活跃页面执行 key-diff
