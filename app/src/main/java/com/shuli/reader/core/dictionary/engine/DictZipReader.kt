@@ -25,6 +25,13 @@ class DictZipReader(
     /** 压缩数据开始的文件偏移（GZip 头结束后） */
     private var dataStartOffset: Long = 0
 
+    /** 复用 Inflater 对象，避免频繁创建 */
+    private val inflater = Inflater(true)
+
+    /** 最近解压的块缓存 */
+    private var cachedChunkIndex: Int = -1
+    private var cachedChunkData: ByteArray? = null
+
     init {
         parseHeader()
     }
@@ -213,14 +220,20 @@ class DictZipReader(
     /**
      * 解压指定块
      *
-     * 使用 ByteArrayOutputStream 替代 mutableListOf<Byte>() 提升性能
+     * 使用块缓存和复用 Inflater 提升性能
      */
     private fun decompressChunk(chunk: ChunkInfo): ByteArray {
+        // 检查缓存
+        if (chunk.index == cachedChunkIndex) {
+            cachedChunkData?.let { return it }
+        }
+
         val compressedData = ByteArray(chunk.compressedSize)
         file.seek(chunk.compressedOffset)
         file.readFully(compressedData)
 
-        val inflater = Inflater(true) // raw deflate
+        // 复用 Inflater 对象
+        inflater.reset()
         inflater.setInput(compressedData)
 
         val outputStream = ByteArrayOutputStream(chunk.uncompressedSize)
@@ -241,10 +254,16 @@ class DictZipReader(
                 outputStream.write(buffer, 0, count)
             }
         } finally {
-            inflater.end()
+            inflater.reset()
         }
 
-        return outputStream.toByteArray()
+        val result = outputStream.toByteArray()
+
+        // 更新缓存
+        cachedChunkIndex = chunk.index
+        cachedChunkData = result
+
+        return result
     }
 
     override fun close() {

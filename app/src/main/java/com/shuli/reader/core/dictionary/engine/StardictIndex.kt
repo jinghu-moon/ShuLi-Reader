@@ -1,7 +1,6 @@
 package com.shuli.reader.core.dictionary.engine
 
 import java.io.File
-import java.io.RandomAccessFile
 import java.nio.ByteOrder
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
@@ -10,11 +9,12 @@ import java.nio.charset.Charset
 /**
  * Stardict 索引文件解析器
  *
- * 使用 MappedByteBuffer + 3 个 primitive 数组实现零 GC 的高效词条检索
+ * 使用 MappedByteBuffer + primitive 数组实现零 GC 的高效词条检索
  *
  * 内存布局：
- * - words: 所有单词字符串（连续存储）
- * - wordOffsets: 每个单词在 words 中的起始位置
+ * - wordsData: 所有单词字节（连续存储）
+ * - wordStarts: 每个单词在 wordsData 中的起始位置
+ * - wordLens: 每个单词的长度
  * - dataOffsets: 每个词条在 .dict 文件中的偏移
  * - dataSizes: 每个词条的数据大小
  */
@@ -59,7 +59,7 @@ class StardictIndex(
      * 加载索引文件到内存映射缓冲区
      */
     private fun loadIndex() {
-        val raf = RandomAccessFile(idxFile, "r")
+        val raf = java.io.RandomAccessFile(idxFile, "r")
         val fileSize = raf.length()
 
         // 内存映射整个文件
@@ -125,7 +125,7 @@ class StardictIndex(
 
             pos++ // 跳过 null
 
-            // 读取 offset 和 size
+            // 读取 offset 和 size（大端序，Stardict 规范）
             if (pos + 8 > fileSize) break
 
             buf.position(pos)
@@ -138,24 +138,17 @@ class StardictIndex(
     }
 
     /**
-     * 获取指定索引的单词
-     */
-    private fun getWord(index: Int): String {
-        val start = wordStarts[index]
-        val len = wordLens[index]
-        return String(wordsData, start, len, charset)
-    }
-
-    /**
-     * 精确查找单词
+     * 精确查找单词（零对象分配版本）
      *
-     * 使用二分查找，O(log n) 时间复杂度
+     * 使用字节比较而非 String 比较，避免创建临时对象
      *
      * @return 索引条目，未找到返回 null
      */
     fun findWord(word: String): IndexEntry? {
-        val target = word.lowercase()
-        val targetBytes = word.toByteArray(charset)
+        if (wordCount == 0) return null
+
+        // 将查询词转为小写后的字节数组
+        val targetBytes = word.lowercase().toByteArray(charset)
 
         // 二分查找
         var low = 0
@@ -163,14 +156,14 @@ class StardictIndex(
 
         while (low <= high) {
             val mid = (low + high) ushr 1
-            val midWord = getWord(mid).lowercase()
 
-            val cmp = midWord.compareTo(target)
+            // 直接在 wordsData 中按字节比较（不创建 String）
+            val cmp = compareBytes(mid, targetBytes)
             when {
                 cmp < 0 -> low = mid + 1
                 cmp > 0 -> high = mid - 1
                 else -> return IndexEntry(
-                    word = getWord(mid),
+                    word = getWord(mid), // 仅在命中时创建 String
                     dataOffset = dataOffsets[mid],
                     dataSize = dataSizes[mid],
                 )
@@ -178,6 +171,44 @@ class StardictIndex(
         }
 
         return null
+    }
+
+    /**
+     * 按字节比较（零对象分配）
+     *
+     * 将 wordsData 中第 index 个单词的小写形式与 targetBytes 比较
+     */
+    private fun compareBytes(index: Int, targetBytes: ByteArray): Int {
+        val start = wordStarts[index]
+        val len = wordLens[index]
+        val minLen = minOf(len, targetBytes.size)
+
+        for (i in 0 until minLen) {
+            // 将 wordsData 中的字节转为小写后比较
+            val a = toLowerCase(wordsData[start + i])
+            val b = targetBytes[i]
+            val cmp = a.compareTo(b)
+            if (cmp != 0) return cmp
+        }
+
+        return len - targetBytes.size
+    }
+
+    /**
+     * 简单的 ASCII 小写转换
+     */
+    private fun toLowerCase(b: Byte): Byte {
+        val c = b.toInt() and 0xFF
+        return if (c in 0x41..0x5A) (c + 0x20).toByte() else b
+    }
+
+    /**
+     * 获取指定索引的单词
+     */
+    private fun getWord(index: Int): String {
+        val start = wordStarts[index]
+        val len = wordLens[index]
+        return String(wordsData, start, len, charset)
     }
 
     /**
@@ -240,6 +271,8 @@ class StardictIndex(
     }
 
     override fun close() {
+        // MappedByteBuffer 的内存由 OS 管理，JVM 不保证及时释放
+        // 但我们可以清除引用
         mmap = null
         wordsData = ByteArray(0)
         wordStarts = IntArray(0)

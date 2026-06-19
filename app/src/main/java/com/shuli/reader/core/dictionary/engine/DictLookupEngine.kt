@@ -8,15 +8,19 @@ import com.shuli.reader.core.database.entity.DictMetaEntity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * 词典查询引擎
  *
- * 支持多词典聚合查询、LRU 缓存、分层超时、取消支持
+ * 支持多词典聚合查询、LRU 缓存、分层超时、并发查询、取消支持
  */
 class DictLookupEngine(
     private val dictMetaDao: DictMetaDao,
@@ -38,11 +42,14 @@ class DictLookupEngine(
     @Volatile
     private var currentLookupJob: Job? = null
 
+    /** 是否为首次查询（用于分层超时） */
+    private val isFirstQuery = AtomicBoolean(true)
+
     companion object {
-        /** 首次查询超时（冷启动） */
-        private const val COLD_TIMEOUT_MS = 500L
-        /** 热路径查询超时 */
-        private const val HOT_TIMEOUT_MS = 100L
+        /** 首次查询超时（冷启动）- 文档要求 300ms */
+        private const val COLD_TIMEOUT_MS = 300L
+        /** 热路径查询超时 - 文档要求 50ms */
+        private const val HOT_TIMEOUT_MS = 50L
         /** 完整查询超时（无结果时的兜底） */
         private const val FULL_TIMEOUT_MS = 2000L
     }
@@ -128,32 +135,32 @@ class DictLookupEngine(
      * 智能查词
      *
      * 1. 先查缓存
-     * 2. 快速查询（热路径超时）
-     * 3. 如果无结果，完整查询（冷启动超时）
+     * 2. 并发查询所有词典（分层超时）
+     * 3. 如果无结果，尝试词干提取和同义词
      *
      * @param word 查询单词
-     * @param isColdStart 是否为冷启动（首次查询）
      * @return 查询结果列表（按词典优先级排序）
      */
-    suspend fun smartLookup(
-        word: String,
-        isColdStart: Boolean = false,
-    ): List<DictEntry> = withContext(Dispatchers.IO) {
+    suspend fun smartLookup(word: String): List<DictEntry> = withContext(Dispatchers.IO) {
         val normalized = WordNormalizer.normalize(word)
 
         // 检查缓存
         cache.get(normalized)?.let { return@withContext it }
 
-        // 分层超时
-        val timeoutMs = if (isColdStart) COLD_TIMEOUT_MS else HOT_TIMEOUT_MS
+        // 分层超时（首次查询 300ms，热路径 50ms）
+        val timeoutMs = if (isFirstQuery.compareAndSet(true, false)) {
+            COLD_TIMEOUT_MS
+        } else {
+            HOT_TIMEOUT_MS
+        }
 
-        // 快速查询
+        // 并发查询
         var results = withTimeoutOrNull(timeoutMs) {
             lookupInternal(normalized)
         }
 
-        // 如果快速查询无结果，尝试完整查询
-        if (results.isNullOrEmpty() && !isColdStart) {
+        // 如果快速查询无结果，尝试完整查询（更长超时）
+        if (results.isNullOrEmpty()) {
             results = withTimeoutOrNull(FULL_TIMEOUT_MS) {
                 lookupInternal(normalized)
             }
@@ -161,47 +168,55 @@ class DictLookupEngine(
 
         val finalResults = results ?: emptyList()
 
-        // 写入缓存
-        if (finalResults.isNotEmpty()) {
-            cache.put(normalized, finalResults)
-        }
+        // 写入缓存（包括空结果，避免重复查询不存在的词）
+        cache.put(normalized, finalResults)
 
         finalResults
     }
 
     /**
-     * 内部查询实现
+     * 内部查询实现（并发版本）
+     *
+     * 使用 async 并发查询所有词典，减少总延迟
      */
-    private suspend fun lookupInternal(word: String): List<DictEntry> {
-        val results = mutableListOf<DictEntry>()
-
-        // 1. 精确匹配
-        for ((dictKey, parser) in parsers) {
-            kotlinx.coroutines.currentCoroutineContext().ensureActive() // 检查取消
-            val entry = lookupInParser(parser, word)
-            if (entry != null) {
-                results.add(entry.copy(dictKey = dictKey, dictName = dictMetaMap[dictKey]?.displayName ?: dictKey))
+    private suspend fun lookupInternal(word: String): List<DictEntry> = coroutineScope {
+        // 1. 并发精确匹配
+        val exactResults = parsers.map { (dictKey, parser) ->
+            async(Dispatchers.IO) {
+                ensureActive()
+                val entry = lookupInParser(parser, word)
+                entry?.copy(dictKey = dictKey, dictName = dictMetaMap[dictKey]?.displayName ?: dictKey)
             }
+        }.awaitAll().filterNotNull()
+
+        if (exactResults.isNotEmpty()) {
+            return@coroutineScope exactResults.sortedBy { dictMetaMap[it.dictKey]?.priority ?: Int.MAX_VALUE }
         }
 
+        val results = mutableListOf<DictEntry>()
+
         // 2. 如果精确匹配无结果，尝试词干候选（英文）
-        if (results.isEmpty() && !WordNormalizer.containsChinese(word)) {
+        if (!WordNormalizer.containsChinese(word)) {
             val candidates = EnglishStemmer.stemCandidates(word)
             for (candidate in candidates) {
                 if (candidate == word) continue
-                kotlinx.coroutines.currentCoroutineContext().ensureActive()
-                for ((dictKey, parser) in parsers) {
-                    val entry = lookupInParser(parser, candidate)
-                    if (entry != null) {
-                        results.add(entry.copy(
+                ensureActive()
+
+                val candidateResults = parsers.map { (dictKey, parser) ->
+                    async(Dispatchers.IO) {
+                        val entry = lookupInParser(parser, candidate)
+                        entry?.copy(
                             dictKey = dictKey,
                             dictName = dictMetaMap[dictKey]?.displayName ?: dictKey,
                             isSynonymMatch = true,
-                        ))
+                        )
                     }
+                }.awaitAll().filterNotNull()
+
+                if (candidateResults.isNotEmpty()) {
+                    results.addAll(candidateResults)
+                    break
                 }
-                // 找到结果就停止尝试其他候选
-                if (results.isNotEmpty()) break
             }
         }
 
@@ -211,42 +226,44 @@ class DictLookupEngine(
                 parsers.values.any { parser -> lookupInParser(parser, candidate) != null }
             })
             if (matched != word && matched.length > 1) {
-                for ((dictKey, parser) in parsers) {
-                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
-                    val entry = lookupInParser(parser, matched)
-                    if (entry != null) {
-                        results.add(entry.copy(
+                val matchedResults = parsers.map { (dictKey, parser) ->
+                    async(Dispatchers.IO) {
+                        ensureActive()
+                        val entry = lookupInParser(parser, matched)
+                        entry?.copy(
                             dictKey = dictKey,
                             dictName = dictMetaMap[dictKey]?.displayName ?: dictKey,
                             isSynonymMatch = true,
-                        ))
+                        )
                     }
-                }
+                }.awaitAll().filterNotNull()
+                results.addAll(matchedResults)
             }
         }
 
         // 4. 同义词查找（仅 Stardict）
         if (results.isEmpty()) {
-            for ((dictKey, parser) in parsers) {
-                if (parser is StardictParser && parser.hasSynIndex) {
-                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
-                    val (entry, isSynonym) = parser.lookupWithSynonym(word)
-                    if (entry != null) {
-                        results.add(entry.copy(
+            val synResults = parsers.map { (dictKey, parser) ->
+                async(Dispatchers.IO) {
+                    if (parser is StardictParser && parser.hasSynIndex) {
+                        ensureActive()
+                        val (entry, isSynonym) = parser.lookupWithSynonym(word)
+                        entry?.copy(
                             dictKey = dictKey,
                             dictName = dictMetaMap[dictKey]?.displayName ?: dictKey,
                             isSynonymMatch = isSynonym,
-                        ))
-                    }
+                        )
+                    } else null
                 }
-            }
+            }.awaitAll().filterNotNull()
+            results.addAll(synResults)
         }
 
         // 5. 模糊匹配（Levenshtein 距离 ≤ 1）
         if (results.isEmpty() && word.length <= 6) {
             for ((dictKey, parser) in parsers) {
                 if (parser is StardictParser) {
-                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                    ensureActive()
                     val fuzzyEntries = FuzzyMatcher.fuzzyMatch(word, parser.getIndex())
                     for (entry in fuzzyEntries) {
                         val dictEntry = parser.lookup(entry.word)
@@ -257,13 +274,13 @@ class DictLookupEngine(
                             ))
                         }
                     }
-                    if (results.isNotEmpty()) break // 只在一个词典中做模糊匹配
+                    if (results.isNotEmpty()) break
                 }
             }
         }
 
         // 按词典优先级排序
-        return results.sortedBy { entry ->
+        results.sortedBy { entry ->
             dictMetaMap[entry.dictKey]?.priority ?: Int.MAX_VALUE
         }
     }

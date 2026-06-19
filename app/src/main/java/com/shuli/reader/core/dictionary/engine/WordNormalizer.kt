@@ -10,13 +10,38 @@ object WordNormalizer {
     /**
      * 归一化单词
      *
-     * - 去除首尾空格
+     * - 去除首尾空格和标点
      * - 转小写（英文）
      * - 保留内部标点（如 don't, ice-cream）
      */
     fun normalize(word: String): String {
-        return word.trim().lowercase()
+        return word.trim()
+            .dropWhile { it.isWhitespace() || isPunctuation(it) }
+            .dropLastWhile { it.isWhitespace() || isPunctuation(it) }
+            .lowercase()
     }
+
+    /**
+     * 判断是否为标点符号
+     */
+    private fun isPunctuation(ch: Char): Boolean {
+        return ch.category in setOf(
+            CharCategory.DASH_PUNCTUATION,
+            CharCategory.START_PUNCTUATION,
+            CharCategory.END_PUNCTUATION,
+            CharCategory.OTHER_PUNCTUATION,
+            CharCategory.CONNECTOR_PUNCTUATION,
+            CharCategory.INITIAL_QUOTE_PUNCTUATION,
+            CharCategory.FINAL_QUOTE_PUNCTUATION,
+        ) || PUNCTUATION_CHARS.contains(ch)
+    }
+
+    /** 常见标点符号集合 */
+    private val PUNCTUATION_CHARS = setOf(
+        '.', ',', ';', ':', '!', '?', '"', '\'', '(', ')', '[', ']', '{', '}',
+        '<', '>', '/', '\\', '@', '#', '$', '%', '^', '&', '*', '+', '-', '=', '~', '|', '`',
+        '，', '。', '！', '？', '、', '；', '：', '“', '”', '‘', '’', '（', '）', '【', '】', '《', '》'
+    )
 
     /**
      * 中文前向最大匹配（带词典查询）

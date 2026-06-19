@@ -197,8 +197,9 @@ class StardictParser(
      * 读取释义内容
      *
      * 处理 sametypesequence 优化：
-     * - 如果 sametypesequence 存在（如 "m" 或 "h"），数据直接是文本内容
-     * - 否则，数据格式为：type(1 byte) + data + size(4 bytes)
+     * - 当 sametypesequence 存在时，类型标记被省略，数据按 sametypesequence 的字符顺序排列
+     * - 每个字段以 null 结尾（除最后一个字段延伸到数据末尾）
+     * - 当 sametypesequence 不存在时，每个字段前有 1 字节类型标记
      */
     private fun readDefinition(offset: Long, size: Int): String {
         val reader = dictZipReader
@@ -213,13 +214,83 @@ class StardictParser(
             bytes
         }
 
-        // 如果 sametypesequence 存在，直接返回文本
+        // 如果 sametypesequence 存在，按类型序列解析
         if (sameTypeSequence.isNotEmpty()) {
-            return String(rawBytes, charset)
+            return parseSametypesequenceEntry(rawBytes)
         }
 
         // 否则，解析 type + data + size 格式
         return parseStardictEntry(rawBytes)
+    }
+
+    /**
+     * 解析带 sametypesequence 的条目
+     *
+     * 当 sametypesequence 存在时（如 "m"、"mh"、"mt"）：
+     * - 类型标记被省略
+     * - 数据按 sametypesequence 的字符顺序排列
+     * - 前 N-1 个字段以 null 结尾
+     * - 最后一个字段延伸到数据末尾
+     */
+    private fun parseSametypesequenceEntry(bytes: ByteArray): String {
+        if (bytes.isEmpty()) return ""
+
+        val result = StringBuilder()
+        val phonetic = StringBuilder()
+        var pos = 0
+
+        for (i in sameTypeSequence.indices) {
+            val type = sameTypeSequence[i]
+            val isLast = (i == sameTypeSequence.length - 1)
+
+            // 读取数据（最后一个字段延伸到末尾）
+            val data: String = if (isLast) {
+                // 最后一个字段：读取到数据末尾
+                if (pos < bytes.size) {
+                    String(bytes, pos, bytes.size - pos, charset)
+                } else ""
+            } else {
+                // 非最后一个字段：读取到 null 结尾
+                val start = pos
+                while (pos < bytes.size && bytes[pos] != 0.toByte()) {
+                    pos++
+                }
+                val str = if (pos > start) String(bytes, start, pos - start, charset) else ""
+                pos++ // 跳过 null 字节
+                str
+            }
+
+            // 根据类型处理
+            when (type) {
+                'm', 'h', 'x' -> {
+                    // 主要释义（纯文本/HTML/XDXF）
+                    if (result.isNotEmpty()) result.append("\n")
+                    result.append(data)
+                }
+                't' -> {
+                    // 英语音标
+                    phonetic.append(data)
+                }
+                'y' -> {
+                    // 中文音标
+                    phonetic.append(data)
+                }
+                'w' -> {
+                    // 音标
+                    phonetic.append(data)
+                }
+                // 其他类型（l, g, k, r 等）忽略
+            }
+        }
+
+        // 组装最终结果
+        val finalResult = StringBuilder()
+        if (phonetic.isNotEmpty()) {
+            finalResult.append(phonetic).append(" ")
+        }
+        finalResult.append(result)
+
+        return finalResult.toString().trim()
     }
 
     /**

@@ -1,12 +1,79 @@
 package com.shuli.reader.core.dictionary.engine
 
 /**
- * 英文词干提取器（简化版）
+ * 英文词干提取器（简化版 Porter Stemmer）
  *
  * 通过后缀剥离将英文单词还原为词干形式
  * 适用于查词时的模糊匹配
  */
 object EnglishStemmer {
+
+    /** 不规则动词映射 */
+    private val IRREGULAR_VERBS = mapOf(
+        "ran" to "run",
+        "sang" to "sing",
+        "sung" to "sing",
+        "sank" to "sink",
+        "sunk" to "sink",
+        "drank" to "drink",
+        "drunk" to "drink",
+        "began" to "begin",
+        "begun" to "begin",
+        "spoke" to "speak",
+        "spoken" to "speak",
+        "broke" to "break",
+        "broken" to "break",
+        "chose" to "choose",
+        "chosen" to "choose",
+        "froze" to "freeze",
+        "frozen" to "freeze",
+        "woke" to "wake",
+        "woken" to "wake",
+        "wrote" to "write",
+        "written" to "write",
+        "rode" to "ride",
+        "ridden" to "ride",
+        "drove" to "drive",
+        "driven" to "drive",
+        "gave" to "give",
+        "given" to "give",
+        "took" to "take",
+        "taken" to "take",
+        "fell" to "fall",
+        "fallen" to "fall",
+        "went" to "go",
+        "gone" to "go",
+        "ate" to "eat",
+        "eaten" to "eat",
+        "did" to "do",
+        "done" to "do",
+        "saw" to "see",
+        "seen" to "see",
+        "got" to "get",
+        "gotten" to "get",
+        "made" to "make",
+        "came" to "come",
+        "became" to "become",
+        "left" to "leave",
+        "felt" to "feel",
+        "found" to "find",
+        "held" to "hold",
+        "kept" to "keep",
+        "led" to "lead",
+        "lost" to "lose",
+        "meant" to "mean",
+        "met" to "meet",
+        "paid" to "pay",
+        "said" to "say",
+        "sent" to "send",
+        "sat" to "sit",
+        "stood" to "stand",
+        "taught" to "teach",
+        "told" to "tell",
+        "thought" to "think",
+        "understood" to "understand",
+        "won" to "win",
+    )
 
     /**
      * 生成词干候选列表
@@ -22,19 +89,22 @@ object EnglishStemmer {
         val lower = word.lowercase()
         val candidates = mutableListOf<String>()
 
-        // 原词本身
+        // 原词
         candidates.add(lower)
 
-        // 规则顺序很重要，优先匹配更具体的规则
+        // 不规则动词
+        IRREGULAR_VERBS[lower]?.let { candidates.add(it) }
+
+        // 词干提取
         val stemmed = stem(lower)
-        if (stemmed != lower) {
+        if (stemmed != lower && stemmed.length >= 2) {
             candidates.add(stemmed)
         }
 
-        // 添加其他可能的变体
+        // 添加常见变体（用于反向匹配）
         candidates.addAll(generateVariants(lower))
 
-        return candidates.distinct()
+        return candidates.distinct().filter { it.length >= 2 }
     }
 
     /**
@@ -48,56 +118,141 @@ object EnglishStemmer {
 
         val lower = word.lowercase()
 
-        // 规则顺序很重要，优先匹配更具体的规则
-        return when {
-            // 复数形式
-            lower.endsWith("ies") && lower.length > 4 -> lower.dropLast(3) + "y"
-            lower.endsWith("ses") || lower.endsWith("xes") ||
-                lower.endsWith("zes") || lower.endsWith("ches") ||
-                lower.endsWith("shes") -> lower.dropLast(2)
-            lower.endsWith("s") && !lower.endsWith("ss") &&
-                !lower.endsWith("us") && !lower.endsWith("is") &&
-                !lower.endsWith("os") -> lower.dropLast(1)
+        // 不规则动词直接查表
+        IRREGULAR_VERBS[lower]?.let { return it }
 
-            // 过去式和进行时
-            lower.endsWith("ied") && lower.length > 4 -> lower.dropLast(3) + "y"
-            lower.endsWith("ed") && lower.length > 4 -> {
-                val base = lower.dropLast(2)
-                if (base.length >= 3 && isConsonant(base, base.length - 1)) base else lower.dropLast(1)
+        // 特殊后缀处理
+        when {
+            // -ness 名词后缀
+            lower.endsWith("ness") && lower.length > 5 -> {
+                val base = lower.dropLast(4)
+                if (base.length >= 2) return base
             }
-            lower.endsWith("ing") && lower.length > 5 -> {
+
+            // -ment 名词后缀
+            lower.endsWith("ment") && lower.length > 5 -> {
+                val base = lower.dropLast(4)
+                if (base.length >= 2) return base
+            }
+
+            // -tion/-sion 名词后缀
+            lower.endsWith("tion") && lower.length > 5 -> {
+                val base = lower.dropLast(4)
+                if (base.length >= 2) return base
+            }
+            lower.endsWith("sion") && lower.length > 5 -> {
+                val base = lower.dropLast(4)
+                if (base.length >= 2) return base
+            }
+
+            // -able/-ible 形容词后缀
+            lower.endsWith("able") && lower.length > 5 -> {
+                val base = lower.dropLast(4)
+                if (base.length >= 2) return base
+            }
+            lower.endsWith("ible") && lower.length > 5 -> {
+                val base = lower.dropLast(4)
+                if (base.length >= 2) return base
+            }
+
+            // -ful 形容词后缀
+            lower.endsWith("ful") && lower.length > 4 -> {
                 val base = lower.dropLast(3)
-                if (base.length >= 3 && isConsonant(base, base.length - 1)) base else lower.dropLast(1)
+                if (base.length >= 2) return base
             }
 
-            // 形容词比较级/最高级
-            lower.endsWith("ier") && lower.length > 4 -> lower.dropLast(3) + "y"
-            lower.endsWith("er") && lower.length > 3 -> lower.dropLast(2)
-            lower.endsWith("iest") && lower.length > 5 -> lower.dropLast(4) + "y"
-            lower.endsWith("est") && lower.length > 4 -> lower.dropLast(3)
+            // -less 形容词后缀
+            lower.endsWith("less") && lower.length > 5 -> {
+                val base = lower.dropLast(4)
+                if (base.length >= 2) return base
+            }
 
-            // 副词
-            lower.endsWith("ly") && lower.length > 3 -> lower.dropLast(2)
+            // -ous 形容词后缀
+            lower.endsWith("ous") && lower.length > 4 -> {
+                val base = lower.dropLast(3)
+                if (base.length >= 2) return base
+            }
 
-            // 名词化
-            lower.endsWith("tion") && lower.length > 5 -> lower.dropLast(4)
-            lower.endsWith("sion") && lower.length > 5 -> lower.dropLast(4)
-            lower.endsWith("ment") && lower.length > 5 -> lower.dropLast(4)
-            lower.endsWith("ness") && lower.length > 5 -> lower.dropLast(4)
-            lower.endsWith("ity") && lower.length > 4 -> lower.dropLast(3)
+            // -ive 形容词后缀
+            lower.endsWith("ive") && lower.length > 4 -> {
+                val base = lower.dropLast(3)
+                if (base.length >= 2) return base
+            }
 
-            // 其他后缀
-            lower.endsWith("able") && lower.length > 5 -> lower.dropLast(4)
-            lower.endsWith("ible") && lower.length > 5 -> lower.dropLast(4)
-            lower.endsWith("ful") && lower.length > 4 -> lower.dropLast(3)
-            lower.endsWith("less") && lower.length > 5 -> lower.dropLast(4)
-            lower.endsWith("ous") && lower.length > 4 -> lower.dropLast(3)
-            lower.endsWith("ive") && lower.length > 4 -> lower.dropLast(3)
-            lower.endsWith("al") && lower.length > 3 -> lower.dropLast(2)
-            lower.endsWith("ial") && lower.length > 4 -> lower.dropLast(3)
-
-            else -> lower
+            // -ly 副词后缀
+            lower.endsWith("ly") && lower.length > 3 -> {
+                val base = lower.dropLast(2)
+                if (base.length >= 2) return base
+            }
         }
+
+        // 复数形式
+        if (lower.endsWith("ies") && lower.length > 4) {
+            return lower.dropLast(3) + "y"
+        }
+        if (lower.endsWith("ses") || lower.endsWith("xes") ||
+            lower.endsWith("zes") || lower.endsWith("ches") ||
+            lower.endsWith("shes")) {
+            return lower.dropLast(2)
+        }
+        if (lower.endsWith("s") && !lower.endsWith("ss") &&
+            !lower.endsWith("us") && !lower.endsWith("is") &&
+            !lower.endsWith("os") && lower.length > 3) {
+            return lower.dropLast(1)
+        }
+
+        // 过去式和过去分词
+        if (lower.endsWith("ied") && lower.length > 4) {
+            return lower.dropLast(3) + "y"
+        }
+        if (lower.endsWith("ed") && lower.length > 4) {
+            val base = lower.dropLast(2)
+            // 处理双写辅音：stopped -> stop, running -> run
+            if (base.length >= 3 && isConsonant(base, base.length - 1) &&
+                base[base.length - 1] == base[base.length - 2]) {
+                return base.dropLast(1)
+            }
+            // 处理 silent e: hoped -> hope
+            if (base.length >= 2 && isConsonant(base, base.length - 1) &&
+                !isConsonant(base, base.length - 2)) {
+                return base + "e"
+            }
+            if (base.length >= 3) return base
+        }
+
+        // 现在分词
+        if (lower.endsWith("ing") && lower.length > 5) {
+            val base = lower.dropLast(3)
+            // 处理双写辅音：running -> run
+            if (base.length >= 3 && isConsonant(base, base.length - 1) &&
+                base[base.length - 1] == base[base.length - 2]) {
+                return base.dropLast(1)
+            }
+            // 处理 silent e: hoping -> hope
+            if (base.length >= 2 && isConsonant(base, base.length - 1) &&
+                !isConsonant(base, base.length - 2)) {
+                return base + "e"
+            }
+            if (base.length >= 3) return base
+        }
+
+        // 比较级/最高级
+        if (lower.endsWith("ier") && lower.length > 4) {
+            return lower.dropLast(3) + "y"
+        }
+        if (lower.endsWith("er") && lower.length > 3) {
+            val base = lower.dropLast(2)
+            if (base.length >= 3) return base
+        }
+        if (lower.endsWith("iest") && lower.length > 5) {
+            return lower.dropLast(4) + "y"
+        }
+        if (lower.endsWith("est") && lower.length > 4) {
+            val base = lower.dropLast(3)
+            if (base.length >= 3) return base
+        }
+
+        return lower
     }
 
     /**
@@ -132,10 +287,26 @@ object EnglishStemmer {
 
     /**
      * 判断指定位置是否为辅音
+     *
+     * 'y' 在元音后面时视为辅音，否则视为元音
      */
     private fun isConsonant(word: String, index: Int): Boolean {
         if (index < 0 || index >= word.length) return false
         val ch = word[index]
-        return ch !in "aeiou"
+        if (ch in "aeiou") return false
+        // 'y' 在元音后面时是辅音
+        if (ch == 'y') {
+            if (index == 0) return false
+            return !isVowel(word, index - 1)
+        }
+        return true
+    }
+
+    /**
+     * 判断指定位置是否为元音
+     */
+    private fun isVowel(word: String, index: Int): Boolean {
+        if (index < 0 || index >= word.length) return false
+        return word[index] in "aeiou"
     }
 }
