@@ -138,7 +138,7 @@ internal fun SubScreenNavigation(
                     )
                 }
 
-                // SAF 导入 launcher
+                // SAF 导入 launcher - 支持多选，用户可同时选择 .ifo + .idx + .dict
                 val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                     contract = androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments()
                 ) { uris ->
@@ -151,16 +151,15 @@ internal fun SubScreenNavigation(
                     viewModel = dictViewModel,
                     onBack = { onSubScreenChange(null) },
                     onImport = {
-                        importLauncher.launch(arrayOf(
-                            "application/octet-stream",
-                            "application/x-mdx",
-                            "application/x-stardict",
-                        ))
+                        // 使用 */* 允许用户选择所有类型的文件
+                        // 用户需要同时选择 .ifo + .idx + .dict 三个文件
+                        importLauncher.launch(arrayOf("*/*"))
                     },
                 )
             }
         }
         is SettingsSubScreen.WordBook -> {
+            val context = LocalContext.current
             val wordBookDao = appContainer?.database?.wordBookDao()
             if (wordBookDao != null) {
                 val wordBookViewModel = remember {
@@ -169,12 +168,33 @@ internal fun SubScreenNavigation(
                     )
                 }
 
+                val coroutineScope = rememberCoroutineScope()
+
                 // Anki 导出 launcher
                 val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                     contract = androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/tab-separated-values")
                 ) { uri ->
                     if (uri != null) {
-                        // TODO: 调用 AnkiExporter 导出
+                        coroutineScope.launch {
+                            try {
+                                val exporter = com.shuli.reader.feature.settings.dictionary.AnkiExporter(
+                                    context = context,
+                                    wordBookDao = wordBookDao,
+                                )
+                                val count = exporter.exportToAnki(uri)
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "已导出 $count 条生词",
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "导出失败: ${e.message}",
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        }
                     }
                 }
 
