@@ -55,7 +55,13 @@ class DictZipReader(
 
         val flags = header[3].toInt() and 0xFF
 
-        // 检查 FEXTRA 标志
+        // 第一步：预扫描所有可选头字段，计算 dataStartOffset
+        val savedPos = file.filePointer
+        skipOptionalHeaders(flags)
+        dataStartOffset = file.filePointer
+        file.seek(savedPos)
+
+        // 第二步：处理 FEXTRA（如果有）
         if ((flags and 0x04) != 0) {
             // 读取 XLEN（小端序）
             val xlenBuf = ByteArray(2)
@@ -84,8 +90,20 @@ class DictZipReader(
 
                 pos += 4 + slen
             }
+        }
+    }
 
-            file.seek(startPos + xlen)
+    /**
+     * 跳过所有可选头字段（FNAME, FCOMMENT, FHCRC）
+     * 用于预计算 dataStartOffset
+     */
+    private fun skipOptionalHeaders(flags: Int) {
+        // 跳过 FEXTRA
+        if ((flags and 0x04) != 0) {
+            val xlenBuf = ByteArray(2)
+            file.readFully(xlenBuf)
+            val xlen = (xlenBuf[0].toInt() and 0xFF) or ((xlenBuf[1].toInt() and 0xFF) shl 8)
+            file.skipBytes(xlen)
         }
 
         // 跳过 FNAME（FLG bit 3）
@@ -100,9 +118,6 @@ class DictZipReader(
         if ((flags and 0x02) != 0) {
             file.skipBytes(2)
         }
-
-        // 记录压缩数据开始位置
-        dataStartOffset = file.filePointer
     }
 
     /**
@@ -115,8 +130,6 @@ class DictZipReader(
      * - chunks: chunk_count 个 2 bytes（每个块的压缩大小）
      */
     private fun parseRaHeader(length: Int) {
-        val startPos = file.filePointer
-
         // 读取整个 RA 数据到缓冲区（小端序处理）
         val raData = ByteArray(length)
         file.readFully(raData)

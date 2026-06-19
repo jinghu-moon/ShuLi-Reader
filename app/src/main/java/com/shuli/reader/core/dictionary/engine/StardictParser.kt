@@ -157,71 +157,118 @@ class StardictParser(
     }
 
     /**
-     * 解析 Stardict 条目数据
+     * 解析 Stardict 条目数据（无 sametypesequence 时使用）
      *
-     * 格式：type(1 byte) + data + size(4 bytes)
-     * type: 'm' = 纯文本, 'h' = HTML, 'x' = XDXF, 't' = 词性
+     * Stardict 规范：
+     * - 小写类型标记（m, h, l, g, t, x, y, k, w, r）：null 结尾字符串
+     * - 大写类型标记（W, P, X）：4 字节长度前缀 + 数据
+     * - 每条记录格式：type(1 byte) + data
      */
     private fun parseStardictEntry(bytes: ByteArray): String {
         if (bytes.isEmpty()) return ""
 
         var pos = 0
         val result = StringBuilder()
+        val phonetic = StringBuilder()
+        val posTag = StringBuilder()
 
         while (pos < bytes.size) {
             // 读取类型
             val type = bytes[pos].toInt().toChar()
             pos++
 
-            // 读取数据大小（4 字节，大端序）
-            if (pos + 4 > bytes.size) break
-            val dataSize = ((bytes[pos].toInt() and 0xFF) shl 24) or
-                ((bytes[pos + 1].toInt() and 0xFF) shl 16) or
-                ((bytes[pos + 2].toInt() and 0xFF) shl 8) or
-                (bytes[pos + 3].toInt() and 0xFF)
-            pos += 4
+            // 根据类型读取数据
+            val data: String = when {
+                // 大写类型：4 字节长度前缀
+                type.isUpperCase() -> {
+                    if (pos + 4 > bytes.size) break
+                    val dataSize = ((bytes[pos].toInt() and 0xFF) shl 24) or
+                        ((bytes[pos + 1].toInt() and 0xFF) shl 16) or
+                        ((bytes[pos + 2].toInt() and 0xFF) shl 8) or
+                        (bytes[pos + 3].toInt() and 0xFF)
+                    pos += 4
 
-            // 读取数据
-            if (pos + dataSize > bytes.size) break
-            val data = String(bytes, pos, dataSize, charset)
-            pos += dataSize
+                    if (pos + dataSize > bytes.size) break
+                    val str = String(bytes, pos, dataSize, charset)
+                    pos += dataSize
+                    str
+                }
+                // 小写类型：null 结尾字符串
+                else -> {
+                    val start = pos
+                    while (pos < bytes.size && bytes[pos] != 0.toByte()) {
+                        pos++
+                    }
+                    val str = if (pos > start) String(bytes, start, pos - start, charset) else ""
+                    pos++ // 跳过 null 字节
+                    str
+                }
+            }
 
             // 根据类型处理
             when (type) {
                 'm', 'h', 'x' -> {
+                    // 主要释义（纯文本/HTML/XDXF）
                     if (result.isNotEmpty()) result.append("\n")
                     result.append(data)
                 }
                 't' -> {
-                    // 词性标记，添加到结果前面
-                    result.insert(0, "[$data] ")
+                    // 词性标记
+                    if (posTag.isNotEmpty()) posTag.append(" ")
+                    posTag.append(data)
                 }
                 'l' -> {
                     // 词形变化，忽略
                 }
                 'g' -> {
-                    // 语音数据，忽略
+                    // 语音数据（原始二进制），忽略
                 }
                 'y' -> {
-                    // 词性，添加到结果前面
-                    result.insert(0, "$data ")
+                    // 词性（另一种格式）
+                    if (posTag.isEmpty()) posTag.append(data)
                 }
                 'k' -> {
                     // 词组，忽略
                 }
                 'w' -> {
                     // 音标
-                    result.insert(0, "$data ")
+                    phonetic.append(data)
+                }
+                'r' -> {
+                    // 相关词，忽略
+                }
+                'W' -> {
+                    // 大写 W：语音数据（带长度前缀），忽略
+                }
+                'P' -> {
+                    // 大写 P：发音数据，忽略
+                }
+                'X' -> {
+                    // 大写 X：XDXF 数据（带长度前缀）
+                    if (result.isNotEmpty()) result.append("\n")
+                    result.append(data)
                 }
                 else -> {
                     // 未知类型，添加数据
-                    if (result.isNotEmpty()) result.append("\n")
-                    result.append(data)
+                    if (data.isNotEmpty()) {
+                        if (result.isNotEmpty()) result.append("\n")
+                        result.append(data)
+                    }
                 }
             }
         }
 
-        return result.toString()
+        // 组装最终结果：音标 + 词性 + 释义
+        val finalResult = StringBuilder()
+        if (phonetic.isNotEmpty()) {
+            finalResult.append(phonetic).append(" ")
+        }
+        if (posTag.isNotEmpty()) {
+            finalResult.append("[").append(posTag).append("] ")
+        }
+        finalResult.append(result)
+
+        return finalResult.toString().trim()
     }
 
     /**

@@ -78,21 +78,41 @@ class DictLookupEngine(
                 stardict
             }
             "mdx" -> {
-                // MDX 支持已在 mdict 模块实现，通过 companion object 的 open 方法加载
-                try {
-                    val mdictClass = Class.forName("com.shuli.reader.mdict.MdictParser")
-                    val openMethod = mdictClass.getMethod("open", java.io.File::class.java, java.io.File::class.java)
-                    openMethod.invoke(null, java.io.File(entity.filePath), null)
-                } catch (e: Exception) {
-                    android.util.Log.w("DictLookupEngine", "Failed to load MDX: ${entity.dictKey}", e)
-                    null
-                }
+                // MDX 支持已在 mdict 模块实现
+                // MdictParser.open(file: File, cacheDir: File? = null): MdictParser
+                loadMdxParser(entity.filePath, entity.dictKey)
             }
             else -> null
         }
 
         if (parser != null) {
             parsers[entity.dictKey] = parser
+        }
+    }
+
+    /**
+     * 通过反射加载 MDX 词典
+     *
+     * MdictParser.open 是普通函数（非 suspend），签名：
+     * fun open(file: File, cacheDir: File? = null): MdictParser
+     */
+    private fun loadMdxParser(filePath: String, dictKey: String): Any? {
+        return try {
+            val mdictClass = Class.forName("com.shuli.reader.mdict.MdictParser")
+            val companionField = mdictClass.getDeclaredField("Companion")
+            val companion = companionField.get(null)
+            val companionClass = companion.javaClass
+
+            // open(file: File, cacheDir: File?)
+            val openMethod = companionClass.getMethod(
+                "open",
+                java.io.File::class.java,
+                java.io.File::class.java,
+            )
+            openMethod.invoke(companion, java.io.File(filePath), null)
+        } catch (e: Exception) {
+            android.util.Log.w("DictLookupEngine", "Failed to load MDX: $dictKey", e)
+            null
         }
     }
 
@@ -164,17 +184,24 @@ class DictLookupEngine(
             }
         }
 
-        // 2. 如果精确匹配无结果，尝试词干提取（英文）
+        // 2. 如果精确匹配无结果，尝试词干候选（英文）
         if (results.isEmpty() && !WordNormalizer.containsChinese(word)) {
-            val stemmed = EnglishStemmer.stem(word)
-            if (stemmed != word) {
+            val candidates = EnglishStemmer.stemCandidates(word)
+            for (candidate in candidates) {
+                if (candidate == word) continue
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 for ((dictKey, parser) in parsers) {
-                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
-                    val entry = lookupInParser(parser, stemmed)
+                    val entry = lookupInParser(parser, candidate)
                     if (entry != null) {
-                        results.add(entry.copy(dictKey = dictKey, dictName = dictMetaMap[dictKey]?.displayName ?: dictKey))
+                        results.add(entry.copy(
+                            dictKey = dictKey,
+                            dictName = dictMetaMap[dictKey]?.displayName ?: dictKey,
+                            isSynonymMatch = true,
+                        ))
                     }
                 }
+                // 找到结果就停止尝试其他候选
+                if (results.isNotEmpty()) break
             }
         }
 
@@ -188,7 +215,11 @@ class DictLookupEngine(
                     kotlinx.coroutines.currentCoroutineContext().ensureActive()
                     val entry = lookupInParser(parser, matched)
                     if (entry != null) {
-                        results.add(entry.copy(dictKey = dictKey, dictName = dictMetaMap[dictKey]?.displayName ?: dictKey))
+                        results.add(entry.copy(
+                            dictKey = dictKey,
+                            dictName = dictMetaMap[dictKey]?.displayName ?: dictKey,
+                            isSynonymMatch = true,
+                        ))
                     }
                 }
             }
@@ -209,11 +240,15 @@ class DictLookupEngine(
             else -> {
                 // MDX 通过反射调用
                 try {
+                    // MdictParser.lookup(word: String): MdxEntry?
                     val lookupMethod = parser.javaClass.getMethod("lookup", String::class.java)
                     val mdxEntry = lookupMethod.invoke(parser, word)
+
                     if (mdxEntry != null) {
-                        val readDefMethod = parser.javaClass.getMethod("readDefinition", mdxEntry.javaClass, Int::class.java)
-                        val definition = readDefMethod.invoke(parser, mdxEntry, 0) as? String ?: ""
+                        // MdictParser.readDefinition(entry: MdxEntry): String
+                        val readDefMethod = parser.javaClass.getMethod("readDefinition", mdxEntry.javaClass)
+                        val definition = readDefMethod.invoke(parser, mdxEntry) as? String ?: ""
+
                         DictEntry(
                             word = word,
                             definition = definition,
@@ -225,6 +260,7 @@ class DictLookupEngine(
                         null
                     }
                 } catch (e: Exception) {
+                    android.util.Log.w("DictLookupEngine", "MDX lookup failed for: $word", e)
                     null
                 }
             }
