@@ -181,6 +181,21 @@ class StardictIndex(
     }
 
     /**
+     * 按索引查找词条
+     *
+     * @param index 词条索引（从 0 开始）
+     * @return 索引条目，索引越界返回 null
+     */
+    fun findByIndex(index: Int): IndexEntry? {
+        if (index < 0 || index >= wordCount) return null
+        return IndexEntry(
+            word = getWord(index),
+            dataOffset = dataOffsets[index],
+            dataSize = dataSizes[index],
+        )
+    }
+
+    /**
      * 前缀搜索
      *
      * @return 匹配的单词列表

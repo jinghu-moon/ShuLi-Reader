@@ -11,7 +11,7 @@ import java.nio.charset.Charset
 /**
  * Stardict 词典解析器
  *
- * 支持 .ifo + .idx + .dict/.dict.dz 格式
+ * 支持 .ifo + .idx + .dict/.dict.dz + .syn 格式
  */
 class StardictParser(
     private val ifoPath: String,
@@ -19,6 +19,7 @@ class StardictParser(
 
     private var meta: DictionaryMeta? = null
     private var index: StardictIndex? = null
+    private var synIndex: SynIndex? = null
     private var dictFile: RandomAccessFile? = null
     private var dictZipReader: DictZipReader? = null
     private var charset: Charset = Charsets.UTF_8
@@ -31,6 +32,10 @@ class StardictParser(
     /** 是否已加载 */
     val isLoaded: Boolean
         get() = meta != null && index != null
+
+    /** 是否有同义词索引 */
+    val hasSynIndex: Boolean
+        get() = synIndex != null
 
     /**
      * 加载词典索引
@@ -85,6 +90,13 @@ class StardictParser(
             dictFile = RandomAccessFile(actualDictPath, "r")
         }
 
+        // 加载 .syn 同义词文件（可选）
+        val synPath = "$basePath.syn"
+        val synFile = File(synPath)
+        if (synFile.exists()) {
+            synIndex = SynIndex(synFile, charset)
+        }
+
         val dictKey = ifoFile.nameWithoutExtension
         meta = DictionaryMeta(
             dictKey = dictKey,
@@ -117,6 +129,55 @@ class StardictParser(
             dictName = m.displayName,
             definitionType = if (definition.contains("<") && definition.contains(">")) DefinitionType.HTML else DefinitionType.TEXT,
         )
+    }
+
+    /**
+     * 查询单词（含同义词查找）
+     *
+     * 先在 .idx 中精确查找，未命中则在 .syn 中查找同义词
+     */
+    fun lookupWithSynonym(word: String): Pair<DictEntry?, Boolean> {
+        val idx = index ?: return Pair(null, false)
+        val m = meta ?: return Pair(null, false)
+
+        // 1. 精确查找
+        val offsetInfo = idx.findWord(word)
+        if (offsetInfo != null) {
+            val definition = readDefinition(offsetInfo.dataOffset, offsetInfo.dataSize)
+            return Pair(
+                DictEntry(
+                    word = word,
+                    definition = definition,
+                    dictKey = m.dictKey,
+                    dictName = m.displayName,
+                    definitionType = if (definition.contains("<") && definition.contains(">")) DefinitionType.HTML else DefinitionType.TEXT,
+                ),
+                false
+            )
+        }
+
+        // 2. 同义词查找
+        val syn = synIndex ?: return Pair(null, false)
+        val originalIndex = syn.findSynonym(word)
+        if (originalIndex >= 0) {
+            val synOffsetInfo = idx.findByIndex(originalIndex)
+            if (synOffsetInfo != null) {
+                val definition = readDefinition(synOffsetInfo.dataOffset, synOffsetInfo.dataSize)
+                return Pair(
+                    DictEntry(
+                        word = word,
+                        definition = definition,
+                        dictKey = m.dictKey,
+                        dictName = m.displayName,
+                        definitionType = if (definition.contains("<") && definition.contains(">")) DefinitionType.HTML else DefinitionType.TEXT,
+                        isSynonymMatch = true,
+                    ),
+                    true
+                )
+            }
+        }
+
+        return Pair(null, false)
     }
 
     /**

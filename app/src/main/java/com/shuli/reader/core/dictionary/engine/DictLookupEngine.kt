@@ -225,6 +225,23 @@ class DictLookupEngine(
             }
         }
 
+        // 4. 同义词查找（仅 Stardict）
+        if (results.isEmpty()) {
+            for ((dictKey, parser) in parsers) {
+                if (parser is StardictParser && parser.hasSynIndex) {
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                    val (entry, isSynonym) = parser.lookupWithSynonym(word)
+                    if (entry != null) {
+                        results.add(entry.copy(
+                            dictKey = dictKey,
+                            dictName = dictMetaMap[dictKey]?.displayName ?: dictKey,
+                            isSynonymMatch = isSynonym,
+                        ))
+                    }
+                }
+            }
+        }
+
         // 按词典优先级排序
         return results.sortedBy { entry ->
             dictMetaMap[entry.dictKey]?.priority ?: Int.MAX_VALUE
