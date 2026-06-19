@@ -1976,7 +1976,7 @@ val addToVocab: String          // "加入生词本"
 **从 Phase 1/2 延期的功能：**
 - [x] **可编辑搜索框**（默认只读，点击进入编辑态，不自动弹键盘）
 - [x] **多词典 Tab 切换**（`HorizontalPager` + `ScrollableTabRow`，Tab 状态保持）
-- [ ] **词典徽章粘性吸顶**（Sticky Header）— 未实现
+- [x] **词典徽章粘性吸顶**（Sticky Header）
 - [x] **防遮挡智能滚动**（下半屏选词自动上滚 Canvas）
 - [x] **词头标题自适应字号**（长句动态缩小）
 - [x] **上下文释义展示**（显示 `contextSentence`）
@@ -1987,8 +1987,8 @@ val addToVocab: String          // "加入生词本"
 - [x] **浮动气泡菜单**（方向自适应 + 水平边界 clamp）
 - [x] **`.syn` 同义词支持**
 - [x] **模糊匹配**（Levenshtein ≤ 1）
-- [ ] **MDX 索引文件缓存**（Key Block Index 缓存）— 未实现
-- [ ] MDD 资源加载（CSS + 图片提取）— 未实现
+- [x] **MDX 索引文件缓存**（Key Block Index 缓存）
+- [x] MDD 资源加载（CSS + 图片提取）
 - [ ] 内置成语词典（~3 万条，Stardict，CC 协议）— 框架已就绪，词典文件需用户自行下载
 
 **Phase 3 新增：**
