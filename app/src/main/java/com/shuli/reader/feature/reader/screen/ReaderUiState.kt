@@ -13,6 +13,7 @@ import com.shuli.reader.core.reader.model.TextChapter
 import com.shuli.reader.core.reader.model.TextPage
 import com.shuli.reader.core.repository.SearchResult
 import com.shuli.reader.core.reader.engine.animation.PageDelegateFactory
+import com.shuli.reader.core.dictionary.model.DictEntry
 import com.shuli.reader.ui.theme.resolveCustomColorScheme
 import com.shuli.reader.ui.theme.toCanvasThemeColors
 import com.shuli.reader.ui.theme.toReaderColorScheme
@@ -82,6 +83,17 @@ data class ReaderUiState(
     val settingsScope: SettingsScope = SettingsScope.GLOBAL,
     /** 本书是否有自定义覆盖（用于 UI 显示"已自定义"标记） */
     val hasBookOverrides: Boolean = false,
+
+    // ── 划词查词 ──
+
+    /** 是否显示查词面板 */
+    val showDictionary: Boolean = false,
+    /** 查词结果 */
+    val dictionaryResults: List<DictEntry> = emptyList(),
+    /** 当前查询的单词 */
+    val currentLookupWord: String = "",
+    /** 查词上下文句子 */
+    val dictionaryContextSentence: String = "",
 ) {
     val showDirectory: Boolean get() = overlayPanel == OverlayPanel.DIRECTORY
     val showQuickSettings: Boolean get() = overlayPanel == OverlayPanel.QUICK_SETTINGS

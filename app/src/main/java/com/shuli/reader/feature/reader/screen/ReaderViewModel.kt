@@ -100,6 +100,9 @@ class ReaderViewModel(
     private val readingProgressDao: com.shuli.reader.core.database.dao.ReadingProgressDao? = null,
     private val chapterReadingStatsDao: com.shuli.reader.core.database.dao.ChapterReadingStatsDao? = null,
     private val readingSessionDao: com.shuli.reader.core.database.dao.ReadingSessionDao? = null,
+    private val dictMetaDao: com.shuli.reader.core.database.dao.DictMetaDao? = null,
+    private val dictHistoryDao: com.shuli.reader.core.database.dao.DictHistoryDao? = null,
+    private val wordBookDao: com.shuli.reader.core.database.dao.WordBookDao? = null,
     private val paginator: Paginator = Paginator(SimpleTextMeasurer()),
     private val fontManager: com.shuli.reader.core.font.FontManager? = null,
     private val stringResolver: () -> com.shuli.reader.core.i18n.AppStrings = { com.shuli.reader.core.i18n.AppStrings.ZhHans },
@@ -347,6 +350,15 @@ class ReaderViewModel(
         )
     }
 
+    /** 词典管理器 */
+    internal val dictionaryManager: com.shuli.reader.core.dictionary.manager.DictionaryManager? by lazy {
+        val ctx = appContext ?: return@lazy null
+        val metaDao = dictMetaDao ?: return@lazy null
+        val historyDao = dictHistoryDao ?: return@lazy null
+        val bookDao = wordBookDao ?: return@lazy null
+        com.shuli.reader.core.dictionary.manager.DictionaryManager(ctx, metaDao, historyDao, bookDao)
+    }
+
     /** 书籍会话管理器 */
     internal val bookSessionManager: BookSessionManager by lazy {
         BookSessionManager(
@@ -473,6 +485,8 @@ class ReaderViewModel(
             bookSessionManager.openBook(bookId)
             // 加载本书级偏好覆盖（如有）
             readerSettingsManager.loadBookOverrides(bookId)
+            // 预加载词典索引
+            dictionaryManager?.initialize()
         }
     }
 
@@ -507,6 +521,11 @@ class ReaderViewModel(
             is ReaderIntent.AddBookmarkFromSelection -> addBookmarkFromSelection()
             is ReaderIntent.AddNoteFromSelection -> addNoteFromSelection()
             is ReaderIntent.AddBookmark -> bookmarkNotesManager.addBookmark()
+
+            // ── 划词查词 ──
+            is ReaderIntent.LookupWord -> lookupWord(intent.word, intent.contextSentence)
+            is ReaderIntent.DismissDictionary -> dismissDictionary()
+            is ReaderIntent.AddToWordBook -> addToWordBook(intent.word)
 
             // ── 设置 ──
             is ReaderIntent.UpdateSetting -> dispatchSetting(intent.key, intent.value)
@@ -738,6 +757,69 @@ class ReaderViewModel(
         if (content.isBlank()) return
         bookmarkNotesManager.addNote(range, content)
         navigationCoordinator.clearTextSelection()
+    }
+
+    /**
+     * 查词
+     */
+    private fun lookupWord(word: String, contextSentence: String) {
+        val manager = dictionaryManager ?: return
+        viewModelScope.launch {
+            try {
+                _uiState.value = _uiState.value.copy(
+                    showDictionary = true,
+                    currentLookupWord = word,
+                    dictionaryContextSentence = contextSentence,
+                    dictionaryResults = emptyList(),
+                )
+
+                val results = manager.lookup(word, contextSentence)
+
+                _uiState.value = _uiState.value.copy(
+                    dictionaryResults = results,
+                )
+            } catch (e: Exception) {
+                android.util.Log.w("ReaderVM", "lookupWord failed", e)
+                _uiState.value = _uiState.value.copy(
+                    dictionaryResults = emptyList(),
+                )
+            }
+        }
+    }
+
+    /**
+     * 关闭查词面板
+     */
+    private fun dismissDictionary() {
+        _uiState.value = _uiState.value.copy(
+            showDictionary = false,
+            dictionaryResults = emptyList(),
+            currentLookupWord = "",
+            dictionaryContextSentence = "",
+        )
+    }
+
+    /**
+     * 添加到生词本
+     */
+    private fun addToWordBook(word: String) {
+        val manager = dictionaryManager ?: return
+        val state = _uiState.value
+        val definition = state.dictionaryResults.firstOrNull()?.definition ?: ""
+
+        viewModelScope.launch {
+            try {
+                manager.addToWordBook(
+                    word = word,
+                    definition = definition,
+                    contextSentence = state.dictionaryContextSentence,
+                    bookId = state.bookId,
+                    chapterIndex = state.chapterIndex,
+                )
+            } catch (e: Exception) {
+                android.util.Log.w("ReaderVM", "addToWordBook failed", e)
+            }
+        }
     }
 
     /** R7: 暂停阅读会话（flush 当前片段，排除暂停时段） */

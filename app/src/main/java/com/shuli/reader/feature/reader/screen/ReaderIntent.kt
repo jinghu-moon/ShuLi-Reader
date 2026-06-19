@@ -50,6 +50,15 @@ sealed interface ReaderIntent {
     object AddNoteFromSelection : ReaderIntent
     data class AddBookmark(val pageOnly: Boolean = false) : ReaderIntent
 
+    // ── 划词查词 ──
+
+    /** 查词 */
+    data class LookupWord(val word: String, val contextSentence: String = "") : ReaderIntent
+    /** 关闭查词面板 */
+    object DismissDictionary : ReaderIntent
+    /** 添加到生词本 */
+    data class AddToWordBook(val word: String) : ReaderIntent
+
     // ── 设置（统一入口） ──
 
     data class UpdateSetting(

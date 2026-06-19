@@ -335,6 +335,11 @@ fun ReaderScreen(
                         },
                         onBookmark = { dispatch(ReaderIntent.AddBookmarkFromSelection) },
                         onNote = { dispatch(ReaderIntent.AddNoteFromSelection) },
+                        onLookup = {
+                            range.selectedText?.takeIf { it.isNotBlank() }?.let { text ->
+                                dispatch(ReaderIntent.LookupWord(text, ""))
+                            }
+                        },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .navigationBarsPadding()
@@ -440,6 +445,7 @@ private fun ReaderSelectionActionBar(
     onCopy: () -> Unit,
     onBookmark: () -> Unit,
     onNote: () -> Unit,
+    onLookup: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalAppStrings.current
@@ -463,6 +469,17 @@ private fun ReaderSelectionActionBar(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = ReaderDimens.PaddingMedium - 4.dp, vertical = ReaderDimens.PaddingSmall),
         ) {
+            FilledTonalButton(onClick = onLookup, colors = actionButtonColors) {
+                Icon(Icons.Outlined.Search, contentDescription = null)
+                Text(strings.reader.lookupWord)
+            }
+            // 分隔线
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(24.dp)
+                    .background(readerColors.divider)
+            )
             FilledTonalButton(onClick = onCopy, colors = actionButtonColors, modifier = Modifier.testTag(UiTestTags.READER_COPY_SELECTION_BUTTON)) {
                 Icon(Icons.Outlined.ContentCopy, contentDescription = null)
                 Text(strings.reader.copySelection)

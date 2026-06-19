@@ -9,6 +9,8 @@ import com.shuli.reader.core.database.dao.BookDao
 import com.shuli.reader.core.database.dao.BookmarkDao
 import com.shuli.reader.core.database.dao.BookReaderPrefsDao
 import com.shuli.reader.core.database.dao.ChapterReadingStatsDao
+import com.shuli.reader.core.database.dao.DictHistoryDao
+import com.shuli.reader.core.database.dao.DictMetaDao
 import com.shuli.reader.core.database.dao.NoteDao
 import com.shuli.reader.core.database.dao.ReadingHistoryDao
 import com.shuli.reader.core.database.dao.ReadingProgressDao
@@ -16,6 +18,7 @@ import com.shuli.reader.core.database.dao.ReadingSessionDao
 import com.shuli.reader.core.database.dao.ReaderPresetDao
 import com.shuli.reader.core.database.dao.TagDao
 import com.shuli.reader.core.database.dao.TagSuggestionDecisionDao
+import com.shuli.reader.core.database.dao.WordBookDao
 import com.shuli.reader.core.database.entity.BookChapterEntity
 import com.shuli.reader.core.database.entity.BookContentIndexEntity
 import com.shuli.reader.core.database.entity.ChapterReadingStatsEntity
@@ -24,6 +27,8 @@ import com.shuli.reader.core.database.entity.BookFtsEntity
 import com.shuli.reader.core.database.entity.BookReaderPrefsEntity
 import com.shuli.reader.core.database.entity.BookTagCrossRef
 import com.shuli.reader.core.database.entity.BookmarkEntity
+import com.shuli.reader.core.database.entity.DictHistoryEntity
+import com.shuli.reader.core.database.entity.DictMetaEntity
 import com.shuli.reader.core.database.entity.NoteEntity
 import com.shuli.reader.core.database.entity.ReaderPresetEntity
 import com.shuli.reader.core.database.entity.ReadingHistoryEntity
@@ -31,6 +36,7 @@ import com.shuli.reader.core.database.entity.ReadingProgressEntity
 import com.shuli.reader.core.database.entity.ReadingSessionEntity
 import com.shuli.reader.core.database.entity.TagEntity
 import com.shuli.reader.core.database.entity.TagSuggestionDecisionEntity
+import com.shuli.reader.core.database.entity.WordBookEntity
 
 @Database(
     entities = [
@@ -50,8 +56,11 @@ import com.shuli.reader.core.database.entity.TagSuggestionDecisionEntity
         BookReaderPrefsEntity::class,
         ChapterReadingStatsEntity::class,
         ReadingSessionEntity::class,
+        DictMetaEntity::class,
+        DictHistoryEntity::class,
+        WordBookEntity::class,
     ],
-    version = 24,
+    version = 25,
     exportSchema = true,
 )
 abstract class ShuLiDatabase : RoomDatabase() {
@@ -67,6 +76,9 @@ abstract class ShuLiDatabase : RoomDatabase() {
     abstract fun bookReaderPrefsDao(): BookReaderPrefsDao
     abstract fun chapterReadingStatsDao(): ChapterReadingStatsDao
     abstract fun readingSessionDao(): ReadingSessionDao
+    abstract fun dictMetaDao(): DictMetaDao
+    abstract fun dictHistoryDao(): DictHistoryDao
+    abstract fun wordBookDao(): WordBookDao
 
     companion object {
         const val DATABASE_NAME = "shuli_database"
@@ -264,6 +276,66 @@ abstract class ShuLiDatabase : RoomDatabase() {
             }
         }
 
+        /** v25: 词典相关表（dict_meta, dict_history, word_book） */
+        val MIGRATION_24_25 = object : Migration(24, 25) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // 1. 词库元数据表
+                database.execSQL("""
+                    CREATE TABLE dict_meta (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        dict_key TEXT NOT NULL,
+                        display_name TEXT NOT NULL,
+                        format TEXT NOT NULL,
+                        lang_pair TEXT NOT NULL DEFAULT '',
+                        file_path TEXT NOT NULL,
+                        index_path TEXT,
+                        data_path TEXT,
+                        entry_count INTEGER NOT NULL DEFAULT 0,
+                        is_enabled INTEGER NOT NULL DEFAULT 1,
+                        priority INTEGER NOT NULL DEFAULT 0,
+                        imported_at INTEGER NOT NULL DEFAULT 0,
+                        last_used_at INTEGER NOT NULL DEFAULT 0
+                    )
+                """)
+                database.execSQL("CREATE UNIQUE INDEX index_dict_meta_dict_key ON dict_meta(dict_key)")
+
+                // 2. 查词历史表
+                database.execSQL("""
+                    CREATE TABLE dict_history (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        word TEXT NOT NULL,
+                        context_sentence TEXT NOT NULL DEFAULT '',
+                        book_id INTEGER NOT NULL DEFAULT 0,
+                        chapter_index INTEGER NOT NULL DEFAULT 0,
+                        char_offset INTEGER NOT NULL DEFAULT 0,
+                        queried_at INTEGER NOT NULL DEFAULT 0
+                    )
+                """)
+                database.execSQL("CREATE INDEX index_dict_history_queried_at ON dict_history(queried_at)")
+                database.execSQL("CREATE INDEX index_dict_history_word ON dict_history(word)")
+
+                // 3. 生词本表
+                database.execSQL("""
+                    CREATE TABLE word_book (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        word TEXT NOT NULL,
+                        definition TEXT NOT NULL DEFAULT '',
+                        context_sentence TEXT NOT NULL DEFAULT '',
+                        book_id INTEGER NOT NULL DEFAULT 0,
+                        chapter_index INTEGER NOT NULL DEFAULT 0,
+                        char_offset INTEGER NOT NULL DEFAULT 0,
+                        added_at INTEGER NOT NULL DEFAULT 0,
+                        last_review_at INTEGER NOT NULL DEFAULT 0,
+                        review_count INTEGER NOT NULL DEFAULT 0,
+                        mastery_level INTEGER NOT NULL DEFAULT 0,
+                        exported_to_anki INTEGER NOT NULL DEFAULT 0
+                    )
+                """)
+                database.execSQL("CREATE UNIQUE INDEX index_word_book_word ON word_book(word)")
+                database.execSQL("CREATE INDEX index_word_book_added_at ON word_book(added_at)")
+            }
+        }
+
         val ALL_MIGRATIONS = arrayOf(
             MIGRATION_16_17,
             MIGRATION_17_18,
@@ -273,6 +345,7 @@ abstract class ShuLiDatabase : RoomDatabase() {
             MIGRATION_21_22,
             MIGRATION_22_23,
             MIGRATION_23_24,
+            MIGRATION_24_25,
         )
     }
 }

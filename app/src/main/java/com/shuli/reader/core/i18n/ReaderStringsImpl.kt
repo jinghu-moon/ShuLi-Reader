@@ -363,6 +363,23 @@ internal data object ZhHansReader : ReaderStrings {
     override val settingsTabTypeAndFont = "排版"
     override val settingsTabAppearance = "显示"
     override val settingsTabBehavior = "行为"
+
+    // 划词查词
+    override val lookupWord = "查词"
+    override val dictionaryTitle = "词典"
+    override val noDefinition = "未找到释义"
+    override val noDefinitionHint = "请检查拼写或尝试其他词典"
+    override val addToVocab = "加入生词本"
+    override val addedToVocab = "已加入生词本"
+    override val copyDefinition = "复制释义"
+    override val dictManagement = "词典管理"
+    override val searchInDict = "在词典中搜索"
+    override val clearHistory = "清空历史"
+    override val wordBook = "生词本"
+    override val lookupHistory = "查词历史"
+    override val pronunciation = "发音"
+    override val exampleSentence = "例句"
+    override val relatedWords = "相关词汇"
 }
 
 /** 繁体中文 — 阅读器显示、快捷设置、目录/书签/笔记字符串 */
@@ -728,6 +745,23 @@ internal data object ZhHantReader : ReaderStrings {
     override val settingsTabTypeAndFont = "排版"
     override val settingsTabAppearance = "顯示"
     override val settingsTabBehavior = "行為"
+
+    // 劃詞查詞
+    override val lookupWord = "查詞"
+    override val dictionaryTitle = "詞典"
+    override val noDefinition = "未找到釋義"
+    override val noDefinitionHint = "請檢查拼寫或嘗試其他詞典"
+    override val addToVocab = "加入生詞本"
+    override val addedToVocab = "已加入生詞本"
+    override val copyDefinition = "複製釋義"
+    override val dictManagement = "詞典管理"
+    override val searchInDict = "在詞典中搜索"
+    override val clearHistory = "清空歷史"
+    override val wordBook = "生詞本"
+    override val lookupHistory = "查詞歷史"
+    override val pronunciation = "發音"
+    override val exampleSentence = "例句"
+    override val relatedWords = "相關詞彙"
 }
 
 /** English — Reader display, quick settings, directory/bookmarks/notes strings */
@@ -1093,4 +1127,21 @@ internal data object EnReader : ReaderStrings {
     override val settingsTabTypeAndFont = "Typeset"
     override val settingsTabAppearance = "Display"
     override val settingsTabBehavior = "Behavior"
+
+    // Dictionary Lookup
+    override val lookupWord = "Lookup"
+    override val dictionaryTitle = "Dictionary"
+    override val noDefinition = "No definition found"
+    override val noDefinitionHint = "Check spelling or try another dictionary"
+    override val addToVocab = "Add to Vocabulary"
+    override val addedToVocab = "Added to Vocabulary"
+    override val copyDefinition = "Copy Definition"
+    override val dictManagement = "Dictionary Management"
+    override val searchInDict = "Search in Dictionary"
+    override val clearHistory = "Clear History"
+    override val wordBook = "Vocabulary Book"
+    override val lookupHistory = "Lookup History"
+    override val pronunciation = "Pronunciation"
+    override val exampleSentence = "Example"
+    override val relatedWords = "Related Words"
 }

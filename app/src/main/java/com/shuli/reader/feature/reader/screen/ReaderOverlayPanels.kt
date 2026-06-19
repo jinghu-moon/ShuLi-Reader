@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import com.shuli.reader.feature.reader.screen.ReaderIntent
 import com.shuli.reader.feature.reader.screen.ReaderUiState
 import com.shuli.reader.feature.reader.component.DirectoryDrawer
+import com.shuli.reader.feature.reader.dictionary.DictionaryBottomSheet
 import com.shuli.reader.feature.reader.settings.panel.ReaderSettingsModal
 
 /**
@@ -58,6 +59,17 @@ internal fun ReaderOverlayPanels(
         ReaderSettingsModal(
             uiState = uiState,
             dispatch = dispatch,
+        )
+    }
+
+    // 查词结果面板
+    if (uiState.showDictionary) {
+        DictionaryBottomSheet(
+            uiState = uiState,
+            onDismiss = { dispatch(ReaderIntent.DismissDictionary) },
+            onLookup = { word -> dispatch(ReaderIntent.LookupWord(word)) },
+            onAddToWordBook = { word -> dispatch(ReaderIntent.AddToWordBook(word)) },
+            onCopyDefinition = { /* TODO: 复制到剪贴板 */ },
         )
     }
 }

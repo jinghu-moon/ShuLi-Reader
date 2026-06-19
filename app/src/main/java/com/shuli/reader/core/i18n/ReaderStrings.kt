@@ -380,4 +380,21 @@ interface ReaderStrings {
     val settingsTabTypeAndFont: String
     val settingsTabAppearance: String
     val settingsTabBehavior: String
+
+    // ── 划词查词 ──
+    val lookupWord: String
+    val dictionaryTitle: String
+    val noDefinition: String
+    val noDefinitionHint: String
+    val addToVocab: String
+    val addedToVocab: String
+    val copyDefinition: String
+    val dictManagement: String
+    val searchInDict: String
+    val clearHistory: String
+    val wordBook: String
+    val lookupHistory: String
+    val pronunciation: String
+    val exampleSentence: String
+    val relatedWords: String
 }
