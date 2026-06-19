@@ -175,18 +175,57 @@ class DictionaryManager(
 
     /**
      * 从目录注册 MDX 词典
+     *
+     * 尝试从 MDX header 中读取 Title 作为显示名称
      */
     private suspend fun registerMdxFromDir(mdxFile: File) {
         val dictKey = mdxFile.nameWithoutExtension
 
+        // 尝试从 MDX header 获取真实标题
+        val title = try {
+            getMdxTitle(mdxFile)
+        } catch (e: Exception) {
+            null
+        }
+
         val entity = DictMetaEntity(
             dictKey = dictKey,
-            displayName = dictKey,
+            displayName = title?.takeIf { it.isNotBlank() } ?: dictKey,
             format = "mdx",
             filePath = mdxFile.absolutePath,
         )
 
         dictMetaDao.insert(entity)
+    }
+
+    /**
+     * 从 MDX 文件读取标题
+     *
+     * 通过反射调用 mdict 模块的 HeaderParser
+     */
+    private fun getMdxTitle(mdxFile: File): String? {
+        return try {
+            val mdictClass = Class.forName("com.shuli.reader.mdict.MdictParser")
+            val openMethod = mdictClass.getMethod("open", java.io.File::class.java, java.io.File::class.java)
+            val parser = openMethod.invoke(null, mdxFile, null)
+
+            // 获取 header.title
+            val headerField = parser.javaClass.getDeclaredField("header")
+            headerField.isAccessible = true
+            val header = headerField.get(parser)
+
+            val titleField = header.javaClass.getMethod("getTitle")
+            val title = titleField.invoke(header) as? String
+
+            // 关闭 parser
+            val closeMethod = parser.javaClass.getMethod("close")
+            closeMethod.invoke(parser)
+
+            title
+        } catch (e: Exception) {
+            android.util.Log.w("DictionaryManager", "Failed to get MDX title", e)
+            null
+        }
     }
 
     /**
