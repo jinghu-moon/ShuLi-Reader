@@ -2,14 +2,19 @@ package com.shuli.reader.feature.settings
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -27,6 +32,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.shuli.reader.core.ShuLiAppContainer
 import com.shuli.reader.core.i18n.LocalAppStrings
+import com.shuli.reader.feature.settings.components.SettingsClickItem
+import com.shuli.reader.feature.settings.components.SettingsSectionHeader
 import com.shuli.reader.feature.settings.sections.AboutSection
 import com.shuli.reader.feature.settings.sections.AdvancedSection
 import com.shuli.reader.feature.settings.sections.AppearanceSection
@@ -46,6 +53,8 @@ internal sealed class SettingsSubScreen {
     data object Logs : SettingsSubScreen()
     data object Export : SettingsSubScreen()
     data object LocalBackup : SettingsSubScreen()
+    data object DictManagement : SettingsSubScreen()
+    data object WordBook : SettingsSubScreen()
 }
 
 // ================= 主屏幕（薄容器） =================
@@ -133,6 +142,12 @@ fun SettingsScreen(
                 )
             }
             item {
+                DictionarySection(
+                    onNavigateToDictManagement = { currentSubScreen = SettingsSubScreen.DictManagement },
+                    onNavigateToWordBook = { currentSubScreen = SettingsSubScreen.WordBook },
+                )
+            }
+            item {
                 AdvancedSection(
                     uiState = uiState,
                     viewModel = viewModel,
@@ -171,4 +186,35 @@ fun SettingsScreen(
         showLicenseDialog = showLicenseDialog,
         onLicenseDialogChange = { showLicenseDialog = it },
     )
+}
+
+// ================= 词典与生词本 Section =================
+
+@Composable
+private fun DictionarySection(
+    onNavigateToDictManagement: () -> Unit,
+    onNavigateToWordBook: () -> Unit,
+) {
+    val strings = LocalAppStrings.current
+
+    SettingsSectionHeader(title = "词典与生词本", icon = Icons.Outlined.MenuBook)
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        ),
+        modifier = Modifier.padding(bottom = 24.dp),
+    ) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            SettingsClickItem(
+                title = "词典管理",
+                subtitle = "导入和管理词典文件",
+                onClick = onNavigateToDictManagement,
+            )
+            SettingsClickItem(
+                title = "生词本",
+                subtitle = "查看收藏的生词",
+                onClick = onNavigateToWordBook,
+            )
+        }
+    }
 }

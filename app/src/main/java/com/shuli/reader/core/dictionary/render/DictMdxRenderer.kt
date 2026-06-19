@@ -190,8 +190,13 @@ object DictMdxRenderer {
             // 将深色文字调整为浅色
             val luminance = color.luminance()
             if (luminance < 0.3f) {
-                // 深色文字 → 浅色
-                color.copy(alpha = 0.9f)
+                // 深色文字 → 浅色（反转并提亮）
+                Color(
+                    red = (1f - color.red * 0.5f).coerceIn(0f, 1f),
+                    green = (1f - color.green * 0.5f).coerceIn(0f, 1f),
+                    blue = (1f - color.blue * 0.5f).coerceIn(0f, 1f),
+                    alpha = color.alpha,
+                )
             } else {
                 color
             }

@@ -222,18 +222,50 @@ class DictionaryManager(
                     }
                     DictFormat.STAR_DICT -> {
                         // Stardict 需要 .ifo + .idx + .dict 三个文件
-                        // 只导入 .ifo，其他文件需要一起选择
                         if (fileName.endsWith(".ifo")) {
                             val dictKey = fileNameWithoutExt(fileName)
-                            val existing = dictMetaDao.getByKey(dictKey)
-                            if (existing == null) {
-                                dictMetaDao.insert(DictMetaEntity(
-                                    dictKey = dictKey,
-                                    displayName = fileNameWithoutExt(fileName),
-                                    format = "stardict",
-                                    filePath = destFile.absolutePath,
-                                ))
-                                count++
+                            val basePath = fileNameWithoutExt(fileName)
+
+                            // 尝试复制同名的 .idx 和 .dict/.dict.dz 文件
+                            val idxFileName = "$basePath.idx"
+                            val dictFileName = "$basePath.dict"
+                            val dictDzFileName = "$basePath.dict.dz"
+
+                            // 从源 Uri 推断同名文件
+                            val sourceDir = uri.path?.substringBeforeLast('/')
+                            if (sourceDir != null) {
+                                // 尝试复制 .idx
+                                tryCopyRelatedFile(context, uri, fileName, idxFileName)
+                                // 尝试复制 .dict
+                                tryCopyRelatedFile(context, uri, fileName, dictFileName)
+                                // 尝试复制 .dict.dz
+                                tryCopyRelatedFile(context, uri, fileName, dictDzFileName)
+                            }
+
+                            // 检查文件是否齐全
+                            val idxFile = File(dictDir, idxFileName)
+                            val dictFile = File(dictDir, dictFileName)
+                            val dictDzFile = File(dictDir, dictDzFileName)
+
+                            if (idxFile.exists() && (dictFile.exists() || dictDzFile.exists())) {
+                                val existing = dictMetaDao.getByKey(dictKey)
+                                if (existing == null) {
+                                    dictMetaDao.insert(DictMetaEntity(
+                                        dictKey = dictKey,
+                                        displayName = fileNameWithoutExt(fileName),
+                                        format = "stardict",
+                                        filePath = destFile.absolutePath,
+                                        indexPath = idxFile.absolutePath,
+                                        dataPath = if (dictDzFile.exists()) dictDzFile.absolutePath else dictFile.absolutePath,
+                                    ))
+                                    count++
+                                }
+                            } else {
+                                // 文件不齐全，删除已复制的文件
+                                destFile.delete()
+                                idxFile.delete()
+                                dictFile.delete()
+                                dictDzFile.delete()
                             }
                         }
                     }
@@ -272,6 +304,34 @@ class DictionaryManager(
     }
 
     /**
+     * 尝试复制同名相关文件（如 .ifo → .idx + .dict）
+     */
+    private fun tryCopyRelatedFile(
+        context: Context,
+        originalUri: Uri,
+        originalFileName: String,
+        relatedFileName: String,
+    ) {
+        try {
+            // 构造同名文件的 Uri
+            val originalPath = originalUri.path ?: return
+            val relatedPath = originalPath.substringBeforeLast('/') + '/' + relatedFileName
+            val relatedUri = Uri.parse(originalPath.substringBefore(':') + ":" + relatedPath)
+
+            val destFile = File(dictDir, relatedFileName)
+            if (!destFile.exists()) {
+                context.contentResolver.openInputStream(relatedUri)?.use { input ->
+                    destFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            // 文件不存在或无法访问，忽略
+        }
+    }
+
+    /**
      * 删除词典
      */
     suspend fun deleteDictionary(dictKey: String) = withContext(Dispatchers.IO) {
@@ -284,6 +344,14 @@ class DictionaryManager(
             File(entity.filePath).delete()
             entity.indexPath?.let { File(it).delete() }
             entity.dataPath?.let { File(it).delete() }
+
+            // 删除同名 .mdd 文件（MDX 词典的资源文件）
+            if (entity.format == "mdx") {
+                val mddFile = File(entity.filePath.substringBeforeLast('.') + ".mdd")
+                if (mddFile.exists()) {
+                    mddFile.delete()
+                }
+            }
         }
 
         // 删除数据库记录

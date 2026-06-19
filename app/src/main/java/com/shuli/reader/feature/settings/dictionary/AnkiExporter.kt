@@ -26,8 +26,6 @@ class AnkiExporter(
      * @return 导出的单词数量
      */
     suspend fun exportToAnki(uri: Uri): Int = withContext(Dispatchers.IO) {
-        val words = wordBookDao.getAllFlow()
-        // 需要从 Flow 收集数据，这里简化处理
         val wordList = wordBookDao.getUnexported()
         if (wordList.isEmpty()) return@withContext 0
 

@@ -118,6 +118,75 @@ internal fun SubScreenNavigation(
                 onBackClick = { onSubScreenChange(null) },
             )
         }
+        is SettingsSubScreen.DictManagement -> {
+            val context = LocalContext.current
+            val dictMetaDao = appContainer?.database?.dictMetaDao()
+            val dictionaryManager = if (appContainer != null && dictMetaDao != null) {
+                com.shuli.reader.core.dictionary.manager.DictionaryManager(
+                    context = context,
+                    dictMetaDao = dictMetaDao,
+                    dictHistoryDao = appContainer.database.dictHistoryDao(),
+                    wordBookDao = appContainer.database.wordBookDao(),
+                )
+            } else null
+
+            if (dictMetaDao != null && dictionaryManager != null) {
+                val dictViewModel = remember {
+                    com.shuli.reader.feature.settings.dictionary.DictManagementViewModel(
+                        dictMetaDao = dictMetaDao,
+                        dictionaryManager = dictionaryManager,
+                    )
+                }
+
+                // SAF 导入 launcher
+                val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                    contract = androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments()
+                ) { uris ->
+                    if (uris.isNotEmpty()) {
+                        dictViewModel.importDictionaries(uris)
+                    }
+                }
+
+                com.shuli.reader.feature.settings.dictionary.DictManagementScreen(
+                    viewModel = dictViewModel,
+                    onBack = { onSubScreenChange(null) },
+                    onImport = {
+                        importLauncher.launch(arrayOf(
+                            "application/octet-stream",
+                            "application/x-mdx",
+                            "application/x-stardict",
+                        ))
+                    },
+                )
+            }
+        }
+        is SettingsSubScreen.WordBook -> {
+            val wordBookDao = appContainer?.database?.wordBookDao()
+            if (wordBookDao != null) {
+                val wordBookViewModel = remember {
+                    com.shuli.reader.feature.settings.dictionary.WordBookViewModel(
+                        wordBookDao = wordBookDao,
+                    )
+                }
+
+                // Anki 导出 launcher
+                val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                    contract = androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/tab-separated-values")
+                ) { uri ->
+                    if (uri != null) {
+                        // TODO: 调用 AnkiExporter 导出
+                    }
+                }
+
+                com.shuli.reader.feature.settings.dictionary.WordBookScreen(
+                    viewModel = wordBookViewModel,
+                    onBack = { onSubScreenChange(null) },
+                    onExportAnki = {
+                        exportLauncher.launch("shuli_vocabulary.tsv")
+                    },
+                )
+            }
+        }
         null -> {}
     }
 }
