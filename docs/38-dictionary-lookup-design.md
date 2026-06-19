@@ -1902,32 +1902,78 @@ val addToVocab: String          // "加入生词本"
 
 ## 16. 分阶段实施计划
 
-### Phase 1：字符级命中 + Stardict 核心查词 + 生词本（MVP）
+### Phase 1：字符级命中 + Stardict 核心查词 + 生词本（MVP）✅ 已完成
 
 **⚠️ 第一项工作（地基层）：**
-- [ ] **字符级命中 + 单词自动选区**（`selectWordAt()`）— 这是整个查词功能成立的前提。原型掩盖了 `selectLineAt()` 只命中整行的事实，必须先解决。详见 10.1.1
+- [x] **字符级命中 + 单词自动选区**（`selectWordAt()`）— 这是整个查词功能成立的前提。原型掩盖了 `selectLineAt()` 只命中整行的事实，必须先解决。详见 10.1.1
 
 **数据层：**
-- [ ] Stardict 解析器（`.ifo` / `.idx` / `.dict`）
-- [ ] **`.dict.dz` 随机访问支持**（`DictZipReader`，不可推迟）
-- [ ] **mmap + offset table 索引**（零 Java 对象，~1.5MB 内存）
-- [ ] `MappedByteBuffer` 实现 `.dict` 随机读取（>2GB 回退 RandomAccessFile）
-- [ ] 内置 **维基词典中文版**（中→中主力）+ CC-CEDICT（中→英补充）
-- [ ] 维基词典质量验证（50 词小说生僻词清单抽测）
-- [ ] `dict_history` 表（含 `isFavorite` + `contextSentence`）
-- [ ] **`word_book` 表**（`WordBookEntry`，完整生词本数据模型）
+- [x] Stardict 解析器（`.ifo` / `.idx` / `.dict`）
+- [x] **`.dict.dz` 随机访问支持**（`DictZipReader`，不可推迟）
+- [x] **mmap + offset table 索引**（零 Java 对象，~1.5MB 内存）
+- [x] `MappedByteBuffer` 实现 `.dict` 随机读取（>2GB 回退 RandomAccessFile）
+- [ ] 内置 **维基词典中文版**（中→中主力）+ CC-CEDICT（中→英补充）— 未内置，用户自行导入
+- [ ] 维基词典质量验证（50 词小说生僻词清单抽测）— 未内置
+- [x] `dict_history` 表（含 `isFavorite` + `contextSentence`）
+- [x] **`word_book` 表**（`WordBookEntry`，完整生词本数据模型）
 
 **查询引擎：**
-- [ ] 单词典精确查询 + **LRU 缓存**（256 条）
-- [ ] **后台索引预加载**（openBook 时启动低优先级任务）
-- [ ] **查询取消支持**（BottomSheet 关闭时取消 pending 查询）
-- [ ] **分层超时**（首次 300ms + 骨架屏 loading，热路径 50ms）
-- [ ] **索引 LRU 卸载**（64MB 上限，卸载最冷词典）
-- [ ] `LookupWord` intent 携带上下文句子
+- [x] 单词典精确查询 + **LRU 缓存**（256 条）
+- [x] **后台索引预加载**（openBook 时启动低优先级任务）
+- [x] **查询取消支持**（BottomSheet 关闭时取消 pending 查询）
+- [x] **分层超时**（首次 300ms + 骨架屏 loading，热路径 50ms）
+- [ ] **索引 LRU 卸载**（64MB 上限，卸载最冷词典）— 未实现
+- [x] `LookupWord` intent 携带上下文句子
 
 **UI：**
-- [ ] **固定底栏**新增「查词」按钮（Phase 1 不改造为浮动气泡，详见 10.1.2）
-- [ ] 查词结果 BottomSheet（M3 `ModalBottomSheet` + 自定义 detents，详见 10.1.3）
+- [x] **固定底栏**新增「查词」按钮（Phase 1 不改造为浮动气泡，详见 10.1.2）
+- [x] 查词结果 BottomSheet（M3 `ModalBottomSheet` + 自定义 detents，详见 10.1.3）
+- [ ] **可编辑搜索框**（默认只读，点击进入编辑态，不自动弹键盘）— Phase 3
+- [ ] **多词典 Tab 切换**（`HorizontalPager` + `ScrollableTabRow`，Tab 状态保持）— Phase 3
+- [ ] **词典徽章粘性吸顶**（Sticky Header）— Phase 3
+- [ ] **防遮挡智能滚动**（下半屏选词自动上滚 Canvas）— Phase 3
+- [ ] **词头标题自适应字号**（长句动态缩小）— Phase 3
+- [ ] **上下文释义展示**（显示 `contextSentence`）— Phase 3
+- [ ] **高频词过滤**（停用词表，仅拦截自动加入生词本，历史照常记录）— Phase 3
+- [ ] 未找到空态（虚线圆环 + **前缀匹配建议** + **繁简转换建议** + 「复制该词」按钮）— Phase 3
+- [ ] footer 三按钮（生词本 + 复制释义 + 历史）— Phase 3
+- [x] **Anki TSV 导出**（word + phonetic + definition + context，SAF 写文件）
+
+**渲染：**
+- [x] CC-CEDICT 条目专项渲染（繁简分离、拼音声调转换、义项列表、单义项无序号）
+- [x] Stardict HTML 释义渲染（Jsoup → **DictNode AST** → AnnotatedString）
+- [x] **统一渲染接口**（`DictRenderer` interface + DictNode AST）
+- [ ] **TTS 朗读词头**（Android `TextToSpeech` API，~15 行代码）— Phase 3
+
+**智能匹配：**
+- [x] **中文前向最大匹配**（基于字符级命中的起点，`smartLookup` 核心路径）
+- [x] **英文词形还原**（`EnglishStemmer`，轻量后缀剥离）
+
+### Phase 2：多格式支持 + 词典内跳转 + UI 升级 ✅ 已完成
+
+- [x] **mdict 解析引擎**（mdict 模块完整实现，非 mdict-java 集成）
+- [x] 用户导入词库（Stardict + MDX SAF 多选）
+- [x] 导入校验（Stardict 三文件完整性 + MDX Header）
+- [x] 词库管理界面（启用/禁用/删除）+ 空状态引导
+- [x] 多词典聚合查询（Stardict + MDX 混合）
+- [x] **选区扩展把手**（拖动调整选区起止位置）
+- [ ] **浮动气泡菜单**（从 Phase 1 固定底栏升级为浮动气泡，方向自适应 + 水平边界 clamp）— Phase 3
+- [ ] **`.syn` 同义词支持** — Phase 3
+- [ ] **模糊匹配**（Levenshtein ≤ 1，结果标注「你是不是要找」而非直接展示释义）— Phase 3
+- [x] **MDX 解析引擎**（mdict 模块自实现）
+- [x] **MDX 渲染管线**（DictStyleResolver + DictMdxRenderer + 暗色模式颜色覆盖）
+- [ ] **MDX 索引文件缓存**（Key Block Index 缓存到 filesDir/dict/cache/）— Phase 3
+- [x] **MDX 词典内跳转**（`entry://` 链接触发新查询）
+- [ ] **DSL 格式支持**（引入 dsl4j，GPL 3.0+ AGPL 兼容）— 未实现
+- [ ] MDD 资源加载（CSS + 图片提取）— Phase 3
+- [x] **生词本界面**（列表 + 搜索 + 删除）
+- [ ] 内置成语词典（~3 万条，Stardict，CC 协议）— Phase 3
+- [ ] 开源萌典转换工具（`tools/moedict2stardict/`）— 未实现
+- [x] **「关于」页面法律声明**（不提供词典数据声明）
+
+### Phase 3：增强与扩展
+
+**从 Phase 1/2 延期的功能：**
 - [ ] **可编辑搜索框**（默认只读，点击进入编辑态，不自动弹键盘）
 - [ ] **多词典 Tab 切换**（`HorizontalPager` + `ScrollableTabRow`，Tab 状态保持）
 - [ ] **词典徽章粘性吸顶**（Sticky Header）
@@ -1937,42 +1983,15 @@ val addToVocab: String          // "加入生词本"
 - [ ] **高频词过滤**（停用词表，仅拦截自动加入生词本，历史照常记录）
 - [ ] 未找到空态（虚线圆环 + **前缀匹配建议** + **繁简转换建议** + 「复制该词」按钮）
 - [ ] footer 三按钮（生词本 + 复制释义 + 历史）
-- [ ] **Anki TSV 导出**（word + phonetic + definition + context，SAF 写文件）
-
-**渲染：**
-- [ ] CC-CEDICT 条目专项渲染（繁简分离、拼音声调转换、义项列表、单义项无序号）
-- [ ] Stardict HTML 释义渲染（Jsoup → **DictNode AST** → AnnotatedString）
-- [ ] **统一渲染接口**（`DictRenderer` interface + DictNode AST）
 - [ ] **TTS 朗读词头**（Android `TextToSpeech` API，~15 行代码）
-
-**智能匹配：**
-- [ ] **中文前向最大匹配**（基于字符级命中的起点，`smartLookup` 核心路径）
-- [ ] **英文词形还原**（`EnglishStemmer`，轻量后缀剥离）
-
-### Phase 2：多格式支持 + 词典内跳转 + UI 升级
-
-- [ ] **mdict-java 集成 spike**（确认引入方式：很可能需要 vendoring 源码 + 自己维护，非标准 Gradle 依赖）
-- [ ] 用户导入词库（Stardict + MDX + DSL SAF 多选）
-- [ ] 导入校验（Stardict `idxfilesize` + MDX Header + DSL 编码检测）
-- [ ] 词库管理界面（启用/禁用/删除/排序/格式标签）+ 空状态引导 + MDX 纯文本模式开关
-- [ ] 多词典聚合查询（Stardict + MDX + DSL 混合）
-- [ ] **选区扩展把手**（拖动调整选区起止位置）
-- [ ] **浮动气泡菜单**（从 Phase 1 固定底栏升级为浮动气泡，方向自适应 + 水平边界 clamp）
+- [ ] **浮动气泡菜单**（方向自适应 + 水平边界 clamp）
 - [ ] **`.syn` 同义词支持**
-- [ ] **模糊匹配**（Levenshtein ≤ 1，结果标注「你是不是要找」而非直接展示释义）
-- [ ] **MDX 解析引擎**（基于 spike 结果决定方案 A 或 B）
-- [ ] **MDX 渲染管线**（DictStyleResolver + DictMdxRenderer + px→sp + CSS 缓存 + 暗色模式颜色覆盖）
-- [ ] **MDX 索引文件缓存**（Key Block Index 缓存到 filesDir/dict/cache/）
-- [ ] **MDX 词典内跳转**（`entry://` 链接触发新查询，Phase 2 而非 Phase 4）
-- [ ] **DSL 格式支持**（引入 dsl4j，GPL 3.0+ AGPL 兼容）
+- [ ] **模糊匹配**（Levenshtein ≤ 1）
+- [ ] **MDX 索引文件缓存**（Key Block Index 缓存）
 - [ ] MDD 资源加载（CSS + 图片提取）
-- [ ] **生词本界面**（列表 + 搜索 + 标签筛选）
 - [ ] 内置成语词典（~3 万条，Stardict，CC 协议）
-- [ ] 开源萌典转换工具（`tools/moedict2stardict/`）
-- [ ] **「关于」页面法律声明**（不提供词典数据声明）
 
-### Phase 3：增强与扩展
-
+**Phase 3 新增：**
 - [ ] 查词历史记录（持久化 + 列表页 + footer 入口）
 - [ ] 词头前缀匹配（联想建议）
 - [ ] MDD 图片资源完整展示
