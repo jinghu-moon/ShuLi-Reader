@@ -1,10 +1,14 @@
 package com.shuli.reader.core.dictionary.engine
 
+import com.shuli.reader.core.dictionary.model.DefinitionType
 import com.shuli.reader.core.dictionary.model.DictEntry
 import com.shuli.reader.core.dictionary.model.DictFormat
 import com.shuli.reader.core.database.dao.DictMetaDao
 import com.shuli.reader.core.database.entity.DictMetaEntity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
@@ -20,12 +24,28 @@ class DictLookupEngine(
     /** 已加载的词典解析器（dictKey -> parser） */
     private val parsers = ConcurrentHashMap<String, Any>()
 
+    /** 已加载词典的元数据（用于排序） */
+    private val dictMetaMap = ConcurrentHashMap<String, DictMetaEntity>()
+
     /** LRU 缓存（word -> results） */
     private val cache = LruCache<String, List<DictEntry>>(256)
 
     /** 是否已初始化 */
     @Volatile
     private var initialized = false
+
+    /** 当前查询 Job（用于取消） */
+    @Volatile
+    private var currentLookupJob: Job? = null
+
+    companion object {
+        /** 首次查询超时（冷启动） */
+        private const val COLD_TIMEOUT_MS = 500L
+        /** 热路径查询超时 */
+        private const val HOT_TIMEOUT_MS = 100L
+        /** 完整查询超时（无结果时的兜底） */
+        private const val FULL_TIMEOUT_MS = 2000L
+    }
 
     /**
      * 初始化：预加载所有启用词典的索引
@@ -37,6 +57,7 @@ class DictLookupEngine(
         dicts.forEach { entity ->
             try {
                 loadDictionary(entity)
+                dictMetaMap[entity.dictKey] = entity
             } catch (e: Exception) {
                 // 加载失败，跳过
                 android.util.Log.w("DictLookupEngine", "Failed to load dict: ${entity.dictKey}", e)
@@ -57,17 +78,13 @@ class DictLookupEngine(
                 stardict
             }
             "mdx" -> {
-                // MDX 支持已在 mdict 模块实现，这里使用 MdictParser
-                val mdictClass = try {
-                    Class.forName("com.shuli.reader.mdict.MdictParser")
-                } catch (e: ClassNotFoundException) {
-                    null
-                }
-                if (mdictClass != null) {
-                    val parser = mdictClass.getConstructor(String::class.java)
-                        .newInstance(entity.filePath)
-                    parser
-                } else {
+                // MDX 支持已在 mdict 模块实现，通过 companion object 的 open 方法加载
+                try {
+                    val mdictClass = Class.forName("com.shuli.reader.mdict.MdictParser")
+                    val openMethod = mdictClass.getMethod("open", java.io.File::class.java, java.io.File::class.java)
+                    openMethod.invoke(null, java.io.File(entity.filePath), null)
+                } catch (e: Exception) {
+                    android.util.Log.w("DictLookupEngine", "Failed to load MDX: ${entity.dictKey}", e)
                     null
                 }
             }
@@ -80,36 +97,56 @@ class DictLookupEngine(
     }
 
     /**
+     * 取消当前查询
+     */
+    fun cancelPending() {
+        currentLookupJob?.cancel()
+        currentLookupJob = null
+    }
+
+    /**
      * 智能查词
      *
-     * 1. 尝试精确匹配
-     * 2. 尝试词干提取后匹配
-     * 3. 尝试中文前向最大匹配
+     * 1. 先查缓存
+     * 2. 快速查询（热路径超时）
+     * 3. 如果无结果，完整查询（冷启动超时）
      *
      * @param word 查询单词
-     * @param timeoutMs 超时时间（毫秒）
-     * @return 查询结果列表
+     * @param isColdStart 是否为冷启动（首次查询）
+     * @return 查询结果列表（按词典优先级排序）
      */
     suspend fun smartLookup(
         word: String,
-        timeoutMs: Long = 3000,
+        isColdStart: Boolean = false,
     ): List<DictEntry> = withContext(Dispatchers.IO) {
         val normalized = WordNormalizer.normalize(word)
 
         // 检查缓存
         cache.get(normalized)?.let { return@withContext it }
 
-        // 带超时的查询
-        val results = withTimeoutOrNull(timeoutMs) {
-            lookupInternal(normalized)
-        } ?: emptyList()
+        // 分层超时
+        val timeoutMs = if (isColdStart) COLD_TIMEOUT_MS else HOT_TIMEOUT_MS
 
-        // 写入缓存
-        if (results.isNotEmpty()) {
-            cache.put(normalized, results)
+        // 快速查询
+        var results = withTimeoutOrNull(timeoutMs) {
+            lookupInternal(normalized)
         }
 
-        results
+        // 如果快速查询无结果，尝试完整查询
+        if (results.isNullOrEmpty() && !isColdStart) {
+            results = withTimeoutOrNull(FULL_TIMEOUT_MS) {
+                lookupInternal(normalized)
+            }
+        }
+
+        val finalResults = results ?: emptyList()
+
+        // 写入缓存
+        if (finalResults.isNotEmpty()) {
+            cache.put(normalized, finalResults)
+        }
+
+        finalResults
     }
 
     /**
@@ -120,20 +157,22 @@ class DictLookupEngine(
 
         // 1. 精确匹配
         for ((dictKey, parser) in parsers) {
+            kotlinx.coroutines.currentCoroutineContext().ensureActive() // 检查取消
             val entry = lookupInParser(parser, word)
             if (entry != null) {
-                results.add(entry)
+                results.add(entry.copy(dictKey = dictKey, dictName = dictMetaMap[dictKey]?.displayName ?: dictKey))
             }
         }
 
-        // 2. 如果精确匹配无结果，尝试词干提取
-        if (results.isEmpty() && WordNormalizer.containsChinese(word).not()) {
+        // 2. 如果精确匹配无结果，尝试词干提取（英文）
+        if (results.isEmpty() && !WordNormalizer.containsChinese(word)) {
             val stemmed = EnglishStemmer.stem(word)
             if (stemmed != word) {
                 for ((dictKey, parser) in parsers) {
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
                     val entry = lookupInParser(parser, stemmed)
                     if (entry != null) {
-                        results.add(entry)
+                        results.add(entry.copy(dictKey = dictKey, dictName = dictMetaMap[dictKey]?.displayName ?: dictKey))
                     }
                 }
             }
@@ -141,18 +180,24 @@ class DictLookupEngine(
 
         // 3. 如果是中文，尝试前向最大匹配
         if (results.isEmpty() && WordNormalizer.containsChinese(word)) {
-            val matched = WordNormalizer.forwardMaxMatch(word, 0)
+            val matched = WordNormalizer.forwardMaxMatch(word, 0, { candidate ->
+                parsers.values.any { parser -> lookupInParser(parser, candidate) != null }
+            })
             if (matched != word && matched.length > 1) {
                 for ((dictKey, parser) in parsers) {
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
                     val entry = lookupInParser(parser, matched)
                     if (entry != null) {
-                        results.add(entry)
+                        results.add(entry.copy(dictKey = dictKey, dictName = dictMetaMap[dictKey]?.displayName ?: dictKey))
                     }
                 }
             }
         }
 
-        return results
+        // 按词典优先级排序
+        return results.sortedBy { entry ->
+            dictMetaMap[entry.dictKey]?.priority ?: Int.MAX_VALUE
+        }
     }
 
     /**
@@ -164,8 +209,21 @@ class DictLookupEngine(
             else -> {
                 // MDX 通过反射调用
                 try {
-                    val method = parser.javaClass.getMethod("lookup", String::class.java)
-                    method.invoke(parser, word) as? DictEntry
+                    val lookupMethod = parser.javaClass.getMethod("lookup", String::class.java)
+                    val mdxEntry = lookupMethod.invoke(parser, word)
+                    if (mdxEntry != null) {
+                        val readDefMethod = parser.javaClass.getMethod("readDefinition", mdxEntry.javaClass, Int::class.java)
+                        val definition = readDefMethod.invoke(parser, mdxEntry, 0) as? String ?: ""
+                        DictEntry(
+                            word = word,
+                            definition = definition,
+                            dictKey = "",
+                            dictName = "",
+                            definitionType = if (definition.contains("<") && definition.contains(">")) DefinitionType.HTML else DefinitionType.TEXT,
+                        )
+                    } else {
+                        null
+                    }
                 } catch (e: Exception) {
                     null
                 }
@@ -183,7 +241,17 @@ class DictLookupEngine(
             for ((_, parser) in parsers) {
                 val words = when (parser) {
                     is StardictParser -> parser.searchByPrefix(prefix, limit)
-                    else -> emptyList()
+                    else -> {
+                        try {
+                            val method = parser.javaClass.getMethod("prefixRange", String::class.java, Int::class.java)
+                            val entries = method.invoke(parser, prefix, limit) as? List<*>
+                            entries?.mapNotNull { entry ->
+                                entry?.javaClass?.getMethod("getWord")?.invoke(entry) as? String
+                            } ?: emptyList()
+                        } catch (e: Exception) {
+                            emptyList()
+                        }
+                    }
                 }
                 results.addAll(words)
             }
@@ -196,6 +264,7 @@ class DictLookupEngine(
      */
     fun unloadDictionary(dictKey: String) {
         val parser = parsers.remove(dictKey)
+        dictMetaMap.remove(dictKey)
         when (parser) {
             is StardictParser -> parser.close()
             is AutoCloseable -> parser.close()
@@ -214,6 +283,7 @@ class DictLookupEngine(
             }
         }
         parsers.clear()
+        dictMetaMap.clear()
         cache.evictAll()
         initialized = false
     }

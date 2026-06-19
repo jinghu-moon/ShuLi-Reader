@@ -143,8 +143,8 @@ class CanvasTextSelection {
      * 从指定字符位置向两侧扩展，找到词边界
      *
      * 规则：
-     * - CJK 字符连续序列视为一个词
-     * - 英文字母/数字连续序列视为一个词
+     * - CJK 字符：使用前向最大匹配，最多 4 个连续字符
+     * - 英文字母/数字连续序列视为一个词（保留内部连字符和撇号）
      * - 标点、空格为边界
      */
     private fun findWordBoundary(content: CharSequence, charIndex: Int): Pair<Int, Int> {
@@ -157,21 +157,54 @@ class CanvasTextSelection {
             return Pair(charIndex, charIndex)
         }
 
-        // CJK 字符：向两侧扩展到非 CJK 字符
+        // CJK 字符：使用前向最大匹配
         if (isCJK(ch)) {
-            var start = charIndex
-            var end = charIndex + 1
-            while (start > 0 && isCJK(content[start - 1])) start--
-            while (end < content.length && isCJK(content[end])) end++
-            return Pair(start, end)
+            return findCJKWordBoundary(content, charIndex)
         }
 
-        // 英文字母/数字：向两侧扩展到非字母数字
+        // 英文字母/数字：向两侧扩展到非字母数字（保留内部连字符和撇号）
         var start = charIndex
         var end = charIndex + 1
-        while (start > 0 && content[start - 1].isLetterOrDigit()) start--
-        while (end < content.length && content[end].isLetterOrDigit()) end++
+        while (start > 0 && isWordChar(content[start - 1])) start--
+        while (end < content.length && isWordChar(content[end])) end++
         return Pair(start, end)
+    }
+
+    /**
+     * CJK 词边界检测（前向最大匹配）
+     *
+     * 从 charIndex 开始，尝试匹配 2-4 个连续 CJK 字符
+     * 返回最长匹配的词边界
+     */
+    private fun findCJKWordBoundary(content: CharSequence, charIndex: Int): Pair<Int, Int> {
+        val maxWordLen = 4
+        val start = charIndex
+
+        // 向前找到 CJK 词的起始位置
+        var wordStart = start
+        while (wordStart > 0 && isCJK(content[wordStart - 1]) && (start - wordStart) < maxWordLen - 1) {
+            wordStart--
+        }
+
+        // 向后找到 CJK 词的结束位置
+        var wordEnd = start + 1
+        while (wordEnd < content.length && isCJK(content[wordEnd]) && (wordEnd - wordStart) < maxWordLen) {
+            wordEnd++
+        }
+
+        // 如果只有一个字符，尝试向前扩展
+        if (wordEnd - wordStart <= 1 && wordStart > 0 && isCJK(content[wordStart - 1])) {
+            wordStart--
+        }
+
+        return Pair(wordStart, wordEnd)
+    }
+
+    /**
+     * 判断是否为单词字符（字母、数字、连字符、撇号）
+     */
+    private fun isWordChar(ch: Char): Boolean {
+        return ch.isLetterOrDigit() || ch == '-' || ch == '\''
     }
 
     /** 判断是否为 CJK 字符（中文、日文、韩文） */

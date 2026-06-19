@@ -1,6 +1,9 @@
 package com.shuli.reader.core.dictionary.engine
 
+import java.io.ByteArrayOutputStream
 import java.io.RandomAccessFile
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.charset.Charset
 import java.util.zip.Inflater
 
@@ -10,6 +13,8 @@ import java.util.zip.Inflater
  * DictZip 是 Stardict 的压缩格式，支持随机访问：
  * - 文件头部包含块索引（每个块的压缩偏移和原始大小）
  * - 读取时定位到对应块，解压后提取数据
+ *
+ * 参考规范：man dictzip / RFC1952 (GZIP)
  */
 class DictZipReader(
     private val filePath: String,
@@ -17,7 +22,8 @@ class DictZipReader(
 
     private val file = RandomAccessFile(filePath, "r")
     private var chunks: List<ChunkInfo> = emptyList()
-    private var headerSize: Int = 0
+    /** 压缩数据开始的文件偏移（GZip 头结束后） */
+    private var dataStartOffset: Long = 0
 
     init {
         parseHeader()
@@ -26,30 +32,35 @@ class DictZipReader(
     /**
      * 解析 DictZip 文件头
      *
-     * 文件格式：
-     * - GZip 头（10 字节）
-     * - FEXTRA 标志（如果有）
-     * - RA 块索引
+     * 文件格式（RFC1952）：
+     * - GZip 头（10 字节固定）
+     * - FEXTRA 标志（FLG bit 2）
+     * - XLEN (2 bytes, little-endian)
+     * - 子字段：SI1='R', SI2='A', SLEN, RA data...
+     * - FNAME, FCOMMENT, FHCRC（可选）
+     * - 压缩数据开始
      */
     private fun parseHeader() {
         file.seek(0)
 
-        // 读取 GZip 头
-        val id1 = file.readByte().toInt() and 0xFF
-        val id2 = file.readByte().toInt() and 0xFF
+        // 读取 GZip 固定头（10 字节）
+        val header = ByteArray(10)
+        file.readFully(header)
+
+        val id1 = header[0].toInt() and 0xFF
+        val id2 = header[1].toInt() and 0xFF
         if (id1 != 0x1F || id2 != 0x8B) {
             throw IllegalArgumentException("Not a valid gzip file: $filePath")
         }
 
-        val method = file.readByte().toInt() and 0xFF
-        val flags = file.readByte().toInt() and 0xFF
-
-        // 跳过 mtime, xfl, os
-        file.skipBytes(6)
+        val flags = header[3].toInt() and 0xFF
 
         // 检查 FEXTRA 标志
         if ((flags and 0x04) != 0) {
-            val xlen = file.readUnsignedShort()
+            // 读取 XLEN（小端序）
+            val xlenBuf = ByteArray(2)
+            file.readFully(xlenBuf)
+            val xlen = (xlenBuf[0].toInt() and 0xFF) or ((xlenBuf[1].toInt() and 0xFF) shl 8)
 
             // 读取子字段
             val startPos = file.filePointer
@@ -57,60 +68,78 @@ class DictZipReader(
 
             while (pos < startPos + xlen) {
                 file.seek(pos)
-                val subId1 = file.readByte().toInt() and 0xFF
-                val subId2 = file.readByte().toInt() and 0xFF
-                val subLen = file.readUnsignedShort()
+                val si1 = file.readByte().toInt() and 0xFF
+                val si2 = file.readByte().toInt() and 0xFF
 
-                if (subId1 == 'R'.code && subId2 == 'A'.code) {
+                // 读取子字段长度（小端序）
+                val slenBuf = ByteArray(2)
+                file.readFully(slenBuf)
+                val slen = (slenBuf[0].toInt() and 0xFF) or ((slenBuf[1].toInt() and 0xFF) shl 8)
+
+                if (si1 == 'R'.code && si2 == 'A'.code) {
                     // 找到 RA 块索引
-                    parseRaHeader(subLen)
+                    parseRaHeader(slen)
                     break
                 }
 
-                pos += 4 + subLen
+                pos += 4 + slen
             }
 
             file.seek(startPos + xlen)
         }
 
-        // 跳过 FNAME, FCOMMENT, FHCRC
+        // 跳过 FNAME（FLG bit 3）
         if ((flags and 0x08) != 0) {
             while (file.readByte().toInt() != 0) {}
         }
+        // 跳过 FCOMMENT（FLG bit 4）
         if ((flags and 0x10) != 0) {
             while (file.readByte().toInt() != 0) {}
         }
+        // 跳过 FHCRC（FLG bit 1）
         if ((flags and 0x02) != 0) {
             file.skipBytes(2)
         }
 
-        headerSize = file.filePointer.toInt()
+        // 记录压缩数据开始位置
+        dataStartOffset = file.filePointer
     }
 
     /**
      * 解析 RA（Random Access）子字段
+     *
+     * RA 格式（小端序）：
+     * - version: 2 bytes
+     * - chunk_length: 2 bytes（每个块解压后的大小）
+     * - chunk_count: 2 bytes
+     * - chunks: chunk_count 个 2 bytes（每个块的压缩大小）
      */
     private fun parseRaHeader(length: Int) {
         val startPos = file.filePointer
 
+        // 读取整个 RA 数据到缓冲区（小端序处理）
+        val raData = ByteArray(length)
+        file.readFully(raData)
+        val buf = ByteBuffer.wrap(raData).order(ByteOrder.LITTLE_ENDIAN)
+
         // 读取版本
-        val version = file.readShort().toInt()
+        val version = buf.short.toInt() and 0xFFFF
 
         // 读取块大小
-        val chunkLength = file.readShort().toInt() and 0xFFFF
+        val chunkLength = buf.short.toInt() and 0xFFFF
 
         // 读取块数量
-        val chunkCount = file.readShort().toInt() and 0xFFFF
+        val chunkCount = buf.short.toInt() and 0xFFFF
 
         // 读取每个块的压缩大小
-        val chunkSizes = mutableListOf<Int>()
+        val chunkSizes = IntArray(chunkCount)
         for (i in 0 until chunkCount) {
-            chunkSizes.add(file.readShort().toInt() and 0xFFFF)
+            chunkSizes[i] = buf.short.toInt() and 0xFFFF
         }
 
-        // 计算每个块的压缩偏移
+        // 计算每个块的压缩偏移（从 dataStartOffset 开始）
         val chunkList = mutableListOf<ChunkInfo>()
-        var compressedOffset = headerSize.toLong()
+        var compressedOffset = dataStartOffset
 
         for (i in 0 until chunkCount) {
             val compressedSize = chunkSizes[i]
@@ -129,16 +158,17 @@ class DictZipReader(
     /**
      * 读取指定偏移和大小的数据
      *
-     * @param offset 原始文件中的偏移
-     * @param size 数据大小
+     * @param offset 解压后数据中的偏移
+     * @param size 数据大小（字节）
      * @param charset 字符编码
      * @return 解码后的字符串
      */
     fun read(offset: Long, size: Int, charset: Charset): String {
         if (chunks.isEmpty()) {
-            throw IllegalStateException("DictZip not initialized")
+            throw IllegalStateException("DictZip not initialized: no chunks loaded")
         }
 
+        val chunkSize = chunks[0].uncompressedSize
         val result = ByteArray(size)
         var remaining = size
         var resultPos = 0
@@ -146,12 +176,12 @@ class DictZipReader(
 
         while (remaining > 0) {
             // 找到对应的块
-            val chunkIndex = (currentOffset / chunks[0].uncompressedSize).toInt()
+            val chunkIndex = (currentOffset / chunkSize).toInt()
             if (chunkIndex >= chunks.size) break
 
             val chunk = chunks[chunkIndex]
-            val chunkOffset = (currentOffset % chunk.uncompressedSize).toInt()
-            val bytesToRead = minOf(remaining, chunk.uncompressedSize - chunkOffset)
+            val chunkOffset = (currentOffset % chunkSize).toInt()
+            val bytesToRead = minOf(remaining, chunkSize - chunkOffset)
 
             // 解压块
             val decompressed = decompressChunk(chunk)
@@ -169,37 +199,39 @@ class DictZipReader(
 
     /**
      * 解压指定块
+     *
+     * 使用 ByteArrayOutputStream 替代 mutableListOf<Byte>() 提升性能
      */
     private fun decompressChunk(chunk: ChunkInfo): ByteArray {
         val compressedData = ByteArray(chunk.compressedSize)
         file.seek(chunk.compressedOffset)
         file.readFully(compressedData)
 
-        val inflater = Inflater(true)
+        val inflater = Inflater(true) // raw deflate
         inflater.setInput(compressedData)
 
-        val output = ByteArray(chunk.uncompressedSize * 2) // 预留足够空间
-        val resultBuilder = mutableListOf<Byte>()
+        val outputStream = ByteArrayOutputStream(chunk.uncompressedSize)
+        val buffer = ByteArray(4096)
 
         try {
-            val buffer = ByteArray(1024)
             while (!inflater.finished()) {
                 val count = inflater.inflate(buffer)
                 if (count == 0) {
                     if (inflater.needsDictionary()) {
-                        break
+                        throw IllegalStateException("Inflater needs dictionary")
                     }
                     if (inflater.finished()) break
+                    if (inflater.needsInput()) {
+                        throw IllegalStateException("Inflater needs more input")
+                    }
                 }
-                for (i in 0 until count) {
-                    resultBuilder.add(buffer[i])
-                }
+                outputStream.write(buffer, 0, count)
             }
         } finally {
             inflater.end()
         }
 
-        return resultBuilder.toByteArray()
+        return outputStream.toByteArray()
     }
 
     override fun close() {

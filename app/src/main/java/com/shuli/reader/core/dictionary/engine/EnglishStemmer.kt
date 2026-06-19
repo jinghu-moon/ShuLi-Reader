@@ -9,7 +9,36 @@ package com.shuli.reader.core.dictionary.engine
 object EnglishStemmer {
 
     /**
-     * 提取词干
+     * 生成词干候选列表
+     *
+     * 按优先级返回可能的词干形式，依次尝试每个候选
+     *
+     * @param word 英文单词
+     * @return 候选词干列表（第一个为最可能的词干）
+     */
+    fun stemCandidates(word: String): List<String> {
+        if (word.length < 3) return listOf(word)
+
+        val lower = word.lowercase()
+        val candidates = mutableListOf<String>()
+
+        // 原词本身
+        candidates.add(lower)
+
+        // 规则顺序很重要，优先匹配更具体的规则
+        val stemmed = stem(lower)
+        if (stemmed != lower) {
+            candidates.add(stemmed)
+        }
+
+        // 添加其他可能的变体
+        candidates.addAll(generateVariants(lower))
+
+        return candidates.distinct()
+    }
+
+    /**
+     * 提取词干（单一结果）
      *
      * @param word 英文单词
      * @return 词干形式
@@ -27,17 +56,18 @@ object EnglishStemmer {
                 lower.endsWith("zes") || lower.endsWith("ches") ||
                 lower.endsWith("shes") -> lower.dropLast(2)
             lower.endsWith("s") && !lower.endsWith("ss") &&
-                !lower.endsWith("us") && !lower.endsWith("is") -> lower.dropLast(1)
+                !lower.endsWith("us") && !lower.endsWith("is") &&
+                !lower.endsWith("os") -> lower.dropLast(1)
 
             // 过去式和进行时
             lower.endsWith("ied") && lower.length > 4 -> lower.dropLast(3) + "y"
             lower.endsWith("ed") && lower.length > 4 -> {
                 val base = lower.dropLast(2)
-                if (isConsonant(base, base.length - 1)) base else lower.dropLast(1)
+                if (base.length >= 3 && isConsonant(base, base.length - 1)) base else lower.dropLast(1)
             }
             lower.endsWith("ing") && lower.length > 5 -> {
                 val base = lower.dropLast(3)
-                if (isConsonant(base, base.length - 1)) base else lower.dropLast(1)
+                if (base.length >= 3 && isConsonant(base, base.length - 1)) base else lower.dropLast(1)
             }
 
             // 形容词比较级/最高级
@@ -76,11 +106,8 @@ object EnglishStemmer {
      * 用于查词时的模糊匹配
      */
     fun generateVariants(word: String): List<String> {
-        val variants = mutableSetOf<String>()
+        val variants = mutableListOf<String>()
         val lower = word.lowercase()
-
-        variants.add(lower)
-        variants.add(stem(lower))
 
         // 添加常见复数/时态变体
         if (!lower.endsWith("s")) {
@@ -100,7 +127,7 @@ object EnglishStemmer {
             variants.add(lower + "d")
         }
 
-        return variants.toList()
+        return variants
     }
 
     /**

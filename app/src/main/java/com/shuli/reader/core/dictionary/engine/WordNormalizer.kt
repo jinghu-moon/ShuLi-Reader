@@ -12,30 +12,57 @@ object WordNormalizer {
      *
      * - 去除首尾空格
      * - 转小写（英文）
-     * - 去除标点
+     * - 保留内部标点（如 don't, ice-cream）
      */
     fun normalize(word: String): String {
-        return word.trim()
-            .lowercase()
-            .replace(Regex("[^\\p{L}\\p{N}]"), "")
+        return word.trim().lowercase()
     }
 
     /**
-     * 中文前向最大匹配
+     * 中文前向最大匹配（带词典查询）
      *
-     * 从位置 start 开始，尝试匹配最长的中文词（最多 maxLen 个字符）
+     * 从位置 start 开始，尝试匹配最长的中文词（最多 maxLen 个字符），
+     * 在词典中查找，逐步截短直到命中。
      *
      * @param text 原文
      * @param start 起始位置
-     * @param maxLen 最大词长（默认 8）
+     * @param isInDictionary 词典查询函数，返回 true 表示该词在词典中存在
+     * @param maxLen 最大词长（默认 6）
      * @return 匹配的词，未匹配返回单个字符
      */
-    fun forwardMaxMatch(text: String, start: Int, maxLen: Int = 8): String {
+    fun forwardMaxMatch(
+        text: String,
+        start: Int,
+        isInDictionary: (String) -> Boolean,
+        maxLen: Int = 6,
+    ): String {
         if (start >= text.length) return ""
 
         val end = minOf(start + maxLen, text.length)
 
-        // 从最长开始尝试
+        // 从最长开始尝试，在词典中查找
+        for (len in end - start downTo 2) {
+            val candidate = text.substring(start, start + len)
+            if (isAllChinese(candidate) && isInDictionary(candidate)) {
+                return candidate
+            }
+        }
+
+        // 未匹配到词，返回单个字符
+        return text[start].toString()
+    }
+
+    /**
+     * 简化版前向最大匹配（无词典查询）
+     *
+     * 用于无词典场景，使用启发式规则：连续 CJK 字符最多匹配 4 个
+     */
+    fun forwardMaxMatchSimple(text: String, start: Int, maxLen: Int = 4): String {
+        if (start >= text.length) return ""
+
+        val end = minOf(start + maxLen, text.length)
+
+        // 尝试匹配 2-maxLen 个连续中文字符
         for (len in end - start downTo 2) {
             val candidate = text.substring(start, start + len)
             if (isAllChinese(candidate)) {
@@ -51,6 +78,7 @@ object WordNormalizer {
      * 判断字符串是否全部为中文字符
      */
     fun isAllChinese(text: String): Boolean {
+        if (text.isEmpty()) return false
         return text.all { ch ->
             val code = ch.code
             code in 0x4E00..0x9FFF ||   // CJK Unified Ideographs
@@ -83,25 +111,20 @@ object WordNormalizer {
     /**
      * 提取连续中文词
      *
-     * 从文本中提取连续的中文字符序列
+     * 从文本中提取连续的中文字符序列，使用 FMM 分词
      */
-    fun extractChineseWords(text: String): List<String> {
+    fun extractChineseWords(text: String, maxWordLen: Int = 4): List<String> {
         val words = mutableListOf<String>()
-        val current = StringBuilder()
+        var i = 0
 
-        for (ch in text) {
-            if (isChinese(ch)) {
-                current.append(ch)
+        while (i < text.length) {
+            if (isChinese(text[i])) {
+                val word = forwardMaxMatchSimple(text, i, maxWordLen)
+                words.add(word)
+                i += word.length
             } else {
-                if (current.isNotEmpty()) {
-                    words.add(current.toString())
-                    current.clear()
-                }
+                i++
             }
-        }
-
-        if (current.isNotEmpty()) {
-            words.add(current.toString())
         }
 
         return words

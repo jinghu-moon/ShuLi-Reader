@@ -1,5 +1,6 @@
 package com.shuli.reader.core.dictionary.engine
 
+import com.shuli.reader.core.dictionary.model.DefinitionType
 import com.shuli.reader.core.dictionary.model.DictEntry
 import com.shuli.reader.core.dictionary.model.DictFormat
 import com.shuli.reader.core.dictionary.model.DictionaryMeta
@@ -21,6 +22,7 @@ class StardictParser(
     private var dictFile: RandomAccessFile? = null
     private var dictZipReader: DictZipReader? = null
     private var charset: Charset = Charsets.UTF_8
+    private var sameTypeSequence: String = ""
 
     /** 词典元数据 */
     val dictionaryMeta: DictionaryMeta?
@@ -70,6 +72,9 @@ class StardictParser(
             else -> Charsets.UTF_8
         }
 
+        // 保存 sameTypeSequence
+        sameTypeSequence = ifoInfo.sameTypeSequence
+
         // 加载索引
         index = StardictIndex(idxFile, charset, ifoInfo.wordCount)
 
@@ -110,7 +115,7 @@ class StardictParser(
             definition = definition,
             dictKey = m.dictKey,
             dictName = m.displayName,
-            isHtml = definition.contains("<") && definition.contains(">"),
+            definitionType = if (definition.contains("<") && definition.contains(">")) DefinitionType.HTML else DefinitionType.TEXT,
         )
     }
 
@@ -124,18 +129,99 @@ class StardictParser(
 
     /**
      * 读取释义内容
+     *
+     * 处理 sametypesequence 优化：
+     * - 如果 sametypesequence 存在（如 "m" 或 "h"），数据直接是文本内容
+     * - 否则，数据格式为：type(1 byte) + data + size(4 bytes)
      */
     private fun readDefinition(offset: Long, size: Int): String {
         val reader = dictZipReader
-        if (reader != null) {
-            return reader.read(offset, size, charset)
+        val rawBytes = if (reader != null) {
+            val raw = reader.read(offset, size, charset)
+            raw.toByteArray(charset)
+        } else {
+            val file = dictFile ?: return ""
+            file.seek(offset)
+            val bytes = ByteArray(size)
+            file.readFully(bytes)
+            bytes
         }
 
-        val file = dictFile ?: return ""
-        file.seek(offset)
-        val bytes = ByteArray(size)
-        file.readFully(bytes)
-        return String(bytes, charset)
+        // 如果 sametypesequence 存在，直接返回文本
+        if (sameTypeSequence.isNotEmpty()) {
+            return String(rawBytes, charset)
+        }
+
+        // 否则，解析 type + data + size 格式
+        return parseStardictEntry(rawBytes)
+    }
+
+    /**
+     * 解析 Stardict 条目数据
+     *
+     * 格式：type(1 byte) + data + size(4 bytes)
+     * type: 'm' = 纯文本, 'h' = HTML, 'x' = XDXF, 't' = 词性
+     */
+    private fun parseStardictEntry(bytes: ByteArray): String {
+        if (bytes.isEmpty()) return ""
+
+        var pos = 0
+        val result = StringBuilder()
+
+        while (pos < bytes.size) {
+            // 读取类型
+            val type = bytes[pos].toInt().toChar()
+            pos++
+
+            // 读取数据大小（4 字节，大端序）
+            if (pos + 4 > bytes.size) break
+            val dataSize = ((bytes[pos].toInt() and 0xFF) shl 24) or
+                ((bytes[pos + 1].toInt() and 0xFF) shl 16) or
+                ((bytes[pos + 2].toInt() and 0xFF) shl 8) or
+                (bytes[pos + 3].toInt() and 0xFF)
+            pos += 4
+
+            // 读取数据
+            if (pos + dataSize > bytes.size) break
+            val data = String(bytes, pos, dataSize, charset)
+            pos += dataSize
+
+            // 根据类型处理
+            when (type) {
+                'm', 'h', 'x' -> {
+                    if (result.isNotEmpty()) result.append("\n")
+                    result.append(data)
+                }
+                't' -> {
+                    // 词性标记，添加到结果前面
+                    result.insert(0, "[$data] ")
+                }
+                'l' -> {
+                    // 词形变化，忽略
+                }
+                'g' -> {
+                    // 语音数据，忽略
+                }
+                'y' -> {
+                    // 词性，添加到结果前面
+                    result.insert(0, "$data ")
+                }
+                'k' -> {
+                    // 词组，忽略
+                }
+                'w' -> {
+                    // 音标
+                    result.insert(0, "$data ")
+                }
+                else -> {
+                    // 未知类型，添加数据
+                    if (result.isNotEmpty()) result.append("\n")
+                    result.append(data)
+                }
+            }
+        }
+
+        return result.toString()
     }
 
     /**
