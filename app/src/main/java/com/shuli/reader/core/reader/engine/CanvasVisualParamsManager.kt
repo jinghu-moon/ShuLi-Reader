@@ -9,6 +9,7 @@ import com.shuli.reader.R
 import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.data.ThemeColors
 import com.shuli.reader.core.font.FontManager
+import com.shuli.reader.core.reader.engine.selection.SelectionVisualStyle
 import com.shuli.reader.core.reader.model.SelectionRange
 
 /**
@@ -248,7 +249,7 @@ internal class CanvasVisualParamsManager(
         headerPaint.color = headerColor
         footerPaint.color = footerColor
         progressPaint.color = progressColor
-        selectionPaint.color = progressColor.withAlpha(SELECTION_ALPHA)
+        selectionPaint.color = SelectionVisualStyle.HIGHLIGHT_COLOR
 
         onInvalidate()
     }
@@ -306,11 +307,4 @@ internal class CanvasVisualParamsManager(
         else -> Typeface.DEFAULT
     }
 
-    private fun Int.withAlpha(alpha: Int): Int {
-        return (this and 0x00FFFFFF) or (alpha shl 24)
-    }
-
-    private companion object {
-        private const val SELECTION_ALPHA = 0x33
-    }
 }

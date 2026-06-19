@@ -139,19 +139,21 @@ class CanvasTextSelection {
     fun hitTestHandle(
         x: Float,
         y: Float,
-        handleRadius: Float = HANDLE_RADIUS,
+        handleRadius: Float = HANDLE_TOUCH_RADIUS,
     ): HandleType? {
         // 检测起始把手
         val dxStart = x - startHandleScreenX
         val dyStart = y - startHandleScreenY
-        if (dxStart * dxStart + dyStart * dyStart <= handleRadius * handleRadius) {
+        val distStartSq = dxStart * dxStart + dyStart * dyStart
+        if (distStartSq <= handleRadius * handleRadius) {
             return if (reverseHandles) HandleType.END else HandleType.START
         }
 
         // 检测结束把手
         val dxEnd = x - endHandleScreenX
         val dyEnd = y - endHandleScreenY
-        if (dxEnd * dxEnd + dyEnd * dyEnd <= handleRadius * handleRadius) {
+        val distEndSq = dxEnd * dxEnd + dyEnd * dyEnd
+        if (distEndSq <= handleRadius * handleRadius) {
             return if (reverseHandles) HandleType.START else HandleType.END
         }
 
@@ -242,26 +244,25 @@ class CanvasTextSelection {
 
         if (startLine == null || endLine == null) return null
 
-        // 计算起始把手位置
+        // 起始把手圆点位于选区左上角，结束把手圆点位于选区右下角。
         val startX = bodyLeft + startLine.startXOffset + getCharXOffset(startLine, selectStart)
         startHandleScreenX = startX
-        startHandleScreenY = startLine.bottom + HANDLE_SIZE
+        startHandleScreenY = startLine.top
         val startRect = RectF(
-            startX - HANDLE_SIZE,
-            startLine.bottom,
-            startX + HANDLE_SIZE,
-            startLine.bottom + HANDLE_SIZE * 2
+            startX - HANDLE_DOT_RADIUS,
+            startLine.top - HANDLE_DOT_RADIUS,
+            startX + HANDLE_DOT_RADIUS,
+            startLine.bottom
         )
 
-        // 计算结束把手位置
-        val endX = bodyLeft + endLine.startXOffset + getCharXOffset(endLine, endCharIndex)
+        val endX = bodyLeft + endLine.startXOffset + getCharXOffset(endLine, selectEnd)
         endHandleScreenX = endX
-        endHandleScreenY = endLine.bottom + HANDLE_SIZE
+        endHandleScreenY = endLine.bottom
         val endRect = RectF(
-            endX - HANDLE_SIZE,
-            endLine.bottom,
-            endX + HANDLE_SIZE,
-            endLine.bottom + HANDLE_SIZE * 2
+            endX - HANDLE_DOT_RADIUS,
+            endLine.top,
+            endX + HANDLE_DOT_RADIUS,
+            endLine.bottom + HANDLE_DOT_RADIUS
         )
 
         return Pair(startRect, endRect)
@@ -485,8 +486,8 @@ class CanvasTextSelection {
         private const val TEXT_END_PADDING = 20f
         private const val SELECTION_HORIZONTAL_PADDING = 6f
         /** 把手检测半径（像素） */
-        const val HANDLE_RADIUS = 48f
+        const val HANDLE_TOUCH_RADIUS = SelectionVisualStyle.HANDLE_TOUCH_RADIUS
         /** 把手视觉大小（像素） */
-        const val HANDLE_SIZE = 10f
+        const val HANDLE_DOT_RADIUS = SelectionVisualStyle.HANDLE_DOT_RADIUS
     }
 }

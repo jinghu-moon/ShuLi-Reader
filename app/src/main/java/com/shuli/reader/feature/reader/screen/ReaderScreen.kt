@@ -11,7 +11,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,13 +22,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.offset
-import kotlin.math.roundToInt
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.platform.LocalConfiguration
-import android.content.res.Configuration
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -35,7 +32,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Note
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Close
@@ -44,7 +40,6 @@ import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -65,6 +60,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -74,6 +72,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.shuli.reader.core.font.FontManager
 import com.shuli.reader.core.i18n.LocalAppStrings
@@ -89,7 +88,6 @@ import com.shuli.reader.feature.reader.render.toRenderInput
 import com.shuli.reader.ui.testing.UiTestTags
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 import com.shuli.reader.ui.theme.ReaderDimens
-import com.shuli.reader.core.data.ReaderFontWeight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -230,8 +228,16 @@ fun ReaderScreen(
                                     else -> { /* NONE: no-op */ }
                                 }
                             }
-                            onTextSelected = { range, screenY ->
-                                viewModel.navigationCoordinator.selectText(range, screenY)
+                            onTextSelected = { range, screenX, screenY ->
+                                viewModel.navigationCoordinator.selectText(range, screenY = screenY, screenX = screenX)
+                            }
+                            onSelectionDragStart = {
+                                // 拖动开始，隐藏菜单
+                                viewModel.navigationCoordinator.clearTextSelection()
+                            }
+                            onSelectionDragEnd = { range, screenX, screenY ->
+                                // 拖动结束，更新选区并显示菜单
+                                viewModel.navigationCoordinator.selectText(range, screenY = screenY, screenX = screenX)
                             }
                             onCenterClicked = { dispatch(ReaderIntent.ToggleToolbar) }
                             onGestureAction = { action ->
@@ -341,17 +347,40 @@ fun ReaderScreen(
                 // 选区浮动操作菜单（浮动在选区上方或下方）
                 uiState.selectedRange?.let { range ->
                     val density = LocalDensity.current
+                    val selX = uiState.selectionScreenX
                     val selY = uiState.selectionScreenY
-                    val popupAbove = selY > 180f
-                    val popupOffsetY = with(density) {
-                        if (popupAbove) (selY - 64f).dp.roundToPx()
-                        else (selY + 32f).dp.roundToPx()
+                    val menuWidthPx = with(density) { SelectionMenuWidth.roundToPx() }
+                    val menuHeightPx = with(density) { SelectionMenuHeight.roundToPx() }
+                    val handleGapPx = with(density) { SelectionMenuHandleGap.roundToPx() }
+                    val screenWidth = uiState.currentPage?.layout?.pageWidth ?: 0f
+                    val screenHeight = uiState.currentPage?.layout?.pageHeight ?: 0f
+                    val preferBelow = screenHeight <= 0f ||
+                        selY + handleGapPx + menuHeightPx <= screenHeight - handleGapPx ||
+                        selY < menuHeightPx + handleGapPx
+                    val popupOffsetY = if (preferBelow) {
+                        selY + handleGapPx
+                    } else {
+                        selY - menuHeightPx - handleGapPx
+                    }
+                    val clampedOffsetY = if (screenHeight > 0f) {
+                        val maxY = (screenHeight - menuHeightPx - handleGapPx).coerceAtLeast(handleGapPx.toFloat())
+                        popupOffsetY.coerceIn(handleGapPx.toFloat(), maxY)
+                    } else {
+                        popupOffsetY
+                    }
+                    val popupOffsetX = if (screenWidth > 0f && selX > 0f) {
+                        val minCenterX = menuWidthPx / 2f + handleGapPx
+                        val maxCenterX = (screenWidth - menuWidthPx / 2f - handleGapPx).coerceAtLeast(minCenterX)
+                        selX.coerceIn(minCenterX, maxCenterX) - screenWidth / 2f
+                    } else {
+                        0f
                     }
                     androidx.compose.ui.window.Popup(
                         alignment = Alignment.TopCenter,
-                        offset = androidx.compose.ui.unit.IntOffset(0, popupOffsetY),
+                        offset = androidx.compose.ui.unit.IntOffset(popupOffsetX.toInt(), clampedOffsetY.toInt()),
                     ) {
                         ReaderSelectionActionBar(
+                            anchorAtTop = preferBelow,
                             onCopy = {
                                 range.selectedText?.takeIf { it.isNotBlank() }?.let { text ->
                                     clipboardManager.setText(AnnotatedString(text))
@@ -464,6 +493,7 @@ private fun ErrorDisplay(error: String, readerColors: com.shuli.reader.ui.theme.
 
 @Composable
 private fun ReaderSelectionActionBar(
+    anchorAtTop: Boolean,
     onCopy: () -> Unit,
     onBookmark: () -> Unit,
     onNote: () -> Unit,
@@ -471,50 +501,123 @@ private fun ReaderSelectionActionBar(
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalAppStrings.current
-    val readerColors = LocalReaderColorScheme.current
+    val menuColor = Color(0xFF252525)
+    val contentColor = Color.White
 
-    val actionButtonColors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-        containerColor = readerColors.divider,
-        contentColor = readerColors.textPrimary,
-    )
-
-    Surface(
-        color = readerColors.surface,
-        contentColor = readerColors.textPrimary,
-        tonalElevation = ReaderDimens.ElevationMedium,
-        shadowElevation = ReaderDimens.ElevationMedium + 2.dp,
-        shape = MaterialTheme.shapes.small,
-        modifier = modifier.wrapContentWidth().testTag(UiTestTags.READER_SELECTION_ACTION_BAR),
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .wrapContentWidth()
+            .testTag(UiTestTags.READER_SELECTION_ACTION_BAR),
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(ReaderDimens.PaddingSmall),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = ReaderDimens.PaddingMedium - 4.dp, vertical = ReaderDimens.PaddingSmall),
+        if (anchorAtTop) {
+            SelectionMenuAnchor(color = menuColor, pointsUp = true)
+        }
+        Surface(
+            color = menuColor,
+            contentColor = contentColor,
+            tonalElevation = 0.dp,
+            shadowElevation = ReaderDimens.ElevationMedium + 2.dp,
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.width(SelectionMenuWidth),
         ) {
-            FilledTonalButton(onClick = onLookup, colors = actionButtonColors) {
-                Icon(Icons.Outlined.Search, contentDescription = null)
-                Text(strings.reader.lookupWord)
-            }
-            // 分隔线
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(24.dp)
-                    .background(readerColors.divider)
-            )
-            FilledTonalButton(onClick = onCopy, colors = actionButtonColors, modifier = Modifier.testTag(UiTestTags.READER_COPY_SELECTION_BUTTON)) {
-                Icon(Icons.Outlined.ContentCopy, contentDescription = null)
-                Text(strings.reader.copySelection)
-            }
-            FilledTonalButton(onClick = onBookmark, colors = actionButtonColors, modifier = Modifier.testTag(UiTestTags.READER_BOOKMARK_SELECTION_BUTTON)) {
-                Icon(Icons.Outlined.Bookmark, contentDescription = null)
-                Text(strings.reader.addBookmarkAction)
-            }
-            FilledTonalButton(onClick = onNote, colors = actionButtonColors, modifier = Modifier.testTag(UiTestTags.READER_NOTE_SELECTION_BUTTON)) {
-                Icon(Icons.AutoMirrored.Outlined.Note, contentDescription = null)
-                Text(strings.reader.addNoteAction)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            ) {
+                SelectionMenuAction(
+                    icon = Icons.Outlined.Search,
+                    label = strings.reader.lookupWord,
+                    contentColor = contentColor,
+                    onClick = onLookup,
+                )
+                SelectionMenuAction(
+                    icon = Icons.Outlined.ContentCopy,
+                    label = strings.reader.copySelection,
+                    contentColor = contentColor,
+                    onClick = onCopy,
+                    modifier = Modifier.testTag(UiTestTags.READER_COPY_SELECTION_BUTTON),
+                )
+                SelectionMenuAction(
+                    icon = Icons.Outlined.Bookmark,
+                    label = strings.reader.addBookmarkAction,
+                    contentColor = contentColor,
+                    onClick = onBookmark,
+                    modifier = Modifier.testTag(UiTestTags.READER_BOOKMARK_SELECTION_BUTTON),
+                )
+                SelectionMenuAction(
+                    icon = Icons.AutoMirrored.Outlined.Note,
+                    label = strings.reader.addNoteAction,
+                    contentColor = contentColor,
+                    onClick = onNote,
+                    modifier = Modifier.testTag(UiTestTags.READER_NOTE_SELECTION_BUTTON),
+                )
             }
         }
+        if (!anchorAtTop) {
+            SelectionMenuAnchor(color = menuColor, pointsUp = false)
+        }
+    }
+}
+
+@Composable
+private fun SelectionMenuAnchor(color: Color, pointsUp: Boolean) {
+    Canvas(modifier = Modifier.size(width = 24.dp, height = SelectionMenuArrowHeight)) {
+        val path = Path().apply {
+            if (pointsUp) {
+                moveTo(size.width / 2f, 0f)
+                lineTo(0f, size.height)
+                lineTo(size.width, size.height)
+            } else {
+                moveTo(0f, 0f)
+                lineTo(size.width, 0f)
+                lineTo(size.width / 2f, size.height)
+            }
+            close()
+        }
+        drawPath(path, color)
+    }
+}
+
+private val SelectionMenuWidth = 306.dp
+private val SelectionMenuBodyHeight = 66.dp
+private val SelectionMenuArrowHeight = 10.dp
+private val SelectionMenuHeight = SelectionMenuBodyHeight + SelectionMenuArrowHeight
+private val SelectionMenuHandleGap = 8.dp
+
+@Composable
+private fun SelectionMenuAction(
+    icon: ImageVector,
+    label: String,
+    contentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = modifier
+            .width(70.dp)
+            .height(50.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = contentColor,
+            modifier = Modifier.size(24.dp),
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            color = contentColor,
+            fontSize = 12.sp,
+            lineHeight = 14.sp,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 

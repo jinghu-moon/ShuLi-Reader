@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShuLi Reader - 设置界面重构原型</title>
+<style>
+  /* ── 墨土色系 MoTuInk ── */
+  :root {
+    --ink-50: #F6F4F0; --ink-100: #EAE5DC; --ink-200: #D4CCC0;
+    --ink-300: #B9AFA0; --ink-400: #9C9082; --ink-500: #7D7162;
+    --ink-600: #5E5346; --ink-700: #453B2E; --ink-800: #2C231A;
+    --ink-900: #1A130B; --ink-950: #0C0804;
+    --green-50: #EEF4EE; --green-100: #D7E3D7; --green-300: #8FA78F;
+    --green-900: #142014;
+    --bg: var(--ink-50); --surface: #FFFFFF; --surface-var: var(--ink-100);
+    --text-1: var(--ink-900); --text-2: var(--ink-600); --text-3: var(--ink-400);
+    --accent: var(--ink-700); --divider: var(--ink-200); --outline: var(--ink-300);
+    --card-border: var(--ink-200); --card-bg: transparent;
+    --slider-track: var(--ink-200); --slider-fill: var(--ink-700);
+    --toggle-on: var(--ink-700); --toggle-off: var(--ink-200);
+  }
+  [data-theme="dark"] {
+    --bg: var(--ink-950); --surface: var(--ink-900); --surface-var: var(--ink-800);
+    --text-1: var(--ink-100); --text-2: var(--ink-400); --text-3: var(--ink-600);
+    --accent: var(--ink-200); --divider: var(--ink-700); --outline: var(--ink-600);
+    --card-border: var(--ink-700);
+    --slider-track: var(--ink-700); --slider-fill: var(--ink-200);
+    --toggle-on: var(--ink-200); --toggle-off: var(--ink-700);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'HarmonyOS Sans SC', 'Noto Sans SC', sans-serif;
+    background: #1a1a2e; display: flex; justify-content: center;
+    align-items: flex-start; min-height: 100vh; padding: 24px 0;
+  }
+
+  /* ── 手机容器 ── */
+  .phone {
+    width: 393px; height: 852px; background: var(--bg);
+    border-radius: 40px; overflow: hidden; position: relative;
+    box-shadow: 0 25px 80px rgba(0,0,0,.4), 0 0 0 2px #333;
+    display: flex; flex-direction: column;
+  }
+
+  /* ── 状态栏 ── */
+  .status-bar {
+    height: 54px; padding: 14px 28px 0; display: flex;
+    justify-content: space-between; align-items: center;
+    font-size: 12px; color: var(--text-2); flex-shrink: 0;
+    background: var(--bg);
+  }
+
+  /* ── LargeTopAppBar ── */
+  .app-bar {
+    flex-shrink: 0; background: var(--bg); padding: 0 20px;
+    transition: all .3s ease;
+  }
+  .app-bar-nav { display: flex; align-items: center; height: 48px; }
+  .back-btn {
+    width: 36px; height: 36px; border-radius: 50%; border: none;
+    background: transparent; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; color: var(--text-1);
+    font-size: 20px; transition: background .2s;
+  }
+  .back-btn:hover { background: var(--divider); }
+  .app-bar-title-small {
+    font-size: 16px; font-weight: 700; color: var(--text-1);
+    margin-left: 8px; opacity: 0; transition: opacity .3s;
+  }
+  .app-bar-title-large {
+    font-size: 28px; font-weight: 700; color: var(--text-1);
+    padding: 4px 4px 16px; transition: all .3s; transform-origin: left bottom;
+  }
+  .app-bar.collapsed .app-bar-title-small { opacity: 1; }
+  .app-bar.collapsed .app-bar-title-large {
+    height: 0; padding: 0 4px; opacity: 0; overflow: hidden;
+  }
+
+  /* ── 滚动内容 ── */
+  .content {
+    flex: 1; overflow-y: auto; padding: 0 16px 32px;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+  }
+  .content::-webkit-scrollbar { display: none; }
+
+  /* ── SettingsCard（描边圆角卡片） ── */
+  .settings-card {
+    border: 1px solid var(--card-border); border-radius: 10px;
+    padding: 14px; margin-bottom: 12px;
+  }
+  .card-title {
+    font-size: 11px; font-weight: 600; color: var(--text-2);
+    letter-spacing: .08em; margin-bottom: 10px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .card-title .collapse-icon {
+    font-size: 16px; color: var(--text-3); cursor: pointer;
+    transition: transform .3s; user-select: none;
+  }
+  .card-title .collapse-icon.rotated { transform: rotate(180deg); }
+
+  /* ── SettingRow ── */
+  .setting-row {
+    display: flex; align-items: center; justify-content: space-between;
+    min-height: 40px; padding: 10px 0; gap: 8px;
+  }
+  .setting-row + .setting-row { border-top: 1px solid var(--divider); }
+  .row-label { font-size: 14px; color: var(--text-1); white-space: nowrap; }
+  .row-sublabel { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+  /* ── InkStepperSlider ── */
+  .stepper-slider {
+    display: flex; align-items: center; gap: 6px; flex: 1;
+  }
+  .stepper-slider + .stepper-slider,
+  .setting-row + .stepper-slider,
+  .stepper-slider + .setting-row { border-top: 1px solid var(--divider); }
+  .stepper-slider { padding: 8px 0; }
+  .stepper-label {
+    font-size: 14px; color: var(--text-1); min-width: 56px;
+    white-space: nowrap;
+  }
+  .stepper-btn {
+    width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--divider);
+    background: transparent; color: var(--text-2); font-size: 16px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all .15s; flex-shrink: 0; line-height: 1;
+  }
+  .stepper-btn:hover { background: var(--divider); }
+  .stepper-btn:active { transform: scale(.9); }
+  .slider-track {
+    flex: 1; height: 4px; background: var(--slider-track); border-radius: 2px;
+    position: relative; cursor: pointer; min-width: 60px;
+  }
+  .slider-fill {
+    height: 100%; border-radius: 2px; background: var(--slider-fill);
+    position: relative; transition: width .15s;
+  }
+  .slider-thumb {
+    width: 16px; height: 16px; border-radius: 50%; background: var(--slider-fill);
+    position: absolute; right: -8px; top: -6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  }
+  .stepper-value {
+    font-size: 12px; color: var(--text-2); font-family: 'SF Mono', monospace;
+    min-width: 36px; text-align: right; white-space: nowrap;
+  }
+
+  /* ── InkToggle ── */
+  .ink-toggle {
+    width: 42px; height: 24px; border-radius: 12px; cursor: pointer;
+    position: relative; transition: background .25s; flex-shrink: 0;
+  }
+  .ink-toggle.on { background: var(--toggle-on); }
+  .ink-toggle.off { background: var(--toggle-off); }
+  .ink-toggle .knob {
+    width: 18px; height: 18px; border-radius: 50%; background: #fff;
+    position: absolute; top: 3px; transition: left .25s;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  }
+  .ink-toggle.on .knob { left: 21px; }
+  .ink-toggle.off .knob { left: 3px; }
+
+  /* ── InkSelect ── */
+  .ink-select {
+    display: inline-flex; align-items: center; gap: 2px;
+    background: var(--bg); border: 1px solid var(--divider);
+    border-radius: 6px; padding: 5px 4px 5px 10px; cursor: pointer;
+    font-size: 13px; color: var(--text-1); transition: all .15s;
+    white-space: nowrap;
+  }
+  .ink-select:hover { border-color: var(--outline); }
+  .ink-select .arrow { font-size: 18px; color: var(--text-3); line-height: 1; }
+
+  /* ── ThemeSwatchRow ── */
+  .swatch-row {
+    display: flex; align-items: center; padding: 8px 0; gap: 10px;
+    flex-wrap: wrap;
+  }
+  .swatch-row-label { font-size: 14px; color: var(--text-1); margin-right: auto; }
+  .swatches { display: flex; gap: 10px; align-items: center; }
+  .swatch {
+    width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+    border: 1px solid rgba(0,0,0,.1); position: relative;
+    transition: transform .15s; display: flex; align-items: center;
+    justify-content: center;
+  }
+  .swatch:hover { transform: scale(1.1); }
+  .swatch.selected {
+    box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--accent);
+    border-color: transparent;
+  }
+  .swatch .check {
+    font-size: 14px; font-weight: 700; opacity: 0; transition: opacity .2s;
+  }
+  .swatch.selected .check { opacity: 1; }
+  .swatch-add {
+    width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+    border: 1px solid var(--divider); background: var(--surface);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: var(--text-2); transition: all .15s;
+  }
+  .swatch-add:hover { border-color: var(--outline); background: var(--divider); }
+
+  /* ── App 主题色块（浅色/深色/跟随系统）── */
+  .theme-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .theme-chip {
+    display: flex; align-items: center; gap: 6px; padding: 6px 12px;
+    border-radius: 8px; border: 1px solid var(--divider); cursor: pointer;
+    font-size: 12px; color: var(--text-2); transition: all .2s;
+    background: transparent;
+  }
+  .theme-chip:hover { border-color: var(--outline); }
+  .theme-chip.active {
+    border-color: var(--accent); color: var(--text-1);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+  .theme-chip .chip-dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 1px solid rgba(0,0,0,.1); flex-shrink: 0;
+  }
+
+  /* ── SettingsButtonItem ── */
+  .outlined-btn {
+    padding: 6px 14px; border-radius: 6px; border: 1px solid var(--divider);
+    background: transparent; color: var(--text-2); font-size: 12px;
+    cursor: pointer; transition: all .15s; white-space: nowrap;
+  }
+  .outlined-btn:hover { border-color: var(--outline); color: var(--text-1); }
+
+  /* ── Section Gap ── */
+  .section-gap { height: 8px; }
+
+  /* ── 底部安全区 ── */
+  .bottom-safe { height: 20px; flex-shrink: 0; }
+
+  /* ── 底部指示条 ── */
+  .home-indicator {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    width: 134px; height: 5px; border-radius: 3px; background: var(--text-3);
+    opacity: .3;
+  }
+
+  /* ── 主题切换按钮（演示用） ── */
+  .demo-toggle {
+    position: fixed; top: 16px; right: 16px; z-index: 999;
+    padding: 8px 16px; border-radius: 20px; border: none;
+    background: #453B2E; color: #EAE5DC; font-size: 13px;
+    cursor: pointer; font-family: inherit; box-shadow: 0 4px 12px rgba(0,0,0,.3);
+  }
+  .demo-toggle:hover { opacity: .9; }
+
+  /* ── 折叠动画 ── */
+  .collapsible-body {
+    overflow: hidden; transition: max-height .3s ease, opacity .25s;
+    max-height: 600px; opacity: 1;
+  }
+  .collapsible-body.collapsed { max-height: 0; opacity: 0; }
+</style>
+</head>
+<body>
+<button class="demo-toggle" onclick="toggleDarkMode()">🌓 切换深浅</button>
+
+<div class="phone" id="phone">
+  <!-- 状态栏 -->
+  <div class="status-bar">
+    <span>16:33</span>
+    <span>📶 🔋100%</span>
+  </div>
+
+  <!-- LargeTopAppBar -->
+  <div class="app-bar" id="appBar">
+    <div class="app-bar-nav">
+      <button class="back-btn">←</button>
+      <span class="app-bar-title-small">设置</span>
+    </div>
+    <div class="app-bar-title-large">设置</div>
+  </div>
+
+  <!-- 主内容 -->
+  <div class="content" id="content">
+
+    <!-- ═══════════ 外观 ═══════════ -->
+    <div class="settings-card">
+      <div class="card-title">外观</div>
+
+      <!-- 界面语言 -->
+      <div class="setting-row">
+        <span class="row-label">界面语言</span>
+        <div class="ink-select">简体中文 <span class="arrow">▾</span></div>
+      </div>
+
+      <!-- 界面字体 -->
+      <div class="setting-row">
+        <span class="row-label">界面字体</span>
+        <div class="ink-select">鸿蒙字体 <span class="arrow">▾</span></div>
+      </div>
+
+      <!-- App 主题 -->
+      <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
+        <span class="row-label">应用主题</span>
+        <div class="theme-chips">
+          <div class="theme-chip" onclick="selectThemeChip(this)">
+            <div class="chip-dot" style="background:#F6F4F0;"></div>浅色
+          </div>
+          <div class="theme-chip" onclick="selectThemeChip(this)">
+            <div class="chip-dot" style="background:#1A130B;"></div>深色
+          </div>
+          <div class="theme-chip active" onclick="selectThemeChip(this)">
+            <div class="chip-dot" style="background:linear-gradient(135deg,#F6F4F0 50%,#1A130B 50%);"></div>跟随系统
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-gap"></div>
+
+    <!-- ═══════════ 排版 ═══════════ -->
+    <div class="settings-card">
+      <div class="card-title">排版</div>
+
+      <!-- 字号 -->
+      <div class="stepper-slider">
+        <span class="stepper-label">字号</span>
+        <button class="stepper-btn">−</button>
+        <div class="slider-track"><div class="slider-fill" style="width:33%"><div class="slider-thumb"></div></div></div>
+        <button class="stepper-btn">+</button>
+        <span class="stepper-value">16</span>
+      </div>
+
+      <!-- 行距 -->
+      <div class="stepper-slider">
+        <span class="stepper-label">行距</span>
+        <button class="stepper-btn">−</button>
+        <div class="slider-track"><div class="slider-fill" style="width:50%"><div class="slider-thumb"></div></div></div>
+        <button class="stepper-btn">+</button>
+        <span class="stepper-value">1.5</span>
+      </div>
+
+      <!-- 段距 -->
+      <div class="stepper-slider">
+        <span class="stepper-label">段距</span>
+        <button class="stepper-btn">−</button>
+        <div class="slider-track"><div class="slider-fill" style="width:60%"><div class="slider-thumb"></div></div></div>
+        <button class="stepper-btn">+</button>
+        <span class="stepper-value">2.0</span>
+      </div>
+
+      <!-- 缩进 -->
+      <div class="stepper-slider">
+        <span class="stepper-label">缩进</span>
+        <button class="stepper-btn">−</button>
+        <div class="slider-track"><div class="slider-fill" style="width:50%"><div class="slider-thumb"></div></div></div>
+        <button class="stepper-btn">+</button>
+        <span class="stepper-value">2.0</span>
+      </div>
+    </div>
+
+    <div class="section-gap"></div>
+
+    <!-- ═══════════ 阅读行为 ═══════════ -->
+    <div class="settings-card">
+      <div class="card-title">阅读行为</div>
+
+      <!-- 翻页动画 -->
+      <div class="setting-row">
+        <span class="row-label">翻页动画</span>
+        <div class="ink-select">覆盖 <span class="arrow">▾</span></div>
+      </div>
+
+      <!-- 翻页方向 -->
+      <div class="setting-row">
+        <span class="row-label">翻页方向</span>
+        <div class="ink-select">左右滑动 <span class="arrow">▾</span></div>
+      </div>
+
+      <!-- 全屏模式 -->
+      <div class="setting-row">
+        <span class="row-label">全屏模式</span>
+        <div class="ink-toggle off" onclick="toggleSwitch(this)"><div class="knob"></div></div>
+      </div>
+
+      <!-- 屏幕常亮 -->
+      <div class="setting-row">
+        <span class="row-label">屏幕常亮</span>
+        <div class="ink-toggle off" onclick="toggleSwitch(this)"><div class="knob"></div></div>
+      </div>
+
+      <!-- 亮度 -->
+      <div class="stepper-slider">
+        <span class="stepper-label">亮度</span>
+        <button class="stepper-btn">−</button>
+        <div class="slider-track"><div class="slider-fill" style="width:0%"><div class="slider-thumb"></div></div></div>
+        <button class="stepper-btn">+</button>
+        <span class="stepper-value">跟随</span>
+      </div>
+    </div>
+
+    <div class="section-gap"></div>
+
+    <!-- ═══════════ 书库与导入 ═══════════ -->
+    <div class="settings-card">
+      <div class="card-title">书库与导入</div>
+
+      <div class="setting-row">
+        <div><span class="row-label">自动查重开关</span><div class="row-sublabel">导入重复书籍时自动高亮定位</div></div>
+        <div class="ink-toggle on" onclick="toggleSwitch(this)"><div class="knob"></div></div>
+      </div>
+
+      <div class="setting-row">
+        <div><span class="row-label">导入时复制文件</span><div class="row-sublabel">复制书籍到应用私有目录</div></div>
+        <div class="ink-toggle on" onclick="toggleSwitch(this)"><div class="knob"></div></div>
+      </div>
+
+      <div class="setting-row">
+        <span class="row-label">统一封面颜色</span>
+        <div class="ink-select">自动 <span class="arrow">▾</span></div>
+      </div>
+
+      <div class="setting-row">
+        <div><span class="row-label">清除临时缓存</span><div class="row-sublabel">清理书籍导入解压产生的临时缓存</div></div>
+        <button class="outlined-btn">清除</button>
+      </div>
+    </div>
+
+    <div class="section-gap"></div>
+
+    <!-- ═══════════ 阅读统计 ═══════════ -->
+    <div class="settings-card">
+      <div class="card-title">阅读统计</div>
+
+      <div class="setting-row">
+        <div><span class="row-label">阅读时长统计</span><div class="row-sublabel">开启记录每日/每周/每月阅读时长</div></div>
+        <div class="ink-toggle on" onclick="toggleSwitch(this)"><div class="knob"></div></div>
+      </div>
+
+      <div class="stepper-slider">
+        <span class="stepper-label">每日目标</span>
+        <button class="stepper-btn">−</button>
+        <div class="slider-track"><div class="slider-fill" style="width:12%"><div class="slider-thumb"></div></div></div>
+        <button class="stepper-btn">+</button>
+        <span class="stepper-value">30 分钟</span>
+      </div>
+    </div>
+
+    <div class="section-gap"></div>
+
+    <!-- ═══════════ 同步设置 ═══════════ -->
+    <div class="settings-card">
+      <div class="card-title">同步设置</div>
+
+      <div class="setting-row">
+        <span class="row-label">同步方式</span>
+        <div class="ink-select">本地备份 <span class="arrow">▾</span></div>
+      </div>
+
+      <div class="setting-row">
+        <div><span class="row-label">本地备份</span><div class="row-sublabel">导出与导入数据备份</div></div>
+        <span style="color:var(--text-3);font-size:18px;cursor:pointer;">›</span>
+      </div>
+    </div>
+
+    <div class="section-gap"></div>
+
+    <!-- ═══════════ 高级 ═══════════ -->
+    <div class="settings-card">
+      <div class="card-title">
+        高级
+        <span class="collapse-icon rotated" onclick="toggleCollapse(this)">▾</span>
+      </div>
+      <div class="collapsible-body" id="advancedBody">
+        <div class="setting-row">
+          <span class="row-label">GPU 加速</span>
+          <div class="ink-toggle on" onclick="toggleSwitch(this)"><div class="knob"></div></div>
+        </div>
+        <div class="setting-row">
+          <span class="row-label">日志记录</span>
+          <div class="ink-toggle off" onclick="toggleSwitch(this)"><div class="knob"></div></div>
+        </div>
+        <div class="setting-row">
+          <div><span class="row-label">重置所有设置</span><div class="row-sublabel">恢复所有设置为默认值</div></div>
+          <button class="outlined-btn">重置</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-gap"></div>
+
+    <!-- ═══════════ 关于 ═══════════ -->
+    <div class="settings-card">
+      <div class="card-title">关于</div>
+
+      <div class="setting-row">
+        <div><span class="row-label">开发者</span><div class="row-sublabel">jinghu-moon</div></div>
+      </div>
+
+      <div class="setting-row">
+        <div><span class="row-label">版本号</span><div class="row-sublabel">v1.0.0 (Build 20260523)</div></div>
+        <button class="outlined-btn">检查更新</button>
+      </div>
+
+      <div class="setting-row">
+        <div><span class="row-label">GitHub</span><div class="row-sublabel" style="color:var(--accent);cursor:pointer;">github.com/jinghu-moon/ShuLi-Reader</div></div>
+      </div>
+
+      <div class="setting-row">
+        <span class="row-label">开源许可证</span>
+        <span style="font-size:12px;color:var(--text-3);">AGPL-3.0</span>
+      </div>
+    </div>
+
+    <div class="bottom-safe"></div>
+  </div>
+
+  <div class="home-indicator"></div>
+</div>
+
+<script>
+// LargeTopAppBar 滚动收缩
+const content = document.getElementById('content');
+const appBar = document.getElementById('appBar');
+content.addEventListener('scroll', () => {
+  appBar.classList.toggle('collapsed', content.scrollTop > 20);
+});
+
+// InkToggle 交互
+function toggleSwitch(el) {
+  el.classList.toggle('on');
+  el.classList.toggle('off');
+}
+
+// InkSelect 选中态（演示）
+function selectThemeChip(el) {
+  el.parentElement.querySelectorAll('.theme-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// 折叠卡片
+function toggleCollapse(icon) {
+  icon.classList.toggle('rotated');
+  const body = icon.closest('.settings-card').querySelector('.collapsible-body');
+  body.classList.toggle('collapsed');
+}
+
+// 深浅模式切换
+function toggleDarkMode() {
+  document.getElementById('phone').toggleAttribute('data-theme');
+  const phone = document.getElementById('phone');
+  if (phone.getAttribute('data-theme') === '') {
+    phone.setAttribute('data-theme', 'dark');
+  } else if (phone.getAttribute('data-theme') === 'dark') {
+    phone.removeAttribute('data-theme');
+  }
+}
+</script>
+</body>
+</html>

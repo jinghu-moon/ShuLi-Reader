@@ -17,6 +17,7 @@ internal object TtfNameReader {
     private const val NAME_FAMILY = 1      // Font Family name
     private const val NAME_SUBFAMILY = 2   // Font Subfamily (字重后缀，如 Regular/黑体)
     private const val NAME_FULL = 4        // Full font name
+    private const val NAME_TYPOGRAPHIC_FAMILY = 16  // Typographic Family (干净族名，无字重后缀)
     private const val NAME_POSTSCRIPT = 6  // PostScript name
 
     private val REGULAR_TOKENS = setOf("regular", "normal", "standard", "常规", "标准")
@@ -65,6 +66,7 @@ internal object TtfNameReader {
                 val family = mutableListOf<NameEntry>()
                 val subfamily = mutableListOf<NameEntry>()
                 val full = mutableListOf<NameEntry>()
+                val typographicFamily = mutableListOf<NameEntry>()
                 val postscript = mutableListOf<NameEntry>()
                 val recordsStart = nameTableOffset + 6 /* format/count/stringOffset header */
                 for (i in 0 until nameCount) {
@@ -77,7 +79,8 @@ internal object TtfNameReader {
                     val strOffset = (raf.readShort().toInt() and 0xFFFF)
 
                     if (nameId != NAME_FAMILY && nameId != NAME_SUBFAMILY &&
-                        nameId != NAME_FULL && nameId != NAME_POSTSCRIPT) continue
+                        nameId != NAME_FULL && nameId != NAME_POSTSCRIPT &&
+                        nameId != NAME_TYPOGRAPHIC_FAMILY) continue
                     if (length <= 0) continue
 
                     val strPos = storageStart + strOffset
@@ -94,6 +97,7 @@ internal object TtfNameReader {
                         NAME_FAMILY -> family += entry
                         NAME_SUBFAMILY -> subfamily += entry
                         NAME_FULL -> full += entry
+                        NAME_TYPOGRAPHIC_FAMILY -> typographicFamily += entry
                         NAME_POSTSCRIPT -> postscript += entry
                     }
                 }
@@ -101,6 +105,13 @@ internal object TtfNameReader {
                 val familyName = pickLocalized(family, preferredLocale)
                 val subfamilyName = pickLocalized(subfamily, preferredLocale)
                 val fullName = pickLocalized(full, preferredLocale)
+                val typoFamily = pickLocalized(typographicFamily, preferredLocale)
+
+                // 优先使用 Typographic Family (nameID=16)
+                // 思源宋体、Noto Sans CJK 等字体的 nameID=1 带字重后缀，nameID=16 才是干净族名
+                if (typoFamily != null) {
+                    return typoFamily
+                }
 
                 // Family + Subfamily 拼接（非 Regular 时）→ 匹配 OS 预览
                 if (familyName != null && subfamilyName != null && !isRegular(subfamilyName)) {

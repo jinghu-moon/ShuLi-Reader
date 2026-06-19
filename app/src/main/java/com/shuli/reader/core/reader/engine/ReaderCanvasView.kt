@@ -4,8 +4,10 @@ import com.shuli.reader.core.reader.model.SlotResolution
 import com.shuli.reader.core.reader.model.TitleStyleConfig
 import com.shuli.reader.core.reader.engine.input.CanvasTouchHandler
 import com.shuli.reader.core.reader.engine.selection.CanvasTextSelection
+import com.shuli.reader.core.reader.engine.selection.SelectionVisualStyle
 import com.shuli.reader.core.reader.engine.cache.PageBitmapCache
 import com.shuli.reader.core.reader.engine.cache.PageKey
+import com.shuli.reader.core.reader.engine.cache.PageRenderState
 import com.shuli.reader.core.reader.engine.cache.PageRenderStateStore
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
@@ -14,8 +16,10 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
+import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
@@ -82,10 +86,45 @@ class ReaderCanvasView @JvmOverloads constructor(
     }
 
     private val selectionPaint = Paint().apply {
-        color = defaultColors.progressColor.withAlpha(SELECTION_ALPHA)
+        color = SelectionVisualStyle.HIGHLIGHT_COLOR
         style = Paint.Style.FILL
         isAntiAlias = true
     }
+
+    private val selectionHandlePaint = Paint().apply {
+        color = SelectionVisualStyle.HANDLE_COLOR
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
+
+    private val selectionHandleStemPaint = Paint().apply {
+        color = SelectionVisualStyle.HANDLE_COLOR
+        style = Paint.Style.STROKE
+        strokeWidth = SelectionVisualStyle.HANDLE_STEM_WIDTH
+        strokeCap = Paint.Cap.ROUND
+        isAntiAlias = true
+    }
+
+    private val selectionMagnifierFillPaint = Paint().apply {
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
+
+    private val selectionMagnifierBorderPaint = Paint().apply {
+        color = SelectionVisualStyle.MAGNIFIER_BORDER_COLOR
+        style = Paint.Style.STROKE
+        isAntiAlias = true
+    }
+
+    private val selectionMagnifierShadowPaint = Paint().apply {
+        color = SelectionVisualStyle.MAGNIFIER_SHADOW_COLOR
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
+
+    private val selectionMagnifierRect = RectF()
+    private val selectionMagnifierShadowRect = RectF()
+    private val selectionMagnifierPath = Path()
 
     private val crossfadePaint = Paint().apply {
         isAntiAlias = true
@@ -202,7 +241,7 @@ class ReaderCanvasView @JvmOverloads constructor(
                     beginTextSelection()
                     renderStateStore.getPageState(page.toKey()).invalidateContent()
                     invalidate()
-                    onTextSelected?.invoke(range, y)
+                    onTextSelected?.invoke(range, x, y)
                 }
             }
             override fun onSelectionHandleDragStart(handleType: CanvasTextSelection.HandleType) {
@@ -217,7 +256,8 @@ class ReaderCanvasView @JvmOverloads constructor(
                     val range = textSelection.moveHandle(charIndex, chapterContent)
                     if (range != null) {
                         renderContext.selectedRange = range
-                        renderStateStore.getPageState(page.toKey()).invalidateContent()
+                        // 选区高亮在 overlay 层，需要失效 overlay
+                        renderStateStore.getPageState(page.toKey()).invalidateOverlay()
                         invalidate()
                     }
                 }
@@ -227,8 +267,9 @@ class ReaderCanvasView @JvmOverloads constructor(
                 val range = textSelection.selectedRange
                 if (range != null) {
                     val handlePos = textSelection.charToPixel(range.endPos - 1, currentPage!!)
+                    val screenX = handlePos?.x ?: 0f
                     val screenY = handlePos?.y ?: 0f
-                    onSelectionDragEnd?.invoke(range, screenY)
+                    onSelectionDragEnd?.invoke(range, screenX, screenY)
                 }
             }
         }
@@ -247,13 +288,13 @@ class ReaderCanvasView @JvmOverloads constructor(
     var canTurnNext: (() -> Boolean)? = null
 
     // 文本选区回调
-    var onTextSelected: ((SelectionRange, Float) -> Unit)? = null
+    var onTextSelected: ((SelectionRange, Float, Float) -> Unit)? = null
 
     // 选区拖动开始回调（用于隐藏菜单）
     var onSelectionDragStart: (() -> Unit)? = null
 
     // 选区拖动结束回调（用于显示菜单）
-    var onSelectionDragEnd: ((SelectionRange, Float) -> Unit)? = null
+    var onSelectionDragEnd: ((SelectionRange, Float, Float) -> Unit)? = null
 
     // 中心区域点击回调
     var onCenterClicked: (() -> Unit)? = null
@@ -755,7 +796,7 @@ class ReaderCanvasView @JvmOverloads constructor(
 
         val currentState = renderStateStore.getPageState(current.toKey())
 
-        if (currentState.content.needRecord() || currentState.shell.needRecord()) {
+        if (currentState.content.needRecord() || currentState.shell.needRecord() || currentState.overlay.needRecord()) {
             pageBitmapCache.recordPage(
                 page = current,
                 renderState = currentState,
@@ -791,7 +832,7 @@ class ReaderCanvasView @JvmOverloads constructor(
             } else {
                 drawableTarget?.let { (targetPage, targetContent) ->
                     val targetState = renderStateStore.getPageState(targetPage.toKey())
-                    if (targetState.content.needRecord() || targetState.shell.needRecord()) {
+                    if (targetState.content.needRecord() || targetState.shell.needRecord() || targetState.overlay.needRecord()) {
                         pageBitmapCache.recordPage(
                             page = targetPage,
                             renderState = targetState,
@@ -837,13 +878,135 @@ class ReaderCanvasView @JvmOverloads constructor(
                 canvas.drawBitmap(bitmap, 0f, 0f, crossfadePaint)
             }
         }
+
+        // 绘制选区高亮和把手（在最上层，不进 recorder，确保实时更新）
+        drawSelectionOverlay(canvas)
+        drawSelectionMagnifier(canvas, current, currentState)
     }
 
-    private fun Int.withAlpha(alpha: Int): Int {
-        return (this and 0x00FFFFFF) or (alpha shl 24)
+    /**
+     * 绘制选区把手（只绘制把手，选区高亮由 renderOverlay 负责）
+     */
+    private fun drawSelectionOverlay(canvas: Canvas) {
+        if (textSelection.selectedRange == null) return
+        val page = currentPage ?: return
+
+        // 绘制选区把手
+        val handleRects = textSelection.getHandleRects(page, width.toFloat()) ?: return
+        val (startRect, endRect) = handleRects
+
+        // 绘制起始把手
+        drawHandle(canvas, startRect, isStart = true)
+
+        // 绘制结束把手
+        drawHandle(canvas, endRect, isStart = false)
     }
 
-    private companion object {
-        private const val SELECTION_ALPHA = 0x33
+    /**
+     * 绘制单个把手
+     */
+    private fun drawHandle(
+        canvas: Canvas,
+        rect: RectF,
+        isStart: Boolean,
+    ) {
+        val centerX = rect.centerX()
+        val dotRadius = SelectionVisualStyle.HANDLE_DOT_RADIUS
+        val stemStartY = if (isStart) rect.top + dotRadius else rect.top
+        val stemEndY = if (isStart) rect.bottom else rect.bottom - dotRadius
+        val dotCenterY = if (isStart) rect.top + dotRadius else rect.bottom - dotRadius
+
+        canvas.drawLine(centerX, stemStartY, centerX, stemEndY, selectionHandleStemPaint)
+        canvas.drawCircle(centerX, dotCenterY, dotRadius, selectionHandlePaint)
     }
+
+    /**
+     * 拖动把手时显示局部放大镜，避免手指遮挡当前把手和附近文本。
+     */
+    private fun drawSelectionMagnifier(
+        canvas: Canvas,
+        page: TextPage,
+        pageState: PageRenderState,
+    ) {
+        if (!textSelection.isSelecting) return
+        val activeHandle = textSelection.activeHandle ?: return
+        val handleRects = textSelection.getHandleRects(page, width.toFloat()) ?: return
+        val focusRect = when (activeHandle) {
+            CanvasTextSelection.HandleType.START -> handleRects.first
+            CanvasTextSelection.HandleType.END -> handleRects.second
+        }
+
+        val density = page.density.takeIf { it > 0f } ?: resources.displayMetrics.density
+        val lensWidth = SelectionVisualStyle.MAGNIFIER_WIDTH_DP * density
+        val lensHeight = SelectionVisualStyle.MAGNIFIER_HEIGHT_DP * density
+        val cornerRadius = SelectionVisualStyle.MAGNIFIER_CORNER_RADIUS_DP * density
+        val edgePadding = SelectionVisualStyle.MAGNIFIER_EDGE_PADDING_DP * density
+        val handleGap = SelectionVisualStyle.MAGNIFIER_HANDLE_GAP_DP * density
+        val shadowOffset = SelectionVisualStyle.MAGNIFIER_SHADOW_OFFSET_DP * density
+
+        val dotRadius = SelectionVisualStyle.HANDLE_DOT_RADIUS
+        val focusX = focusRect.centerX()
+        val focusY = when (activeHandle) {
+            CanvasTextSelection.HandleType.START -> focusRect.top + dotRadius
+            CanvasTextSelection.HandleType.END -> focusRect.bottom - dotRadius
+        }
+
+        val maxLeft = (width.toFloat() - lensWidth - edgePadding).coerceAtLeast(edgePadding)
+        val lensLeft = (focusX - lensWidth / 2f).coerceIn(edgePadding, maxLeft)
+        val preferAbove = focusY - handleGap - lensHeight >= edgePadding
+        val rawTop = if (preferAbove) {
+            focusY - handleGap - lensHeight
+        } else {
+            focusY + handleGap
+        }
+        val maxTop = (height.toFloat() - lensHeight - edgePadding).coerceAtLeast(edgePadding)
+        val lensTop = rawTop.coerceIn(edgePadding, maxTop)
+
+        selectionMagnifierRect.set(lensLeft, lensTop, lensLeft + lensWidth, lensTop + lensHeight)
+        selectionMagnifierShadowRect.set(selectionMagnifierRect)
+        selectionMagnifierShadowRect.offset(0f, shadowOffset)
+        selectionMagnifierFillPaint.color = backgroundPaint.color
+        selectionMagnifierBorderPaint.strokeWidth = SelectionVisualStyle.MAGNIFIER_BORDER_WIDTH_DP * density
+
+        canvas.drawRoundRect(
+            selectionMagnifierShadowRect,
+            cornerRadius,
+            cornerRadius,
+            selectionMagnifierShadowPaint,
+        )
+        canvas.drawRoundRect(
+            selectionMagnifierRect,
+            cornerRadius,
+            cornerRadius,
+            selectionMagnifierFillPaint,
+        )
+
+        selectionMagnifierPath.reset()
+        selectionMagnifierPath.addRoundRect(
+            selectionMagnifierRect,
+            cornerRadius,
+            cornerRadius,
+            Path.Direction.CW,
+        )
+
+        canvas.save()
+        canvas.clipPath(selectionMagnifierPath)
+        canvas.translate(selectionMagnifierRect.centerX(), selectionMagnifierRect.centerY())
+        canvas.scale(SelectionVisualStyle.MAGNIFIER_ZOOM, SelectionVisualStyle.MAGNIFIER_ZOOM)
+        canvas.translate(-focusX, -focusY)
+        pageState.shell.draw(canvas)
+        pageState.content.draw(canvas)
+        pageState.overlay.draw(canvas)
+        drawHandle(canvas, handleRects.first, isStart = true)
+        drawHandle(canvas, handleRects.second, isStart = false)
+        canvas.restore()
+
+        canvas.drawRoundRect(
+            selectionMagnifierRect,
+            cornerRadius,
+            cornerRadius,
+            selectionMagnifierBorderPaint,
+        )
+    }
+
 }

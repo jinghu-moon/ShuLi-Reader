@@ -18,6 +18,7 @@ import com.shuli.reader.core.reader.engine.cache.PageKey
 import com.shuli.reader.core.recorder.recordIfNeeded
 import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.reader.engine.selection.CanvasTextSelection
+import com.shuli.reader.core.reader.engine.selection.SelectionVisualStyle
 import com.shuli.reader.core.reader.model.SelectionRange
 import com.shuli.reader.core.reader.model.TextLine
 import com.shuli.reader.core.reader.model.TextPage
@@ -244,8 +245,18 @@ class ReaderPageRenderer(
                         selStartX = bodyLeft + line.startXOffset
                         selEndX = selStartX + line.measuredWidth
                     }
-                    val rect = RectF(selStartX - 2f, line.top, selEndX + 2f, line.bottom)
-                    canvas.drawRoundRect(rect, 4f, 4f, selectionPaint)
+                    val rect = RectF(
+                        selStartX - SelectionVisualStyle.HIGHLIGHT_HORIZONTAL_PADDING,
+                        line.top,
+                        selEndX + SelectionVisualStyle.HIGHLIGHT_HORIZONTAL_PADDING,
+                        line.bottom,
+                    )
+                    canvas.drawRoundRect(
+                        rect,
+                        SelectionVisualStyle.HIGHLIGHT_CORNER_RADIUS,
+                        SelectionVisualStyle.HIGHLIGHT_CORNER_RADIUS,
+                        selectionPaint,
+                    )
                 }
             }
         }
@@ -256,8 +267,8 @@ class ReaderPageRenderer(
             val handleRects = textSelection.getHandleRects(page, viewWidth)
             if (handleRects != null) {
                 val (startRect, endRect) = handleRects
-                drawSelectionHandle(canvas, startRect, selectionPaint)
-                drawSelectionHandle(canvas, endRect, selectionPaint)
+                drawSelectionHandle(canvas, startRect, selectionPaint, isStart = true)
+                drawSelectionHandle(canvas, endRect, selectionPaint, isStart = false)
             }
         }
     }
@@ -265,29 +276,24 @@ class ReaderPageRenderer(
     /**
      * 绘制选区把手
      */
-    private fun drawSelectionHandle(canvas: Canvas, rect: RectF, paint: Paint) {
-        val handlePaint = Paint(paint).apply {
-            style = Paint.Style.FILL
-        }
-        val linePaint = Paint(paint).apply {
-            style = Paint.Style.FILL
-            strokeWidth = 3f
-        }
-
+    private fun drawSelectionHandle(canvas: Canvas, rect: RectF, paint: Paint, isStart: Boolean) {
         val centerX = rect.centerX()
-        val circleRadius = CanvasTextSelection.HANDLE_SIZE
+        val dotRadius = SelectionVisualStyle.HANDLE_DOT_RADIUS
+        val handlePaint = Paint(paint).apply {
+            color = SelectionVisualStyle.HANDLE_COLOR
+            style = Paint.Style.FILL
+        }
+        val linePaint = Paint(handlePaint).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = SelectionVisualStyle.HANDLE_STEM_WIDTH
+            strokeCap = Paint.Cap.ROUND
+        }
 
-        // 绘制竖线（从把手顶部到选区底部）
-        canvas.drawLine(
-            centerX,
-            rect.top - circleRadius,
-            centerX,
-            rect.top,
-            linePaint
-        )
-
-        // 绘制圆形把手
-        canvas.drawCircle(centerX, rect.top, circleRadius, handlePaint)
+        val stemStartY = if (isStart) rect.top + dotRadius else rect.top
+        val stemEndY = if (isStart) rect.bottom else rect.bottom - dotRadius
+        val dotCenterY = if (isStart) rect.top + dotRadius else rect.bottom - dotRadius
+        canvas.drawLine(centerX, stemStartY, centerX, stemEndY, linePaint)
+        canvas.drawCircle(centerX, dotCenterY, dotRadius, handlePaint)
     }
 
     /**

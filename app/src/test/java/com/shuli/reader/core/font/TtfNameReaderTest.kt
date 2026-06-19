@@ -160,6 +160,22 @@ class TtfNameReaderTest {
         assertNull(TtfNameReader.readDisplayName(file))
     }
 
+    @Test
+    fun prefersTypographicFamilyOverFamily() {
+        // 模拟思源宋体：nameID=1 带字重后缀，nameID=16 为干净族名
+        val file = writeSyntheticTtf(
+            platform = 3, encoding = 1, language = 0x0804,
+            names = mapOf(
+                1 to "Source Han Serif SC Medium",  // 带字重后缀
+                2 to "Regular",
+                4 to "Source Han Serif SC Medium",
+                16 to "Source Han Serif SC",         // 干净族名
+            )
+        )
+        // 应优先使用 nameID=16
+        assertEquals("Source Han Serif SC", TtfNameReader.readDisplayName(file))
+    }
+
     // ─── 合成 TTF 工具 ──────────────────────────────────────────────
 
     private data class Entry(val pid: Int, val eid: Int, val lid: Int, val text: String)
