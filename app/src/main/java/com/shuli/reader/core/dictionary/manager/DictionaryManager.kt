@@ -9,6 +9,7 @@ import com.shuli.reader.core.database.entity.DictHistoryEntity
 import com.shuli.reader.core.database.entity.DictMetaEntity
 import com.shuli.reader.core.database.entity.WordBookEntity
 import com.shuli.reader.core.dictionary.engine.DictLookupEngine
+import com.shuli.reader.core.dictionary.engine.MddResourceLoader
 import com.shuli.reader.core.dictionary.engine.StardictParser
 import com.shuli.reader.core.dictionary.model.DictEntry
 import com.shuli.reader.core.dictionary.model.DictFormat
@@ -17,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * 词典管理器
@@ -32,6 +34,9 @@ class DictionaryManager(
     /** 查询引擎 */
     private val lookupEngine = DictLookupEngine(dictMetaDao)
 
+    /** MDD 资源加载器缓存 */
+    private val mddLoaders = ConcurrentHashMap<String, MddResourceLoader>()
+
     /** 词典存储目录 */
     private val dictDir: File
         get() = File(context.filesDir, "dictionaries").also { it.mkdirs() }
@@ -44,6 +49,29 @@ class DictionaryManager(
         BuiltinDictInstaller.installIfNeeded(context, dictMetaDao)
         // 初始化查询引擎
         lookupEngine.initialize()
+    }
+
+    /**
+     * 获取 MDD 资源加载器
+     *
+     * @param dictKey 词典标识
+     * @return MDD 资源加载器，不存在返回 null
+     */
+    fun getMddResourceLoader(dictKey: String): MddResourceLoader? {
+        // 检查缓存
+        mddLoaders[dictKey]?.let { return it }
+
+        // 查找 MDD 文件
+        val mddFile = File(dictDir, "$dictKey.mdd")
+        if (!mddFile.exists()) return null
+
+        // 创建加载器
+        val loader = MddResourceLoader.fromMddFile(mddFile.absolutePath)
+        if (loader != null) {
+            mddLoaders[dictKey] = loader
+        }
+
+        return loader
     }
 
     /**

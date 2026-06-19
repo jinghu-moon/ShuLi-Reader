@@ -7,6 +7,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -49,7 +50,7 @@ import com.shuli.reader.feature.reader.screen.ReaderUiState
  *
  * 使用 M3 ModalBottomSheet + 自定义 detents（36%/55%/90%）
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DictionaryBottomSheet(
     uiState: ReaderUiState,
@@ -79,6 +80,7 @@ fun DictionaryBottomSheet(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DictionaryContent(
     uiState: ReaderUiState,
@@ -126,44 +128,52 @@ private fun DictionaryContent(
             // 多词典 Tab 切换
             val pagerState = rememberPagerState(pageCount = { results.size })
 
-            // Tab 栏
-            ScrollableTabRow(
-                selectedTabIndex = pagerState.currentPage,
-                edgePadding = 0.dp,
+            // 使用 LazyColumn 实现 stickyHeader
+            LazyColumn(
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                results.forEachIndexed { index, entry ->
-                    Tab(
-                        selected = pagerState.currentPage == index,
-                        onClick = {
-                            scope.launch { pagerState.animateScrollToPage(index) }
-                        },
-                        text = {
-                            Text(
-                                text = entry.dictName,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        },
+                // 词典徽章粘性吸顶
+                stickyHeader {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        ScrollableTabRow(
+                            selectedTabIndex = pagerState.currentPage,
+                            edgePadding = 0.dp,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            results.forEachIndexed { index, entry ->
+                                Tab(
+                                    selected = pagerState.currentPage == index,
+                                    onClick = {
+                                        scope.launch { pagerState.animateScrollToPage(index) }
+                                    },
+                                    text = {
+                                        Text(
+                                            text = entry.dictName,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 释义内容
+                item {
+                    val entry = results[pagerState.currentPage]
+                    DefinitionCard(
+                        entry = entry,
+                        word = word,
+                        onAddToWordBook = { onAddToWordBook(word) },
+                        onCopyDefinition = { onCopyDefinition(entry.definition) },
+                        onLookup = onLookup,
+                        contextSentence = contextSentence,
                     )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 滑动切换
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxWidth(),
-            ) { page ->
-                val entry = results[page]
-                DefinitionCard(
-                    entry = entry,
-                    word = word,
-                    onAddToWordBook = { onAddToWordBook(word) },
-                    onCopyDefinition = { onCopyDefinition(entry.definition) },
-                    onLookup = onLookup,
-                )
             }
         }
 
