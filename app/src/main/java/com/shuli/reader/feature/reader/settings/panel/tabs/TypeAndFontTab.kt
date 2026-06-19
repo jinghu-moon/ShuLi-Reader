@@ -190,6 +190,20 @@ fun TypeAndFontTab(
                 formatValue = { "%.0f%%".format(it * 100) },
                 testTagPrefix = "Slider_HeaderFontRatio",
             )
+            InkStepperSlider(
+                value = prefs.headerFooterAlpha,
+                onValueChange = { onSettingChanged("header_footer_alpha", it) },
+                valueRange = 0.1f..1.0f,
+                step = 0.1f,
+                label = strings.opacityLabel,
+                formatValue = { "%.0f%%".format(it * 100) },
+                testTagPrefix = "Slider_HeaderFooterAlpha",
+            )
+            SwitchRow(
+                label = strings.headerSeparatorLineLabel,
+                checked = prefs.showHeaderLine,
+                onCheckedChange = { onSettingChanged("show_header_line", it) },
+            )
             BoxMarginSection(
                 title = m.headerBoxLabel,
                 insets = prefs.headerBox,
@@ -220,6 +234,20 @@ fun TypeAndFontTab(
                 sublabel = "${(prefs.fontSize * prefs.footerFontSizeRatio).toInt()}sp",
                 formatValue = { "%.0f%%".format(it * 100) },
                 testTagPrefix = "Slider_FooterFontRatio",
+            )
+            InkStepperSlider(
+                value = prefs.headerFooterAlpha,
+                onValueChange = { onSettingChanged("header_footer_alpha", it) },
+                valueRange = 0.1f..1.0f,
+                step = 0.1f,
+                label = strings.opacityLabel,
+                formatValue = { "%.0f%%".format(it * 100) },
+                testTagPrefix = "Slider_FooterAlpha",
+            )
+            SwitchRow(
+                label = strings.footerSeparatorLineLabel,
+                checked = prefs.showFooterLine,
+                onCheckedChange = { onSettingChanged("show_footer_line", it) },
             )
             BoxMarginSection(
                 title = m.footerBoxLabel,

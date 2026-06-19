@@ -28,7 +28,7 @@ object BuiltinDictInstaller {
         context: Context,
         dictMetaDao: DictMetaDao,
     ) = withContext(Dispatchers.IO) {
-        val dictDir = File(context.filesDir, "dictionaries")
+        val dictDir = File(context.filesDir, "dictionaries").also { it.mkdirs() }
         val marker = File(dictDir, INSTALLED_MARKER)
 
         // 如果已安装且词典数量匹配，跳过
@@ -40,23 +40,21 @@ object BuiltinDictInstaller {
         try {
             val assets = context.assets.list(DICT_ASSETS_DIR) ?: emptyArray()
 
+            // 第一阶段：复制所有文件到 filesDir
             for (fileName in assets) {
                 if (fileName == INSTALLED_MARKER) continue
-
                 val assetPath = "$DICT_ASSETS_DIR/$fileName"
                 val destFile = File(dictDir, fileName)
-
-                // 复制文件
                 context.assets.open(assetPath).use { input ->
                     FileOutputStream(destFile).use { output ->
                         input.copyTo(output)
                     }
                 }
+            }
 
-                // 如果是 .ifo 文件，注册词典
-                if (fileName.endsWith(".ifo")) {
-                    registerStardict(dictMetaDao, destFile)
-                }
+            // 第二阶段：注册所有 .ifo 词典（此时 .idx/.dict 已确保存在）
+            for (fileName in assets.filter { it.endsWith(".ifo") }) {
+                registerStardict(dictMetaDao, File(dictDir, fileName))
             }
 
             // 写入安装标记

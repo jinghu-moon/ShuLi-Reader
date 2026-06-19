@@ -1,6 +1,7 @@
 package com.shuli.reader.core.dictionary.manager
 
 import android.content.Context
+import android.net.Uri
 import com.shuli.reader.core.database.dao.DictHistoryDao
 import com.shuli.reader.core.database.dao.DictMetaDao
 import com.shuli.reader.core.database.dao.WordBookDao
@@ -130,6 +131,13 @@ class DictionaryManager(
         val destMdx = File(dictDir, mdxFile.name)
         mdxFile.copyTo(destMdx, overwrite = true)
 
+        // 检查同名 .mdd 文件
+        val mddFile = File(mdxFile.parent, mdxFile.nameWithoutExtension + ".mdd")
+        if (mddFile.exists()) {
+            val destMdd = File(dictDir, mddFile.name)
+            mddFile.copyTo(destMdd, overwrite = true)
+        }
+
         val dictKey = mdxFile.nameWithoutExtension
         val entity = DictMetaEntity(
             dictKey = dictKey,
@@ -146,6 +154,121 @@ class DictionaryManager(
             format = DictFormat.MDX,
             filePath = destMdx.absolutePath,
         )
+    }
+
+    /**
+     * 从 SAF Uri 导入词典
+     *
+     * @param uris SAF 选择的文件 Uri 列表
+     * @return 导入的词典数量
+     */
+    suspend fun importFromUri(uris: List<Uri>): Int = withContext(Dispatchers.IO) {
+        var count = 0
+
+        for (uri in uris) {
+            try {
+                val fileName = getFileNameFromUri(uri) ?: continue
+                val format = DictFormat.fromFileName(fileName) ?: continue
+
+                // 复制文件到词典目录
+                val destFile = File(dictDir, fileName)
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    destFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+
+                // 如果是 .mdd 文件，检查同名 .mdx 是否存在
+                if (fileName.endsWith(".mdd")) {
+                    val mdxFile = File(dictDir, fileNameWithoutExt(fileName) + ".mdx")
+                    if (!mdxFile.exists()) {
+                        // .mdd 单独存在，跳过注册
+                        continue
+                    }
+                }
+
+                // 注册词典
+                when (format) {
+                    DictFormat.MDX -> {
+                        // 检查同名 .mdd
+                        val mddFile = File(dictDir, fileNameWithoutExt(fileName) + ".mdd")
+                        if (!mddFile.exists()) {
+                            // 尝试从源 Uri 附近复制 .mdd
+                            val mddUri = uri.buildUpon().path(
+                                uri.path?.replace(".mdx", ".mdd")
+                            ).build()
+                            try {
+                                context.contentResolver.openInputStream(mddUri)?.use { input ->
+                                    mddFile.outputStream().use { output ->
+                                        input.copyTo(output)
+                                    }
+                                }
+                            } catch (_: Exception) {
+                                // .mdd 不存在，忽略
+                            }
+                        }
+
+                        val dictKey = fileNameWithoutExt(fileName)
+                        val existing = dictMetaDao.getByKey(dictKey)
+                        if (existing == null) {
+                            dictMetaDao.insert(DictMetaEntity(
+                                dictKey = dictKey,
+                                displayName = fileNameWithoutExt(fileName),
+                                format = "mdx",
+                                filePath = destFile.absolutePath,
+                            ))
+                            count++
+                        }
+                    }
+                    DictFormat.STAR_DICT -> {
+                        // Stardict 需要 .ifo + .idx + .dict 三个文件
+                        // 只导入 .ifo，其他文件需要一起选择
+                        if (fileName.endsWith(".ifo")) {
+                            val dictKey = fileNameWithoutExt(fileName)
+                            val existing = dictMetaDao.getByKey(dictKey)
+                            if (existing == null) {
+                                dictMetaDao.insert(DictMetaEntity(
+                                    dictKey = dictKey,
+                                    displayName = fileNameWithoutExt(fileName),
+                                    format = "stardict",
+                                    filePath = destFile.absolutePath,
+                                ))
+                                count++
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("DictionaryManager", "Failed to import: $uri", e)
+            }
+        }
+
+        // 重新初始化查询引擎
+        if (count > 0) {
+            lookupEngine.initialize()
+        }
+
+        count
+    }
+
+    /**
+     * 从 Uri 获取文件名
+     */
+    private fun getFileNameFromUri(uri: Uri): String? {
+        val cursor = context.contentResolver.query(uri, null, null, null, null)
+        return cursor?.use {
+            if (it.moveToFirst()) {
+                val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (nameIndex >= 0) it.getString(nameIndex) else null
+            } else null
+        }
+    }
+
+    /**
+     * 获取不含扩展名的文件名
+     */
+    private fun fileNameWithoutExt(fileName: String): String {
+        return fileName.substringBeforeLast('.')
     }
 
     /**

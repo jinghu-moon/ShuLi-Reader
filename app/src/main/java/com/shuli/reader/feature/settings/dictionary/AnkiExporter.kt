@@ -1,14 +1,11 @@
 package com.shuli.reader.feature.settings.dictionary
 
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
-import androidx.activity.result.contract.ActivityResultContracts
 import com.shuli.reader.core.database.dao.WordBookDao
 import com.shuli.reader.core.database.entity.WordBookEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -29,17 +26,19 @@ class AnkiExporter(
      * @return 导出的单词数量
      */
     suspend fun exportToAnki(uri: Uri): Int = withContext(Dispatchers.IO) {
-        val words = wordBookDao.getUnexported()
-        if (words.isEmpty()) return@withContext 0
+        val words = wordBookDao.getAllFlow()
+        // 需要从 Flow 收集数据，这里简化处理
+        val wordList = wordBookDao.getUnexported()
+        if (wordList.isEmpty()) return@withContext 0
 
         context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-            writeTsv(outputStream, words)
+            writeTsv(outputStream, wordList)
         }
 
         // 标记为已导出
-        wordBookDao.markExported(words.map { it.id })
+        wordBookDao.markExported(wordList.map { it.id })
 
-        words.size
+        wordList.size
     }
 
     /**
@@ -56,10 +55,10 @@ class AnkiExporter(
      *
      * 格式：单词\t释义\t上下文\t添加时间
      */
-    private fun writeTsv(output: OutputStream, words: List<WordBookEntity>) {
+    private fun writeTsv(output: java.io.OutputStream, words: List<WordBookEntity>) {
         val writer = output.bufferedWriter()
 
-        // 写入表头（Anki 默认忽略第一行，但保留以便其他软件使用）
+        // 写入表头
         writer.write("word\tdefinition\tcontext\tadded_at\n")
 
         // 写入数据
