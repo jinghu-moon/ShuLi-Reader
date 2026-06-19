@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
@@ -28,6 +30,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shuli.reader.core.dictionary.model.DictEntry
+import com.shuli.reader.core.dictionary.render.DictMdxRenderer
+import com.shuli.reader.core.dictionary.render.DictRenderer
 import com.shuli.reader.feature.reader.screen.ReaderUiState
 
 /**
@@ -128,6 +132,7 @@ private fun DictionaryContent(
                     word = word,
                     onAddToWordBook = { onAddToWordBook(word) },
                     onCopyDefinition = { onCopyDefinition(currentEntry.definition) },
+                    onLookup = onLookup,
                 )
             }
         }
@@ -202,6 +207,7 @@ private fun DefinitionCard(
     word: String,
     onAddToWordBook: () -> Unit,
     onCopyDefinition: () -> Unit,
+    onLookup: (String) -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -255,15 +261,25 @@ private fun DefinitionCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             // 释义内容
-            if (entry.isHtml) {
-                // HTML 内容渲染
-                HtmlContent(html = entry.definition)
-            } else {
-                Text(
-                    text = entry.definition,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            }
+            val renderedDefinition = DictRenderer.render(
+                definition = entry.definition,
+                definitionType = entry.definitionType,
+                isDarkMode = isSystemInDarkTheme(),
+            )
+            ClickableText(
+                text = renderedDefinition,
+                style = MaterialTheme.typography.bodyLarge,
+                onClick = { offset ->
+                    // 检测是否点击了 entry:// 链接
+                    renderedDefinition.getStringAnnotations(
+                        tag = DictMdxRenderer.LINK_TAG,
+                        start = offset,
+                        end = offset,
+                    ).firstOrNull()?.let { annotation ->
+                        onLookup(annotation.item)
+                    }
+                },
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -286,23 +302,6 @@ private fun DefinitionCard(
             }
         }
     }
-}
-
-@Composable
-private fun HtmlContent(html: String) {
-    // 简单的 HTML 渲染（后续可以使用 AndroidView + WebView 或自定义解析）
-    val cleanText = html
-        .replace(Regex("<[^>]+>"), "") // 移除 HTML 标签
-        .replace("&nbsp;", " ")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&amp;", "&")
-        .trim()
-
-    Text(
-        text = cleanText,
-        style = MaterialTheme.typography.bodyLarge,
-    )
 }
 
 @Composable

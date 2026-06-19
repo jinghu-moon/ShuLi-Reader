@@ -71,6 +71,24 @@ internal fun AboutSection(
                 subtitle = "AGPL-3.0 License",
                 onClick = onShowLicenseDialog,
             )
+
+            // 词典声明
+            ListItem(
+                headlineContent = {
+                    Text(
+                        "词典声明",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        "本应用不提供任何词典数据，所有词典文件由用户自行提供。支持导入 MDX 和 Stardict 格式。",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
         }
     }
 }
