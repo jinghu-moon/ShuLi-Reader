@@ -12,6 +12,16 @@ import java.io.FileOutputStream
  * 内置词典安装器
  *
  * 从 assets 解压内置词典到 filesDir
+ *
+ * 内置词典列表：
+ * - CC-CEDICT（中→英，12.5万词条）- 需要用户自行下载
+ * - 成语词典（中→中，约3万词条）- 需要用户自行下载
+ *
+ * 由于词典文件体积较大（20-50MB），不直接打包到 APK 中。
+ * 用户可以从以下来源下载 Stardict 格式词典：
+ * - CC-CEDICT: https://www.mdbg.net/chinese/dictionary?page=cedict
+ * - 中文维基词典: https://github.com/Vuizur/Wiktionary-Dictionaries
+ * - FreeDict: https://freedict.org/
  */
 object BuiltinDictInstaller {
 
@@ -123,6 +133,7 @@ object BuiltinDictInstaller {
         info.langPair = when {
             "cedict" in name || "chinese-english" in name || "汉英" in name -> "zh-en"
             "ecdict" in name || "english-chinese" in name || "英汉" in name -> "en-zh"
+            "成语" in name -> "zh-zh"
             else -> ""
         }
 
