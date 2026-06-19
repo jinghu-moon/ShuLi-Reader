@@ -206,20 +206,30 @@ class ReaderCanvasView @JvmOverloads constructor(
                 }
             }
             override fun onSelectionHandleDragStart(handleType: CanvasTextSelection.HandleType) {
-                // 开始拖动把手
+                // 开始拖动把手，隐藏菜单
+                onSelectionDragStart?.invoke()
             }
             override fun onSelectionHandleDragMove(x: Float, y: Float) {
                 val page = currentPage ?: return
-                val range = textSelection.updateHandleDrag(x, y, page, chapterContent, width.toFloat(), textPaint)
-                if (range != null) {
-                    renderContext.selectedRange = range
-                    renderStateStore.getPageState(page.toKey()).invalidateContent()
-                    invalidate()
-                    onTextSelected?.invoke(range, y)
+                // 将像素坐标转换为字符位置
+                val charIndex = textSelection.pixelToChar(x, y, page, chapterContent, textPaint)
+                if (charIndex != null) {
+                    val range = textSelection.moveHandle(charIndex, chapterContent)
+                    if (range != null) {
+                        renderContext.selectedRange = range
+                        renderStateStore.getPageState(page.toKey()).invalidateContent()
+                        invalidate()
+                    }
                 }
             }
             override fun onSelectionHandleDragEnd() {
-                // 结束拖动把手
+                // 结束拖动把手，显示菜单
+                val range = textSelection.selectedRange
+                if (range != null) {
+                    val handlePos = textSelection.charToPixel(range.endPos - 1, currentPage!!)
+                    val screenY = handlePos?.y ?: 0f
+                    onSelectionDragEnd?.invoke(range, screenY)
+                }
             }
         }
     }
@@ -238,6 +248,12 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     // 文本选区回调
     var onTextSelected: ((SelectionRange, Float) -> Unit)? = null
+
+    // 选区拖动开始回调（用于隐藏菜单）
+    var onSelectionDragStart: (() -> Unit)? = null
+
+    // 选区拖动结束回调（用于显示菜单）
+    var onSelectionDragEnd: ((SelectionRange, Float) -> Unit)? = null
 
     // 中心区域点击回调
     var onCenterClicked: (() -> Unit)? = null

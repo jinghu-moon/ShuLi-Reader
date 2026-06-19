@@ -108,11 +108,11 @@ class CanvasTouchHandler(context: Context) {
     fun onTouchEvent(event: MotionEvent): Boolean {
         val cb = callbacks ?: return false
 
-        // 检查是否点击了选区把手
+        // 检查是否点击了选区把手（优先级最高）
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 val textSelection = cb.getTextSelection()
-                if (textSelection != null) {
+                if (textSelection != null && textSelection.selectedRange != null) {
                     val hitHandle = textSelection.hitTestHandle(event.x, event.y)
                     if (hitHandle != null) {
                         // 开始拖动把手

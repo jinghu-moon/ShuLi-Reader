@@ -205,6 +205,7 @@ class ReaderPageRenderer(
         page: TextPage,
         selectedRange: SelectionRange? = null,
         selectionPaint: Paint? = null,
+        textSelection: CanvasTextSelection? = null,
         noteRanges: List<Pair<SelectionRange, Paint>> = emptyList(),
     ) {
         // 1. 笔记高亮背景（彩色半透明，在 TTS/选区高亮之下）
@@ -224,69 +225,69 @@ class ReaderPageRenderer(
         }
 
         // 2. 选区高亮背景（字符级精确范围）
-        var firstLineStartX = 0f
-        var firstLineTop = 0f
-        var lastLineEndX = 0f
-        var lastLineBottom = 0f
-
-        page.lines.forEach { line ->
-            if (intersects(selectedRange, line.startCharOffset, line.endCharOffset) && selectionPaint != null) {
-                val bodyLeft = page.layout.body.left
-                val lineStart = line.startCharOffset
-                val lineEnd = line.endCharOffset
-                val selStart = maxOf(selectedRange!!.startPos, lineStart)
-                val selEnd = minOf(selectedRange.endPos, lineEnd)
-                val charWidths = line.charWidths
-                var selStartX = bodyLeft + line.startXOffset
-                var selEndX = selStartX
-                if (charWidths != null && charWidths.size == (lineEnd - lineStart)) {
-                    for (i in 0 until (selStart - lineStart)) { selStartX += charWidths[i] }
-                    selEndX = selStartX
-                    for (i in (selStart - lineStart) until (selEnd - lineStart)) { selEndX += charWidths[i] }
-                } else {
-                    selStartX = bodyLeft + line.startXOffset
-                    selEndX = selStartX + line.measuredWidth
-                }
-                val rect = RectF(selStartX - 2f, line.top, selEndX + 2f, line.bottom)
-                canvas.drawRoundRect(rect, 4f, 4f, selectionPaint)
-
-                // 记录选区起始和结束位置（用于绘制把手）
-                if (selStart == selectedRange!!.startPos) {
-                    firstLineStartX = selStartX
-                    firstLineTop = line.top
-                }
-                if (selEnd == selectedRange.endPos) {
-                    lastLineEndX = selEndX
-                    lastLineBottom = line.bottom
+        if (selectedRange != null && selectionPaint != null) {
+            page.lines.forEach { line ->
+                if (intersects(selectedRange, line.startCharOffset, line.endCharOffset)) {
+                    val bodyLeft = page.layout.body.left
+                    val lineStart = line.startCharOffset
+                    val lineEnd = line.endCharOffset
+                    val selStart = maxOf(selectedRange.startPos, lineStart)
+                    val selEnd = minOf(selectedRange.endPos, lineEnd)
+                    val charWidths = line.charWidths
+                    var selStartX = bodyLeft + line.startXOffset
+                    var selEndX = selStartX
+                    if (charWidths != null && charWidths.size == (lineEnd - lineStart)) {
+                        for (i in 0 until (selStart - lineStart)) { selStartX += charWidths[i] }
+                        selEndX = selStartX
+                        for (i in (selStart - lineStart) until (selEnd - lineStart)) { selEndX += charWidths[i] }
+                    } else {
+                        selStartX = bodyLeft + line.startXOffset
+                        selEndX = selStartX + line.measuredWidth
+                    }
+                    val rect = RectF(selStartX - 2f, line.top, selEndX + 2f, line.bottom)
+                    canvas.drawRoundRect(rect, 4f, 4f, selectionPaint)
                 }
             }
         }
 
         // 3. 绘制选区把手（如果有选区）
-        if (selectedRange != null && selectionPaint != null && firstLineTop > 0f) {
-            drawSelectionHandle(canvas, firstLineStartX, lastLineBottom, selectionPaint)
-            drawSelectionHandle(canvas, lastLineEndX, lastLineBottom, selectionPaint)
+        if (selectedRange != null && selectionPaint != null && textSelection != null) {
+            val viewWidth = page.layout.pageWidth
+            val handleRects = textSelection.getHandleRects(page, viewWidth)
+            if (handleRects != null) {
+                val (startRect, endRect) = handleRects
+                drawSelectionHandle(canvas, startRect, selectionPaint)
+                drawSelectionHandle(canvas, endRect, selectionPaint)
+            }
         }
     }
 
     /**
      * 绘制选区把手
      */
-    private fun drawSelectionHandle(canvas: Canvas, x: Float, y: Float, paint: Paint) {
-        val handleSize = CanvasTextSelection.HANDLE_SIZE
+    private fun drawSelectionHandle(canvas: Canvas, rect: RectF, paint: Paint) {
         val handlePaint = Paint(paint).apply {
             style = Paint.Style.FILL
         }
-        // 绘制圆形把手
-        canvas.drawCircle(x, y, handleSize, handlePaint)
-        // 绘制把手下方的小三角（指向选区）
-        val path = android.graphics.Path().apply {
-            moveTo(x - handleSize * 0.6f, y)
-            lineTo(x, y - handleSize * 1.5f)
-            lineTo(x + handleSize * 0.6f, y)
-            close()
+        val linePaint = Paint(paint).apply {
+            style = Paint.Style.FILL
+            strokeWidth = 3f
         }
-        canvas.drawPath(path, handlePaint)
+
+        val centerX = rect.centerX()
+        val circleRadius = CanvasTextSelection.HANDLE_SIZE
+
+        // 绘制竖线（从把手顶部到选区底部）
+        canvas.drawLine(
+            centerX,
+            rect.top - circleRadius,
+            centerX,
+            rect.top,
+            linePaint
+        )
+
+        // 绘制圆形把手
+        canvas.drawCircle(centerX, rect.top, circleRadius, handlePaint)
     }
 
     /**
