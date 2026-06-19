@@ -222,16 +222,27 @@ class ReaderPageRenderer(
             }
         }
 
-        // 2. 选区高亮背景
+        // 2. 选区高亮背景（字符级精确范围）
         page.lines.forEach { line ->
-            val startX = page.layout.body.left + line.startXOffset
-            val textWidth = line.measuredWidth
-            val top = line.top
-            val bottom = line.bottom
-            val rect = RectF(startX - 6f, top, startX + textWidth + 6f, bottom)
-
             if (intersects(selectedRange, line.startCharOffset, line.endCharOffset) && selectionPaint != null) {
-                canvas.drawRoundRect(rect, 6f, 6f, selectionPaint)
+                val bodyLeft = page.layout.body.left
+                val lineStart = line.startCharOffset
+                val lineEnd = line.endCharOffset
+                val selStart = maxOf(selectedRange!!.startPos, lineStart)
+                val selEnd = minOf(selectedRange.endPos, lineEnd)
+                val charWidths = line.charWidths
+                var selStartX = bodyLeft + line.startXOffset
+                var selEndX = selStartX
+                if (charWidths != null && charWidths.size == (lineEnd - lineStart)) {
+                    for (i in 0 until (selStart - lineStart)) { selStartX += charWidths[i] }
+                    selEndX = selStartX
+                    for (i in (selStart - lineStart) until (selEnd - lineStart)) { selEndX += charWidths[i] }
+                } else {
+                    selStartX = bodyLeft + line.startXOffset
+                    selEndX = selStartX + line.measuredWidth
+                }
+                val rect = RectF(selStartX - 2f, line.top, selEndX + 2f, line.bottom)
+                canvas.drawRoundRect(rect, 4f, 4f, selectionPaint)
             }
         }
     }

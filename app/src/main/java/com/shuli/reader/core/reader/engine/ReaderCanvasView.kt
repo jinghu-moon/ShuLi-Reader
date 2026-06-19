@@ -195,13 +195,13 @@ class ReaderCanvasView @JvmOverloads constructor(
             override fun onLongPress(x: Float, y: Float) {
                 pageDelegate?.abort()
                 val page = currentPage ?: return
-                val range = textSelection.selectLineAt(x, y, page, chapterContent, width.toFloat())
+                val range = textSelection.selectWordAt(x, y, page, chapterContent, width.toFloat(), textPaint)
                 if (range != null) {
                     renderContext.selectedRange = range
                     beginTextSelection()
                     renderStateStore.getPageState(page.toKey()).invalidateContent()
                     invalidate()
-                    onTextSelected?.invoke(range)
+                    onTextSelected?.invoke(range, y)
                 }
             }
         }
@@ -220,7 +220,7 @@ class ReaderCanvasView @JvmOverloads constructor(
     var canTurnNext: (() -> Boolean)? = null
 
     // 文本选区回调
-    var onTextSelected: ((SelectionRange) -> Unit)? = null
+    var onTextSelected: ((SelectionRange, Float) -> Unit)? = null
 
     // 中心区域点击回调
     var onCenterClicked: (() -> Unit)? = null

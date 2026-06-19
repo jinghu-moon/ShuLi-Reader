@@ -67,6 +67,7 @@ data class ReaderUiState(
     val searchResults: List<SearchResult> = emptyList(),
     val currentSearchResultIndex: Int = -1,
     val selectedRange: SelectionRange? = null,
+    val selectionScreenY: Float = 0f,
     val sleepTimerRemainingSeconds: Int = -1,
     val presets: List<com.shuli.reader.core.database.entity.ReaderPresetEntity> = emptyList(),
     /** 用户导入的自定义字体列表 */

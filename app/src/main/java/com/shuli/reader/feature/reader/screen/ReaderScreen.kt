@@ -22,6 +22,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
+import kotlin.math.roundToInt
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -94,7 +99,16 @@ fun ReaderScreen(
     modifier: Modifier = Modifier,
     viewModel: ReaderViewModel = run {
         val context = LocalContext.current
-        remember { ReaderViewModel(bookId = bookId, fontManager = FontManager(context)) }
+        val appContainer = remember { com.shuli.reader.core.ShuLiAppContainer(context) }
+        remember {
+            ReaderViewModel(
+                bookId = bookId,
+                fontManager = FontManager(context),
+                dictMetaDao = appContainer.database.dictMetaDao(),
+                dictHistoryDao = appContainer.database.dictHistoryDao(),
+                wordBookDao = appContainer.database.wordBookDao(),
+            )
+        }
     },
 ) {
     val strings = LocalAppStrings.current
@@ -216,8 +230,8 @@ fun ReaderScreen(
                                     else -> { /* NONE: no-op */ }
                                 }
                             }
-                            onTextSelected = { range ->
-                                viewModel.navigationCoordinator.selectText(range)
+                            onTextSelected = { range, screenY ->
+                                viewModel.navigationCoordinator.selectText(range, screenY)
                             }
                             onCenterClicked = { dispatch(ReaderIntent.ToggleToolbar) }
                             onGestureAction = { action ->
@@ -324,27 +338,35 @@ fun ReaderScreen(
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
 
-                // 选区操作栏
+                // 选区浮动操作菜单（浮动在选区上方或下方）
                 uiState.selectedRange?.let { range ->
-                    ReaderSelectionActionBar(
-                        onCopy = {
-                            range.selectedText?.takeIf { it.isNotBlank() }?.let { text ->
-                                clipboardManager.setText(AnnotatedString(text))
-                            }
-                            dispatch(ReaderIntent.ClearSelection)
-                        },
-                        onBookmark = { dispatch(ReaderIntent.AddBookmarkFromSelection) },
-                        onNote = { dispatch(ReaderIntent.AddNoteFromSelection) },
-                        onLookup = {
-                            range.selectedText?.takeIf { it.isNotBlank() }?.let { text ->
-                                dispatch(ReaderIntent.LookupWord(text, ""))
-                            }
-                        },
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .navigationBarsPadding()
-                            .padding(ReaderDimens.PaddingMedium),
-                    )
+                    val density = LocalDensity.current
+                    val selY = uiState.selectionScreenY
+                    val popupAbove = selY > 180f
+                    val popupOffsetY = with(density) {
+                        if (popupAbove) (selY - 64f).dp.roundToPx()
+                        else (selY + 32f).dp.roundToPx()
+                    }
+                    androidx.compose.ui.window.Popup(
+                        alignment = Alignment.TopCenter,
+                        offset = androidx.compose.ui.unit.IntOffset(0, popupOffsetY),
+                    ) {
+                        ReaderSelectionActionBar(
+                            onCopy = {
+                                range.selectedText?.takeIf { it.isNotBlank() }?.let { text ->
+                                    clipboardManager.setText(AnnotatedString(text))
+                                }
+                                dispatch(ReaderIntent.ClearSelection)
+                            },
+                            onBookmark = { dispatch(ReaderIntent.AddBookmarkFromSelection) },
+                            onNote = { dispatch(ReaderIntent.AddNoteFromSelection) },
+                            onLookup = {
+                                range.selectedText?.takeIf { it.isNotBlank() }?.let { text ->
+                                    dispatch(ReaderIntent.LookupWord(text, ""))
+                                }
+                            },
+                        )
+                    }
                 }
 
                 if (uiState.showGestureEditor) {

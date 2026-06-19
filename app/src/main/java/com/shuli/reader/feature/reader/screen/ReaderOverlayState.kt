@@ -10,6 +10,7 @@ import com.shuli.reader.core.reader.model.SelectionRange
  * 不触发 pageState 或 preferences 的 recomposition。
  */
 data class ReaderOverlayState(
+    val selectionScreenY: Float = 0f,
     val selectedRange: SelectionRange? = null,
     val sleepTimerRemainingSeconds: Int = -1,
 )

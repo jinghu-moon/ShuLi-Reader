@@ -164,6 +164,7 @@ class ReaderViewModel(
         .map {
             ReaderOverlayState(
                 selectedRange = it.selectedRange,
+                selectionScreenY = it.selectionScreenY,
                 sleepTimerRemainingSeconds = it.sleepTimerRemainingSeconds,
             )
         }
