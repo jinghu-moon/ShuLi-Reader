@@ -245,9 +245,14 @@ class DictLookupEngine(
                     val mdxEntry = lookupMethod.invoke(parser, word)
 
                     if (mdxEntry != null) {
-                        // MdictParser.readDefinition(entry: MdxEntry): String
-                        val readDefMethod = parser.javaClass.getMethod("readDefinition", mdxEntry.javaClass)
-                        val definition = readDefMethod.invoke(parser, mdxEntry) as? String ?: ""
+                        // MdictParser.readDefinition(entry: MdxEntry, depth: Int = 0): String
+                        // Kotlin 默认参数不生成重载，需要显式传入所有参数
+                        val readDefMethod = parser.javaClass.getMethod(
+                            "readDefinition",
+                            mdxEntry.javaClass,
+                            Int::class.java,
+                        )
+                        val definition = readDefMethod.invoke(parser, mdxEntry, 0) as? String ?: ""
 
                         DictEntry(
                             word = word,
