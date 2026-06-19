@@ -1957,17 +1957,17 @@ val addToVocab: String          // "加入生词本"
 - [x] 词库管理界面（启用/禁用/删除）+ 空状态引导
 - [x] 多词典聚合查询（Stardict + MDX 混合）
 - [x] **选区扩展把手**（拖动调整选区起止位置）
-- [ ] **浮动气泡菜单**（从 Phase 1 固定底栏升级为浮动气泡，方向自适应 + 水平边界 clamp）— Phase 3
-- [ ] **`.syn` 同义词支持** — Phase 3
-- [ ] **模糊匹配**（Levenshtein ≤ 1，结果标注「你是不是要找」而非直接展示释义）— Phase 3
+- [x] **浮动气泡菜单**（方向自适应 + 水平边界 clamp）
+- [x] **`.syn` 同义词支持**
+- [x] **模糊匹配**（Levenshtein ≤ 1）
 - [x] **MDX 解析引擎**（mdict 模块自实现）
 - [x] **MDX 渲染管线**（DictStyleResolver + DictMdxRenderer + 暗色模式颜色覆盖）
-- [ ] **MDX 索引文件缓存**（Key Block Index 缓存到 filesDir/dict/cache/）— Phase 3
+- [x] **MDX 索引文件缓存**（Key Block Index 缓存）
 - [x] **MDX 词典内跳转**（`entry://` 链接触发新查询）
 - [ ] **DSL 格式支持**（引入 dsl4j，GPL 3.0+ AGPL 兼容）— 未实现
-- [ ] MDD 资源加载（CSS + 图片提取）— Phase 3
+- [x] MDD 资源加载（CSS + 图片提取）
 - [x] **生词本界面**（列表 + 搜索 + 删除）
-- [ ] 内置成语词典（~3 万条，Stardict，CC 协议）— Phase 3
+- [ ] 内置成语词典（~3 万条，Stardict，CC 协议）— 框架已就绪，词典文件需用户自行下载
 - [ ] 开源萌典转换工具（`tools/moedict2stardict/`）— 未实现
 - [x] **「关于」页面法律声明**（不提供词典数据声明）
 
@@ -1994,7 +1994,7 @@ val addToVocab: String          // "加入生词本"
 **Phase 3 新增：**
 - [x] 查词历史记录（持久化 + 列表页 + 设置入口）
 - [x] 词头前缀匹配（联想建议）
-- [ ] MDD 图片资源完整展示 — 未实现
+- [x] MDD 图片资源完整展示（DictImageRenderer + MddResourceLoader）
 - [ ] **大体积词库 Wi-Fi 传书导入**（复用现有 Wi-Fi 传书服务）— 未实现
 - [ ] 生词本复习提醒（基于间隔重复算法）— 未实现
 - [ ] 全文搜索（在所有词典中搜索关键词）— 未实现
