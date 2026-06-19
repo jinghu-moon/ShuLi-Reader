@@ -83,20 +83,39 @@ class DictionaryManager(
     /**
      * 扫描外部存储目录中的词典文件
      *
+     * 支持两种目录结构：
+     * 1. 扁平结构：dictionaries/词典名.mdx
+     * 2. 子目录结构：dictionaries/词典名/词典名.mdx
+     *
      * 自动发现并注册用户放入目录的词典
      */
     private suspend fun scanExternalDictionaries() = withContext(Dispatchers.IO) {
         val dir = dictDir
         if (!dir.exists()) return@withContext
 
-        val files = dir.listFiles() ?: return@withContext
+        // 收集所有词典文件（支持子目录）
+        val allIfoFiles = mutableListOf<File>()
+        val allMdxFiles = mutableListOf<File>()
 
-        // 按文件类型分组
-        val ifoFiles = files.filter { it.extension == "ifo" }
-        val mdxFiles = files.filter { it.extension == "mdx" }
+        // 扫描根目录
+        dir.listFiles()?.forEach { file ->
+            when {
+                file.isFile && file.extension == "ifo" -> allIfoFiles.add(file)
+                file.isFile && file.extension == "mdx" -> allMdxFiles.add(file)
+                file.isDirectory -> {
+                    // 扫描子目录
+                    file.listFiles()?.forEach { subFile ->
+                        when {
+                            subFile.isFile && subFile.extension == "ifo" -> allIfoFiles.add(subFile)
+                            subFile.isFile && subFile.extension == "mdx" -> allMdxFiles.add(subFile)
+                        }
+                    }
+                }
+            }
+        }
 
         // 注册 Stardict 词典
-        for (ifoFile in ifoFiles) {
+        for (ifoFile in allIfoFiles) {
             val dictKey = ifoFile.nameWithoutExtension
             val existing = dictMetaDao.getByKey(dictKey)
             if (existing == null) {
@@ -109,7 +128,7 @@ class DictionaryManager(
         }
 
         // 注册 MDX 词典
-        for (mdxFile in mdxFiles) {
+        for (mdxFile in allMdxFiles) {
             val dictKey = mdxFile.nameWithoutExtension
             val existing = dictMetaDao.getByKey(dictKey)
             if (existing == null) {
