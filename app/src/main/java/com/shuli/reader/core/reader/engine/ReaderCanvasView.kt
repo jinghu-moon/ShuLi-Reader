@@ -183,6 +183,7 @@ class ReaderCanvasView @JvmOverloads constructor(
             override fun getEdgeWidthPercent() = visualParams.getEdgeWidthPercent()
             override fun getLeftZoneRatio() = this@ReaderCanvasView.leftZoneRatio
             override fun getGestureConfig() = this@ReaderCanvasView.gestureConfig
+            override fun getTextSelection() = this@ReaderCanvasView.textSelection
             override fun onAction(action: GestureAction, x: Float, y: Float) {
                 this@ReaderCanvasView.onGestureAction?.invoke(action)
             }
@@ -203,6 +204,22 @@ class ReaderCanvasView @JvmOverloads constructor(
                     invalidate()
                     onTextSelected?.invoke(range, y)
                 }
+            }
+            override fun onSelectionHandleDragStart(handleType: CanvasTextSelection.HandleType) {
+                // 开始拖动把手
+            }
+            override fun onSelectionHandleDragMove(x: Float, y: Float) {
+                val page = currentPage ?: return
+                val range = textSelection.updateHandleDrag(x, y, page, chapterContent, width.toFloat(), textPaint)
+                if (range != null) {
+                    renderContext.selectedRange = range
+                    renderStateStore.getPageState(page.toKey()).invalidateContent()
+                    invalidate()
+                    onTextSelected?.invoke(range, y)
+                }
+            }
+            override fun onSelectionHandleDragEnd() {
+                // 结束拖动把手
             }
         }
     }

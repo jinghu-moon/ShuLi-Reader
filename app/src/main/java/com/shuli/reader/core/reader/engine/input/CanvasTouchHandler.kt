@@ -5,12 +5,13 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import com.shuli.reader.core.reader.engine.animation.PageDelegate
+import com.shuli.reader.core.reader.engine.selection.CanvasTextSelection
 import com.shuli.reader.feature.reader.settings.GestureAction
 import com.shuli.reader.feature.reader.settings.GestureConfig
 import com.shuli.reader.feature.reader.settings.TouchZone
 
 /**
- * 触摸手势处理：tap / long-press / 边缘拖拽 / 边缘点击翻页。
+ * 触摸手势处理：tap / long-press / 边缘拖拽 / 边缘点击翻页 / 选区把手拖动。
  *
  * 从 ReaderCanvasView.onTouchEvent 拆出，独立测试手势识别逻辑。
  */
@@ -33,6 +34,18 @@ class CanvasTouchHandler(context: Context) {
 
         /** 获取当前手势配置（v5.1），默认返回默认配置 */
         fun getGestureConfig(): GestureConfig = GestureConfig()
+
+        /** 获取文本选区对象 */
+        fun getTextSelection(): CanvasTextSelection? = null
+
+        /** 选区把手拖动开始 */
+        fun onSelectionHandleDragStart(handleType: CanvasTextSelection.HandleType) {}
+
+        /** 选区把手拖动中 */
+        fun onSelectionHandleDragMove(x: Float, y: Float) {}
+
+        /** 选区把手拖动结束 */
+        fun onSelectionHandleDragEnd() {}
     }
 
     /** 手势配置快捷访问 */
@@ -42,6 +55,10 @@ class CanvasTouchHandler(context: Context) {
 
     /** 是否正在文本选区手势中（拦截后续事件） */
     var isTextSelectionGesture: Boolean = false
+        private set
+
+    /** 是否正在拖动选区把手 */
+    var isHandleDragGesture: Boolean = false
         private set
 
     private var touchDownX: Float = 0f
@@ -91,6 +108,41 @@ class CanvasTouchHandler(context: Context) {
     fun onTouchEvent(event: MotionEvent): Boolean {
         val cb = callbacks ?: return false
 
+        // 检查是否点击了选区把手
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                val textSelection = cb.getTextSelection()
+                if (textSelection != null) {
+                    val hitHandle = textSelection.hitTestHandle(event.x, event.y)
+                    if (hitHandle != null) {
+                        // 开始拖动把手
+                        isHandleDragGesture = true
+                        textSelection.startHandleDrag(hitHandle)
+                        cb.onSelectionHandleDragStart(hitHandle)
+                        return true
+                    }
+                }
+            }
+        }
+
+        // 处理把手拖动手势
+        if (isHandleDragGesture) {
+            when (event.action) {
+                MotionEvent.ACTION_MOVE -> {
+                    cb.onSelectionHandleDragMove(event.x, event.y)
+                    return true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    isHandleDragGesture = false
+                    cb.getTextSelection()?.endHandleDrag()
+                    cb.onSelectionHandleDragEnd()
+                    return true
+                }
+            }
+            return true
+        }
+
+        // 处理文本选区手势
         if (isTextSelectionGesture) {
             if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
                 isTextSelectionGesture = false

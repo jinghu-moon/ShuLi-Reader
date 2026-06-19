@@ -17,6 +17,7 @@ import com.shuli.reader.core.reader.engine.cache.LineKey
 import com.shuli.reader.core.reader.engine.cache.PageKey
 import com.shuli.reader.core.recorder.recordIfNeeded
 import com.shuli.reader.core.data.ReaderTextAlign
+import com.shuli.reader.core.reader.engine.selection.CanvasTextSelection
 import com.shuli.reader.core.reader.model.SelectionRange
 import com.shuli.reader.core.reader.model.TextLine
 import com.shuli.reader.core.reader.model.TextPage
@@ -223,6 +224,11 @@ class ReaderPageRenderer(
         }
 
         // 2. 选区高亮背景（字符级精确范围）
+        var firstLineStartX = 0f
+        var firstLineTop = 0f
+        var lastLineEndX = 0f
+        var lastLineBottom = 0f
+
         page.lines.forEach { line ->
             if (intersects(selectedRange, line.startCharOffset, line.endCharOffset) && selectionPaint != null) {
                 val bodyLeft = page.layout.body.left
@@ -243,8 +249,44 @@ class ReaderPageRenderer(
                 }
                 val rect = RectF(selStartX - 2f, line.top, selEndX + 2f, line.bottom)
                 canvas.drawRoundRect(rect, 4f, 4f, selectionPaint)
+
+                // 记录选区起始和结束位置（用于绘制把手）
+                if (selStart == selectedRange!!.startPos) {
+                    firstLineStartX = selStartX
+                    firstLineTop = line.top
+                }
+                if (selEnd == selectedRange.endPos) {
+                    lastLineEndX = selEndX
+                    lastLineBottom = line.bottom
+                }
             }
         }
+
+        // 3. 绘制选区把手（如果有选区）
+        if (selectedRange != null && selectionPaint != null && firstLineTop > 0f) {
+            drawSelectionHandle(canvas, firstLineStartX, lastLineBottom, selectionPaint)
+            drawSelectionHandle(canvas, lastLineEndX, lastLineBottom, selectionPaint)
+        }
+    }
+
+    /**
+     * 绘制选区把手
+     */
+    private fun drawSelectionHandle(canvas: Canvas, x: Float, y: Float, paint: Paint) {
+        val handleSize = CanvasTextSelection.HANDLE_SIZE
+        val handlePaint = Paint(paint).apply {
+            style = Paint.Style.FILL
+        }
+        // 绘制圆形把手
+        canvas.drawCircle(x, y, handleSize, handlePaint)
+        // 绘制把手下方的小三角（指向选区）
+        val path = android.graphics.Path().apply {
+            moveTo(x - handleSize * 0.6f, y)
+            lineTo(x, y - handleSize * 1.5f)
+            lineTo(x + handleSize * 0.6f, y)
+            close()
+        }
+        canvas.drawPath(path, handlePaint)
     }
 
     /**
