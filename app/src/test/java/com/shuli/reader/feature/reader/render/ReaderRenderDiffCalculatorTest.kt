@@ -3,7 +3,6 @@ package com.shuli.reader.feature.reader.render
 import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.data.ThemeColors
 import com.shuli.reader.core.reader.engine.animation.PageDelegateFactory
-import com.shuli.reader.core.reader.model.SelectionRange
 import com.shuli.reader.core.reader.model.TextPage
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -12,23 +11,18 @@ import org.junit.Test
 class ReaderRenderDiffCalculatorTest {
 
     @Test
-    fun diff_oldIsNull_returnsPageContentShellOverlay() {
+    fun diff_oldIsNull_returnsPage() {
         val new = createDefaultSnapshot()
         val diff = ReaderRenderDiffCalculator.diff(null, new)
         assertTrue(diff.scopes.contains(InvalidationScope.PAGE))
-        assertTrue(diff.scopes.contains(InvalidationScope.CONTENT))
-        assertTrue(diff.scopes.contains(InvalidationScope.SHELL))
-        assertTrue(diff.scopes.contains(InvalidationScope.OVERLAY))
     }
 
     @Test
-    fun diff_currentPageNullToNonNull_returnsPageContentShell() {
+    fun diff_currentPageNullToNonNull_returnsPage() {
         val old = createDefaultSnapshot(page = createDefaultPageSnapshot(currentPage = null))
         val new = createDefaultSnapshot(page = createDefaultPageSnapshot(currentPage = TextPage.EMPTY))
         val diff = ReaderRenderDiffCalculator.diff(old, new)
         assertTrue(diff.scopes.contains(InvalidationScope.PAGE))
-        assertTrue(diff.scopes.contains(InvalidationScope.CONTENT))
-        assertTrue(diff.scopes.contains(InvalidationScope.SHELL))
     }
 
     @Test
@@ -88,40 +82,12 @@ class ReaderRenderDiffCalculatorTest {
     }
 
     @Test
-    fun diff_textAlignChanged_returnsContent() {
+    fun diff_textAlignChanged_returnsEmptyScopes() {
+        // textAlign 变化由 key-diff 驱动，不再通过 scope 失效
         val old = createDefaultSnapshot(visual = createVisualSnapshot(textAlign = ReaderTextAlign.LEFT))
         val new = createDefaultSnapshot(visual = createVisualSnapshot(textAlign = ReaderTextAlign.JUSTIFY))
         val diff = ReaderRenderDiffCalculator.diff(old, new)
-        assertTrue(diff.scopes.contains(InvalidationScope.CONTENT))
-        assertFalse("textAlign 不应触发 REFLOW", diff.scopes.contains(InvalidationScope.REFLOW))
-    }
-
-    @Test
-    fun diff_themeChanged_returnsContentAndShell() {
-        val themeA = ThemeColors(0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 0xFF666666.toInt(), 0xFF666666.toInt(), 0xFF333333.toInt(), 0xFF1976D2.toInt())
-        val themeB = ThemeColors(0xFF000000.toInt(), 0xFFFFFFFF.toInt(), 0xFFAAAAAA.toInt(), 0xFFAAAAAA.toInt(), 0xFFCCCCCC.toInt(), 0xFFBB86FC.toInt())
-        val old = createDefaultSnapshot(visual = createVisualSnapshot(themeColors = themeA))
-        val new = createDefaultSnapshot(visual = createVisualSnapshot(themeColors = themeB))
-        val diff = ReaderRenderDiffCalculator.diff(old, new)
-        assertTrue(diff.scopes.contains(InvalidationScope.CONTENT))
-        assertTrue(diff.scopes.contains(InvalidationScope.SHELL))
-    }
-
-    @Test
-    fun diff_batteryChanged_returnsShell() {
-        val old = createDefaultSnapshot(shell = createShellSnapshot(batteryLevel = 80))
-        val new = createDefaultSnapshot(shell = createShellSnapshot(batteryLevel = 79))
-        val diff = ReaderRenderDiffCalculator.diff(old, new)
-        assertTrue(diff.scopes.contains(InvalidationScope.SHELL))
-        assertFalse(diff.scopes.contains(InvalidationScope.CONTENT))
-    }
-
-    @Test
-    fun diff_selectionChanged_returnsOverlay() {
-        val old = createDefaultSnapshot(overlay = createOverlaySnapshot(selection = null))
-        val new = createDefaultSnapshot(overlay = createOverlaySnapshot(selection = SelectionRange(0, 5, 15, "x")))
-        val diff = ReaderRenderDiffCalculator.diff(old, new)
-        assertTrue(diff.scopes.contains(InvalidationScope.OVERLAY))
+        assertFalse("textAlign 不应触发 scope-based 失效", diff.scopes.contains(InvalidationScope.REFLOW))
     }
 
     @Test

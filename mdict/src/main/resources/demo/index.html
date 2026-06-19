@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>书里 · 划词查词 Demo（真实词典）</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input{font-family:inherit}
+body{
+  font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
+  background:#C8C0B5;min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;padding:22px 16px 48px;gap:14px;
+}
+.ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center}
+.th-btn{padding:5px 16px;border-radius:20px;border:1.5px solid rgba(69,59,46,.5);
+  font-size:12px;color:#453B2E;background:rgba(255,255,255,.55)}
+.th-btn.on{background:#453B2E;color:#F6F4F0;border-color:#453B2E}
+.ctrl-hint{font-size:11px;color:#453B2E;background:rgba(255,255,255,.4);
+  padding:4px 11px;border-radius:12px}
+.phone{
+  width:390px;height:844px;border-radius:46px;border:9px solid #1A130B;
+  overflow:hidden;position:relative;display:flex;flex-direction:column;
+  box-shadow:0 0 0 1px rgba(255,255,255,.1) inset,0 24px 64px rgba(0,0,0,.38);
+  --bg:#F6F4F0;--sf:#FDFCFA;--sv:#EAE5DC;--t1:#1A130B;--t2:#5E5346;--t3:#9C9082;
+  --bd:#D4CCC0;--bd2:#B9AFA0;--pm:#453B2E;--opm:#FFFFFF;--inv:#2C231A;--invt:#F6F4F0;
+  --inf:#3A607A;--infb:#E2EDF4;--sel:rgba(69,59,46,.13);--shad:0 -6px 32px rgba(26,19,11,.13);
+  --wul:rgba(58,96,122,.38);
+}
+.phone.dark{
+  --bg:#0C0804;--sf:#1A130B;--sv:#2C231A;--t1:#EAE5DC;--t2:#9C9082;--t3:#5E5346;
+  --bd:#453B2E;--bd2:#5E5346;--pm:#D4CCC0;--opm:#0C0804;--inv:#EAE5DC;--invt:#1A130B;
+  --inf:#6AA0BE;--infb:#0A1E2A;--sel:rgba(212,204,192,.17);--shad:0 -6px 32px rgba(0,0,0,.48);
+  --wul:rgba(106,160,190,.4);
+}
+.sbar{height:50px;background:var(--sf);border-bottom:.5px solid var(--bd);display:flex;
+  align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0}
+.sbar-l{font-size:14px;font-weight:600;color:var(--t1)}
+.sbar-r{font-size:10px;color:var(--t2)}
+.rtb{height:46px;background:var(--sf);border-bottom:.5px solid var(--bd);display:flex;
+  align-items:center;justify-content:space-between;padding:0 18px;flex-shrink:0}
+.rtb-side{font-size:13px;color:var(--t2)}
+.rtb-mid{font-size:13px;font-weight:500;color:var(--t1)}
+.reader{flex:1;overflow-y:auto;background:var(--bg);position:relative;padding:26px 22px 10px;isolation:isolate}
+.ch-num{font-size:12px;font-weight:500;letter-spacing:.24em;text-align:center;color:var(--t2);margin-bottom:22px}
+.rtext{font-size:17px;line-height:2.05;color:var(--t1);letter-spacing:.04em;text-align:justify}
+.rtext p{margin-bottom:1.35em;text-indent:2em}
+.w{cursor:pointer;border-radius:2px;transition:background .1s;text-decoration:underline;
+  text-decoration-color:var(--wul);text-underline-offset:3px;text-decoration-style:dotted;text-decoration-thickness:1.5px}
+.w:hover,.w.sel{background:var(--sel)}
+.rftr{height:46px;background:var(--sf);border-top:.5px solid var(--bd);display:flex;
+  align-items:center;justify-content:space-between;padding:0 22px;flex-shrink:0}
+.rftr-t{font-size:11px;color:var(--t3)}
+.spop{position:absolute;z-index:120;background:var(--inv);border-radius:12px;padding:4px;
+  display:flex;gap:1px;box-shadow:0 4px 22px rgba(0,0,0,.26);opacity:0;pointer-events:none;
+  transform:translateX(-50%) translateY(-6px);transition:opacity .16s,transform .16s;white-space:nowrap}
+.spop.vis{opacity:1;pointer-events:all;transform:translateX(-50%) translateY(0)}
+.spop::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  border:5px solid transparent;border-top-color:var(--inv)}
+.sp-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 12px;
+  border-radius:9px;color:var(--invt);line-height:1}
+.sp-btn:hover{background:rgba(128,128,128,.14)}
+.sp-ico{font-size:15px}.sp-lbl{font-size:9.5px}
+.sp-sep{width:.5px;background:rgba(128,128,128,.22);margin:5px 0;flex-shrink:0}
+.bdrop{position:absolute;inset:0;background:rgba(12,8,4,.33);z-index:200;opacity:0;
+  pointer-events:none;transition:opacity .26s}
+.bdrop.vis{opacity:1;pointer-events:all}
+.bsh{position:absolute;bottom:0;left:0;right:0;background:var(--sf);border-radius:20px 20px 0 0;
+  z-index:300;display:flex;flex-direction:column;box-shadow:var(--shad);transform:translateY(100%);
+  transition:transform .32s cubic-bezier(.32,.72,0,1);overflow:hidden}
+.bsh.vis{transform:translateY(0)}
+.hdl-row{flex-shrink:0;display:flex;justify-content:center;padding:10px 0 6px;cursor:grab}
+.hdl-bar{width:38px;height:4px;background:var(--bd2);border-radius:2px}
+.bsh-hd{flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;
+  padding:0 20px 12px;border-bottom:.5px solid var(--bd)}
+.bsh-word-block{min-width:0;flex:1;display:flex;align-items:center;gap:8px}
+.bsh-word{font-size:24px;font-weight:600;letter-spacing:.04em;color:var(--t1);
+  background:transparent;border:none;outline:none;width:100%;padding:2px 0}
+.bsh-close{width:28px;height:28px;border-radius:14px;background:var(--sv);color:var(--t2);
+  font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px}
+.bsh-scroll{flex:1;overflow:hidden;position:relative}
+.def-frame{width:100%;height:100%;border:none;background:var(--sf)}
+.nf{display:flex;flex-direction:column;align-items:center;padding:32px 24px;text-align:center}
+.nf-ring{width:52px;height:52px;border-radius:50%;border:1.5px dashed var(--bd2);display:flex;
+  align-items:center;justify-content:center;font-size:22px;color:var(--t3);margin-bottom:12px}
+.nf-label{font-size:12px;color:var(--t3);margin-bottom:3px}
+.nf-word{font-size:20px;font-weight:600;color:var(--t1);margin-bottom:18px}
+.nf-sug{font-size:12px;color:var(--inf);margin:3px 0;cursor:pointer}
+.ldg{display:flex;flex-direction:column;align-items:center;gap:12px;padding:42px}
+.ldg-dots{display:flex;gap:7px}
+.ldg-dot{width:7px;height:7px;border-radius:50%;background:var(--bd2);animation:dp 1.2s ease-in-out infinite}
+.ldg-dot:nth-child(2){animation-delay:.2s}.ldg-dot:nth-child(3){animation-delay:.4s}
+@keyframes dp{0%,80%,100%{transform:scale(.62);opacity:.3}40%{transform:scale(1);opacity:1}}
+.ldg-text{font-size:12px;color:var(--t3)}
+.bsh-footer{flex-shrink:0;padding:10px 18px 18px;border-top:.5px solid var(--bd);display:flex;gap:10px;background:var(--sf)}
+.ft-vocab{flex:1;padding:10px 0;border-radius:10px;background:var(--pm);color:var(--opm);font-size:13px;font-weight:500}
+.ft-hist{padding:10px 16px;border-radius:10px;border:.5px solid var(--bd2);font-size:12px;color:var(--t2)}
+</style>
+</head>
+<body>
+<div class="ctrl">
+  <button class="th-btn on" id="thL" onclick="setTheme('light')">亮色</button>
+  <button class="th-btn" id="thD" onclick="setTheme('dark')">暗色</button>
+  <span class="ctrl-hint">点击划线词查词 · 词头可编辑连续查 · 数据来自真实词典</span>
+</div>
+
+<div class="phone" id="phone">
+  <div class="sbar"><span class="sbar-l">9:41</span><span class="sbar-r">▪▪▪ WiFi 100%</span></div>
+  <div class="rtb"><span class="rtb-side">‹ 书架</span><span class="rtb-mid" id="dictName">词典加载中…</span><span class="rtb-side">···</span></div>
+
+  <div class="reader" id="reader">
+    <div class="ch-num">三</div>
+    <div class="rtext">
+      <p>天色方晴，<span class="w" onclick="pick(this)">霁色</span>初开，远山带翠，草色连天。白鹭数点，翩然掠过水面，惊起几行涟漪，随即沉入苇丛。</p>
+      <p>兰子出了院门，<span class="w" onclick="pick(this)">踟蹰</span>于石径之上，蓦然回首，庭中<span class="w" onclick="pick(this)">梧桐</span>已抽出嫩芽，在春风里轻轻颤动。</p>
+      <p>她沿溪边小路<span class="w" onclick="pick(this)">迤逦</span>而行，溪声潺潺。行至一处<span class="w" onclick="pick(this)">幽篁</span>，竹风送来阵阵清香，令人神思爽利。</p>
+      <p>暮色将至，<span class="w" onclick="pick(this)">踯躅</span>于归途，远处<span class="w" onclick="pick(this)">炊烟</span>袅袅，灯火一盏一盏地亮起。</p>
+    </div>
+    <div class="spop" id="spop">
+      <button class="sp-btn" onclick="lookup(cur)"><span class="sp-ico">📖</span><span class="sp-lbl">查词</span></button>
+      <div class="sp-sep"></div>
+      <button class="sp-btn" onclick="dismiss()"><span class="sp-ico">⎘</span><span class="sp-lbl">复制</span></button>
+      <button class="sp-btn" onclick="dismiss()"><span class="sp-ico">🔖</span><span class="sp-lbl">书签</span></button>
+      <button class="sp-btn" onclick="dismiss()"><span class="sp-ico">✎</span><span class="sp-lbl">笔记</span></button>
+    </div>
+  </div>
+
+  <div class="rftr"><span class="rftr-t">第 47 页</span><span class="rftr-t">23%</span></div>
+  <div class="bdrop" id="bdrop" onclick="closeSheet()"></div>
+
+  <div class="bsh" id="bsh" style="height:60%">
+    <div class="hdl-row" id="hdl"><div class="hdl-bar"></div></div>
+    <div class="bsh-hd">
+      <div class="bsh-word-block">
+        <input class="bsh-word" id="bshWord" placeholder="输入词语…"
+               onkeydown="if(event.key==='Enter')lookup(this.value.trim())">
+      </div>
+      <button class="bsh-close" onclick="closeSheet()">✕</button>
+    </div>
+    <div class="bsh-scroll" id="bshScroll"></div>
+    <div class="bsh-footer" id="bshFooter" style="display:none">
+      <button class="ft-vocab">＋ 生词本</button>
+      <button class="ft-hist">📋 历史</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let cur = null, curEl = null;
+
+fetch('/info').then(r=>r.json()).then(d=>{
+  document.getElementById('dictName').textContent = d.name + ' · ' + d.entries.toLocaleString() + ' 词';
+}).catch(()=>document.getElementById('dictName').textContent='词典未加载');
+
+function setTheme(m){
+  document.getElementById('phone').classList.toggle('dark', m==='dark');
+  document.getElementById('thL').classList.toggle('on', m==='light');
+  document.getElementById('thD').classList.toggle('on', m==='dark');
+}
+function pick(el){
+  if(curEl && curEl!==el) curEl.classList.remove('sel');
+  curEl=el; cur=el.textContent; el.classList.add('sel');
+  const rd=document.getElementById('reader'), pop=document.getElementById('spop');
+  const rr=rd.getBoundingClientRect(), er=el.getBoundingClientRect();
+  const cx=er.left+er.width/2-rr.left, topY=er.top+rd.scrollTop-rr.top-64;
+  pop.style.left=Math.max(95,Math.min(cx,rr.width-95))+'px';
+  pop.style.top=Math.max(6,topY)+'px';
+  pop.classList.add('vis');
+}
+function dismiss(){
+  document.getElementById('spop').classList.remove('vis');
+  if(curEl){curEl.classList.remove('sel');curEl=null;}
+}
+function lookup(word){
+  if(!word) return;
+  cur=word;
+  document.getElementById('spop').classList.remove('vis');
+  document.getElementById('bshWord').value=word;
+  document.getElementById('bshScroll').innerHTML=loading();
+  document.getElementById('bshFooter').style.display='none';
+  document.getElementById('bsh').classList.add('vis');
+  document.getElementById('bdrop').classList.add('vis');
+
+  fetch('/lookup?word='+encodeURIComponent(word)).then(r=>r.json()).then(d=>{
+    if(d.found){
+      const frame=document.createElement('iframe');
+      frame.className='def-frame';
+      document.getElementById('bshScroll').innerHTML='';
+      document.getElementById('bshScroll').appendChild(frame);
+      frame.srcdoc=d.html;
+      document.getElementById('bshFooter').style.display='flex';
+    }else{
+      document.getElementById('bshScroll').innerHTML=notFound(word, d.suggestions||[]);
+    }
+  }).catch(e=>{
+    document.getElementById('bshScroll').innerHTML=notFound(word, []);
+  });
+}
+function loading(){
+  return '<div class="ldg"><div class="ldg-dots"><div class="ldg-dot"></div><div class="ldg-dot"></div><div class="ldg-dot"></div></div><span class="ldg-text">查询中…</span></div>';
+}
+function notFound(w, sug){
+  let s = sug.map(x=>'<div class="nf-sug" onclick="lookup(\''+x+'\')">· '+x+'</div>').join('');
+  if(s) s='<div style="margin-top:8px">你是不是要找：</div>'+s;
+  return '<div class="nf"><div class="nf-ring">◌</div><div class="nf-label">未找到释义</div><div class="nf-word">「'+w+'」</div>'+s+'</div>';
+}
+function closeSheet(){
+  document.getElementById('bsh').classList.remove('vis');
+  document.getElementById('bdrop').classList.remove('vis');
+  dismiss();
+}
+document.getElementById('reader').addEventListener('click',e=>{
+  const pop=document.getElementById('spop');
+  if(!e.target.classList.contains('w')&&!pop.contains(e.target)) dismiss();
+});
+// 拖拽把手调高度
+let dragging=false,dy0=0,dh0=0;
+const BSH=document.getElementById('bsh'),PH=document.getElementById('phone'),HDL=document.getElementById('hdl');
+function ds(y){dragging=true;dy0=y;dh0=BSH.offsetHeight;}
+function dm(y){if(!dragging)return;BSH.style.height=Math.min(Math.max(dh0-(y-dy0),120),PH.offsetHeight*0.92)+'px';}
+function de(){if(!dragging)return;dragging=false;const f=BSH.offsetHeight/PH.offsetHeight;
+  if(f<0.22){closeSheet();return;}
+  BSH.style.transition='transform .32s cubic-bezier(.32,.72,0,1),height .22s ease';
+  BSH.style.height=(f<0.46?0.36:f<0.73?0.6:0.9)*100+'%';}
+HDL.addEventListener('mousedown',e=>ds(e.clientY));
+HDL.addEventListener('touchstart',e=>ds(e.touches[0].clientY),{passive:true});
+document.addEventListener('mousemove',e=>dm(e.clientY));
+document.addEventListener('touchmove',e=>dm(e.touches[0].clientY),{passive:true});
+document.addEventListener('mouseup',de);document.addEventListener('touchend',de);
+</script>
+</body>
+
+</html>

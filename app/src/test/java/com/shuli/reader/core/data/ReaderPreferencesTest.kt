@@ -16,8 +16,8 @@ class ReaderPreferencesTest {
         assertEquals(1.5f, prefs.lineSpacing, 0.01f)
         assertEquals(PageAnimType.HORIZONTAL, prefs.pageAnimType)
         assertEquals(ReaderTheme.PAPER, prefs.backgroundColor)
-        assertEquals(24f, prefs.marginHorizontal, 0.01f)
-        assertEquals(48f, prefs.marginVertical, 0.01f)
+        assertEquals(24f, prefs.bodyBox.left, 0.01f)
+        assertEquals(48f, prefs.bodyBox.top, 0.01f)
     }
 
     @Test

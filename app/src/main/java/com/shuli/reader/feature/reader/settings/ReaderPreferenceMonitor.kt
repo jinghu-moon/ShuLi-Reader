@@ -16,6 +16,7 @@ import com.shuli.reader.core.data.toPageAnimType
 import com.shuli.reader.core.data.toSlotContent
 import com.shuli.reader.core.data.toTextAlign
 import com.shuli.reader.core.data.toTitleAlign
+import com.shuli.reader.core.reader.model.BoxInsetsDp
 import com.shuli.reader.core.reader.model.FooterConfig
 import com.shuli.reader.core.reader.model.HeaderConfig
 import com.shuli.reader.core.reader.model.TitleStyleConfig
@@ -64,8 +65,12 @@ internal class ReaderPreferenceMonitor(
                 paragraphSpacing = prefs.defaultParagraphSpacing.first(),
                 indent = prefs.defaultIndent.first(),
                 indentUnit = prefs.indentUnit.first().toIndentUnit(),
-                marginHorizontal = prefs.marginHorizontal.first(),
-                marginVertical = prefs.marginVertical.first(),
+                bodyBox = BoxInsetsDp(
+                    top = prefs.marginVertical.first(),
+                    bottom = prefs.marginVertical.first(),
+                    left = prefs.marginHorizontal.first(),
+                    right = prefs.marginHorizontal.first(),
+                ),
                 letterSpacing = prefs.letterSpacing.first(),
                 useZhLayout = prefs.useZhLayout.first(),
                 chineseConvert = prefs.chineseConvert.first().toChineseConvert(),
@@ -86,15 +91,15 @@ internal class ReaderPreferenceMonitor(
                     left = prefs.headerLeft.first().toSlotContent(),
                     center = prefs.headerCenter.first().toSlotContent(),
                     right = prefs.headerRight.first().toSlotContent(),
-                    marginTop = prefs.headerMarginTop.first(),
                 ),
+                headerBox = BoxInsetsDp(top = prefs.headerMarginTop.first(), bottom = 0f, left = 24f, right = 24f),
                 footer = FooterConfig(
                     visibility = prefs.footerVisibility.first().toHeaderVisibility(),
                     left = prefs.footerLeft.first().toSlotContent(),
                     center = prefs.footerCenter.first().toSlotContent(),
                     right = prefs.footerRight.first().toSlotContent(),
-                    marginBottom = prefs.footerMarginBottom.first(),
                 ),
+                footerBox = BoxInsetsDp(top = 0f, bottom = prefs.footerMarginBottom.first(), left = 24f, right = 24f),
                 headerFooterAlpha = prefs.headerFooterAlpha.first(),
                 showProgress = prefs.showProgress.first(),
                 showHeaderLine = prefs.showHeaderLine.first(),
@@ -133,6 +138,8 @@ internal class ReaderPreferenceMonitor(
                 userPreferences.usePanguSpacing,
                 userPreferences.bottomJustify,
             ) { flows: Array<Any> ->
+                val mh = flows[5] as Float
+                val mv = flows[6] as Float
                 Triple(
                     ReaderLayoutPrefs(
                         fontSize = flows[0] as Float,
@@ -140,8 +147,7 @@ internal class ReaderPreferenceMonitor(
                         paragraphSpacing = flows[2] as Float,
                         indent = flows[3] as Float,
                         indentUnit = (flows[4] as String).toIndentUnit(),
-                        marginHorizontal = flows[5] as Float,
-                        marginVertical = flows[6] as Float,
+                        bodyBox = BoxInsetsDp(top = mv, bottom = mv, left = mh, right = mh),
                         letterSpacing = flows[7] as Float,
                         useZhLayout = flows[8] as Boolean,
                         chineseConvert = (flows[9] as String).toChineseConvert(),
@@ -165,8 +171,7 @@ internal class ReaderPreferenceMonitor(
                         paragraphSpacing = layoutPrefs.paragraphSpacing,
                         indent = layoutPrefs.indent,
                         indentUnit = layoutPrefs.indentUnit,
-                        marginHorizontal = layoutPrefs.marginHorizontal,
-                        marginVertical = layoutPrefs.marginVertical,
+                        bodyBox = layoutPrefs.bodyBox,
                         letterSpacing = layoutPrefs.letterSpacing,
                         useZhLayout = layoutPrefs.useZhLayout,
                         chineseConvert = chineseConvertRaw.toChineseConvert(),
@@ -215,15 +220,15 @@ internal class ReaderPreferenceMonitor(
                         left = (flows[5] as String).toSlotContent(),
                         center = (flows[6] as String).toSlotContent(),
                         right = (flows[7] as String).toSlotContent(),
-                        marginTop = flows[14] as Float,
                     ),
+                    headerBox = BoxInsetsDp(top = flows[14] as Float, bottom = 0f, left = 24f, right = 24f),
                     footer = FooterConfig(
                         visibility = (flows[8] as String).toHeaderVisibility(),
                         left = (flows[9] as String).toSlotContent(),
                         center = (flows[10] as String).toSlotContent(),
                         right = (flows[11] as String).toSlotContent(),
-                        marginBottom = flows[15] as Float,
                     ),
+                    footerBox = BoxInsetsDp(top = 0f, bottom = flows[15] as Float, left = 24f, right = 24f),
                     headerFooterAlpha = flows[12] as Float,
                     showProgress = flows[13] as Boolean,
                     showHeaderLine = flows[16] as Boolean,
@@ -240,7 +245,9 @@ internal class ReaderPreferenceMonitor(
                         textAlign = visual.textAlign,
                         pageAnimType = visual.pageAnimType,
                         header = visual.header,
+                        headerBox = visual.headerBox,
                         footer = visual.footer,
+                        footerBox = visual.footerBox,
                         headerFooterAlpha = visual.headerFooterAlpha,
                         showProgress = visual.showProgress,
                         showHeaderLine = visual.showHeaderLine,
@@ -310,8 +317,7 @@ internal data class ReaderLayoutPrefs(
     val paragraphSpacing: Float,
     val indent: Float,
     val indentUnit: IndentUnit,
-    val marginHorizontal: Float,
-    val marginVertical: Float,
+    val bodyBox: BoxInsetsDp,
     val letterSpacing: Float,
     val useZhLayout: Boolean,
     val chineseConvert: ChineseConvert,
@@ -328,7 +334,9 @@ internal data class ReaderVisualPrefs(
     val textAlign: ReaderTextAlign,
     val pageAnimType: com.shuli.reader.core.data.PageAnimType,
     val header: HeaderConfig,
+    val headerBox: BoxInsetsDp,
     val footer: FooterConfig,
+    val footerBox: BoxInsetsDp,
     val headerFooterAlpha: Float,
     val showProgress: Boolean,
     val showHeaderLine: Boolean,

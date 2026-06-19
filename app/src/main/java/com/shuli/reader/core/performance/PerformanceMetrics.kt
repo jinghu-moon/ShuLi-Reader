@@ -13,13 +13,16 @@ data class FrameStats(
 class FrameTimeRecorder(
     private val jankThresholdNs: Long = DEFAULT_JANK_THRESHOLD_NS,
 ) {
-    private val frameDurationsNs = mutableListOf<Long>()
+    private val frameDurationsNs = ArrayDeque<Long>(INITIAL_CAPACITY)
     private var lastFrameTimeNs: Long? = null
 
     fun recordFrame(frameTimeNs: Long) {
         val last = lastFrameTimeNs
         if (last != null && frameTimeNs > last) {
-            frameDurationsNs += frameTimeNs - last
+            if (frameDurationsNs.size >= MAX_FRAMES) {
+                frameDurationsNs.removeFirst()
+            }
+            frameDurationsNs.addLast(frameTimeNs - last)
         }
         lastFrameTimeNs = frameTimeNs
     }
@@ -52,6 +55,8 @@ class FrameTimeRecorder(
     private companion object {
         private const val DEFAULT_JANK_THRESHOLD_NS = 16_666_667L
         private const val NS_PER_MS = 1_000_000.0
+        private const val MAX_FRAMES = 10_000
+        private const val INITIAL_CAPACITY = 1024
     }
 }
 

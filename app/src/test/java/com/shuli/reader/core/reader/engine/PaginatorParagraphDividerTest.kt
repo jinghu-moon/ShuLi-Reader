@@ -1,5 +1,6 @@
 package com.shuli.reader.core.reader.engine
 
+import com.shuli.reader.core.reader.model.BoxInsetsPx
 import com.shuli.reader.core.reader.model.PageSize
 import com.shuli.reader.core.reader.model.ReaderLayoutConfig
 import com.shuli.reader.core.reader.text.SimpleTextMeasurer
@@ -21,10 +22,7 @@ class PaginatorParagraphDividerTest {
         textSize = 16f * 2.75f,
         lineHeight = 1.5f,
         paragraphSpacing = 1.0f * 44f,
-        marginTop = 48f * 2.75f,
-        marginBottom = 48f * 2.75f,
-        marginLeft = 24f * 2.75f,
-        marginRight = 24f * 2.75f,
+        bodyInsets = BoxInsetsPx(top = 48f * 2.75f, bottom = 48f * 2.75f, left = 24f * 2.75f, right = 24f * 2.75f),
         indent = 2f * 44f,
         density = 2.75f,
         letterSpacingPx = 0f,

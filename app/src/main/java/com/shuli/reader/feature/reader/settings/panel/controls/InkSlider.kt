@@ -27,12 +27,14 @@ import com.shuli.reader.ui.theme.LocalReaderColorScheme
  * 不依赖 Material3 [androidx.compose.material3.Slider]：
  * - 细圆角轨道 + 强调色填充 + 圆形 thumb，造型贴合墨土设计。
  * - 点击轨道任意位置跳转、拖拽连续调值，均通过 [pointerInput] 实现。
+ * - 双击轨道重置到 [defaultValue]（如有）。
  *
  * @param value 当前值（落在 [valueRange] 内）
  * @param onValueChange 值变化回调（拖拽 / 点击实时触发）
  * @param valueRange 取值范围
+ * @param defaultValue 默认值（可选）。在轨道上绘制竖线标记，双击重置到此值。
  * @param fillBrush 可选填充画刷（如色温滑块用橙→强调色渐变），为 null 时用纯强调色
- * @param onValueChangeFinished 交互结束回调（抬手 / 点击完成）
+ * @param onValueChangeFinished 交互结束回调（抬手 / 点击完成 / 双击重置）
  */
 @Composable
 fun InkSlider(
@@ -40,22 +42,27 @@ fun InkSlider(
     onValueChange: (Float) -> Unit,
     valueRange: ClosedFloatingPointRange<Float>,
     modifier: Modifier = Modifier,
+    defaultValue: Float? = null,
     fillBrush: Brush? = null,
     onValueChangeFinished: ((Float) -> Unit)? = null,
 ) {
     val colors = LocalReaderColorScheme.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val snapThresholdPx = with(density) { 12.dp.toPx() }
     val span = (valueRange.endInclusive - valueRange.start).coerceAtLeast(0.0001f)
     var trackWidthPx by remember { mutableFloatStateOf(0f) }
     val fraction = ((value - valueRange.start) / span).coerceIn(0f, 1f)
-    // 记录最近一次 emit 的值；每次 recomposition 重置为当前 value，emitFromX 内再覆盖。
-    // pointerInput lambda 捕获的是此变量的"当前 recomposition 时刻"引用，
-    // 在 onDragEnd 触发时读到的是手势最后一帧写入的最终值。
     var lastEmitted = value
 
     fun emitFromX(x: Float) {
         if (trackWidthPx <= 0f) return
         val ratio = (x / trackWidthPx).coerceIn(0f, 1f)
-        val emitted = valueRange.start + ratio * span
+        val rawValue = valueRange.start + ratio * span
+        // 吸附到默认值（±12dp 范围内）
+        val emitted = if (defaultValue != null) {
+            val defaultX = ((defaultValue - valueRange.start) / span) * trackWidthPx
+            if (kotlin.math.abs(x - defaultX) < snapThresholdPx) defaultValue else rawValue
+        } else rawValue
         lastEmitted = emitted
         onValueChange(emitted)
     }
@@ -66,11 +73,20 @@ fun InkSlider(
             .height(28.dp)
             .testTag("InkSlider")
             .onSizeChanged { trackWidthPx = it.width.toFloat() }
-            .pointerInput(valueRange) {
-                detectTapGestures { offset ->
-                    emitFromX(offset.x)
-                    onValueChangeFinished?.invoke(lastEmitted)
-                }
+            .pointerInput(valueRange, defaultValue) {
+                detectTapGestures(
+                    onTap = { offset ->
+                        emitFromX(offset.x)
+                        onValueChangeFinished?.invoke(lastEmitted)
+                    },
+                    onDoubleTap = {
+                        if (defaultValue != null) {
+                            lastEmitted = defaultValue
+                            onValueChange(defaultValue)
+                            onValueChangeFinished?.invoke(defaultValue)
+                        }
+                    },
+                )
             }
             .pointerInput(valueRange) {
                 detectDragGestures(
@@ -91,6 +107,16 @@ fun InkSlider(
             size = Size(size.width, trackH),
             cornerRadius = CornerRadius(trackH / 2f),
         )
+        // 默认值标记（小圆点）
+        if (defaultValue != null) {
+            val defFraction = ((defaultValue - valueRange.start) / span).coerceIn(0f, 1f)
+            val defX = size.width * defFraction
+            drawCircle(
+                color = colors.textTertiary,
+                radius = 4.dp.toPx(),
+                center = Offset(defX, cy),
+            )
+        }
         // 填充
         val fillW = size.width * fraction
         if (fillW > 0f) {

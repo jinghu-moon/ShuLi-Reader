@@ -8,6 +8,7 @@ import com.shuli.reader.core.data.ProgressStyle
 import com.shuli.reader.core.data.ReaderFontWeight
 import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.data.ReaderTheme
+import com.shuli.reader.core.reader.model.BoxInsetsDp
 import com.shuli.reader.core.reader.model.HeaderVisibility
 import com.shuli.reader.core.reader.model.SlotContent
 import com.shuli.reader.core.reader.model.TitleAlign
@@ -118,16 +119,16 @@ enum class PageDirection { NEXT, PREV }
  */
 enum class ReaderSettingKey {
     FONT_SIZE, LINE_SPACING, PARAGRAPH_SPACING, INDENT, INDENT_UNIT,
-    MARGIN_HORIZONTAL, MARGIN_VERTICAL, LETTER_SPACING,
+    BODY_BOX, HEADER_BOX, FOOTER_BOX, TITLE_BOX, LETTER_SPACING,
     READING_FONT, FONT_WEIGHT, TEXT_ALIGN,
     THEME, BRIGHTNESS,
     CHINESE_CONVERT, USE_ZH_LAYOUT, USE_PANGU_SPACING, BOTTOM_JUSTIFY,
-    HEADER_VISIBILITY, HEADER_LEFT, HEADER_CENTER, HEADER_RIGHT, HEADER_MARGIN_TOP,
-    FOOTER_VISIBILITY, FOOTER_LEFT, FOOTER_CENTER, FOOTER_RIGHT, FOOTER_MARGIN_BOTTOM,
+    HEADER_VISIBILITY, HEADER_LEFT, HEADER_CENTER, HEADER_RIGHT,
+    FOOTER_VISIBILITY, FOOTER_LEFT, FOOTER_CENTER, FOOTER_RIGHT,
     HEADER_FOOTER_ALPHA, SHOW_PROGRESS,
     SHOW_HEADER_LINE, SHOW_FOOTER_LINE,
     HEADER_FONT_SIZE_RATIO, FOOTER_FONT_SIZE_RATIO,
-    TITLE_ALIGN, TITLE_SIZE_OFFSET, TITLE_MARGIN_TOP, TITLE_MARGIN_BOTTOM,
+    TITLE_ALIGN, TITLE_SIZE_OFFSET, TITLE_FONT_SIZE, TITLE_MARGIN_TOP, TITLE_MARGIN_BOTTOM,
     KEEP_SCREEN_ON, VOLUME_KEY_TURN_PAGE, EDGE_TURN_PAGE, EDGE_WIDTH_PERCENT,
     IMMERSIVE_MODE,
     MAX_PAGE_WIDTH, REMOVE_EMPTY_LINES, CLEAN_CHAPTER_TITLE, PROGRESS_STYLE,
@@ -137,7 +138,6 @@ enum class ReaderSettingKey {
     // v5.1 Phase 1-4 新增
     COLOR_TEMPERATURE,
     PARAGRAPH_DIVIDER,
-    MARGIN_TOP, MARGIN_BOTTOM, MARGIN_LEFT, MARGIN_RIGHT,
     BIONIC_READING, VERTICAL_TEXT, DUAL_PAGE_MODE,
     HAPTIC_FEEDBACK, ORIENTATION_LOCK, PAGE_ANIM_SPEED,
     AD_FILTERING, TTS_VOICE, TTS_AUTO_PAGE, TTS_TIMER,
@@ -166,6 +166,7 @@ sealed interface ReaderSettingValue {
     data class OrientationLock(val value: com.shuli.reader.core.data.OrientationLock) : ReaderSettingValue
     data class PageAnimSpeed(val value: com.shuli.reader.core.data.PageAnimSpeed) : ReaderSettingValue
     data class GestureConfigValue(val value: com.shuli.reader.feature.reader.settings.GestureConfig) : ReaderSettingValue
+    data class BoxInsetsDpVal(val value: BoxInsetsDp) : ReaderSettingValue
     data class CustomThemeColor(
         val backgroundColor: kotlin.Int?,
         val textColor: kotlin.Int?,

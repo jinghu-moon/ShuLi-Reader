@@ -35,6 +35,9 @@ class FontManager(val context: Context, val strings: AppStrings = AppStrings.ZhH
     private val fontDir: File
         get() = File(context.filesDir, FONT_DIR_NAME).also { it.mkdirs() }
 
+    /** Typeface 缓存，避免重复解析字体文件 */
+    private val typefaceCache = HashMap<String, Typeface>()
+
     /** 字体条目 */
     data class FontEntry(
         val id: String,
@@ -123,11 +126,13 @@ class FontManager(val context: Context, val strings: AppStrings = AppStrings.ZhH
     /** 删除指定字体 */
     fun deleteFont(id: Int): Boolean {
         val entry = listFonts().find { it.id == id.toString() } ?: return false
+        typefaceCache.remove(entry.id)
         return entry.file.delete()
     }
 
     fun deleteFontById(id: String): Boolean {
         val entry = listFonts().find { it.id == id } ?: return false
+        typefaceCache.remove(id)
         return entry.file.delete()
     }
 
@@ -135,6 +140,13 @@ class FontManager(val context: Context, val strings: AppStrings = AppStrings.ZhH
     fun loadTypeface(fontKey: String): Typeface? {
         if (!isCustomFont(fontKey)) return null
         val id = customFontId(fontKey) ?: return null
+        typefaceCache[id]?.let { return it }
+        val typeface = loadTypefaceFromFile(id) ?: return null
+        typefaceCache[id] = typeface
+        return typeface
+    }
+
+    private fun loadTypefaceFromFile(id: String): Typeface? {
         val file = File(fontDir, "$id.${FONT_EXTENSION_TTF}")
         if (file.exists()) return Typeface.createFromFile(file)
         val fileOtf = File(fontDir, "$id.${FONT_EXTENSION_OTF}")

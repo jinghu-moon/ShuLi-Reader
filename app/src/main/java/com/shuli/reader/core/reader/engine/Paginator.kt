@@ -1,15 +1,21 @@
 package com.shuli.reader.core.reader.engine
 
-import com.shuli.reader.core.reader.text.TextMeasurer
-import com.shuli.reader.core.reader.model.TitleAlign
-import com.shuli.reader.core.reader.text.WidthWindow
-import com.shuli.reader.core.data.ReaderPreferences
-import com.shuli.reader.core.data.toLayoutConfig
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
+import com.shuli.reader.core.reader.model.BoxSpec
+import com.shuli.reader.core.reader.model.PageLayout
+// PageLayoutCalculator is in the same package (engine)
 import com.shuli.reader.core.reader.model.PageSize
 import com.shuli.reader.core.reader.model.ReaderLayoutConfig
 import com.shuli.reader.core.reader.model.TextChapter
 import com.shuli.reader.core.reader.model.TextLine
 import com.shuli.reader.core.reader.model.TextPage
+import com.shuli.reader.core.reader.model.TitleAlign
+import com.shuli.reader.core.reader.text.TextMeasurer
+import com.shuli.reader.core.reader.text.WidthWindow
+import com.shuli.reader.core.data.ReaderPreferences
+import com.shuli.reader.core.data.toLayoutConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -23,6 +29,30 @@ class Paginator(
     var textMeasurer: TextMeasurer,
     var strategy: PaginationStrategy? = null,
 ) {
+
+    companion object {
+        /** 页眉内容高度常量（dp），避免魔法数字散落 */
+        internal const val HEADER_CONTENT_HEIGHT_DP = 24f
+        /** 页脚内容高度常量（dp） */
+        internal const val FOOTER_CONTENT_HEIGHT_DP = 24f
+        /** 浮点精度容差，防止 maxY == currentY + lineHeight 时因精度丢失跳过最后一行 */
+        private const val EPSILON = 0.5f
+
+        /** 禁止出现在行首的标点（右引号、右括号、句末标点等） */
+        private val FORBIDDEN_LINE_START_CHARS = setOf(
+            '、', '。', '，', '；', '：', '？', '！',
+            '）', '】', '》', '」', '』', '…', '．',
+            '”', '’', // 右双引号、右单引号
+            ')', '>', ']', '}', ',', '.', '?', '!', ':', ';',
+        )
+        /** 禁止出现在行尾的标点（左引号、左括号等） */
+        private val FORBIDDEN_LINE_END_CHARS = setOf(
+            '“', '‘', // 左双引号、左单引号
+            '（', '《', '【', '「', '『',
+            '(', '<', '[', '{',
+        )
+    }
+
     /**
      * 策略模式入口：从 ReaderPreferences 解析参数并委托给 strategy。
      * 如无 strategy 则构建 ReaderLayoutConfig 后走内置 paginateChapter。
@@ -45,44 +75,10 @@ class Paginator(
         return paginateChapter(chapterIndex, title, content, config, showHeader, showFooter)
     }
 
-    private companion object {
-        /** 禁止出现在行首的标点（右引号、右括号、句末标点等） */
-        private val FORBIDDEN_LINE_START_CHARS = setOf(
-            '、',  // 、
-            '。',  // 。
-            '，',  // ，
-            '；',  // ；
-            '：',  // ：
-            '？',  // ？
-            '！',  // ！
-            '）',  // ）
-            '】',  // 〕
-            '》',  // 》
-            '」',  // 」
-            '』',  // 』
-            '…',  // …
-            '．',  // ．
-            '”',  // "
-            '’',  // '
-            ')', '>', ']', '}',
-            ',', '.', '?', '!', ':', ';',
-        )
-
-        /** 禁止出现在行尾的标点（左引号、左括号等） */
-        private val FORBIDDEN_LINE_END_CHARS = setOf(
-            '“',  // "
-            '‘',  // '
-            '（',  // （
-            '《',  // 《
-            '【',  // 【
-            '「',  // 「
-            '『',  // 『
-            '(', '<', '[', '{',
-        )
-    }
-
     /**
-     * 对章节内容进行分页
+     * 对章节内容进行分页（盒子模型版本）。
+     *
+     * PageLayout 按页生成：首页包含 title box，后续页 title=null，body 自动向上扩展。
      */
     fun paginateChapter(
         chapterIndex: Int,
@@ -97,7 +93,44 @@ class Paginator(
         var currentOffset = 0
         var pageIndex = 0
 
+        // 预计算标题 StaticLayout（首页独有）
+        val bodyWidth = PageLayoutCalculator.bodyWidth(config.pageSize, config.bodyInsets)
+        val titleResult = buildTitleLayout(config, title, bodyWidth)
+
+        val headerHeight = HEADER_CONTENT_HEIGHT_DP * config.density
+        val footerHeight = FOOTER_CONTENT_HEIGHT_DP * config.density
+
         while (currentOffset < content.length) {
+            val isFirstPage = pageIndex == 0
+
+            // 按页生成 layout（首页有 title，后续页无 title）
+            val layout = PageLayoutCalculator.calculate(
+                pageSize = config.pageSize,
+                header = BoxSpec(
+                    insets = config.headerInsets,
+                    innerHeight = headerHeight,
+                    placement = BoxSpec.Placement.TOP_DOWN,
+                    visible = showHeader,
+                ),
+                title = BoxSpec(
+                    insets = config.titleInsets,
+                    innerHeight = if (isFirstPage) titleResult.second else 0f,
+                    placement = BoxSpec.Placement.TOP_DOWN,
+                    visible = isFirstPage && titleResult.first != null,
+                ),
+                body = BoxSpec(
+                    insets = config.bodyInsets,
+                    placement = BoxSpec.Placement.FILL,
+                    visible = true,
+                ),
+                footer = BoxSpec(
+                    insets = config.footerInsets,
+                    innerHeight = footerHeight,
+                    placement = BoxSpec.Placement.BOTTOM_UP,
+                    visible = showFooter,
+                ),
+            )
+
             val page = paginatePage(
                 chapterIndex = chapterIndex,
                 pageIndex = pageIndex,
@@ -105,8 +138,8 @@ class Paginator(
                 startOffset = currentOffset,
                 widthWindow = widthWindow,
                 config = config,
-                showHeader = showHeader,
-                showFooter = showFooter,
+                layout = layout,
+                titleLayout = if (isFirstPage) titleResult.first else null,
                 chapterTitle = title,
             )
             pages.add(page)
@@ -137,7 +170,41 @@ class Paginator(
         var currentOffset = 0
         var pageIndex = 0
 
+        val bodyWidth = PageLayoutCalculator.bodyWidth(config.pageSize, config.bodyInsets)
+        val titleResult = buildTitleLayout(config, chapter.title, bodyWidth)
+        val headerHeight = HEADER_CONTENT_HEIGHT_DP * config.density
+        val footerHeight = FOOTER_CONTENT_HEIGHT_DP * config.density
+
         while (currentOffset < content.length) {
+            val isFirstPage = pageIndex == 0
+
+            val layout = PageLayoutCalculator.calculate(
+                pageSize = config.pageSize,
+                header = BoxSpec(
+                    insets = config.headerInsets,
+                    innerHeight = headerHeight,
+                    placement = BoxSpec.Placement.TOP_DOWN,
+                    visible = showHeader,
+                ),
+                title = BoxSpec(
+                    insets = config.titleInsets,
+                    innerHeight = if (isFirstPage) titleResult.second else 0f,
+                    placement = BoxSpec.Placement.TOP_DOWN,
+                    visible = isFirstPage && titleResult.first != null,
+                ),
+                body = BoxSpec(
+                    insets = config.bodyInsets,
+                    placement = BoxSpec.Placement.FILL,
+                    visible = true,
+                ),
+                footer = BoxSpec(
+                    insets = config.footerInsets,
+                    innerHeight = footerHeight,
+                    placement = BoxSpec.Placement.BOTTOM_UP,
+                    visible = showFooter,
+                ),
+            )
+
             val page = paginatePage(
                 chapterIndex = chapter.chapterIndex,
                 pageIndex = pageIndex,
@@ -145,8 +212,8 @@ class Paginator(
                 startOffset = currentOffset,
                 widthWindow = widthWindow,
                 config = config,
-                showHeader = showHeader,
-                showFooter = showFooter,
+                layout = layout,
+                titleLayout = if (isFirstPage) titleResult.first else null,
                 chapterTitle = chapter.title,
             )
             chapter.addPage(page)
@@ -157,7 +224,9 @@ class Paginator(
     }
 
     /**
-     * 分页单个页面
+     * 分页单个页面（盒子模型版本）。
+     *
+     * 使用 layout.body 作为排版区域，保证至少排版一行防死循环。
      */
     private fun paginatePage(
         chapterIndex: Int,
@@ -166,26 +235,24 @@ class Paginator(
         startOffset: Int,
         widthWindow: WidthWindow,
         config: ReaderLayoutConfig,
-        showHeader: Boolean = true,
-        showFooter: Boolean = true,
+        layout: PageLayout,
+        titleLayout: StaticLayout?,
         chapterTitle: String = "",
     ): TextPage {
         val lines = mutableListOf<TextLine>()
-
+        val body = layout.body
+        val availableWidth = body.width
         val lineHeight = textMeasurer.measureTextHeight(config.textSize, config.lineHeight)
-        val availableWidth = config.pageSize.width - config.marginLeft - config.marginRight
-        val headerHeight = if (showHeader) 24f * config.density else 0f
-        val footerHeight = if (showFooter) 24f * config.density else 0f
-        val maxAvailableY = config.pageSize.height - config.marginBottom - footerHeight
-        val titleAreaHeight = calcTitleAreaHeight(config, pageIndex, chapterTitle, availableWidth)
-
-        val startY = config.marginTop + headerHeight + titleAreaHeight
+        var currentY = body.top
+        val maxY = body.bottom
         val indentWidth = calcIndent(config, availableWidth)
-        var currentY = startY
         var currentOffset = startOffset
+        var mustPlaceAtLeastOneLine = true
 
-        // 按行分页
-        while (currentY + lineHeight <= maxAvailableY && currentOffset < content.length) {
+        // 按行分页（防死循环：保证至少排版一行）
+        while ((currentY + lineHeight <= maxY + EPSILON || mustPlaceAtLeastOneLine) && currentOffset < content.length) {
+            mustPlaceAtLeastOneLine = false
+
             val collapsedOffset = collapseConsecutiveNewlines(content, currentOffset)
             if (collapsedOffset != currentOffset) {
                 currentOffset = collapsedOffset
@@ -222,25 +289,10 @@ class Paginator(
             currentOffset += skippedSpaces + lineResult.consumedChars
         }
 
-        // 至少一行：保证页面不空
-        if (lines.isEmpty() && currentOffset < content.length) {
-            val textStart = skipLeadingSpaces(content, currentOffset, isFirstLine = true)
-            val lineResult = calculateLine(
-                content = content,
-                startOffset = textStart,
-                widthWindow = widthWindow,
-                availableWidth = availableWidth - indentWidth,
-                letterSpacingPx = config.letterSpacingPx,
-                useZhLayout = config.useZhLayout,
-            )
-            lines.add(buildLine(lineResult, textStart, startY, lineHeight, true, indentWidth))
-            currentOffset += (textStart - currentOffset) + lineResult.consumedChars
-        }
-
         // 底部对齐：将剩余垂直空间均匀分配到行间距中
         val finalLines = if (config.bottomJustify && lines.size > 1) {
             val lastBottom = lines.last().bottom
-            val remainingSpace = maxAvailableY - lastBottom
+            val remainingSpace = maxY - lastBottom
             if (remainingSpace > 0f) {
                 val extraPerGap = remainingSpace / (lines.size - 1)
                 lines.mapIndexed { index, line ->
@@ -269,40 +321,52 @@ class Paginator(
             endCharOffset = currentOffset,
             chapterIndex = chapterIndex,
             pageIndex = pageIndex,
-            pageSize = config.pageSize,
-            marginHorizontal = config.marginHorizontal,
             lines = finalLines,
+            layout = layout,
+            titleLayout = titleLayout,
             density = config.density,
             chapterContentLength = content.length,
-            chapterTitle = if (pageIndex == 0) chapterTitle else "",
-            topContentY = config.marginTop + headerHeight + titleAreaHeight,
-            headerMarginTop = config.headerMarginTop,
-            footerMarginBottom = config.footerMarginBottom,
+            chapterTitle = chapterTitle,
         )
     }
 
-    /** 计算段落首行缩进宽度（config.indent 已由 ReaderTextMeasurerFactory 转为 px） */
+    /**
+     * 预计算标题的 StaticLayout 和总高度。
+     * 返回 Pair<StaticLayout?, totalHeight>。
+     */
+    private fun buildTitleLayout(
+        config: ReaderLayoutConfig,
+        chapterTitle: String,
+        availableWidth: Float,
+    ): Pair<StaticLayout?, Float> {
+        val ts = config.titleStyle
+        if (ts.align == TitleAlign.HIDDEN || chapterTitle.isBlank()) return null to 0f
+        val d = config.density
+        val titleTextSize = config.titleFontSizePx
+        val paint = TextPaint().apply {
+            textSize = titleTextSize
+            typeface = config.titleTypeface ?: android.graphics.Typeface.DEFAULT
+            isFakeBoldText = config.titleIsFakeBold
+        }
+        val layoutAlign = when (ts.align) {
+            TitleAlign.LEFT -> Layout.Alignment.ALIGN_NORMAL
+            TitleAlign.CENTER -> Layout.Alignment.ALIGN_CENTER
+            TitleAlign.HIDDEN -> return null to 0f
+        }
+        val w = availableWidth.toInt().coerceAtLeast(1)
+        val builder = StaticLayout.Builder.obtain(
+            chapterTitle, 0, chapterTitle.length, paint, w
+        ) ?: return null to (ts.marginTopDp * d + titleTextSize * 1.3f + ts.marginBottomDp * d)
+        val layout = builder.setAlignment(layoutAlign).setIncludePad(false).build()
+        val totalHeight = ts.marginTopDp * d + layout.height + ts.marginBottomDp * d
+        return layout to totalHeight
+    }
+
+    /** 计算段落首行缩进宽度 */
     private fun calcIndent(config: ReaderLayoutConfig, availableWidth: Float): Float =
         if (availableWidth > config.indent * 2f) config.indent else 0f
 
-    /** 首页标题区域高度（含上下边距，支持多行自动换行） */
-    private fun calcTitleAreaHeight(
-        config: ReaderLayoutConfig,
-        pageIndex: Int,
-        chapterTitle: String,
-        availableWidth: Float,
-    ): Float {
-        val ts = config.titleStyle
-        if (pageIndex != 0 || ts.align == TitleAlign.HIDDEN || chapterTitle.isBlank()) return 0f
-        val d = config.density
-        val titleTextSize = config.textSize + ts.sizeOffsetSp * d
-        val titleLineHeight = titleTextSize * 1.3f
-        val titleWidth = textMeasurer.measureTextWidth(chapterTitle, titleTextSize) * 1.05f
-        val lineCount = if (availableWidth > 0) ((titleWidth / availableWidth).toInt() + 1).coerceAtLeast(1) else 1
-        return ts.marginTopDp * d + lineCount * titleLineHeight + ts.marginBottomDp * d
-    }
-
-    /** 跳过段落起始处的前导空白字符，返回可见文本起始偏移 */
+    /** 跳过段落起始处的前导空白字符 */
     private fun skipLeadingSpaces(content: String, offset: Int, isFirstLine: Boolean): Int {
         if (!isFirstLine && (offset <= 0 || content[offset - 1] != '\n')) return offset
         var pos = offset
@@ -310,7 +374,7 @@ class Paginator(
         return pos
     }
 
-    /** 合并连续换行符为一个段间距，返回跳过后的偏移；若无连续换行则返回原值 */
+    /** 合并连续换行符为一个段间距 */
     private fun collapseConsecutiveNewlines(content: String, offset: Int): Int {
         if (offset <= 0 || offset >= content.length) return offset
         if (content[offset - 1] != '\n' || content[offset] != '\n') return offset
@@ -341,11 +405,6 @@ class Paginator(
 
     /**
      * 计算一行能容纳的文本。
-     *
-     * widthWindow 按需分块缓存字符宽度，此方法只做索引查找 + 分行决策。
-     * 首次访问新块时触发同步测量并缓存，后续访问命中缓存。
-     *
-     * 单遍遍历：同时完成 charCount 判定和 measuredWidth 累计。
      */
     private fun calculateLine(
         content: String,
@@ -359,7 +418,6 @@ class Paginator(
             return LineResult(false, 0, 0)
         }
 
-        // 查找换行符（基于原始 content 索引，避免 substring 分配）
         val newlineAbsIndex = content.indexOf('\n', startOffset)
         val lineEnd = if (newlineAbsIndex >= 0) newlineAbsIndex - startOffset else content.length - startOffset
 
@@ -367,7 +425,6 @@ class Paginator(
             return LineResult(true, 0, 1)
         }
 
-        // 唯一遍历：判定 charCount + 累计 measuredWidth
         var currentWidth = 0f
         var charCount = 0
 
@@ -379,27 +436,27 @@ class Paginator(
             charCount++
         }
 
-        // 如果没有任何字符，至少添加一个
         if (charCount == 0 && lineEnd > 0) {
             charCount = 1
+            currentWidth = widthWindow[startOffset]
         }
 
-        // 如果仍然没有字符，返回空结果
         if (charCount == 0) {
             return LineResult(false, 0, 0)
         }
 
         if (useZhLayout) {
-            // 中文分行：回溯避免行尾出现禁头标点，前推避免行首出现禁尾标点
             while (charCount > 1 && content[startOffset + charCount - 1] in FORBIDDEN_LINE_END_CHARS) {
                 charCount--
+                currentWidth -= widthWindow[startOffset + charCount] + letterSpacingPx
             }
             if (charCount < lineEnd && content[startOffset + charCount] in FORBIDDEN_LINE_START_CHARS) {
+                currentWidth += widthWindow[startOffset + charCount] + letterSpacingPx
                 charCount++
             }
         } else {
-            // 默认行为：仅处理行首禁尾标点
             if (charCount < lineEnd && content[startOffset + charCount] in FORBIDDEN_LINE_START_CHARS) {
+                currentWidth += widthWindow[startOffset + charCount] + letterSpacingPx
                 charCount++
             }
         }
@@ -407,20 +464,8 @@ class Paginator(
         val consumesLineBreak = newlineAbsIndex >= 0 && charCount == lineEnd
         val consumedChars = charCount + if (consumesLineBreak) 1 else 0
         val isParagraphEnd = consumesLineBreak
+        val measuredWidth = if (charCount > 0) currentWidth else 0f
 
-        // measuredWidth 已在循环中累计（currentWidth），但标点调整可能改变 charCount，
-        // 需要重新计算精确的 measuredWidth
-        val measuredWidth = if (charCount > 0) {
-            var w = 0f
-            for (i in 0 until charCount) {
-                w += widthWindow[startOffset + i]
-            }
-            w + letterSpacingPx * (charCount - 1).coerceAtLeast(0)
-        } else {
-            0f
-        }
-
-        // charWidths 在 charCount 确定后分配精确大小，避免 lineEnd != charCount 的浪费
         val charWidths = if (charCount > 0 && availableWidth - measuredWidth > 0.5f) {
             FloatArray(charCount) { widthWindow[startOffset + it] }
         } else {
@@ -435,13 +480,9 @@ class Paginator(
      */
     private data class LineResult(
         val isParagraphEnd: Boolean,
-        /** 可见字符数（不含尾部换行符） */
         val charCount: Int,
-        /** 消耗的总字符数（含尾部换行符），用于推进 currentOffset */
         val consumedChars: Int,
-        /** 字符宽度数组（不含字距），仅非段落末行且有剩余空间时有值 */
         val charWidths: FloatArray? = null,
-        /** 文本总宽度（含基础字距，不含两端对齐拉伸） */
         val measuredWidth: Float = 0f,
     )
 }

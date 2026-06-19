@@ -70,13 +70,13 @@ class ColorTemperatureTest {
         assertTrue("r=$r should be > g=$g at 2000K", r > g)
     }
 
-    // T-1.1.7: Registry 注册 color_temperature 为 VIEW_INVALIDATE
+    // T-1.1.7: Registry 注册 color_temperature 为 PAGE scope（VIEW_INVALIDATE 已迁移为 PAGE）
     @Test
-    fun registry_colorTemperature_hasViewInvalidateScope() {
+    fun registry_colorTemperature_hasPageScope() {
         val def = com.shuli.reader.feature.reader.settings.ReaderSettingRegistry.all
             .first { it.key == "color_temperature" }
         assertEquals(
-            com.shuli.reader.feature.reader.render.InvalidationScope.VIEW_INVALIDATE,
+            com.shuli.reader.feature.reader.render.InvalidationScope.PAGE,
             def.scope,
         )
     }

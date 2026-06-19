@@ -11,6 +11,7 @@ object BookCacheStore {
 
     private const val MAX_CACHED_BOOKS = 3
     private const val TTL_MS = 5 * 60 * 1000L // 5 分钟
+    private const val EVICT_INTERVAL_MS = 30_000L // 淘汰操作最小间隔
 
     private data class Entry(
         val cache: CacheManager,
@@ -18,6 +19,7 @@ object BookCacheStore {
     )
 
     private val books = LinkedHashMap<String, Entry>(MAX_CACHED_BOOKS, 0.75f, true)
+    private var lastEvictTime: Long = 0L
 
     /**
      * 获取指定书籍的缓存管理器，不存在则创建。
@@ -67,11 +69,13 @@ object BookCacheStore {
 
     private fun evictExpired() {
         val now = System.currentTimeMillis()
+        if (now - lastEvictTime < EVICT_INTERVAL_MS && books.size <= MAX_CACHED_BOOKS) return
+        lastEvictTime = now
+
         val expired = books.entries.filter { now - it.value.lastAccess > TTL_MS }
         expired.forEach { (id, _) ->
             books.remove(id)?.cache?.clear()
         }
-        // 超出数量限制时淘汰最老的
         while (books.size > MAX_CACHED_BOOKS) {
             val eldest = books.entries.iterator().next()
             books.remove(eldest.key)?.cache?.clear()

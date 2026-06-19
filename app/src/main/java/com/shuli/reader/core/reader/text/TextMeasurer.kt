@@ -27,4 +27,11 @@ interface TextMeasurer {
      * SimpleTextMeasurer 逐字符计算但避免多次调用开销。
      */
     fun measureTextWidths(text: String, textSize: Float): FloatArray
+
+    /**
+     * 批量测量文本子串中每个字符的宽度，避免 substring 分配。
+     * 默认实现回退到 substring；实现方应覆盖以零分配方式直接读取 [start, end) 范围。
+     */
+    fun measureTextWidths(text: String, start: Int, end: Int, textSize: Float): FloatArray =
+        measureTextWidths(text.substring(start, end), textSize)
 }

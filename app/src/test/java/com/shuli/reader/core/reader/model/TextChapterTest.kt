@@ -14,10 +14,8 @@ class TextChapterTest {
             endCharOffset = end,
             chapterIndex = chapterIndex,
             pageIndex = pageIndex,
-            pageSize = PageSize(1080, 1920),
-            marginHorizontal = 24f,
             lines = emptyList(),
-            columns = emptyList(),
+            layout = PageLayout(null, null, BoxBounds(24f, 0f, 1056f, 1920f), null, 1080f, 1920f),
         )
     }
 

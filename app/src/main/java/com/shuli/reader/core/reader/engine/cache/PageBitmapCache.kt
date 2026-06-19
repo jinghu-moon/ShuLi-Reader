@@ -92,7 +92,7 @@ class PageBitmapCache(
                 page = page,
                 textPaint = textPaint,
                 letterSpacingPx = textPaint.letterSpacing * textPaint.textSize,
-                availableWidth = page.pageSize.width - page.marginHorizontal * 2,
+                availableWidth = page.layout.body.width,
                 renderStateStore = renderStateStore,
             )
             pageRenderer.renderContent(canvas = this, ctx = ctx)
@@ -232,7 +232,7 @@ class PageBitmapCache(
                 page = page,
                 textPaint = paintSnapshot.text,
                 letterSpacingPx = paintSnapshot.text.letterSpacing * paintSnapshot.text.textSize,
-                availableWidth = page.pageSize.width - page.marginHorizontal * 2,
+                availableWidth = page.layout.body.width,
                 renderStateStore = renderStateStore,
             )
             renderer.renderContent(canvas = this, ctx = ctx)

@@ -4,8 +4,9 @@ import com.shuli.reader.core.reader.model.FooterConfig
 import com.shuli.reader.core.reader.model.HeaderConfig
 import com.shuli.reader.core.reader.model.SlotContent
 import com.shuli.reader.core.reader.model.SlotResolution
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
@@ -40,15 +41,9 @@ object SlotResolver {
             SlotContent.BOOK_PROGRESS_FRACTION -> {
                 if (bookTotalPosition > 0L) "$bookCurrentPosition/$bookTotalPosition" else ""
             }
-            SlotContent.TIME -> {
-                val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
-                sdf.format(Date())
-            }
+            SlotContent.TIME -> LocalTime.now().format(TIME_FORMATTER)
             SlotContent.BATTERY -> "$batteryLevel%"
-            SlotContent.DATE -> {
-                val sdf = SimpleDateFormat("MM-dd", Locale.getDefault())
-                sdf.format(Date())
-            }
+            SlotContent.DATE -> LocalDate.now().format(DATE_FORMATTER)
         }
     }
 
@@ -99,4 +94,10 @@ object SlotResolver {
             rightContent = config.right,
         )
     }
+
+    /** 不可变 DateTimeFormatter 单例，线程安全，零分配 */
+    private val TIME_FORMATTER: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
+    private val DATE_FORMATTER: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("MM-dd", Locale.getDefault())
 }

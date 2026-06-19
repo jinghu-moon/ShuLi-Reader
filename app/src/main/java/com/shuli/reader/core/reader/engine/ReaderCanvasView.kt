@@ -271,24 +271,6 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     // ── RenderApplierTarget：scope-only invalidation ─────────────
 
-    override fun invalidateContentOnly() {
-        currentPage?.let { renderStateStore.getPageState(it.toKey()).invalidateContent() }
-        nextPage?.let { renderStateStore.getPageState(it.toKey()).invalidateContent() }
-        prevPage?.let { renderStateStore.getPageState(it.toKey()).invalidateContent() }
-    }
-
-    override fun invalidateShellOnly() {
-        currentPage?.let { renderStateStore.getPageState(it.toKey()).invalidateShell() }
-        nextPage?.let { renderStateStore.getPageState(it.toKey()).invalidateShell() }
-        prevPage?.let { renderStateStore.getPageState(it.toKey()).invalidateShell() }
-    }
-
-    override fun invalidateOverlayOnly() {
-        currentPage?.let { renderStateStore.getPageState(it.toKey()).invalidateOverlay() }
-        nextPage?.let { renderStateStore.getPageState(it.toKey()).invalidateOverlay() }
-        prevPage?.let { renderStateStore.getPageState(it.toKey()).invalidateOverlay() }
-    }
-
     override fun invalidateAllPages() {
         currentPage?.let { renderStateStore.getPageState(it.toKey()).invalidateAll() }
         nextPage?.let { renderStateStore.getPageState(it.toKey()).invalidateAll() }
@@ -654,12 +636,18 @@ class ReaderCanvasView @JvmOverloads constructor(
         val cur = currentPage
         if (w <= 0 || h <= 0 || cur == null) return
 
-        val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        val captureCanvas = Canvas(bitmap)
-        renderStateStore.getPageState(cur.toKey()).content.draw(captureCanvas)
-
         crossfadeAnimator?.cancel()
-        oldPageBitmap?.recycle()
+
+        // 复用尺寸匹配的旧 Bitmap，避免每次 reflow 重新分配
+        val bitmap = oldPageBitmap?.takeIf { it.width == w && it.height == h && !it.isRecycled }
+            ?: run {
+                oldPageBitmap?.recycle()
+                Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            }
+
+        val captureCanvas = Canvas(bitmap)
+        captureCanvas.drawColor(android.graphics.Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+        renderStateStore.getPageState(cur.toKey()).content.draw(captureCanvas)
 
         oldPageBitmap = bitmap
         crossfadeAlpha = 1f
@@ -673,8 +661,6 @@ class ReaderCanvasView @JvmOverloads constructor(
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
-                    oldPageBitmap?.recycle()
-                    oldPageBitmap = null
                     crossfadeAlpha = 0f
                 }
             })

@@ -1,0 +1,3 @@
+# LZO 压缩工具的本地构建产物（minilzo 源码 + 编译的 DLL），不纳入版本控制。
+# 重建方式见 ../README.md：下载 minilzo-2.10，gcc 编译 lzowrap.c。
+_lzobuild/

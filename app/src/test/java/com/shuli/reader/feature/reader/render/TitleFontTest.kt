@@ -3,6 +3,7 @@ package com.shuli.reader.feature.reader.render
 import com.shuli.reader.feature.reader.settings.ReaderSettingRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class TitleFontTest {
@@ -22,14 +23,11 @@ class TitleFontTest {
         assertNotEquals("", titleFont)
     }
 
-    // T-2.5.3: Registry 注册 title_font 为 CONTENT scope
+    // T-2.5.3: Registry 注册 title_font 为 null scope（CONTENT 已由 key-diff 驱动）
     @Test
-    fun registry_titleFont_hasContentScope() {
+    fun registry_titleFont_hasNullScope() {
         val def = ReaderSettingRegistry.all.first { it.key == "title_font" }
-        assertEquals(
-            com.shuli.reader.feature.reader.render.InvalidationScope.CONTENT,
-            def.scope,
-        )
+        assertNull(def.scope)
     }
 
     @Test
@@ -41,13 +39,9 @@ class TitleFontTest {
     // T-2.5.4: 标题字体变更不触发 reflow（LayoutHasher 不含 titleFont）
     @Test
     fun titleFont_notInLayoutHasher() {
-        // titleFont 是 CONTENT scope，不在 LayoutHasher 中
+        // titleFont 是 null scope（key-diff 驱动），不在 LayoutHasher 中
         // LayoutHasher 只包含 REFLOW scope 的字段
         val def = ReaderSettingRegistry.all.first { it.key == "title_font" }
-        assertNotEquals(
-            "titleFont should not be REFLOW scope",
-            com.shuli.reader.feature.reader.render.InvalidationScope.REFLOW,
-            def.scope,
-        )
+        assertNull("titleFont should be null scope (key-diff driven)", def.scope)
     }
 }

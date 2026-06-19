@@ -175,10 +175,18 @@ private fun bridgeSettingChange(key: String, value: Any): ReaderIntent? {
         "letter_spacing" -> f(ReaderSettingKey.LETTER_SPACING)
         "max_page_width" -> f(ReaderSettingKey.MAX_PAGE_WIDTH)
         // ── 边距 ──
-        "margin_top" -> f(ReaderSettingKey.MARGIN_TOP)
-        "margin_bottom" -> f(ReaderSettingKey.MARGIN_BOTTOM)
-        "margin_left" -> f(ReaderSettingKey.MARGIN_LEFT)
-        "margin_right" -> f(ReaderSettingKey.MARGIN_RIGHT)
+        "body_box" -> (value as? com.shuli.reader.core.reader.model.BoxInsetsDp)?.let {
+            ReaderIntent.UpdateSetting(ReaderSettingKey.BODY_BOX, ReaderSettingValue.BoxInsetsDpVal(it))
+        }
+        "header_box" -> (value as? com.shuli.reader.core.reader.model.BoxInsetsDp)?.let {
+            ReaderIntent.UpdateSetting(ReaderSettingKey.HEADER_BOX, ReaderSettingValue.BoxInsetsDpVal(it))
+        }
+        "footer_box" -> (value as? com.shuli.reader.core.reader.model.BoxInsetsDp)?.let {
+            ReaderIntent.UpdateSetting(ReaderSettingKey.FOOTER_BOX, ReaderSettingValue.BoxInsetsDpVal(it))
+        }
+        "title_box" -> (value as? com.shuli.reader.core.reader.model.BoxInsetsDp)?.let {
+            ReaderIntent.UpdateSetting(ReaderSettingKey.TITLE_BOX, ReaderSettingValue.BoxInsetsDpVal(it))
+        }
         // ── 字体 ──
         "reading_font" -> s(ReaderSettingKey.READING_FONT)
         "font_weight" -> (value as? ReaderFontWeight)?.let {
@@ -211,8 +219,6 @@ private fun bridgeSettingChange(key: String, value: Any): ReaderIntent? {
         "footer_left" -> slot(ReaderSettingKey.FOOTER_LEFT)
         "footer_center" -> slot(ReaderSettingKey.FOOTER_CENTER)
         "footer_right" -> slot(ReaderSettingKey.FOOTER_RIGHT)
-        "header_margin_top" -> f(ReaderSettingKey.HEADER_MARGIN_TOP)
-        "footer_margin_bottom" -> f(ReaderSettingKey.FOOTER_MARGIN_BOTTOM)
         "header_font_size_ratio" -> f(ReaderSettingKey.HEADER_FONT_SIZE_RATIO)
         "footer_font_size_ratio" -> f(ReaderSettingKey.FOOTER_FONT_SIZE_RATIO)
         "header_footer_alpha" -> f(ReaderSettingKey.HEADER_FOOTER_ALPHA)

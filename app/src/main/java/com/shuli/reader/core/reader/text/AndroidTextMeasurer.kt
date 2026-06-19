@@ -26,6 +26,10 @@ class AndroidTextMeasurer(
     @Volatile
     private var paintSnapshot: Paint = Paint(paint)
 
+    // 复用单字符缓冲，避免 measureCharWidth 每次 char.toString() 分配
+    private val charBuf = CharArray(1)
+    private val charWidthBuf = FloatArray(1)
+
     /**
      * 同步 View 层 Paint 的最新配置。
      * 应在 textSize / typeface / letterSpacing / fakeBold 等属性变更后调用。
@@ -58,9 +62,10 @@ class AndroidTextMeasurer(
         val p = paintSnapshot
         val savedSize = p.textSize
         if (savedSize != textSize) p.textSize = textSize
-        val w = p.measureText(char.toString())
+        charBuf[0] = char
+        p.getTextWidths(charBuf, 0, 1, charWidthBuf)
         if (savedSize != textSize) p.textSize = savedSize
-        return w
+        return charWidthBuf[0]
     }
 
     override fun measureTextWidths(text: String, textSize: Float): FloatArray {
@@ -70,6 +75,18 @@ class AndroidTextMeasurer(
         if (savedSize != textSize) p.textSize = textSize
         val widths = FloatArray(text.length)
         p.getTextWidths(text, 0, text.length, widths)
+        if (savedSize != textSize) p.textSize = savedSize
+        return widths
+    }
+
+    override fun measureTextWidths(text: String, start: Int, end: Int, textSize: Float): FloatArray {
+        if (start >= end) return FloatArray(0)
+        val p = paintSnapshot
+        val savedSize = p.textSize
+        if (savedSize != textSize) p.textSize = textSize
+        val len = end - start
+        val widths = FloatArray(len)
+        p.getTextWidths(text, start, end, widths)
         if (savedSize != textSize) p.textSize = savedSize
         return widths
     }

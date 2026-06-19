@@ -2,10 +2,10 @@ package com.shuli.reader.core.reader.engine.cache
 
 import android.content.Context
 import android.util.Log
+import com.shuli.reader.core.reader.model.BoxInsetsPx
 import com.shuli.reader.core.reader.model.ReaderLayoutConfig
 import org.json.JSONObject
 import java.io.File
-import java.security.MessageDigest
 
 /**
  * 持久化 chapterPageCounts 到文件系统。
@@ -25,39 +25,32 @@ object PageCountPersistence {
 
     /**
      * 计算排版参数的哈希值，用于区分不同布局下的页数缓存。
-     * 从 [config] 取核心排版参数，补充 [showHeader]/[showFooter]/[chineseConvert]/[usePanguSpacing]
-     * 四个不在 LayoutConfig 中的偏好项。
+     * 使用 [Float.toBits] 确保浮点精度一致，包含全部 4 个 BoxInsetsPx 的 16 个值。
      */
-    fun computeLayoutHash(
-        config: ReaderLayoutConfig,
-        showHeader: Boolean,
-        showFooter: Boolean,
-        chineseConvert: Int,
-        usePanguSpacing: Boolean,
-    ): String {
-        val raw = buildString {
-            append(config.textSize); append('|')
-            append(config.lineHeight); append('|')
-            append(config.pageSize.width); append('|')
-            append(config.pageSize.height); append('|')
-            append(config.letterSpacingPx); append('|')
-            append(config.marginHorizontal); append('|')
-            append(config.marginVertical); append('|')
-            append(config.indent); append('|')
-            append(config.useZhLayout); append('|')
-            append(config.bottomJustify); append('|')
-            append(showHeader); append('|')
-            append(showFooter); append('|')
-            append(chineseConvert); append('|')
-            append(usePanguSpacing); append('|')
-            append(config.titleStyle.align.ordinal); append('|')
-            append(config.titleStyle.sizeOffsetSp); append('|')
-            append(config.titleStyle.marginTopDp); append('|')
-            append(config.titleStyle.marginBottomDp)
-        }
-        val md = MessageDigest.getInstance("MD5")
-        val bytes = md.digest(raw.toByteArray())
-        return bytes.take(8).joinToString("") { "%02x".format(it) }
+    fun computeLayoutHash(config: ReaderLayoutConfig): String {
+        var result = config.pageSize.hashCode()
+        result = 31 * result + config.textSize.toBits()
+        result = 31 * result + config.lineHeight.toBits()
+        result = 31 * result + config.paragraphSpacing.toBits()
+        result = 31 * result + config.indent.toBits()
+        result = 31 * result + config.density.toBits()
+        result = 31 * result + config.letterSpacingPx.toBits()
+        result = 31 * result + config.useZhLayout.hashCode()
+        result = 31 * result + config.bottomJustify.hashCode()
+        result = hashBoxInsets(result, config.headerInsets)
+        result = hashBoxInsets(result, config.titleInsets)
+        result = hashBoxInsets(result, config.bodyInsets)
+        result = hashBoxInsets(result, config.footerInsets)
+        return result.toString()
+    }
+
+    private fun hashBoxInsets(seed: Int, insets: BoxInsetsPx): Int {
+        var result = seed
+        result = 31 * result + insets.top.toBits()
+        result = 31 * result + insets.bottom.toBits()
+        result = 31 * result + insets.left.toBits()
+        result = 31 * result + insets.right.toBits()
+        return result
     }
 
     // ── Load / Save ──────────────────────────────────────────────
@@ -114,7 +107,7 @@ object PageCountPersistence {
         val dir = File(context.cacheDir, DIR_NAME)
         if (!dir.isDirectory) return
         // 用正则精确匹配 bookId_hash.json，避免 bookId=1 匹配到 bookId=10/100
-        val regex = Regex("^${Regex.escape(bookId)}_[a-f0-9]+\\.json$")
+        val regex = Regex("^${Regex.escape(bookId)}_[0-9-]+\\.json$")
         val currentFileName = "${bookId}_$currentHash.json"
         dir.listFiles()?.forEach { f ->
             if (regex.matches(f.name) && f.name != currentFileName) {

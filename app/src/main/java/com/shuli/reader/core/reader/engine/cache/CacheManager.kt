@@ -115,8 +115,8 @@ class CacheManager(
      * 清空指定书籍的缓存
      */
     fun clearBook(bookId: String) {
-        pageCache.clear()
-        chapterCache.clear()
+        pageCache.removeIf { it.bookId == bookId }
+        chapterCache.removeIf { it.bookId == bookId }
     }
 
     /**

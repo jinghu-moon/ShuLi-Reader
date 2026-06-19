@@ -42,8 +42,9 @@ class MigrationTest {
         // 验证新字段有正确的默认值（来自 Registry）
         assertEquals(6500f, prefs.colorTemperature, 0.001f)
         assertEquals(false, prefs.paragraphDivider)
-        assertNull(prefs.marginTop)
-        assertNull(prefs.marginBottom)
+        // bodyBox 使用默认值（已替代旧 margin 字段）
+        assertEquals(48f, prefs.bodyBox.top, 0.001f)
+        assertEquals(48f, prefs.bodyBox.bottom, 0.001f)
         assertEquals(false, prefs.bionicReading)
         assertEquals(false, prefs.verticalText)
         assertEquals(false, prefs.hapticFeedback)

@@ -44,6 +44,19 @@ interface ReaderStrings {
     val fontTestText: String
     val marginTopBottom: String
     val marginLeftRight: String
+    val marginCardTitle: String
+    val bodyBoxLabel: String
+    val headerBoxLabel: String
+    val footerBoxLabel: String
+    val titleBoxLabel: String
+    val boxMarginTop: String
+    val boxMarginBottom: String
+    val boxMarginLeft: String
+    val boxMarginRight: String
+    val marginAdvancedTitle: String
+    val marginPresetCompact: String
+    val marginPresetStandard: String
+    val marginPresetRelaxed: String
     val editValue: String
     val confirm: String
 
@@ -106,10 +119,13 @@ interface ReaderStrings {
     val footerCenter: String
     val footerRight: String
     val titleStyleLabel: String
+    val titleAlignLabel: String
     val titleAlignLeft: String
     val titleAlignCenter: String
     val titleAlignHidden: String
     val titleSizeOffset: String
+    val titleSizeLabel: String
+    val fontSizeLabel: String
     val titleMarginTop: String
     val titleMarginBottom: String
     val headerMarginTop: String
@@ -221,6 +237,8 @@ interface ReaderStrings {
     val marginLeftLabel: String
     val marginRightLabel: String
     val syncMarginsLabel: String
+    val unifiedLeftRightLabel: String
+    val resetMarginsLabel: String
     val maxPageWidthUnlimitedShort: String
     val fontCardTitle: String
     val advancedTypesettingCard: String

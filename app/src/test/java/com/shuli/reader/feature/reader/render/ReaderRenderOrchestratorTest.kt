@@ -148,9 +148,6 @@ private class FakeOrchestratorTarget : RenderApplierTarget {
         mode: PageRenderMode,
     ) {}
 
-    override fun invalidateContentOnly() {}
-    override fun invalidateShellOnly() {}
-    override fun invalidateOverlayOnly() {}
     override fun invalidateAllPages() {}
     override fun rebuildPageDelegate() {}
     override fun submitRenderTask() {}

@@ -24,17 +24,8 @@ interface RenderApplierTarget {
         mode: PageRenderMode,
     )
 
-    @Deprecated("Phase 5: 由 key-diff 驱动，不再通过 scope 失效", level = DeprecationLevel.WARNING)
-    fun invalidateContentOnly()
-    @Deprecated("Phase 5: 由 key-diff 驱动，不再通过 scope 失效", level = DeprecationLevel.WARNING)
-    fun invalidateShellOnly()
-    @Deprecated("Phase 5: 由 key-diff 驱动，不再通过 scope 失效", level = DeprecationLevel.WARNING)
-    fun invalidateOverlayOnly()
-
     /**
      * 触发 reflow 级别的失效：所有页面的 content/shell/overlay recorder 全部失效。
-     * 与 [invalidateContentOnly]/[invalidateShellOnly]/[invalidateOverlayOnly] 不同，
-     * 此方法同时失效三者，语义上等同于 reflow 事件。
      */
     fun invalidateAllPages()
 

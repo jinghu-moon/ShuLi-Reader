@@ -5,6 +5,7 @@ import com.shuli.reader.feature.reader.render.InvalidationScope
 import com.shuli.reader.feature.reader.render.ReaderRenderDiffCalculator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -73,10 +74,10 @@ class RegistryArchitectureTest {
         }
     }
 
-    // T-E.4: 验证 Registry 提供的查询 API 覆盖所有 scope
+    // T-E.4: 验证 Registry 提供的查询 API 覆盖所有非 null scope
     @Test
     fun byScope_coversAllInvalidationScopes() {
-        val scopesInRegistry = ReaderSettingRegistry.all.map { it.scope }.toSet()
+        val scopesInRegistry = ReaderSettingRegistry.all.mapNotNull { it.scope }.toSet()
         for (scope in scopesInRegistry) {
             val settings = ReaderSettingRegistry.byScope(scope)
             assertTrue(
@@ -142,28 +143,14 @@ class RegistryArchitectureTest {
     }
 
     @Test
-    fun settingChange_producesCorrectScope_viewInvalidateSettings() {
-        for (def in ReaderSettingRegistry.byScope(InvalidationScope.VIEW_INVALIDATE)) {
-            assertEquals(
-                "${def.key} 应为 VIEW_INVALIDATE scope",
-                InvalidationScope.VIEW_INVALIDATE, def.scope
+    fun settingChange_producesCorrectScope_nullScopeSettingsAreNotInPreset() {
+        for (def in ReaderSettingRegistry.byScope(null)) {
+            assertNull(
+                "${def.key} 应为 null scope",
+                def.scope
             )
             assertFalse(
-                "${def.key} (VIEW_INVALIDATE) 不应在预设中",
-                def.includeInPreset
-            )
-        }
-    }
-
-    @Test
-    fun settingChange_producesCorrectScope_noneSettings() {
-        for (def in ReaderSettingRegistry.byScope(InvalidationScope.NONE)) {
-            assertEquals(
-                "${def.key} 应为 NONE scope",
-                InvalidationScope.NONE, def.scope
-            )
-            assertFalse(
-                "${def.key} (NONE) 不应在预设中",
+                "${def.key} (null scope) 不应在预设中",
                 def.includeInPreset
             )
         }
@@ -182,27 +169,26 @@ class RegistryArchitectureTest {
     }
 
     @Test
-    fun settingChange_registryBasedScopes_contentFieldTriggersContent() {
+    fun settingChange_registryBasedScopes_nullScopeFieldProducesEmptyScopes() {
         val base = ReaderPreferences()
         val changed = base.copy(readingFont = "serif")
         val scopes = ReaderRenderDiffCalculator.registryBasedScopes(base, changed)
-        assertTrue(
-            "readingFont 变更应触发 CONTENT scope",
-            scopes.contains(InvalidationScope.CONTENT)
+        assertFalse(
+            "readingFont (null scope) 变更不应产生 recorder scope",
+            scopes.contains(InvalidationScope.REFLOW)
         )
     }
 
     @Test
-    fun settingChange_registryBasedScopes_viewInvalidateFieldProducesEmptyScopes() {
+    fun settingChange_registryBasedScopes_nullScopeFieldProducesEmptyScopes2() {
         val base = ReaderPreferences()
         val changed = base.copy(colorTemperature = 4000f)
         val scopes = ReaderRenderDiffCalculator.registryBasedScopes(base, changed)
         assertFalse(
-            "colorTemperature (VIEW_INVALIDATE) 变更不应产生 recorder scope",
+            "colorTemperature (null scope) 变更不应产生 recorder scope",
             scopes.contains(InvalidationScope.REFLOW) ||
-                scopes.contains(InvalidationScope.CONTENT) ||
-                scopes.contains(InvalidationScope.SHELL) ||
-                scopes.contains(InvalidationScope.OVERLAY)
+                scopes.contains(InvalidationScope.PAGE) ||
+                scopes.contains(InvalidationScope.PAGE_DELEGATE)
         )
     }
 
@@ -212,7 +198,7 @@ class RegistryArchitectureTest {
         val changed = base.copy(hapticFeedback = true)
         val scopes = ReaderRenderDiffCalculator.registryBasedScopes(base, changed)
         assertTrue(
-            "hapticFeedback (NONE) 变更不应产生任何 scope",
+            "hapticFeedback (null scope) 变更不应产生任何 scope",
             scopes.isEmpty()
         )
     }
@@ -220,10 +206,9 @@ class RegistryArchitectureTest {
     @Test
     fun settingChange_registryBasedScopes_multipleFieldsProduceUnionOfScopes() {
         val base = ReaderPreferences()
-        val changed = base.copy(fontSize = 24f, readingFont = "serif")
+        val changed = base.copy(fontSize = 24f, lineSpacing = 2.0f)
         val scopes = ReaderRenderDiffCalculator.registryBasedScopes(base, changed)
         assertTrue("应包含 REFLOW (fontSize)", scopes.contains(InvalidationScope.REFLOW))
-        assertTrue("应包含 CONTENT (readingFont)", scopes.contains(InvalidationScope.CONTENT))
     }
 
     // T-E.4b: Registry 驱动的四层分组验证

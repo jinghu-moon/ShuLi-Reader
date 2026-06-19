@@ -5,6 +5,7 @@ import com.shuli.reader.core.data.IndentUnit
 import com.shuli.reader.core.data.ReaderFontWeight
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.data.toLayoutConfig
+import com.shuli.reader.core.reader.model.BoxInsetsDp
 import com.shuli.reader.core.reader.model.PageSize
 import com.shuli.reader.core.reader.text.SimpleTextMeasurer
 import org.junit.Assert.assertEquals
@@ -25,10 +26,7 @@ class VerticalPaginationStrategyTest {
         fontSize = 16f,
         lineSpacing = 1.5f,
         paragraphSpacing = 1.0f,
-        marginTop = 48f,
-        marginBottom = 48f,
-        marginLeft = 24f,
-        marginRight = 24f,
+        bodyBox = BoxInsetsDp(top = 48f, bottom = 48f, left = 24f, right = 24f),
         indent = 2f,
         letterSpacing = 0f,
         fontWeight = ReaderFontWeight.NORMAL,

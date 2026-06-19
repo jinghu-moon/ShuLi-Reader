@@ -1,6 +1,7 @@
 package com.shuli.reader.feature.reader.settings
 
 import com.shuli.reader.core.data.ReaderPreferences
+import com.shuli.reader.core.reader.model.BoxInsetsDp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -14,14 +15,14 @@ class PresetSnapshotTest {
             fontSize = 20f,
             lineSpacing = 1.8f,
             readingFont = "serif",
-            marginVertical = 60f,
+            bodyBox = BoxInsetsDp(top = 60f, bottom = 60f, left = 24f, right = 24f),
             showProgress = false,
         )
         val snap = PresetSnapshot.fromPreferences(prefs)
         assertEquals(20f, snap.fontSize, 0.001f)
         assertEquals(1.8f, snap.lineSpacing, 0.001f)
         assertEquals("serif", snap.readingFont)
-        assertEquals(60f, snap.marginVertical, 0.001f)
+        assertEquals(60f, snap.bodyBox.top, 0.001f)
         assertFalse(snap.showProgress)
     }
 
@@ -55,7 +56,7 @@ class PresetSnapshotTest {
                 fontSize = 22f,
                 lineSpacing = 2.0f,
                 readingFont = "serif",
-                marginTop = 60f,
+                bodyBox = BoxInsetsDp(top = 60f, bottom = 48f, left = 24f, right = 24f),
                 bionicReading = true,
             )
         )
@@ -96,16 +97,15 @@ class PresetSnapshotTest {
             fontSize = 19f,
             lineSpacing = 1.6f,
             readingFont = "mono",
-            marginTop = 50f,
-            marginBottom = 40f,
+            bodyBox = BoxInsetsDp(top = 50f, bottom = 40f, left = 24f, right = 24f),
         )
         val snapshot = PresetSnapshot.fromPreferences(original)
         val restored = snapshot.applyOnto(ReaderPreferences())
         assertEquals(original.fontSize, restored.fontSize, 0.001f)
         assertEquals(original.lineSpacing, restored.lineSpacing, 0.001f)
         assertEquals(original.readingFont, restored.readingFont)
-        assertEquals(original.marginTop, restored.marginTop)
-        assertEquals(original.marginBottom, restored.marginBottom)
+        assertEquals(original.bodyBox.top, restored.bodyBox.top, 0.001f)
+        assertEquals(original.bodyBox.bottom, restored.bodyBox.bottom, 0.001f)
     }
 
     @Test
@@ -113,7 +113,7 @@ class PresetSnapshotTest {
         val snap = PresetSnapshot.fromPreferences(ReaderPreferences())
         // Layout
         assertEquals(16f, snap.fontSize, 0.001f)
-        assertEquals(24f, snap.marginHorizontal, 0.001f)
+        assertEquals(24f, snap.bodyBox.left, 0.001f)
         // Style
         assertEquals("harmony", snap.readingFont)
         // Chrome
@@ -160,12 +160,10 @@ class PresetSnapshotTest {
             "remove_empty_lines" to "removeEmptyLines",
             "clean_chapter_title" to "cleanChapterTitle",
             "epub_override_style" to "epubOverrideStyle",
-            "margin_horizontal" to "marginHorizontal",
-            "margin_vertical" to "marginVertical",
-            "margin_top" to "marginTop",
-            "margin_bottom" to "marginBottom",
-            "margin_left" to "marginLeft",
-            "margin_right" to "marginRight",
+            "body_box" to "bodyBox",
+            "header_box" to "headerBox",
+            "footer_box" to "footerBox",
+            "title_box" to "titleBox",
             "vertical_text" to "verticalText",
             "dual_page_mode" to "dualPageMode",
             "ad_filtering" to "adFiltering",
@@ -221,8 +219,8 @@ class PresetSnapshotTest {
         assertEquals("NORMAL", snap.fontWeight)
         assertEquals("LEFT", snap.textAlign)
         assertEquals("NONE", snap.chineseConvert)
-        assertEquals(24f, snap.marginHorizontal, 0.001f)
-        assertEquals(48f, snap.marginVertical, 0.001f)
+        assertEquals(24f, snap.bodyBox.left, 0.001f)
+        assertEquals(48f, snap.bodyBox.top, 0.001f)
         assertEquals(0.4f, snap.headerFooterAlpha, 0.001f)
         assertTrue(snap.showProgress)
         assertEquals("CHAPTER_FRACTION", snap.progressStyle)

@@ -16,6 +16,7 @@ import com.shuli.reader.core.data.DualPageMode
 import com.shuli.reader.core.data.PageAnimSpeed
 import com.shuli.reader.core.data.PageAnimType
 import com.shuli.reader.core.data.ReaderPreferences
+import com.shuli.reader.core.reader.model.BoxInsetsDp
 import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.core.reader.model.HeaderVisibility
 import com.shuli.reader.feature.reader.settings.panel.DividerSwitchRow
@@ -64,9 +65,9 @@ fun AppearanceTab(
                 enabled = !isHidden,
             )
             InkStepperSlider(
-                value = prefs.header.marginTop,
-                onValueChange = { onContinuousSettingChanged("header_margin_top", it, false) },
-                onValueChangeFinished = { onContinuousSettingChanged("header_margin_top", it, true) },
+                value = prefs.headerBox.top,
+                onValueChange = { v -> onContinuousSettingChanged("header_box", prefs.headerBox.copy(top = v), false) },
+                onValueChangeFinished = { v -> onContinuousSettingChanged("header_box", prefs.headerBox.copy(top = v), true) },
                 valueRange = 0f..100f,
                 step = 4f,
                 label = strings.headerMarginTop,
@@ -75,9 +76,9 @@ fun AppearanceTab(
                 enabled = !isHidden,
             )
             InkStepperSlider(
-                value = prefs.footer.marginBottom,
-                onValueChange = { onContinuousSettingChanged("footer_margin_bottom", it, false) },
-                onValueChangeFinished = { onContinuousSettingChanged("footer_margin_bottom", it, true) },
+                value = prefs.footerBox.bottom,
+                onValueChange = { v -> onContinuousSettingChanged("footer_box", prefs.footerBox.copy(bottom = v), false) },
+                onValueChangeFinished = { v -> onContinuousSettingChanged("footer_box", prefs.footerBox.copy(bottom = v), true) },
                 valueRange = 0f..100f,
                 step = 4f,
                 label = strings.footerMarginBottom,

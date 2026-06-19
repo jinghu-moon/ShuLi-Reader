@@ -1,5 +1,7 @@
 package com.shuli.reader.core.reader.model
 
+import android.graphics.Typeface
+import android.text.StaticLayout
 import com.shuli.reader.core.reader.model.TitleStyleConfig
 
 /**
@@ -18,22 +20,20 @@ data class ReaderLayoutConfig(
     val textSize: Float,
     val lineHeight: Float,
     val paragraphSpacing: Float,
-    val marginTop: Float,
-    val marginBottom: Float,
-    val marginLeft: Float,
-    val marginRight: Float,
     val indent: Float,
     val density: Float = 3f,
     val letterSpacingPx: Float = 0f,
     val titleStyle: TitleStyleConfig = TitleStyleConfig(),
     val useZhLayout: Boolean = false,
     val bottomJustify: Boolean = false,
-    val headerMarginTop: Float = 48f,
-    val footerMarginBottom: Float = 48f,
-) {
-    val marginHorizontal: Float get() = (marginLeft + marginRight) / 2
-    val marginVertical: Float get() = (marginTop + marginBottom) / 2
-}
+    val headerInsets: BoxInsetsPx = BoxInsetsPx.ZERO,
+    val titleInsets: BoxInsetsPx = BoxInsetsPx.ZERO,
+    val bodyInsets: BoxInsetsPx = BoxInsetsPx.ZERO,
+    val footerInsets: BoxInsetsPx = BoxInsetsPx.ZERO,
+    val titleTypeface: Typeface? = null,
+    val titleIsFakeBold: Boolean = true,
+    val titleFontSizePx: Float = 66f,  // 标题字号（px），由 titleFontSize * density 产生
+)
 
 /**
  * 文本列，支持字符级坐标
@@ -125,19 +125,15 @@ class TextPage(
     val endCharOffset: Int,
     val chapterIndex: Int,
     val pageIndex: Int,
-    val pageSize: PageSize,
-    val marginHorizontal: Float,
     val lines: List<TextLine>,
+    val layout: PageLayout,
+    val titleLayout: StaticLayout? = null,
     val columns: List<TextColumn> = emptyList(),
     val density: Float = 3f,
     /** 章节正文总字符数（不含标题），用于计算阅读进度 */
     val chapterContentLength: Int = 0,
     /** 章节标题，仅首页（pageIndex == 0）有值，渲染时用于绘制标题 */
     val chapterTitle: String = "",
-    /** 正文起始 Y 坐标（已含 marginVertical + headerHeight + titleAreaHeight），渲染器据此定位标题基线 */
-    val topContentY: Float = 0f,
-    val headerMarginTop: Float = 48f,
-    val footerMarginBottom: Float = 48f,
 ) {
     override fun equals(other: Any?): Boolean = this === other
     override fun hashCode(): Int = System.identityHashCode(this)
@@ -149,10 +145,12 @@ class TextPage(
             endCharOffset = 0,
             chapterIndex = 0,
             pageIndex = 0,
-            pageSize = PageSize(0, 0),
-            marginHorizontal = 0f,
             lines = emptyList(),
-            columns = emptyList(),
+            layout = PageLayout(
+                header = null, title = null,
+                body = BoxBounds(0f, 0f, 0f, 0f),
+                footer = null, pageWidth = 0f, pageHeight = 0f,
+            ),
         )
     }
 }

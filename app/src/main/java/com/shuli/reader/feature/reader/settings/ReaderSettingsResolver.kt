@@ -21,6 +21,7 @@ import com.shuli.reader.core.data.toSlotContent
 import com.shuli.reader.core.data.toTextAlign
 import com.shuli.reader.core.data.toTitleAlign
 import com.shuli.reader.core.database.entity.BookReaderPrefsOverrides
+import com.shuli.reader.core.reader.model.BoxInsetsDp
 import com.shuli.reader.core.reader.model.FooterConfig
 import com.shuli.reader.core.reader.model.HeaderConfig
 import com.shuli.reader.core.reader.model.TitleStyleConfig
@@ -57,12 +58,15 @@ fun BookReaderPrefsOverrides.mergeOnto(global: ReaderPreferences): ReaderPrefere
         customTextColor = this.customTextColor ?: global.customTextColor,
         customTitleColor = this.customTitleColor ?: global.customTitleColor,
         customHeaderFooterColor = this.customHeaderFooterColor ?: global.customHeaderFooterColor,
-        marginHorizontal = this.marginHorizontal ?: global.marginHorizontal,
-        marginVertical = this.marginVertical ?: global.marginVertical,
-        marginTop = this.marginTop ?: global.marginTop,
-        marginBottom = this.marginBottom ?: global.marginBottom,
-        marginLeft = this.marginLeft ?: global.marginLeft,
-        marginRight = this.marginRight ?: global.marginRight,
+        bodyBox = run {
+            val src = global.bodyBox
+            BoxInsetsDp(
+                top = this.marginTop ?: this.marginVertical ?: src.top,
+                bottom = this.marginBottom ?: this.marginVertical ?: src.bottom,
+                left = this.marginLeft ?: this.marginHorizontal ?: src.left,
+                right = this.marginRight ?: this.marginHorizontal ?: src.right,
+            )
+        },
         brightness = this.brightness ?: global.brightness,
         colorTemperature = this.colorTemperature ?: global.colorTemperature,
         backgroundTexture = this.backgroundTexture ?: global.backgroundTexture,
@@ -90,15 +94,21 @@ fun BookReaderPrefsOverrides.mergeOnto(global: ReaderPreferences): ReaderPrefere
             left = this.headerLeft?.toSlotContent() ?: global.header.left,
             center = this.headerCenter?.toSlotContent() ?: global.header.center,
             right = this.headerRight?.toSlotContent() ?: global.header.right,
-            marginTop = this.headerMarginTop ?: global.header.marginTop,
         ),
+        headerBox = run {
+            val src = global.headerBox
+            this.headerMarginTop?.let { src.copy(top = it) } ?: src
+        },
         footer = FooterConfig(
             visibility = this.footerVisibility?.toHeaderVisibility() ?: global.footer.visibility,
             left = this.footerLeft?.toSlotContent() ?: global.footer.left,
             center = this.footerCenter?.toSlotContent() ?: global.footer.center,
             right = this.footerRight?.toSlotContent() ?: global.footer.right,
-            marginBottom = this.footerMarginBottom ?: global.footer.marginBottom,
         ),
+        footerBox = run {
+            val src = global.footerBox
+            this.footerMarginBottom?.let { src.copy(bottom = it) } ?: src
+        },
         headerFooterAlpha = this.headerFooterAlpha ?: global.headerFooterAlpha,
         showProgress = this.showProgress ?: global.showProgress,
         useZhLayout = this.useZhLayout ?: global.useZhLayout,

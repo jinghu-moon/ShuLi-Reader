@@ -1,6 +1,7 @@
 package com.shuli.reader.core.reader.engine.cache
 
-import com.shuli.reader.core.reader.model.PageSize
+import com.shuli.reader.core.reader.model.BoxBounds
+import com.shuli.reader.core.reader.model.PageLayout
 import com.shuli.reader.core.reader.model.TextChapter
 import com.shuli.reader.core.reader.model.TextPage
 import org.junit.Assert.assertEquals
@@ -28,10 +29,8 @@ class CacheManagerTest {
             endCharOffset = 100,
             chapterIndex = 0,
             pageIndex = 0,
-            pageSize = PageSize(1080, 1920),
-            marginHorizontal = 24f,
             lines = emptyList(),
-            columns = emptyList(),
+            layout = PageLayout(null, null, BoxBounds(24f, 0f, 1056f, 1920f), null, 1080f, 1920f),
         )
 
         cacheManager.putPage(key, page)
@@ -75,9 +74,10 @@ class CacheManagerTest {
         val key2 = CacheManager.PageCacheKey("book1", 0, 1, 18f, 1.5f, 1080, 1920)
         val key3 = CacheManager.PageCacheKey("book1", 0, 2, 18f, 1.5f, 1080, 1920)
 
-        val page1 = TextPage(0, 100, 0, 0, PageSize(1080, 1920), 24f, emptyList(), emptyList())
-        val page2 = TextPage(100, 200, 0, 1, PageSize(1080, 1920), 24f, emptyList(), emptyList())
-        val page3 = TextPage(200, 300, 0, 2, PageSize(1080, 1920), 24f, emptyList(), emptyList())
+        val testLayout = PageLayout(null, null, BoxBounds(24f, 0f, 1056f, 1920f), null, 1080f, 1920f)
+        val page1 = TextPage(0, 100, 0, 0, emptyList(), testLayout, columns = emptyList())
+        val page2 = TextPage(100, 200, 0, 1, emptyList(), testLayout, columns = emptyList())
+        val page3 = TextPage(200, 300, 0, 2, emptyList(), testLayout, columns = emptyList())
 
         cacheManager.putPage(key1, page1)
         cacheManager.putPage(key2, page2)
@@ -93,7 +93,7 @@ class CacheManagerTest {
     fun cache_supportsClear() {
         val cacheManager = CacheManager()
         val key = CacheManager.PageCacheKey("book1", 0, 0, 18f, 1.5f, 1080, 1920)
-        val page = TextPage(0, 100, 0, 0, PageSize(1080, 1920), 24f, emptyList(), emptyList())
+        val page = TextPage(0, 100, 0, 0, emptyList(), PageLayout(null, null, BoxBounds(24f, 0f, 1056f, 1920f), null, 1080f, 1920f), columns = emptyList())
 
         cacheManager.putPage(key, page)
         cacheManager.clear()

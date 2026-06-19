@@ -2,6 +2,7 @@ package com.shuli.reader.feature.reader.settings
 
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.data.getValueByKey
+import com.shuli.reader.core.reader.model.BoxInsetsDp
 import com.shuli.reader.core.reader.model.TitleStyleConfig
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -40,12 +41,10 @@ data class PresetSnapshot(
     val cleanChapterTitle: Boolean = false,
     val preserveOriginalIndent: Boolean = false,
     val epubOverrideStyle: Boolean = true,
-    val marginHorizontal: Float = 24f,
-    val marginVertical: Float = 48f,
-    val marginTop: Float? = null,
-    val marginBottom: Float? = null,
-    val marginLeft: Float? = null,
-    val marginRight: Float? = null,
+    val bodyBox: BoxInsetsDp = BoxInsetsDp(top = 48f, bottom = 48f, left = 24f, right = 24f),
+    val headerBox: BoxInsetsDp = BoxInsetsDp(top = 16f, bottom = 0f, left = 24f, right = 24f),
+    val footerBox: BoxInsetsDp = BoxInsetsDp(top = 0f, bottom = 16f, left = 24f, right = 24f),
+    val titleBox: BoxInsetsDp = BoxInsetsDp(top = 9f, bottom = 10f, left = 24f, right = 24f),
     val verticalText: Boolean = false,
     val dualPageMode: String = "AUTO",
     val adFiltering: Boolean = false,
@@ -88,12 +87,10 @@ data class PresetSnapshot(
         cleanChapterTitle = cleanChapterTitle,
         preserveOriginalIndent = preserveOriginalIndent,
         epubOverrideStyle = epubOverrideStyle,
-        marginHorizontal = marginHorizontal,
-        marginVertical = marginVertical,
-        marginTop = marginTop,
-        marginBottom = marginBottom,
-        marginLeft = marginLeft,
-        marginRight = marginRight,
+        bodyBox = bodyBox,
+        headerBox = headerBox,
+        footerBox = footerBox,
+        titleBox = titleBox,
         verticalText = verticalText,
         adFiltering = adFiltering,
         headerFooterAlpha = headerFooterAlpha,
@@ -141,12 +138,10 @@ data class PresetSnapshot(
                 cleanChapterTitle = (values["clean_chapter_title"] as? Boolean) ?: false,
                 preserveOriginalIndent = (values["preserve_original_indent"] as? Boolean) ?: false,
                 epubOverrideStyle = (values["epub_override_style"] as? Boolean) ?: true,
-                marginHorizontal = (values["margin_horizontal"] as? Float) ?: 24f,
-                marginVertical = (values["margin_vertical"] as? Float) ?: 48f,
-                marginTop = values["margin_top"] as? Float,
-                marginBottom = values["margin_bottom"] as? Float,
-                marginLeft = values["margin_left"] as? Float,
-                marginRight = values["margin_right"] as? Float,
+                bodyBox = (values["body_box"] as? BoxInsetsDp) ?: BoxInsetsDp(top = 48f, bottom = 48f, left = 24f, right = 24f),
+                headerBox = (values["header_box"] as? BoxInsetsDp) ?: BoxInsetsDp(top = 16f, bottom = 0f, left = 24f, right = 24f),
+                footerBox = (values["footer_box"] as? BoxInsetsDp) ?: BoxInsetsDp(top = 0f, bottom = 16f, left = 24f, right = 24f),
+                titleBox = (values["title_box"] as? BoxInsetsDp) ?: BoxInsetsDp(top = 9f, bottom = 10f, left = 24f, right = 24f),
                 verticalText = (values["vertical_text"] as? Boolean) ?: false,
                 dualPageMode = (values["dual_page_mode"] as? com.shuli.reader.core.data.DualPageMode)?.name ?: "AUTO",
                 adFiltering = (values["ad_filtering"] as? Boolean) ?: false,

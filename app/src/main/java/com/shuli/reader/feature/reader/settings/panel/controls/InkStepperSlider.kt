@@ -42,6 +42,7 @@ import com.shuli.reader.ui.theme.LocalReaderColorScheme
  * @param sublabel 行副标题（可选，灰色小字）
  * @param formatValue 数值格式化
  * @param fillBrush 滑块填充画刷（色温等场景）
+ * @param defaultValue 默认值（可选）。传递给 InkSlider 用于竖线标记和双击重置。
  * @param onValueChangeFinished 交互结束回调，参数为最终值（抬手 / 点击完成 / 步进按钮单击）
  * @param testTagPrefix 测试 tag 前缀
  */
@@ -56,6 +57,7 @@ fun InkStepperSlider(
     sublabel: String? = null,
     formatValue: (Float) -> String = { "%.1f".format(it) },
     fillBrush: Brush? = null,
+    defaultValue: Float? = null,
     onValueChangeFinished: ((Float) -> Unit)? = null,
     testTagPrefix: String = "InkStepperSlider",
     topDivider: Boolean = false,
@@ -130,6 +132,7 @@ fun InkStepperSlider(
                 onValueChangeFinished = { finalValue -> if (enabled) onValueChangeFinished?.invoke(finalValue) },
                 valueRange = valueRange,
                 fillBrush = fillBrush,
+                defaultValue = defaultValue,
                 modifier = Modifier.weight(1f).testTag("${testTagPrefix}_Slider"),
             )
             InkCircleButton(

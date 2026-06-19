@@ -3,6 +3,7 @@ package com.shuli.reader.core.reader.layout
 import com.shuli.reader.core.data.IndentUnit
 import com.shuli.reader.core.reader.text.SimpleTextMeasurer
 import com.shuli.reader.core.reader.text.TextMeasurer
+import com.shuli.reader.core.reader.model.BoxInsetsPx
 import com.shuli.reader.core.reader.model.PageSize
 import com.shuli.reader.core.reader.model.ReaderLayoutConfig
 
@@ -29,18 +30,20 @@ internal object ReaderTextMeasurerFactory {
             textSize = textSizePx,
             lineHeight = input.lineSpacing,
             paragraphSpacing = input.paragraphSpacing * textSizePx,
-            marginTop = input.marginTopDp * input.density,
-            marginBottom = input.marginBottomDp * input.density,
-            marginLeft = input.marginLeftDp * input.density,
-            marginRight = input.marginRightDp * input.density,
+            bodyInsets = BoxInsetsPx(
+                top = input.marginTopDp * input.density,
+                bottom = input.marginBottomDp * input.density,
+                left = input.marginLeftDp * input.density,
+                right = input.marginRightDp * input.density,
+            ),
             indent = indentPx,
             density = input.density,
             letterSpacingPx = input.letterSpacing * textSizePx,
             titleStyle = input.titleStyle,
             useZhLayout = input.useZhLayout,
             bottomJustify = input.bottomJustify,
-            headerMarginTop = input.headerMarginTopDp * input.density,
-            footerMarginBottom = input.footerMarginBottomDp * input.density,
+            headerInsets = BoxInsetsPx(top = input.headerMarginTopDp * input.density),
+            footerInsets = BoxInsetsPx(bottom = input.footerMarginBottomDp * input.density),
         )
     }
 }

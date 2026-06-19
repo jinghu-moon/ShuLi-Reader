@@ -29,33 +29,6 @@ class ReaderCanvasStateApplierTest {
     }
 
     @Test
-    fun apply_contentScope_invalidatesContent() {
-        val snapshot = createDefaultSnapshot()
-        val diff = ReaderRenderDiff(setOf(InvalidationScope.CONTENT))
-        applier.apply(fakeCanvas, snapshot, diff)
-        assertTrue(fakeCanvas.contentInvalidated)
-        assertFalse("CONTENT 不应触发 SHELL", fakeCanvas.shellInvalidated)
-    }
-
-    @Test
-    fun apply_shellScope_invalidatesShell() {
-        val snapshot = createDefaultSnapshot()
-        val diff = ReaderRenderDiff(setOf(InvalidationScope.SHELL))
-        applier.apply(fakeCanvas, snapshot, diff)
-        assertTrue(fakeCanvas.shellInvalidated)
-        assertFalse(fakeCanvas.contentInvalidated)
-    }
-
-    @Test
-    fun apply_overlayScope_invalidatesOverlay() {
-        val snapshot = createDefaultSnapshot()
-        val diff = ReaderRenderDiff(setOf(InvalidationScope.OVERLAY))
-        applier.apply(fakeCanvas, snapshot, diff)
-        assertTrue(fakeCanvas.overlayInvalidated)
-        assertFalse(fakeCanvas.contentInvalidated)
-    }
-
-    @Test
     fun apply_pageDelegateScope_rebuildsDelegate() {
         val snapshot = createDefaultSnapshot()
         val diff = ReaderRenderDiff(setOf(InvalidationScope.PAGE_DELEGATE))
@@ -68,11 +41,8 @@ class ReaderCanvasStateApplierTest {
         val snapshot = createDefaultSnapshot()
         val diff = ReaderRenderDiff(setOf(InvalidationScope.REFLOW))
         applier.apply(fakeCanvas, snapshot, diff)
-        // REFLOW 应展开为 PAGE + CONTENT + SHELL + OVERLAY
+        // REFLOW 应展开为 PAGE
         assertTrue(fakeCanvas.reflowTriggered)
-        assertTrue(fakeCanvas.contentInvalidated)
-        assertTrue(fakeCanvas.shellInvalidated)
-        assertTrue(fakeCanvas.overlayInvalidated)
     }
 
     @Test
@@ -80,15 +50,14 @@ class ReaderCanvasStateApplierTest {
         val snapshot = createDefaultSnapshot()
         val diff = ReaderRenderDiff(
             setOf(
-                InvalidationScope.OVERLAY,
                 InvalidationScope.PAGE_DELEGATE,
-                InvalidationScope.CONTENT,
+                InvalidationScope.PAGE,
             )
         )
         applier.apply(fakeCanvas, snapshot, diff)
-        // 执行顺序应为 PAGE_DELEGATE(0) → CONTENT(3) → OVERLAY(5)
+        // 执行顺序应为 PAGE_DELEGATE(0) → PAGE(2)
         assertEquals(
-            listOf("pageDelegate", "content", "overlay"),
+            listOf("pageDelegate", "setPage"),
             fakeCanvas.executionOrder,
         )
     }
@@ -105,9 +74,6 @@ class ReaderCanvasStateApplierTest {
 // ── Test double ──
 
 class FakeReaderCanvasView : RenderApplierTarget {
-    var contentInvalidated = false
-    var shellInvalidated = false
-    var overlayInvalidated = false
     var delegateRebuilt = false
     var reflowTriggered = false
     var applyCount = 0
@@ -122,26 +88,8 @@ class FakeReaderCanvasView : RenderApplierTarget {
         executionOrder.add("setPage")
     }
 
-    override fun invalidateContentOnly() {
-        contentInvalidated = true
-        executionOrder.add("content")
-    }
-
-    override fun invalidateShellOnly() {
-        shellInvalidated = true
-        executionOrder.add("shell")
-    }
-
-    override fun invalidateOverlayOnly() {
-        overlayInvalidated = true
-        executionOrder.add("overlay")
-    }
-
     override fun invalidateAllPages() {
         reflowTriggered = true
-        contentInvalidated = true
-        shellInvalidated = true
-        overlayInvalidated = true
         executionOrder.add("reflow")
     }
 

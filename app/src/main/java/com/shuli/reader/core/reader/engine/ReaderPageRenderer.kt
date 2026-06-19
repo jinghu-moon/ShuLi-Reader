@@ -1,5 +1,8 @@
 package com.shuli.reader.core.reader.engine
 
+import kotlin.math.roundToInt
+import com.shuli.reader.core.reader.model.BoxBounds
+import com.shuli.reader.core.reader.model.PageLayout
 import com.shuli.reader.core.reader.model.SlotContent
 import com.shuli.reader.core.reader.model.SlotResolution
 import com.shuli.reader.core.reader.model.TitleAlign
@@ -114,35 +117,41 @@ class ReaderPageRenderer(
         showHeaderLine: Boolean = false,
         showFooterLine: Boolean = false,
     ) {
+        val layout = page.layout
+
         // 1. 绘制背景
         if (backgroundPaint != null) {
-            canvas.drawRect(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat(), backgroundPaint)
+            canvas.drawRect(0f, 0f, layout.pageWidth, layout.pageHeight, backgroundPaint)
         }
 
         val density = page.density
 
         // 2. 绘制页眉
-        val headerBaseline = page.headerMarginTop + 24f * density * 0.6f
-        drawHeaderFooter(canvas, headerSlots, headerPaint, headerAlpha, headerBaseline, page, batteryLevel, density)
+        layout.header?.let { box ->
+            val headerBaseline = box.top + box.height * 0.6f
+            drawHeaderFooter(canvas, headerSlots, headerPaint, headerAlpha, headerBaseline, box, batteryLevel, density)
 
-        // 2.5 绘制页眉分割线
-        if (showHeaderLine) {
-            val lineY = headerBaseline + 4f * density
-            dividerPaint.color = headerPaint.color
-            dividerPaint.alpha = (headerAlpha * 255 * 0.5f).toInt()
-            canvas.drawLine(page.marginHorizontal, lineY, canvas.width - page.marginHorizontal, lineY, dividerPaint)
+            // 2.5 绘制页眉分割线
+            if (showHeaderLine) {
+                val lineY = (headerBaseline + 4f * density).roundToInt().toFloat()
+                dividerPaint.color = headerPaint.color
+                dividerPaint.alpha = (headerAlpha * 255 * 0.5f).toInt()
+                canvas.drawLine(box.left, lineY, box.right, lineY, dividerPaint)
+            }
         }
 
         // 3. 绘制页脚
-        val footerBaseline = canvas.height - page.footerMarginBottom - 24f * density * 0.4f
-        drawHeaderFooter(canvas, footerSlots, footerPaint, footerAlpha, footerBaseline, page, batteryLevel, density)
+        layout.footer?.let { box ->
+            val footerBaseline = box.bottom - box.height * 0.4f
+            drawHeaderFooter(canvas, footerSlots, footerPaint, footerAlpha, footerBaseline, box, batteryLevel, density)
 
-        // 3.5 绘制页脚分割线
-        if (showFooterLine) {
-            val lineY = footerBaseline - footerPaint.textSize * 0.6f
-            dividerPaint.color = footerPaint.color
-            dividerPaint.alpha = (footerAlpha * 255 * 0.5f).toInt()
-            canvas.drawLine(page.marginHorizontal, lineY, canvas.width - page.marginHorizontal, lineY, dividerPaint)
+            // 3.5 绘制页脚分割线
+            if (showFooterLine) {
+                val lineY = (footerBaseline - footerPaint.textSize * 0.6f).roundToInt().toFloat()
+                dividerPaint.color = footerPaint.color
+                dividerPaint.alpha = (footerAlpha * 255 * 0.5f).toInt()
+                canvas.drawLine(box.left, lineY, box.right, lineY, dividerPaint)
+            }
         }
 
         // 5. 绘制进度条
@@ -152,9 +161,8 @@ class ReaderPageRenderer(
             } else {
                 0f
             }
-            val progressWidth = canvas.width * progress
-            val progressRect = RectF(0f, canvas.height - 3f * density, progressWidth, canvas.height.toFloat())
-            canvas.drawRect(progressRect, progressPaint)
+            val progressWidth = layout.pageWidth * progress
+            canvas.drawRect(0f, layout.pageHeight - 3f * density, progressWidth, layout.pageHeight, progressPaint)
         }
     }
 
@@ -178,7 +186,11 @@ class ReaderPageRenderer(
         }
 
         // 2. 绘制章节标题（仅首页）
-        drawChapterTitle(canvas, page, density)
+        page.layout.title?.let { titleBox ->
+            page.titleLayout?.let { titleLayout ->
+                drawChapterTitle(canvas, titleLayout, titleBox, page.density)
+            }
+        }
     }
 
     /**
@@ -197,7 +209,7 @@ class ReaderPageRenderer(
         // 1. 笔记高亮背景（彩色半透明，在 TTS/选区高亮之下）
         if (noteRanges.isNotEmpty()) {
             page.lines.forEach { line ->
-                val startX = page.marginHorizontal + line.startXOffset
+                val startX = page.layout.body.left + line.startXOffset
                 val textWidth = line.measuredWidth
                 val top = line.top
                 val bottom = line.bottom
@@ -212,7 +224,7 @@ class ReaderPageRenderer(
 
         // 2. 选区高亮背景
         page.lines.forEach { line ->
-            val startX = page.marginHorizontal + line.startXOffset
+            val startX = page.layout.body.left + line.startXOffset
             val textWidth = line.measuredWidth
             val top = line.top
             val bottom = line.bottom
@@ -253,7 +265,7 @@ class ReaderPageRenderer(
         paint: Paint,
         alpha: Float,
         baseline: Float,
-        page: TextPage,
+        box: BoxBounds,
         batteryLevel: Int,
         density: Float,
     ) {
@@ -261,9 +273,6 @@ class ReaderPageRenderer(
 
         val oldAlpha = paint.alpha
         paint.alpha = (alpha * 255).toInt()
-
-        val canvasWidth = canvas.width.toFloat()
-        val marginH = page.marginHorizontal
 
         fun drawSlot(text: String, content: SlotContent, x: Float, align: Paint.Align) {
             if (text.isEmpty()) return
@@ -275,9 +284,9 @@ class ReaderPageRenderer(
             }
         }
 
-        drawSlot(slots.left, slots.leftContent, marginH, Paint.Align.LEFT)
-        drawSlot(slots.center, slots.centerContent, canvasWidth / 2f, Paint.Align.CENTER)
-        drawSlot(slots.right, slots.rightContent, canvasWidth - marginH, Paint.Align.RIGHT)
+        drawSlot(slots.left, slots.leftContent, box.left, Paint.Align.LEFT)
+        drawSlot(slots.center, slots.centerContent, (box.left + box.right) / 2f, Paint.Align.CENTER)
+        drawSlot(slots.right, slots.rightContent, box.right, Paint.Align.RIGHT)
 
         paint.alpha = oldAlpha
         paint.textAlign = Paint.Align.LEFT // 重置
@@ -290,40 +299,12 @@ class ReaderPageRenderer(
     /**
      * 绘制章节标题（仅首页 pageIndex == 0 且 align != HIDDEN）
      */
-    private fun drawChapterTitle(canvas: Canvas, page: TextPage, density: Float) {
-        if (page.pageIndex != 0) return
-        if (page.chapterTitle.isBlank()) return
-        if (titleStyle.align == TitleAlign.HIDDEN) return
-
-        val titleTextSize = textPaint.textSize + titleStyle.sizeOffsetSp * density
-        titlePaint.textSize = titleTextSize
-        titlePaint.color = textPaint.color
-        titlePaint.isFakeBoldText = true
-        titlePaint.typeface = textPaint.typeface
-
-        val canvasWidth = canvas.width.toFloat()
-        val marginH = page.marginHorizontal
-        val availableWidth = (canvasWidth - marginH * 2).toInt().coerceAtLeast(1)
-
-        val layoutAlign = when (titleStyle.align) {
-            TitleAlign.LEFT -> Layout.Alignment.ALIGN_NORMAL
-            TitleAlign.CENTER -> Layout.Alignment.ALIGN_CENTER
-            TitleAlign.HIDDEN -> return
-        }
-
-        // 用 StaticLayout 支持多行自动换行
-        val textPaint = TextPaint(titlePaint)
-        val layout = StaticLayout.Builder.obtain(
-            page.chapterTitle, 0, page.chapterTitle.length, textPaint, availableWidth
-        ).setAlignment(layoutAlign).setIncludePad(false).build()
-
-        // 垂直定位：标题底部 = topContentY - marginBottom，向上偏移整个 layout 高度
-        val marginBottom = titleStyle.marginBottomDp * density
-        val titleTop = page.topContentY - marginBottom - layout.height
+    private fun drawChapterTitle(canvas: Canvas, titleLayout: StaticLayout, titleBox: BoxBounds, density: Float) {
+        val titleTop = titleBox.top + titleStyle.marginTopDp * density
 
         canvas.save()
-        canvas.translate(marginH, titleTop)
-        layout.draw(canvas)
+        canvas.translate(titleBox.left, titleTop)
+        titleLayout.draw(canvas)
         canvas.restore()
     }
 
@@ -337,7 +318,7 @@ class ReaderPageRenderer(
         val recorder = ctx.renderStateStore.getLineRecorder(lineKey)
 
         val lineHeight = (line.bottom - line.top).toInt()
-        val startX = ctx.page.marginHorizontal + line.startXOffset
+        val startX = ctx.page.layout.body.left + line.startXOffset
 
         recorder.recordIfNeeded(canvas.width, lineHeight) {
             val relativeBaseline = line.baseline - line.top

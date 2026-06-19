@@ -1,5 +1,8 @@
 package com.shuli.reader.core.reader.model
 
+import com.shuli.reader.core.reader.model.BoxBounds
+import com.shuli.reader.core.reader.model.BoxInsetsPx
+import com.shuli.reader.core.reader.model.PageLayout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -13,10 +16,8 @@ class TextModelsTest {
             endCharOffset = 100,
             chapterIndex = 0,
             pageIndex = 0,
-            pageSize = PageSize(1080, 1920),
-            marginHorizontal = 24f,
             lines = emptyList(),
-            columns = emptyList(),
+            layout = PageLayout(null, null, BoxBounds(24f, 0f, 1056f, 1920f), null, 1080f, 1920f),
         )
 
         assertEquals(0, page.startCharOffset)
@@ -67,20 +68,16 @@ class TextModelsTest {
                 endCharOffset = 100,
                 chapterIndex = 0,
                 pageIndex = 0,
-                pageSize = PageSize(1080, 1920),
-                marginHorizontal = 24f,
                 lines = emptyList(),
-                columns = emptyList(),
+                layout = PageLayout(null, null, BoxBounds(24f, 0f, 1056f, 1920f), null, 1080f, 1920f),
             ),
             TextPage(
                 startCharOffset = 100,
                 endCharOffset = 200,
                 chapterIndex = 0,
                 pageIndex = 1,
-                pageSize = PageSize(1080, 1920),
-                marginHorizontal = 24f,
                 lines = emptyList(),
-                columns = emptyList(),
+                layout = PageLayout(null, null, BoxBounds(24f, 0f, 1056f, 1920f), null, 1080f, 1920f),
             ),
         )
 
@@ -103,10 +100,8 @@ class TextModelsTest {
                 endCharOffset = 100,
                 chapterIndex = 0,
                 pageIndex = 0,
-                pageSize = PageSize(1080, 1920),
-                marginHorizontal = 24f,
                 lines = emptyList(),
-                columns = emptyList(),
+                layout = PageLayout(null, null, BoxBounds(24f, 0f, 1056f, 1920f), null, 1080f, 1920f),
             ),
         )
 
@@ -131,10 +126,7 @@ class TextModelsTest {
             textSize = 18f,
             lineHeight = 1.5f,
             paragraphSpacing = 10f,
-            marginTop = 30f,
-            marginBottom = 30f,
-            marginLeft = 20f,
-            marginRight = 20f,
+            bodyInsets = BoxInsetsPx(top = 30f, bottom = 30f, left = 20f, right = 20f),
             indent = 2f,
         )
 
@@ -143,8 +135,8 @@ class TextModelsTest {
         assertEquals(18f, config.textSize, 0.001f)
         assertEquals(1.5f, config.lineHeight, 0.001f)
         assertEquals(10f, config.paragraphSpacing, 0.001f)
-        assertEquals(20f, config.marginLeft, 0.001f)
-        assertEquals(30f, config.marginTop, 0.001f)
+        assertEquals(20f, config.bodyInsets.left, 0.001f)
+        assertEquals(30f, config.bodyInsets.top, 0.001f)
         assertEquals(2f, config.indent, 0.001f)
     }
 
@@ -200,10 +192,8 @@ class TextModelsTest {
         endCharOffset = end,
         chapterIndex = 0,
         pageIndex = index,
-        pageSize = PageSize(1080, 1920),
-        marginHorizontal = 24f,
         lines = emptyList(),
-        columns = emptyList(),
+        layout = PageLayout(null, null, BoxBounds(24f, 0f, 1056f, 1920f), null, 1080f, 1920f),
     )
 
     private fun makeChapter(pages: List<TextPage>) = TextChapter(

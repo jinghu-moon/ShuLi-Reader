@@ -1,6 +1,7 @@
 package com.shuli.reader.feature.reader.session
 
 import com.shuli.reader.core.reader.engine.Paginator
+import com.shuli.reader.core.reader.model.BoxInsetsPx
 import com.shuli.reader.core.reader.model.PageSize
 import com.shuli.reader.core.reader.model.ReaderLayoutConfig
 import com.shuli.reader.core.reader.model.TextChapter
@@ -21,10 +22,7 @@ class ChapterProviderTest {
         textSize = 18f,
         lineHeight = 1.5f,
         paragraphSpacing = 10f,
-        marginTop = 20f,
-        marginBottom = 20f,
-        marginLeft = 20f,
-        marginRight = 20f,
+        bodyInsets = BoxInsetsPx(top = 20f, bottom = 20f, left = 20f, right = 20f),
         indent = 2f,
     )
 

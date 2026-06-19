@@ -53,8 +53,7 @@ class WidthWindow(
     private fun measureBlock(blockIndex: Int): FloatArray {
         val start = blockIndex * BLOCK_SIZE
         val end = minOf(start + BLOCK_SIZE, content.length)
-        val chunk = content.substring(start, end)
-        val widths = textMeasurer.measureTextWidths(chunk, textSize)
+        val widths = textMeasurer.measureTextWidths(content, start, end, textSize)
         blocks[blockIndex] = widths
         accessOrder.addLast(blockIndex)
         evictIfNeeded()

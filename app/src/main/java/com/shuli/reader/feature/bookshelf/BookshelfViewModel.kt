@@ -144,59 +144,83 @@ class BookshelfViewModel(
 
     private val foldersFlow = folderRepository.getAllFolders()
 
-    val uiState: StateFlow<BookshelfUiState> = combine(
-        booksFlow,
+    // ── 分层 combine 中间数据类（消除 14-way varargs 的类型擦除）──
+
+    private data class SessionData(
+        val durations: Map<Long, Long>,
+        val todayTime: Long,
+    )
+
+    private data class SortConfig(
+        val sortOrder: SortOrder,
+        val filterType: FilterType,
+        val isAscending: Boolean,
+    )
+
+    private data class DisplayConfig(
+        val viewMode: ViewMode,
+        val isEditMode: Boolean,
+        val selectedNodeIds: Set<Long>,
+        val unifiedPalette: Int?,
+        val searchQuery: String,
+        val isSearching: Boolean,
+        val activeTagFilter: String?,
+    )
+
+    // ── Layer 1: 聚合相关 Flow 为类型安全的中间结构 ──
+
+    private val sessionFlow: kotlinx.coroutines.flow.Flow<SessionData> = combine(
         readingSessionDao?.getBookTotals()?.map { tuples ->
             tuples.associate { it.bookId to it.totalDuration }
         } ?: flowOf(emptyMap<Long, Long>()),
         readingSessionDao?.getTodayTotal(todayDateKey()) ?: flowOf(0L),
-        _viewMode,
-        _sortOrder,
-        _filterType,
-        _isAscending,
-        _searchQuery,
-        _isSearching,
-        unifiedCoverPaletteFlow,
+    ) { durations, todayTime ->
+        SessionData(durations, todayTime ?: 0L)
+    }
+
+    private val sortConfigFlow: kotlinx.coroutines.flow.Flow<SortConfig> = combine(
+        _sortOrder, _filterType, _isAscending,
+    ) { sortOrder, filterType, isAscending ->
+        SortConfig(sortOrder, filterType, isAscending)
+    }
+
+    private val displayConfigFlow: kotlinx.coroutines.flow.Flow<DisplayConfig> = combine(
+        _viewMode, _isEditMode, _selectedNodeIds, unifiedCoverPaletteFlow,
+        combine(_searchQuery, _isSearching, _activeTagFilter) { q, s, t -> Triple(q, s, t) },
+    ) { viewMode, isEditMode, selectedNodeIds, palette, searchTriple ->
+        DisplayConfig(
+            viewMode = viewMode,
+            isEditMode = isEditMode,
+            selectedNodeIds = selectedNodeIds,
+            unifiedPalette = palette,
+            searchQuery = searchTriple.first,
+            isSearching = searchTriple.second,
+            activeTagFilter = searchTriple.third,
+        )
+    }
+
+    // ── Layer 2: 组合为最终 UI 状态 ──
+
+    val uiState: StateFlow<BookshelfUiState> = combine(
+        booksFlow,
+        sessionFlow,
+        sortConfigFlow,
+        displayConfigFlow,
         foldersFlow,
-        _isEditMode,
-        _selectedNodeIds,
-        _activeTagFilter,
-    ) { values ->
-        val books = values[0] as List<*>
-        val durations = values[1] as Map<*, *>
-        val todayTime = values[2] as Long?
-        val viewMode = values[3] as ViewMode
-        val sortOrder = values[4] as SortOrder
-        val filterType = values[5] as FilterType
-        val isAscending = values[6] as Boolean
-        val searchQuery = values[7] as String
-        val isSearching = values[8] as Boolean
-        val unifiedPalette = values[9] as Int?
-
-        @Suppress("UNCHECKED_CAST")
-        val folderEntities = values[10] as List<FolderEntity>
-        val isEditMode = values[11] as Boolean
-
-        @Suppress("UNCHECKED_CAST")
-        val selectedNodeIds = values[12] as Set<Long>
-        val activeTagFilter = values[13] as String?
-
+    ) { books, session, sortConfig, display, folders ->
         @Suppress("UNCHECKED_CAST")
         val bookRows = books as List<BookShelfRow>
-
         @Suppress("UNCHECKED_CAST")
-        val durationMap = durations as Map<Long, Long>
+        val folderEntities = folders as List<FolderEntity>
 
         val bookItems = bookRows.map { row ->
-            val duration = durationMap[row.id] ?: 0L
+            val duration = session.durations[row.id] ?: 0L
             row.toBookItem(duration)
         }
 
-        // 按 folderId 分组
         val booksByFolder = bookItems.groupBy { it.folderId }
         val rootNodes = mutableListOf<BookshelfNode>()
 
-        // 1. 组装 FolderItem
         folderEntities.forEach { folder ->
             val folderUiId = -folder.id
             val folderBooks = booksByFolder[folder.id] ?: emptyList()
@@ -210,33 +234,31 @@ class BookshelfViewModel(
             )
         }
 
-        // 2. 组装根目录下的 BookItem
         val rootBooks = booksByFolder[null] ?: emptyList()
         rootNodes.addAll(rootBooks)
 
-        val filtered = with(BookshelfSorting) { rootNodes.applyFilter(filterType) }
-        val searched = if (isSearching && searchQuery.isBlank()) emptyList() else filtered
-        // 分离固定项和自动项，自动项按当前排序方式排序，然后槽位合并
+        val filtered = with(BookshelfSorting) { rootNodes.applyFilter(sortConfig.filterType) }
+        val searched = if (display.isSearching && display.searchQuery.isBlank()) emptyList() else filtered
         val pinned = searched.filter { it.pinnedSlot != null }
-        val autoSorted = with(BookshelfSorting) { searched.filter { it.pinnedSlot == null }.applySorting(sortOrder, isAscending) }
+        val autoSorted = with(BookshelfSorting) { searched.filter { it.pinnedSlot == null }.applySorting(sortConfig.sortOrder, sortConfig.isAscending) }
         val sorted = BookshelfSorting.mergePinnedSlots(pinned, autoSorted)
 
         BookshelfUiState(
             nodes = sorted,
-            viewMode = viewMode,
-            sortOrder = sortOrder,
-            isAscending = isAscending,
-            filterType = filterType,
-            searchQuery = searchQuery,
-            isSearching = isSearching,
-            todayReadingTime = com.shuli.reader.core.util.StatsFormatter.formatDuration(todayTime ?: 0L).ifBlank { "0m" },
-            todayReadingMinutes = (todayTime ?: 0L) / 60,
+            viewMode = display.viewMode,
+            sortOrder = sortConfig.sortOrder,
+            isAscending = sortConfig.isAscending,
+            filterType = sortConfig.filterType,
+            searchQuery = display.searchQuery,
+            isSearching = display.isSearching,
+            todayReadingTime = com.shuli.reader.core.util.StatsFormatter.formatDuration(session.todayTime).ifBlank { "0m" },
+            todayReadingMinutes = session.todayTime / 60,
             isLoading = false,
             isEmpty = sorted.isEmpty(),
-            isEditMode = isEditMode,
-            selectedNodeIds = selectedNodeIds,
-            unifiedCoverPaletteIndex = unifiedPalette,
-            activeTagFilter = activeTagFilter,
+            isEditMode = display.isEditMode,
+            selectedNodeIds = display.selectedNodeIds,
+            unifiedCoverPaletteIndex = display.unifiedPalette,
+            activeTagFilter = display.activeTagFilter,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -244,11 +266,18 @@ class BookshelfViewModel(
         initialValue = BookshelfUiState(),
     )
 
+    private var cachedDateKeyDay: Int = -1
+    private var cachedDateKey: Int = 0
+
     private fun todayDateKey(): Int {
         val cal = java.util.Calendar.getInstance()
-        return cal.get(java.util.Calendar.YEAR) * 10000 +
+        val dayOfYear = cal.get(java.util.Calendar.DAY_OF_YEAR) + cal.get(java.util.Calendar.YEAR) * 1000
+        if (dayOfYear == cachedDateKeyDay) return cachedDateKey
+        cachedDateKeyDay = dayOfYear
+        cachedDateKey = cal.get(java.util.Calendar.YEAR) * 10000 +
             (cal.get(java.util.Calendar.MONTH) + 1) * 100 +
             cal.get(java.util.Calendar.DAY_OF_MONTH)
+        return cachedDateKey
     }
 
     fun onViewModeChanged(mode: ViewMode) {

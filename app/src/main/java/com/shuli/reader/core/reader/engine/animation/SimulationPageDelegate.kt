@@ -213,35 +213,42 @@ class SimulationPageDelegate(
         canvas.restore()
     }
 
+    // 预分配的最大尺寸折叠阴影渐变（左右各一），通过 LocalMatrix + Paint.alpha 变换
+    private val shadowMatrix = android.graphics.Matrix()
+
+    private val leftShadowGradient: LinearGradient = LinearGradient(
+        0f, 0f, MAX_SHADOW_WIDTH, 0f,
+        intArrayOf(0xFF000000.toInt(), android.graphics.Color.TRANSPARENT),
+        floatArrayOf(0f, 1f),
+        Shader.TileMode.CLAMP,
+    )
+
+    private val rightShadowGradient: LinearGradient = LinearGradient(
+        0f, 0f, MAX_SHADOW_WIDTH, 0f,
+        intArrayOf(android.graphics.Color.TRANSPARENT, 0xFF000000.toInt()),
+        floatArrayOf(0f, 1f),
+        Shader.TileMode.CLAMP,
+    )
+
     private fun drawFoldShadow(canvas: Canvas, foldX: Float, progress: Float) {
-        val shadowWidth = 30f * progress
+        val shadowWidth = MAX_SHADOW_WIDTH * progress
+        if (shadowWidth < 1f) return
+
+        val scaleX = progress
         val alpha = (80 * progress).toInt().coerceIn(0, 255)
+        shadowPaint.alpha = alpha
 
         if (foldX < screenWidth / 2) {
-            val gradient = LinearGradient(
-                foldX, 0f,
-                foldX + shadowWidth, 0f,
-                intArrayOf(
-                    android.graphics.Color.argb(alpha, 0, 0, 0),
-                    android.graphics.Color.TRANSPARENT
-                ),
-                floatArrayOf(0f, 1f),
-                Shader.TileMode.CLAMP
-            )
-            shadowPaint.shader = gradient
+            shadowMatrix.setScale(scaleX, 1f)
+            shadowMatrix.postTranslate(foldX, 0f)
+            leftShadowGradient.setLocalMatrix(shadowMatrix)
+            shadowPaint.shader = leftShadowGradient
             canvas.drawRect(foldX, 0f, foldX + shadowWidth, screenHeight, shadowPaint)
         } else {
-            val gradient = LinearGradient(
-                foldX - shadowWidth, 0f,
-                foldX, 0f,
-                intArrayOf(
-                    android.graphics.Color.TRANSPARENT,
-                    android.graphics.Color.argb(alpha, 0, 0, 0)
-                ),
-                floatArrayOf(0f, 1f),
-                Shader.TileMode.CLAMP
-            )
-            shadowPaint.shader = gradient
+            shadowMatrix.setScale(scaleX, 1f)
+            shadowMatrix.postTranslate(foldX - shadowWidth, 0f)
+            rightShadowGradient.setLocalMatrix(shadowMatrix)
+            shadowPaint.shader = rightShadowGradient
             canvas.drawRect(foldX - shadowWidth, 0f, foldX, screenHeight, shadowPaint)
         }
         shadowPaint.shader = null
@@ -358,5 +365,9 @@ class SimulationPageDelegate(
             })
             start()
         }
+    }
+
+    private companion object {
+        const val MAX_SHADOW_WIDTH = 30f
     }
 }

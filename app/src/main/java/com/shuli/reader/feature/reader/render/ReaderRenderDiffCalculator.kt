@@ -64,7 +64,7 @@ internal object ReaderRenderDiffCalculator {
      * 收集对应的 [InvalidationScope]。与 snapshot 级别比较互补：
      * snapshot 比较粒度粗但高效，此方法粒度精确到单个 Registry 字段。
      *
-     * VIEW_INVALIDATE 和 NONE scope 的字段变更不产生 recorder 失效，自然排除。
+     * scope 为 null 的字段变更不产生 recorder 失效，自然排除。
      */
     fun registryBasedScopes(
         old: ReaderPreferences,
@@ -72,11 +72,11 @@ internal object ReaderRenderDiffCalculator {
     ): Set<InvalidationScope> {
         val scopes = mutableSetOf<InvalidationScope>()
         for (def in ReaderSettingRegistry.all) {
-            if (def.scope == InvalidationScope.NONE || def.scope == InvalidationScope.VIEW_INVALIDATE) continue
+            val scope = def.scope ?: continue
             val oldVal = old.getValueByKey<Any>(def.key)
             val newVal = new.getValueByKey<Any>(def.key)
             if (oldVal != newVal) {
-                scopes += def.scope
+                scopes += scope
             }
         }
         return scopes

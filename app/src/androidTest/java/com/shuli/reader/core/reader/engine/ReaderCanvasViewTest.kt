@@ -3,7 +3,8 @@ package com.shuli.reader.core.reader.engine
 import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.shuli.reader.core.reader.model.PageSize
+import com.shuli.reader.core.reader.model.BoxBounds
+import com.shuli.reader.core.reader.model.PageLayout
 import com.shuli.reader.core.reader.model.TextPage
 import org.junit.Assert.assertNotNull
 import org.junit.Test
@@ -28,10 +29,8 @@ class ReaderCanvasViewTest {
             endCharOffset = 100,
             chapterIndex = 0,
             pageIndex = 0,
-            pageSize = PageSize(1080, 1920),
-            marginHorizontal = 24f,
             lines = emptyList(),
-            columns = emptyList(),
+            layout = PageLayout(null, null, BoxBounds(24f, 0f, 1056f, 1920f), null, 1080f, 1920f),
         )
 
         view.setPage(page)

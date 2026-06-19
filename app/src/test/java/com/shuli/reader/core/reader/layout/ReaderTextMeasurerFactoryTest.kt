@@ -39,8 +39,8 @@ class ReaderTextMeasurerFactoryTest {
             density = 3f,
         )
         val config = ReaderTextMeasurerFactory.toLayoutConfig(input)
-        assertEquals(72f, config.marginLeft, 0.01f)
-        assertEquals(144f, config.marginTop, 0.01f)
+        assertEquals(72f, config.bodyInsets.left, 0.01f)
+        assertEquals(144f, config.bodyInsets.top, 0.01f)
     }
 
     @Test

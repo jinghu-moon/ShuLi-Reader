@@ -3,6 +3,7 @@ package com.shuli.reader.feature.reader
 import com.shuli.reader.core.data.OrientationLock
 import com.shuli.reader.feature.reader.settings.ReaderSettingRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -26,12 +27,9 @@ class ReaderScreenOrientationTest {
     }
 
     @Test
-    fun registry_orientationLock_isNoneScope() {
+    fun registry_orientationLock_isNullScope() {
         val def = ReaderSettingRegistry.all.first { it.key == "orientation_lock" }
-        assertEquals(
-            com.shuli.reader.feature.reader.render.InvalidationScope.NONE,
-            def.scope,
-        )
+        assertNull(def.scope)
     }
 
     // T-1.5.2: PORTRAIT 设置对应常量（映射验证）

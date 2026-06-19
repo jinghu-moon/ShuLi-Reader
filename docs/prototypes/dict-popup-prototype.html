@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>书里 · 划词查词</title>
+<style>
+/* ── Reset ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+
+/* ── Page ── */
+body{
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;
+  background:#C8C0B5;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:22px 16px 48px;
+  gap:14px;
+}
+
+/* ── Controls ── */
+.ctrl{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:center;
+}
+.th-btn{
+  padding:5px 16px;
+  border-radius:20px;
+  border:1.5px solid rgba(69,59,46,.5);
+  font-size:12px;
+  color:#453B2E;
+  background:rgba(255,255,255,.55);
+  transition:background .15s,color .15s,border-color .15s;
+}
+.th-btn.on{background:#453B2E;color:#F6F4F0;border-color:#453B2E}
+.ctrl-hint{
+  font-size:11px;
+  color:#453B2E;
+  background:rgba(255,255,255,.4);
+  padding:4px 11px;
+  border-radius:12px;
+  letter-spacing:.01em;
+}
+
+/* ── Phone frame ── */
+.phone{
+  width:390px;
+  height:844px;
+  border-radius:46px;
+  border:9px solid #1A130B;
+  overflow:hidden;
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.1) inset,
+    0 24px 64px rgba(0,0,0,.38),
+    0 4px 12px rgba(0,0,0,.18);
+
+  /* ── MoTu tokens — light ── */
+  --bg:    #F6F4F0;
+  --sf:    #FDFCFA;
+  --sv:    #EAE5DC;
+  --t1:    #1A130B;
+  --t2:    #5E5346;
+  --t3:    #9C9082;
+  --bd:    #D4CCC0;
+  --bd2:   #B9AFA0;
+  --pm:    #453B2E;
+  --opm:   #FFFFFF;
+  --inv:   #2C231A;
+  --invt:  #F6F4F0;
+  --inf:   #3A607A;
+  --infb:  #E2EDF4;
+  --sel:   rgba(69,59,46,.13);
+  --shad:  0 -6px 32px rgba(26,19,11,.13);
+  --wul:   rgba(58,96,122,.38);
+}
+.phone.dark{
+  --bg:    #0C0804;
+  --sf:    #1A130B;
+  --sv:    #2C231A;
+  --t1:    #EAE5DC;
+  --t2:    #9C9082;
+  --t3:    #5E5346;
+  --bd:    #453B2E;
+  --bd2:   #5E5346;
+  --pm:    #D4CCC0;
+  --opm:   #0C0804;
+  --inv:   #EAE5DC;
+  --invt:  #1A130B;
+  --inf:   #6AA0BE;
+  --infb:  #0A1E2A;
+  --sel:   rgba(212,204,192,.17);
+  --shad:  0 -6px 32px rgba(0,0,0,.48);
+  --wul:   rgba(106,160,190,.4);
+}
+
+/* ── Status bar ── */
+.sbar{
+  height:50px;
+  background:var(--sf);
+  border-bottom:.5px solid var(--bd);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 24px;
+  flex-shrink:0;
+}
+.sbar-l{font-size:14px;font-weight:600;color:var(--t1)}
+.sbar-r{font-size:10px;color:var(--t2);letter-spacing:.03em}
+
+/* ── Reader toolbar ── */
+.rtb{
+  height:46px;
+  background:var(--sf);
+  border-bottom:.5px solid var(--bd);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 18px;
+  flex-shrink:0;
+}
+.rtb-side{font-size:13px;color:var(--t2)}
+.rtb-mid{font-size:13px;font-weight:500;color:var(--t1);letter-spacing:.02em}
+
+/* ── Reader ── */
+.reader{
+  flex:1;
+  overflow-y:auto;
+  background:var(--bg);
+  position:relative;
+  padding:26px 22px 10px;
+  /* Needed so absolute children (.spop) are clipped correctly */
+  isolation:isolate;
+}
+
+.ch-num{
+  font-size:12px;
+  font-weight:500;
+  letter-spacing:.24em;
+  text-align:center;
+  color:var(--t2);
+  margin-bottom:22px;
+}
+
+.rtext{
+  font-size:17px;
+  line-height:2.05;
+  color:var(--t1);
+  letter-spacing:.04em;
+  text-align:justify;
+}
+.rtext p{
+  margin-bottom:1.35em;
+  text-indent:2em;
+}
+
+/* Tappable word spans */
+.w{
+  cursor:pointer;
+  border-radius:2px;
+  transition:background .1s;
+  /* Dotted underline in info color to signal tappability */
+  text-decoration:underline;
+  text-decoration-color:var(--wul);
+  text-underline-offset:3px;
+  text-decoration-style:dotted;
+  text-decoration-thickness:1.5px;
+}
+.w:hover,.w.sel{background:var(--sel)}
+
+/* ── Reader footer ── */
+.rftr{
+  height:46px;
+  background:var(--sf);
+  border-top:.5px solid var(--bd);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 22px;
+  flex-shrink:0;
+}
+.rftr-t{font-size:11px;color:var(--t3)}
+
+/* ── Selection popup ── */
+.spop{
+  position:absolute;
+  z-index:120;
+  background:var(--inv);
+  border-radius:12px;
+  padding:4px;
+  display:flex;
+  gap:1px;
+  box-shadow:0 4px 22px rgba(0,0,0,.26),0 1px 4px rgba(0,0,0,.14);
+  opacity:0;
+  pointer-events:none;
+  transform:translateX(-50%) translateY(-6px);
+  transition:opacity .16s,transform .16s;
+  white-space:nowrap;
+}
+.spop.vis{
+  opacity:1;
+  pointer-events:all;
+  transform:translateX(-50%) translateY(0);
+}
+/* Downward caret */
+.spop::after{
+  content:'';
+  position:absolute;
+  top:100%;
+  left:50%;
+  transform:translateX(-50%);
+  border:5px solid transparent;
+  border-top-color:var(--inv);
+}
+
+.sp-btn{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:2px;
+  padding:7px 12px;
+  border-radius:9px;
+  color:var(--invt);
+  transition:background .1s;
+  line-height:1;
+}
+.sp-btn:hover{background:rgba(128,128,128,.14)}
+.sp-ico{font-size:15px}
+.sp-lbl{font-size:9.5px;letter-spacing:.01em}
+
+.sp-sep{
+  width:.5px;
+  background:rgba(128,128,128,.22);
+  margin:5px 0;
+  flex-shrink:0;
+}
+
+/* ── Backdrop ── */
+.bdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(12,8,4,.33);
+  z-index:200;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .26s;
+}
+.bdrop.vis{opacity:1;pointer-events:all}
+
+/* ── Bottom sheet ── */
+.bsh{
+  position:absolute;
+  bottom:0;left:0;right:0;
+  background:var(--sf);
+  border-radius:20px 20px 0 0;
+  z-index:300;
+  display:flex;
+  flex-direction:column;
+  box-shadow:var(--shad);
+  transform:translateY(100%);
+  transition:transform .32s cubic-bezier(.32,.72,0,1);
+  overflow:hidden;
+}
+.bsh.vis{transform:translateY(0)}
+
+/* Handle */
+.hdl-row{
+  flex-shrink:0;
+  display:flex;
+  justify-content:center;
+  padding:10px 0 6px;
+  cursor:grab;
+}
+.hdl-row:active{cursor:grabbing}
+.hdl-bar{
+  width:38px;height:4px;
+  background:var(--bd2);
+  border-radius:2px;
+}
+
+/* Sheet header */
+.bsh-hd{
+  flex-shrink:0;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  padding:0 20px 14px;
+  border-bottom:.5px solid var(--bd);
+}
+.bsh-word-block{min-width:0;flex:1}
+.bsh-word{
+  font-size:28px;
+  font-weight:600;
+  letter-spacing:.06em;
+  color:var(--t1);
+  line-height:1.15;
+}
+.bsh-sub{
+  font-size:11px;
+  color:var(--t3);
+  margin-top:3px;
+  min-height:16px;
+  letter-spacing:.01em;
+}
+.bsh-close{
+  width:28px;height:28px;
+  border-radius:14px;
+  background:var(--sv);
+  color:var(--t2);
+  font-size:13px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  margin-top:4px;
+  transition:background .12s;
+}
+.bsh-close:hover{background:var(--bd2)}
+
+/* Sheet scroll */
+.bsh-scroll{
+  flex:1;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+
+/* ── Dictionary entry ── */
+.dent{
+  padding:16px 20px;
+  border-bottom:.5px solid var(--bd);
+}
+.dent:last-child{border-bottom:none}
+
+.dsrc{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.07em;
+  color:var(--inf);
+  background:var(--infb);
+  padding:3px 8px 3px 6px;
+  border-radius:4px;
+  margin-bottom:11px;
+}
+.dsrc-dot{
+  width:5px;height:5px;
+  border-radius:50%;
+  background:var(--inf);
+  opacity:.65;
+  flex-shrink:0;
+}
+
+.dpy{
+  font-size:15px;
+  font-style:italic;
+  color:var(--t2);
+  letter-spacing:.05em;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:10px;
+}
+.dpos{
+  font-style:normal;
+  font-size:10px;
+  font-weight:500;
+  background:var(--sv);
+  color:var(--t3);
+  padding:2px 7px;
+  border-radius:3px;
+  letter-spacing:.02em;
+}
+
+.dsenses{display:flex;flex-direction:column;gap:5px}
+.dsense{display:flex;gap:8px;align-items:flex-start}
+.dnum{
+  font-size:11px;
+  color:var(--t3);
+  min-width:14px;
+  flex-shrink:0;
+  padding-top:2px;
+  font-weight:500;
+  font-variant-numeric:tabular-nums;
+}
+.ddef{
+  font-size:14px;
+  line-height:1.72;
+  color:var(--t1);
+  flex:1;
+}
+.dalso{
+  margin-top:9px;
+  font-size:11px;
+  color:var(--t3);
+  font-style:italic;
+  padding-left:2px;
+}
+
+/* ── Not found ── */
+.nf{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:32px 24px 20px;
+  text-align:center;
+}
+.nf-ring{
+  width:52px;height:52px;
+  border-radius:50%;
+  border:1.5px dashed var(--bd2);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:22px;
+  color:var(--t3);
+  margin-bottom:12px;
+}
+.nf-label{font-size:12px;color:var(--t3);margin-bottom:3px}
+.nf-word{font-size:22px;font-weight:600;color:var(--t1);letter-spacing:.07em;margin-bottom:18px}
+.nf-btn{
+  padding:8px 22px;
+  border-radius:9px;
+  border:.5px solid var(--bd2);
+  font-size:13px;
+  color:var(--t2);
+  background:transparent;
+  transition:background .12s;
+}
+.nf-btn:hover{background:var(--sv)}
+.nf-tip{
+  margin-top:14px;
+  font-size:11px;
+  color:var(--t3);
+  line-height:1.75;
+}
+
+/* ── Loading ── */
+.ldg{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:12px;
+  padding:42px;
+}
+.ldg-dots{display:flex;gap:7px}
+.ldg-dot{
+  width:7px;height:7px;
+  border-radius:50%;
+  background:var(--bd2);
+  animation:dp 1.2s ease-in-out infinite;
+}
+.ldg-dot:nth-child(2){animation-delay:.2s}
+.ldg-dot:nth-child(3){animation-delay:.4s}
+@keyframes dp{
+  0%,80%,100%{transform:scale(.62);opacity:.3}
+  40%{transform:scale(1);opacity:1}
+}
+.ldg-text{font-size:12px;color:var(--t3)}
+
+/* ── Sheet footer ── */
+.bsh-footer{
+  flex-shrink:0;
+  padding:10px 18px 18px;
+  border-top:.5px solid var(--bd);
+  display:flex;
+  gap:10px;
+  background:var(--sf);
+}
+.ft-vocab{
+  flex:1;
+  padding:10px 0;
+  border-radius:10px;
+  background:var(--pm);
+  color:var(--opm);
+  font-size:13px;
+  font-weight:500;
+  transition:opacity .12s;
+}
+.ft-vocab:hover{opacity:.88}
+.ft-hist{
+  padding:10px 16px;
+  border-radius:10px;
+  border:.5px solid var(--bd2);
+  font-size:12px;
+  color:var(--t2);
+  background:transparent;
+  transition:background .12s;
+}
+.ft-hist:hover{background:var(--sv)}
+</style>
+</head>
+<body>
+
+<div class="ctrl">
+  <button class="th-btn on" id="thL" onclick="setTheme('light')">亮色</button>
+  <button class="th-btn"    id="thD" onclick="setTheme('dark')">暗色</button>
+  <span class="ctrl-hint">点击划线词查词 · 拖拽底栏把手调高度</span>
+</div>
+
+<div class="phone" id="phone">
+
+  <!-- Status bar -->
+  <div class="sbar">
+    <span class="sbar-l">9:41</span>
+    <span class="sbar-r">▪▪▪&nbsp;&nbsp;WiFi&nbsp;&nbsp;100%</span>
+  </div>
+
+  <!-- Reader toolbar -->
+  <div class="rtb">
+    <span class="rtb-side">‹ 书架</span>
+    <span class="rtb-mid">第三章 · 踏春归</span>
+    <span class="rtb-side">···</span>
+  </div>
+
+  <!-- Reader body -->
+  <div class="reader" id="reader">
+
+    <div class="ch-num">三</div>
+
+    <div class="rtext">
+      <p>天色方晴，<span class="w" data-w="霁色" onclick="doPick(this)">霁色</span>初开，远山带翠，草色连天。白鹭数点，翩然掠过水面，惊起几行涟漪，随即沉入苇丛，不见了踪影。</p>
+      <p>兰子出了院门，<span class="w" data-w="踟蹰" onclick="doPick(this)">踟蹰</span>于石径之上，蓦然回首，庭中梧桐已抽出嫩芽，在春风里轻轻颤动，映着天光，翠绿欲滴。</p>
+      <p>她沿溪边小路<span class="w" data-w="迤逦" onclick="doPick(this)">迤逦</span>而行，溪声潺潺，时近时远。行至一处幽篁，竹风送来阵阵清香，令人神思爽利，不知不觉已是向晚。</p>
+      <p>暮色将至，<span class="w" data-w="踯躅" onclick="doPick(this)">踯躅</span>于归途，远处炊烟袅袅，灯火一盏一盏地亮起，整个村庄都浸在暮色里，像一幅未完的画。</p>
+    </div>
+
+    <!-- Selection popup — positioned inside reader via JS -->
+    <div class="spop" id="spop">
+      <button class="sp-btn" onclick="doLookup()">
+        <span class="sp-ico">📖</span>
+        <span class="sp-lbl">查词</span>
+      </button>
+      <div class="sp-sep"></div>
+      <button class="sp-btn" onclick="doDismiss()">
+        <span class="sp-ico">⎘</span>
+        <span class="sp-lbl">复制</span>
+      </button>
+      <button class="sp-btn" onclick="doDismiss()">
+        <span class="sp-ico">🔖</span>
+        <span class="sp-lbl">书签</span>
+      </button>
+      <button class="sp-btn" onclick="doDismiss()">
+        <span class="sp-ico">✎</span>
+        <span class="sp-lbl">笔记</span>
+      </button>
+    </div>
+
+  </div><!-- /reader -->
+
+  <!-- Reader footer -->
+  <div class="rftr">
+    <span class="rftr-t">第 47 页</span>
+    <span class="rftr-t">23%</span>
+  </div>
+
+  <!-- Backdrop -->
+  <div class="bdrop" id="bdrop" onclick="closeSheet()"></div>
+
+  <!-- Bottom sheet -->
+  <div class="bsh" id="bsh" style="height:55%">
+
+    <div class="hdl-row" id="hdl">
+      <div class="hdl-bar"></div>
+    </div>
+
+    <div class="bsh-hd">
+      <div class="bsh-word-block">
+        <div class="bsh-word" id="bshWord">—</div>
+        <div class="bsh-sub"  id="bshSub"></div>
+      </div>
+      <button class="bsh-close" onclick="closeSheet()">✕</button>
+    </div>
+
+    <div class="bsh-scroll" id="bshScroll"></div>
+
+    <div class="bsh-footer" id="bshFooter" style="display:none">
+      <button class="ft-vocab">＋ 生词本</button>
+      <button class="ft-hist">📋 历史</button>
+    </div>
+
+  </div><!-- /bsh -->
+
+</div><!-- /phone -->
+
+<script>
+// ── Dictionary data ───────────────────────────────────────────────
+const DICT = {
+  '踟蹰': {
+    found: true,
+    entries: [
+      {
+        src:  'CC-CEDICT',
+        py:   'chí chú',
+        pos:  'v.',
+        sns: [
+          '（书）迟疑不前，彷徨不决',
+          'to hesitate / to waver'
+        ],
+        also: '亦作「踟躇」'
+      },
+      {
+        src:  '汉语成语词典',
+        py:   'chí chú',
+        pos:  '〈书〉',
+        sns: [
+          '形容想走又迟疑不决、来回踱步的神态。语出《诗·邶风·静女》："爱而不见，搔首踟蹰。"'
+        ],
+        also: null
+      }
+    ]
+  },
+  '霁色': {
+    found: true,
+    entries: [
+      {
+        src:  'CC-CEDICT',
+        py:   'jì sè',
+        pos:  'n.',
+        sns: [
+          '雨雪初晴后天空明朗之色',
+          'color of the sky after rain / fair-weather light'
+        ],
+        also: null
+      }
+    ]
+  },
+  '迤逦': {
+    found: true,
+    entries: [
+      {
+        src:  '现代汉语词典',
+        py:   'yǐ lǐ',
+        pos:  '形',
+        sns: [
+          '（山路、河流、队伍等）弯弯曲曲延伸的样子',
+          '亦泛指连续不断、此起彼伏'
+        ],
+        also: '也作「迤邐」'
+      }
+    ]
+  },
+  '踯躅': {
+    found: false,
+    entries: []
+  }
+};
+
+// ── App state ─────────────────────────────────────────────────────
+let curWord = null;
+let curEl   = null;
+
+// ── Theme toggle ──────────────────────────────────────────────────
+function setTheme(m) {
+  document.getElementById('phone').classList.toggle('dark', m === 'dark');
+  document.getElementById('thL').classList.toggle('on', m === 'light');
+  document.getElementById('thD').classList.toggle('on', m === 'dark');
+}
+
+// ── Word selection ────────────────────────────────────────────────
+function doPick(el) {
+  // Deselect previous selection
+  if (curEl && curEl !== el) curEl.classList.remove('sel');
+  curEl   = el;
+  curWord = el.dataset.w;
+  el.classList.add('sel');
+
+  // Position popup above the tapped word
+  const rd  = document.getElementById('reader');
+  const pop = document.getElementById('spop');
+  const rr  = rd.getBoundingClientRect();
+  const er  = el.getBoundingClientRect();
+
+  const cx   = er.left + er.width  / 2 - rr.left;
+  const topY = er.top  + rd.scrollTop - rr.top - 64; // 64 ≈ popup h + caret + gap
+
+  pop.style.left = Math.max(95, Math.min(cx, rr.width - 95)) + 'px';
+  pop.style.top  = Math.max(6, topY) + 'px';
+  pop.classList.add('vis');
+}
+
+function doDismiss() {
+  document.getElementById('spop').classList.remove('vis');
+  if (curEl) { curEl.classList.remove('sel'); curEl = null; }
+  curWord = null;
+}
+
+// ── Dictionary lookup ─────────────────────────────────────────────
+function doLookup() {
+  if (!curWord) return;
+  const word = curWord;
+
+  // Dismiss the floating popup
+  document.getElementById('spop').classList.remove('vis');
+
+  // Reset and show sheet immediately (with loading state)
+  document.getElementById('bshWord').textContent    = word;
+  document.getElementById('bshSub').textContent     = '';
+  document.getElementById('bshScroll').innerHTML    = renderLoading();
+  document.getElementById('bshFooter').style.display = 'none';
+  document.getElementById('bsh').style.height       = '55%';
+  document.getElementById('bsh').classList.add('vis');
+  document.getElementById('bdrop').classList.add('vis');
+
+  // Simulate binary-search lookup latency (~idx seek + .dict read)
+  setTimeout(() => {
+    const d = DICT[word];
+    if (d && d.found) {
+      document.getElementById('bshSub').textContent =
+        `找到 ${d.entries.length} 本词典的释义`;
+      document.getElementById('bshScroll').innerHTML =
+        d.entries.map(renderEntry).join('');
+      document.getElementById('bshFooter').style.display = 'flex';
+    } else {
+      document.getElementById('bshScroll').innerHTML = renderNotFound(word);
+    }
+  }, 340);
+}
+
+// ── Render helpers ─────────────────────────────────────────────────
+function renderLoading() {
+  return `<div class="ldg">
+    <div class="ldg-dots">
+      <div class="ldg-dot"></div>
+      <div class="ldg-dot"></div>
+      <div class="ldg-dot"></div>
+    </div>
+    <span class="ldg-text">查询中…</span>
+  </div>`;
+}
+
+function renderEntry(e) {
+  const senses = e.sns.map((s, i) => `
+    <div class="dsense">
+      <span class="dnum">${e.sns.length > 1 ? (i + 1) + '.' : ''}</span>
+      <span class="ddef">${s}</span>
+    </div>`).join('');
+
+  const also = e.also
+    ? `<div class="dalso">↳ ${e.also}</div>`
+    : '';
+
+  return `
+    <div class="dent">
+      <div class="dsrc"><span class="dsrc-dot"></span>${e.src}</div>
+      <div class="dpy">${e.py}<span class="dpos">${e.pos}</span></div>
+      <div class="dsenses">${senses}</div>
+      ${also}
+    </div>`;
+}
+
+function renderNotFound(w) {
+  return `
+    <div class="nf">
+      <div class="nf-ring">◌</div>
+      <div class="nf-label">未找到释义</div>
+      <div class="nf-word">「${w}」</div>
+      <button class="nf-btn">在浏览器中搜索</button>
+      <div class="nf-tip">可在「设置 → 词典管理」中<br>导入更多 StarDict 词库</div>
+    </div>`;
+}
+
+function closeSheet() {
+  document.getElementById('bsh').classList.remove('vis');
+  document.getElementById('bdrop').classList.remove('vis');
+  setTimeout(() => {
+    if (curEl) { curEl.classList.remove('sel'); curEl = null; }
+    curWord = null;
+  }, 320);
+}
+
+// ── Reader background click → dismiss popup ────────────────────────
+document.getElementById('reader').addEventListener('click', e => {
+  const pop = document.getElementById('spop');
+  if (!e.target.classList.contains('w') && !pop.contains(e.target)) {
+    doDismiss();
+  }
+});
+
+// ── Sheet drag to resize ───────────────────────────────────────────
+let dragging = false, dy0 = 0, dh0 = 0;
+const BSH = document.getElementById('bsh');
+const PH  = document.getElementById('phone');
+const HDL = document.getElementById('hdl');
+
+function dragStart(y) {
+  dragging = true;
+  dy0 = y;
+  dh0 = BSH.offsetHeight;
+  // Disable height transition during live drag
+  BSH.style.transition = 'transform .32s cubic-bezier(.32,.72,0,1)';
+}
+function dragMove(y) {
+  if (!dragging) return;
+  const newH = Math.min(
+    Math.max(dh0 - (y - dy0), 120),
+    PH.offsetHeight * 0.92
+  );
+  BSH.style.height = newH + 'px';
+}
+function dragEnd() {
+  if (!dragging) return;
+  dragging = false;
+  const frac = BSH.offsetHeight / PH.offsetHeight;
+  // If dragged too low → close
+  if (frac < 0.22) { closeSheet(); return; }
+  // Snap to nearest anchor: 36% · 55% · 90%
+  const snap = frac < 0.46 ? 0.36 : frac < 0.73 ? 0.55 : 0.90;
+  BSH.style.transition =
+    'transform .32s cubic-bezier(.32,.72,0,1), height .22s ease';
+  BSH.style.height = (snap * 100) + '%';
+}
+
+HDL.addEventListener('mousedown',  e => dragStart(e.clientY));
+HDL.addEventListener('touchstart', e => dragStart(e.touches[0].clientY), { passive: true });
+document.addEventListener('mousemove',  e => dragMove(e.clientY));
+document.addEventListener('touchmove',  e => dragMove(e.touches[0].clientY), { passive: true });
+document.addEventListener('mouseup',   () => dragEnd());
+document.addEventListener('touchend',  () => dragEnd());
+
+// Double-tap handle to toggle 55% ↔ 90%
+let lastTap = 0;
+HDL.addEventListener('click', () => {
+  const now = Date.now();
+  if (now - lastTap < 340) {
+    const frac = BSH.offsetHeight / PH.offsetHeight;
+    BSH.style.transition =
+      'transform .32s cubic-bezier(.32,.72,0,1), height .22s ease';
+    BSH.style.height = frac < 0.78 ? '90%' : '55%';
+  }
+  lastTap = now;
+});
+</script>
+
+</body>
+</html>

@@ -16,6 +16,7 @@ import androidx.lifecycle.viewModelScope
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.data.UserPreferences
 import com.shuli.reader.core.data.toFactoryType
+import com.shuli.reader.core.data.toLayoutConfig
 import com.shuli.reader.core.reader.model.HeaderVisibility
 import com.shuli.reader.core.reader.model.SlotContent
 import com.shuli.reader.core.reader.model.TitleAlign
@@ -578,14 +579,6 @@ class ReaderViewModel(
                 (value as ReaderSettingValue.Float).value,
                 finished = finished,
             )
-            ReaderSettingKey.HEADER_MARGIN_TOP -> s.setHeaderMarginTop(
-                (value as ReaderSettingValue.Float).value,
-                persist = finished,
-            )
-            ReaderSettingKey.FOOTER_MARGIN_BOTTOM -> s.setFooterMarginBottom(
-                (value as ReaderSettingValue.Float).value,
-                persist = finished,
-            )
             else -> dispatchSetting(key, value)
         }
     }
@@ -601,8 +594,10 @@ class ReaderViewModel(
             ReaderSettingKey.PARAGRAPH_SPACING -> s.setParagraphSpacing((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.INDENT -> s.setIndent((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.INDENT_UNIT -> s.setIndentUnit((value as ReaderSettingValue.IndentUnit).value)
-            ReaderSettingKey.MARGIN_HORIZONTAL -> s.setMarginHorizontal((value as ReaderSettingValue.Float).value)
-            ReaderSettingKey.MARGIN_VERTICAL -> s.setMarginVertical((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.BODY_BOX -> s.setBodyBox((value as ReaderSettingValue.BoxInsetsDpVal).value)
+            ReaderSettingKey.HEADER_BOX -> s.setHeaderBox((value as ReaderSettingValue.BoxInsetsDpVal).value)
+            ReaderSettingKey.FOOTER_BOX -> s.setFooterBox((value as ReaderSettingValue.BoxInsetsDpVal).value)
+            ReaderSettingKey.TITLE_BOX -> s.setTitleBox((value as ReaderSettingValue.BoxInsetsDpVal).value)
             ReaderSettingKey.LETTER_SPACING -> s.setLetterSpacing((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.READING_FONT -> s.setReadingFont((value as ReaderSettingValue.Str).value)
             ReaderSettingKey.FONT_WEIGHT -> s.setFontWeight((value as ReaderSettingValue.FontWeight).value)
@@ -617,12 +612,10 @@ class ReaderViewModel(
             ReaderSettingKey.HEADER_LEFT -> s.setHeaderLeft((value as ReaderSettingValue.SlotContent).value)
             ReaderSettingKey.HEADER_CENTER -> s.setHeaderCenter((value as ReaderSettingValue.SlotContent).value)
             ReaderSettingKey.HEADER_RIGHT -> s.setHeaderRight((value as ReaderSettingValue.SlotContent).value)
-            ReaderSettingKey.HEADER_MARGIN_TOP -> s.setHeaderMarginTop((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.FOOTER_VISIBILITY -> s.setFooterVisibility((value as ReaderSettingValue.HeaderVisibility).value)
             ReaderSettingKey.FOOTER_LEFT -> s.setFooterLeft((value as ReaderSettingValue.SlotContent).value)
             ReaderSettingKey.FOOTER_CENTER -> s.setFooterCenter((value as ReaderSettingValue.SlotContent).value)
             ReaderSettingKey.FOOTER_RIGHT -> s.setFooterRight((value as ReaderSettingValue.SlotContent).value)
-            ReaderSettingKey.FOOTER_MARGIN_BOTTOM -> s.setFooterMarginBottom((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.HEADER_FOOTER_ALPHA -> s.setHeaderFooterAlpha((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.SHOW_PROGRESS -> s.setShowProgress((value as ReaderSettingValue.Bool).value)
             ReaderSettingKey.SHOW_HEADER_LINE -> s.setShowHeaderLine((value as ReaderSettingValue.Bool).value)
@@ -633,6 +626,7 @@ class ReaderViewModel(
             ReaderSettingKey.TITLE_SIZE_OFFSET -> s.setTitleSizeOffset((value as ReaderSettingValue.Int).value)
             ReaderSettingKey.TITLE_MARGIN_TOP -> s.setTitleMarginTop((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.TITLE_MARGIN_BOTTOM -> s.setTitleMarginBottom((value as ReaderSettingValue.Float).value)
+            ReaderSettingKey.TITLE_FONT_SIZE -> s.setTitleFontSize((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.KEEP_SCREEN_ON -> s.setKeepScreenOn((value as ReaderSettingValue.Bool).value)
             ReaderSettingKey.VOLUME_KEY_TURN_PAGE -> s.setVolumeKeyTurnPage((value as ReaderSettingValue.Bool).value)
             ReaderSettingKey.EDGE_TURN_PAGE -> s.setEdgeTurnPage((value as ReaderSettingValue.Bool).value)
@@ -657,22 +651,6 @@ class ReaderViewModel(
             )
             ReaderSettingKey.PARAGRAPH_DIVIDER -> s.setParagraphDivider(
                 (value as ReaderSettingValue.Bool).value,
-                reflow = true,
-            )
-            ReaderSettingKey.MARGIN_TOP -> s.updatePrefsGeneric(
-                { it.copy(marginTop = (value as ReaderSettingValue.Float).value) },
-                reflow = true,
-            )
-            ReaderSettingKey.MARGIN_BOTTOM -> s.updatePrefsGeneric(
-                { it.copy(marginBottom = (value as ReaderSettingValue.Float).value) },
-                reflow = true,
-            )
-            ReaderSettingKey.MARGIN_LEFT -> s.updatePrefsGeneric(
-                { it.copy(marginLeft = (value as ReaderSettingValue.Float).value) },
-                reflow = true,
-            )
-            ReaderSettingKey.MARGIN_RIGHT -> s.updatePrefsGeneric(
-                { it.copy(marginRight = (value as ReaderSettingValue.Float).value) },
                 reflow = true,
             )
             ReaderSettingKey.BIONIC_READING -> s.setBionicReading(
@@ -788,8 +766,10 @@ class ReaderViewModel(
         readerSettingsManager.setLineSpacing(prefs.lineSpacing)
         readerSettingsManager.setParagraphSpacing(prefs.paragraphSpacing)
         readerSettingsManager.setIndent(prefs.indent)
-        readerSettingsManager.setMarginHorizontal(prefs.marginHorizontal)
-        readerSettingsManager.setMarginVertical(prefs.marginVertical)
+        readerSettingsManager.setBodyBox(prefs.bodyBox)
+        readerSettingsManager.setHeaderBox(prefs.headerBox)
+        readerSettingsManager.setFooterBox(prefs.footerBox)
+        readerSettingsManager.setTitleBox(prefs.titleBox)
         readerSettingsManager.setReadingFont(prefs.readingFont)
         navigationCoordinator.setPageAnimType(prefs.pageAnimType.toFactoryType()) { pageDelegate = it }
         readerSettingsManager.setReaderTheme(prefs.backgroundColor)
@@ -827,40 +807,15 @@ class ReaderViewModel(
     // ── 布局配置 ──────────────────────────────────────────
 
     private fun layoutConfigFor(preferences: ReaderPreferences): ReaderLayoutConfig {
-        val textSizePx = preferences.fontSize * density
-        val mt = (preferences.marginTop ?: preferences.marginVertical) * density
-        val mb = (preferences.marginBottom ?: preferences.marginVertical) * density
-        val ml = (preferences.marginLeft ?: preferences.marginHorizontal) * density
-        val mr = (preferences.marginRight ?: preferences.marginHorizontal) * density
-        return ReaderLayoutConfig(
+        return preferences.toLayoutConfig(
             pageSize = PageSize(screenWidthPx, screenHeightPx),
-            textSize = textSizePx,
-            lineHeight = preferences.lineSpacing,
-            paragraphSpacing = preferences.paragraphSpacing * textSizePx,
-            marginTop = mt,
-            marginBottom = mb,
-            marginLeft = ml,
-            marginRight = mr,
-            indent = preferences.indent,
             density = this.density,
-            letterSpacingPx = preferences.letterSpacing * textSizePx,
-            titleStyle = preferences.titleStyle,
-            useZhLayout = preferences.useZhLayout,
-            bottomJustify = preferences.bottomJustify,
-            headerMarginTop = preferences.header.marginTop * density,
-            footerMarginBottom = preferences.footer.marginBottom * density,
         )
     }
 
     private fun computeLayoutHash(preferences: ReaderPreferences): String {
         val config = layoutConfigFor(preferences)
-        return com.shuli.reader.core.reader.engine.cache.PageCountPersistence.computeLayoutHash(
-            config = config,
-            showHeader = preferences.header.visibility != HeaderVisibility.ALWAYS_HIDE,
-            showFooter = preferences.footer.visibility != HeaderVisibility.ALWAYS_HIDE,
-            chineseConvert = preferences.chineseConvert.ordinal,
-            usePanguSpacing = preferences.usePanguSpacing,
-        )
+        return com.shuli.reader.core.reader.engine.cache.PageCountPersistence.computeLayoutHash(config)
     }
 
     private fun persistPageCounts() {
@@ -877,7 +832,11 @@ class ReaderViewModel(
                     ctx, state.bookId.toString(), currentLayoutHash, counts,
                 )
                 lastPersistedCounts = counts
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                if (com.shuli.reader.BuildConfig.DEBUG) {
+                    android.util.Log.w(TAG, "persistPageCounts failed", e)
+                }
+            }
         }
     }
 

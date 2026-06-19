@@ -1,5 +1,6 @@
 package com.shuli.reader.core.data
 
+import com.shuli.reader.core.reader.model.BoxInsetsDp
 import com.shuli.reader.core.reader.model.FooterConfig
 import com.shuli.reader.core.reader.model.HeaderConfig
 import com.shuli.reader.core.reader.model.TitleStyleConfig
@@ -22,8 +23,7 @@ data class ReaderPreferences(
     val indentUnit: IndentUnit = ReaderSettingRegistry.getDefault("indent_unit"),
     val pageAnimType: PageAnimType = ReaderSettingRegistry.getDefault("page_anim_type"),
     val backgroundColor: ReaderTheme = ReaderSettingRegistry.getDefault("background_color"),
-    val marginHorizontal: Float = ReaderSettingRegistry.getDefault("margin_horizontal"),
-    val marginVertical: Float = ReaderSettingRegistry.getDefault("margin_vertical"),
+    val bodyBox: BoxInsetsDp = BoxInsetsDp(top = 48f, bottom = 48f, left = 24f, right = 24f),
     val brightness: Float = ReaderSettingRegistry.getDefault("brightness"),
     val readingFont: String = ReaderSettingRegistry.getDefault("reading_font"),
     val optimizeRender: Boolean = ReaderSettingRegistry.getDefault("optimize_render"),
@@ -34,6 +34,7 @@ data class ReaderPreferences(
     val chineseConvert: ChineseConvert = ReaderSettingRegistry.getDefault("chinese_convert"),
     // 阶段五新增字段（无 Registry 条目的复合类型保留硬编码）
     val titleStyle: TitleStyleConfig = TitleStyleConfig(),
+    val titleFontSize: Float = ReaderSettingRegistry.getDefault("title_font_size"),
     val titleFont: String = ReaderSettingRegistry.getDefault("title_font"),
     val header: HeaderConfig = HeaderConfig(),
     val footer: FooterConfig = FooterConfig(),
@@ -78,10 +79,9 @@ data class ReaderPreferences(
     // ── v5.1 新增字段 ──
     val colorTemperature: Float = ReaderSettingRegistry.getDefault("color_temperature"),
     val paragraphDivider: Boolean = ReaderSettingRegistry.getDefault("paragraph_divider"),
-    val marginTop: Float? = ReaderSettingRegistry.getDefault("margin_top"),
-    val marginBottom: Float? = ReaderSettingRegistry.getDefault("margin_bottom"),
-    val marginLeft: Float? = ReaderSettingRegistry.getDefault("margin_left"),
-    val marginRight: Float? = ReaderSettingRegistry.getDefault("margin_right"),
+    val headerBox: BoxInsetsDp = BoxInsetsDp(top = 16f, bottom = 0f, left = 24f, right = 24f),
+    val footerBox: BoxInsetsDp = BoxInsetsDp(top = 0f, bottom = 16f, left = 24f, right = 24f),
+    val titleBox: BoxInsetsDp = BoxInsetsDp(top = 9f, bottom = 10f, left = 24f, right = 24f),
     val bionicReading: Boolean = ReaderSettingRegistry.getDefault("bionic_reading"),
     val verticalText: Boolean = ReaderSettingRegistry.getDefault("vertical_text"),
     val dualPageMode: DualPageMode = ReaderSettingRegistry.getDefault("dual_page_mode"),
@@ -433,19 +433,11 @@ enum class PageAnimSpeed(val durationMs: Int) {
     }
 }
 
-/**
- * 将 ReaderPreferences 转换为 Paginator 使用的 ReaderLayoutConfig。
- * 独立边距使用 nullable fallback：`marginTop ?: marginVertical`。
- */
 fun ReaderPreferences.toLayoutConfig(
     pageSize: com.shuli.reader.core.reader.model.PageSize,
     density: Float,
 ): com.shuli.reader.core.reader.model.ReaderLayoutConfig {
     val textSizePx = fontSize * density
-    val mt = (marginTop ?: marginVertical) * density
-    val mb = (marginBottom ?: marginVertical) * density
-    val ml = (marginLeft ?: marginHorizontal) * density
-    val mr = (marginRight ?: marginHorizontal) * density
     val indentPx = when (indentUnit) {
         IndentUnit.CHARACTER -> indent * textSizePx
         IndentUnit.PIXEL -> indent * density
@@ -455,18 +447,19 @@ fun ReaderPreferences.toLayoutConfig(
         textSize = textSizePx,
         lineHeight = lineSpacing,
         paragraphSpacing = paragraphSpacing * textSizePx,
-        marginTop = mt,
-        marginBottom = mb,
-        marginLeft = ml,
-        marginRight = mr,
         indent = indentPx,
         density = density,
         letterSpacingPx = letterSpacing * textSizePx,
         titleStyle = titleStyle,
         useZhLayout = useZhLayout,
         bottomJustify = bottomJustify,
-        headerMarginTop = header.marginTop * density,
-        footerMarginBottom = footer.marginBottom * density,
+        headerInsets = headerBox.toPx(density),
+        titleInsets = titleBox.toPx(density),
+        bodyInsets = bodyBox.toPx(density),
+        footerInsets = footerBox.toPx(density),
+        titleTypeface = android.graphics.Typeface.DEFAULT,
+        titleIsFakeBold = fontWeight == ReaderFontWeight.BOLD,
+        titleFontSizePx = titleFontSize * density,
     )
 }
 
@@ -486,8 +479,7 @@ fun <T> ReaderPreferences.getValueByKey(key: String): T? = when (key) {
     "indent_unit" -> indentUnit
     "page_anim_type" -> pageAnimType
     "background_color" -> backgroundColor
-    "margin_horizontal" -> marginHorizontal
-    "margin_vertical" -> marginVertical
+    "body_box" -> bodyBox
     "brightness" -> brightness
     "reading_font" -> readingFont
     "optimize_render" -> optimizeRender
@@ -525,10 +517,9 @@ fun <T> ReaderPreferences.getValueByKey(key: String): T? = when (key) {
     "custom_header_footer_color" -> customHeaderFooterColor
     "color_temperature" -> colorTemperature
     "paragraph_divider" -> paragraphDivider
-    "margin_top" -> marginTop
-    "margin_bottom" -> marginBottom
-    "margin_left" -> marginLeft
-    "margin_right" -> marginRight
+    "header_box" -> headerBox
+    "footer_box" -> footerBox
+    "title_box" -> titleBox
     "bionic_reading" -> bionicReading
     "vertical_text" -> verticalText
     "dual_page_mode" -> dualPageMode
@@ -543,6 +534,7 @@ fun <T> ReaderPreferences.getValueByKey(key: String): T? = when (key) {
     "background_texture" -> backgroundTexture
     // 复合类型：返回 null，由调用方特殊处理
     "title_style" -> null
+    "title_font_size" -> titleFontSize
     "header_visibility" -> header.visibility
     "footer_visibility" -> footer.visibility
     "title_font" -> titleFont

@@ -148,61 +148,35 @@ class ReaderSettingRegistryTest {
     }
 
     @Test
-    fun invalidationScope_VIEW_INVALIDATE_exists() {
-        assertEquals("VIEW_INVALIDATE", InvalidationScope.VIEW_INVALIDATE.name)
+    fun invalidationScope_hasThreeValues() {
+        assertEquals(3, InvalidationScope.entries.size)
     }
 
     @Test
-    fun invalidationScope_NONE_exists() {
-        assertEquals("NONE", InvalidationScope.NONE.name)
-    }
-
-    @Test
-    fun invalidationScope_VIEW_INVALIDATE_notInReflowImplied() {
-        assertFalse(InvalidationScope.VIEW_INVALIDATE in InvalidationScope.REFLOW_IMPLIED)
-    }
-
-    @Test
-    fun invalidationScope_NONE_notInReflowImplied() {
-        assertFalse(InvalidationScope.NONE in InvalidationScope.REFLOW_IMPLIED)
-    }
-
-    @Test
-    fun colorTemperature_isViewInvalidateScope() {
+    fun colorTemperature_isPageScope() {
         val def = ReaderSettingRegistry.getDefinition<Float>("color_temperature")
-        assertEquals(InvalidationScope.VIEW_INVALIDATE, def.scope)
+        assertEquals(InvalidationScope.PAGE, def.scope)
     }
 
     @Test
-    fun hapticFeedback_isNoneScope() {
+    fun hapticFeedback_isNullScope() {
         val def = ReaderSettingRegistry.getDefinition<Boolean>("haptic_feedback")
-        assertEquals(InvalidationScope.NONE, def.scope)
+        assertNull(def.scope)
     }
 
     @Test
-    fun v51_fourMargins_areRegisteredAsReflow() {
-        listOf("margin_top", "margin_bottom", "margin_left", "margin_right").forEach { key ->
-            val def = ReaderSettingRegistry.findDefinition(key)
-            assertNotNull("$key should be registered", def)
-            assertEquals(InvalidationScope.REFLOW, def!!.scope)
-            assertEquals(3, def.recompositionTier)
-            assertTrue("$key should be in preset", def.includeInPreset)
-        }
-    }
-
-    @Test
-    fun v51_gestureConfig_isRegisteredAsNone() {
+    fun v51_gestureConfig_isRegisteredAsNull() {
         val def = ReaderSettingRegistry.findDefinition("gesture_config")
         assertNotNull(def)
-        assertEquals(InvalidationScope.NONE, def!!.scope)
+        assertNull(def!!.scope)
         assertFalse(def.includeInPreset)
     }
 
     @Test
-    fun v51_orientationLock_isRegisteredAsNone() {
+    fun v51_orientationLock_isRegisteredAsNull() {
         val def = ReaderSettingRegistry.findDefinition("orientation_lock")
         assertNotNull(def)
-        assertEquals(InvalidationScope.NONE, def!!.scope)
+        assertNull(def!!.scope)
     }
 
     @Test
@@ -220,17 +194,17 @@ class ReaderSettingRegistryTest {
     }
 
     @Test
-    fun v51_backgroundTexture_isShellScope() {
+    fun v51_backgroundTexture_isNullScope() {
         val def = ReaderSettingRegistry.findDefinition("background_texture")
         assertNotNull(def)
-        assertEquals(InvalidationScope.SHELL, def!!.scope)
+        assertNull(def!!.scope)
     }
 
     @Test
-    fun v51_titleFont_isContentScope() {
+    fun v51_titleFont_isNullScope() {
         val def = ReaderSettingRegistry.findDefinition("title_font")
         assertNotNull(def)
-        assertEquals(InvalidationScope.CONTENT, def!!.scope)
+        assertNull(def!!.scope)
     }
 
     @Test

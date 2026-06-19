@@ -18,8 +18,8 @@ class InvalidationScopeTest {
     }
 
     @Test
-    fun order_overlayIsFive() {
-        assertEquals(5, InvalidationScope.OVERLAY.order)
+    fun order_pageIsTwo() {
+        assertEquals(2, InvalidationScope.PAGE.order)
     }
 
     @Test
@@ -33,28 +33,10 @@ class InvalidationScopeTest {
     }
 
     @Test
-    fun impliedByFlow_contentIsTrue() {
-        assertTrue(InvalidationScope.CONTENT.impliedByReflow)
-    }
-
-    @Test
-    fun impliedByFlow_shellIsTrue() {
-        assertTrue(InvalidationScope.SHELL.impliedByReflow)
-    }
-
-    @Test
-    fun impliedByFlow_overlayIsTrue() {
-        assertTrue(InvalidationScope.OVERLAY.impliedByReflow)
-    }
-
-    @Test
-    fun reflowImplied_containsPageContentShellOverlay() {
+    fun reflowImplied_containsPageOnly() {
         val implied = InvalidationScope.REFLOW_IMPLIED
-        assertEquals(4, implied.size)
+        assertEquals(1, implied.size)
         assertTrue(implied.contains(InvalidationScope.PAGE))
-        assertTrue(implied.contains(InvalidationScope.CONTENT))
-        assertTrue(implied.contains(InvalidationScope.SHELL))
-        assertTrue(implied.contains(InvalidationScope.OVERLAY))
     }
 
     @Test
@@ -70,8 +52,10 @@ class InvalidationScopeTest {
         assertEquals(InvalidationScope.PAGE_DELEGATE, sorted[0])
         assertEquals(InvalidationScope.REFLOW, sorted[1])
         assertEquals(InvalidationScope.PAGE, sorted[2])
-        assertEquals(InvalidationScope.CONTENT, sorted[3])
-        assertEquals(InvalidationScope.SHELL, sorted[4])
-        assertEquals(InvalidationScope.OVERLAY, sorted[5])
+    }
+
+    @Test
+    fun entries_hasThreeValues() {
+        assertEquals(3, InvalidationScope.entries.size)
     }
 }

@@ -3,6 +3,8 @@ package com.shuli.reader.core.reader.engine
 import com.shuli.reader.core.reader.text.TextMeasurer
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.data.toLayoutConfig
+import com.shuli.reader.core.reader.model.BoxBounds
+import com.shuli.reader.core.reader.model.PageLayout
 import com.shuli.reader.core.reader.model.PageSize
 import com.shuli.reader.core.reader.model.ReaderLayoutConfig
 import com.shuli.reader.core.reader.model.TextChapter
@@ -83,10 +85,10 @@ class VerticalPaginationStrategy(
         title: String,
     ): TextPage {
         val density = config.density
-        val marginTop = config.marginTop
-        val marginBottom = config.marginBottom
-        val marginLeft = config.marginLeft
-        val marginRight = config.marginRight
+        val marginTop = config.bodyInsets.top.toInt()
+        val marginBottom = config.bodyInsets.bottom.toInt()
+        val marginLeft = config.bodyInsets.left.toInt()
+        val marginRight = config.bodyInsets.right.toInt()
 
         // 可用区域
         val availableWidth = pageSize.width - marginLeft - marginRight
@@ -110,12 +112,12 @@ class VerticalPaginationStrategy(
             val columnX = pageSize.width - marginRight - (currentColumn + 1) * columnWidth
 
             // 在当前列中逐行（竖排中的"行"是单个字符或少量字符）填充
-            var currentY = marginTop
+            var currentY = marginTop.toFloat()
 
             while (currentY + config.textSize <= pageSize.height - marginBottom && currentOffset < content.length) {
                 // 竖排模式：每行通常是一个字符
                 val char = content[currentOffset]
-                val charWidth = measurer.measureTextWidth(char.toString(), config.textSize)
+                val charWidth = measurer.measureCharWidth(char, config.textSize)
 
                 val line = TextLine(
                     startCharOffset = currentOffset,
@@ -150,21 +152,26 @@ class VerticalPaginationStrategy(
             }
         }
 
+        val pw = pageSize.width.toFloat()
+        val ph = pageSize.height.toFloat()
         return TextPage(
             startCharOffset = startOffset,
             endCharOffset = currentOffset,
             chapterIndex = chapterIndex,
             pageIndex = pageIndex,
-            pageSize = pageSize,
-            marginHorizontal = config.marginHorizontal,
             lines = allLines,
+            layout = PageLayout(
+                header = if (config.headerInsets.top > 0f) BoxBounds(0f, 0f, pw, config.headerInsets.top) else null,
+                title = null,
+                body = BoxBounds(marginLeft.toFloat(), marginTop.toFloat(), (pageSize.width - marginRight).toFloat(), (pageSize.height - marginBottom).toFloat()),
+                footer = if (config.footerInsets.bottom > 0f) BoxBounds(0f, ph - config.footerInsets.bottom, pw, ph) else null,
+                pageWidth = pw,
+                pageHeight = ph,
+            ),
             columns = columns,
             density = density,
             chapterContentLength = content.length,
             chapterTitle = if (isTitlePage) title else "",
-            topContentY = marginTop,
-            headerMarginTop = config.headerMarginTop,
-            footerMarginBottom = config.footerMarginBottom,
         )
     }
 }

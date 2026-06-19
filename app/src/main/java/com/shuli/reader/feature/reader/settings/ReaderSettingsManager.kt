@@ -14,6 +14,7 @@ import com.shuli.reader.core.data.toStorageString
 import com.shuli.reader.core.database.dao.BookReaderPrefsDao
 import com.shuli.reader.core.database.entity.BookReaderPrefsEntity
 import com.shuli.reader.core.database.entity.BookReaderPrefsOverrides
+import com.shuli.reader.core.reader.model.BoxInsetsDp
 import com.shuli.reader.core.reader.model.HeaderVisibility
 import com.shuli.reader.core.reader.model.SlotContent
 import com.shuli.reader.core.reader.model.TitleAlign
@@ -128,12 +129,12 @@ internal class ReaderSettingsManager(
             paragraphSpacing = p.paragraphSpacing,
             indent = p.indent,
             indentUnit = p.indentUnit.toStorageString(),
-            marginHorizontal = p.marginHorizontal,
-            marginVertical = p.marginVertical,
-            marginTop = p.marginTop,
-            marginBottom = p.marginBottom,
-            marginLeft = p.marginLeft,
-            marginRight = p.marginRight,
+            marginHorizontal = p.bodyBox.left,
+            marginVertical = p.bodyBox.top,
+            marginTop = p.bodyBox.top,
+            marginBottom = p.bodyBox.bottom,
+            marginLeft = p.bodyBox.left,
+            marginRight = p.bodyBox.right,
             letterSpacing = p.letterSpacing,
             paragraphDivider = p.paragraphDivider,
             readingFont = p.readingFont,
@@ -165,8 +166,8 @@ internal class ReaderSettingsManager(
             footerCenter = p.footer.center.toStorageString(),
             footerRight = p.footer.right.toStorageString(),
             headerFooterAlpha = p.headerFooterAlpha,
-            headerMarginTop = p.header.marginTop,
-            footerMarginBottom = p.footer.marginBottom,
+            headerMarginTop = p.headerBox.top,
+            footerMarginBottom = p.footerBox.bottom,
             showProgress = p.showProgress,
             progressStyle = p.progressStyle.toStorageString(),
             titleAlign = p.titleStyle.align.toStorageString(),
@@ -306,18 +307,6 @@ internal class ReaderSettingsManager(
             bookOverride = { o -> o.copy(indentUnit = unit.toStorageString()) }, reflow = true)
     }
 
-    fun setMarginHorizontal(margin: Float) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(marginHorizontal = margin) }, { it.setMarginHorizontal(margin) },
-            bookOverride = { o -> o.copy(marginHorizontal = margin) }, reflow = true)
-    }
-
-    fun setMarginVertical(margin: Float) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(marginVertical = margin) }, { it.setMarginVertical(margin) },
-            bookOverride = { o -> o.copy(marginVertical = margin) }, reflow = true)
-    }
-
     fun setLetterSpacing(spacing: Float) {
         resetToolbarAutoHide()
         updatePrefs({ it.copy(letterSpacing = spacing) }, { it.setLetterSpacing(spacing) },
@@ -394,26 +383,12 @@ internal class ReaderSettingsManager(
 
     // ── 页眉页脚 ──────────────────────────────────────────────
 
-    fun setHeaderMarginTop(margin: Float, persist: Boolean = true) {
-        resetToolbarAutoHide()
-        updatePrefs(
-            { it.copy(header = it.header.copy(marginTop = margin)) },
-            { it.setHeaderMarginTop(margin) },
-            bookOverride = { o -> o.copy(headerMarginTop = margin) },
-            reflow = persist,
-            persist = persist,
-        )
-    }
-
-    fun setFooterMarginBottom(margin: Float, persist: Boolean = true) {
-        resetToolbarAutoHide()
-        updatePrefs(
-            { it.copy(footer = it.footer.copy(marginBottom = margin)) },
-            { it.setFooterMarginBottom(margin) },
-            bookOverride = { o -> o.copy(footerMarginBottom = margin) },
-            reflow = persist,
-            persist = persist,
-        )
+    fun setBodyBox(insets: BoxInsetsDp) { updatePrefsGeneric({ it.copy(bodyBox = insets) }, reflow = true) }
+    fun setHeaderBox(insets: BoxInsetsDp) { updatePrefsGeneric({ it.copy(headerBox = insets) }, reflow = true) }
+    fun setFooterBox(insets: BoxInsetsDp) { updatePrefsGeneric({ it.copy(footerBox = insets) }, reflow = true) }
+    fun setTitleBox(insets: BoxInsetsDp) { updatePrefsGeneric({ it.copy(titleBox = insets) }, reflow = true) }
+    fun batchUpdateBoxInsets(body: BoxInsetsDp? = null, header: BoxInsetsDp? = null, footer: BoxInsetsDp? = null, title: BoxInsetsDp? = null) {
+        updatePrefsGeneric({ prefs -> prefs.copy(bodyBox = body ?: prefs.bodyBox, headerBox = header ?: prefs.headerBox, footerBox = footer ?: prefs.footerBox, titleBox = title ?: prefs.titleBox) }, reflow = true)
     }
 
     fun setHeaderVisibility(visibility: HeaderVisibility) {
@@ -539,6 +514,10 @@ internal class ReaderSettingsManager(
             bookOverride = { o -> o.copy(titleMarginTop = dp) },
             reflow = true,
         )
+    }
+
+    fun setTitleFontSize(value: Float) {
+        updatePrefsGeneric({ it.copy(titleFontSize = value) }, reflow = true)
     }
 
     fun setTitleMarginBottom(dp: Float) {

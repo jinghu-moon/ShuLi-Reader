@@ -1,5 +1,6 @@
 package com.shuli.reader.core.reader.engine
 
+import com.shuli.reader.core.reader.model.BoxInsetsPx
 import com.shuli.reader.core.reader.model.ReaderLayoutConfig
 import com.shuli.reader.core.reader.model.PageSize
 import com.shuli.reader.core.reader.model.TextChapter
@@ -39,10 +40,7 @@ class PaginatorStreamingTest {
             textSize = 24f,
             lineHeight = 1.5f,
             paragraphSpacing = 12f,
-            marginTop = 48f,
-            marginBottom = 48f,
-            marginLeft = 24f,
-            marginRight = 24f,
+            bodyInsets = BoxInsetsPx(top = 48f, bottom = 48f, left = 24f, right = 24f),
             indent = 2f,
             density = 3f,
         )

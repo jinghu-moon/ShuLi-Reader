@@ -1,5 +1,6 @@
 package com.shuli.reader.core.data
 
+import com.shuli.reader.core.reader.model.BoxInsetsDp
 import com.shuli.reader.core.reader.model.FooterConfig
 import com.shuli.reader.core.reader.model.HeaderConfig
 import com.shuli.reader.core.reader.model.HeaderVisibility
@@ -32,8 +33,7 @@ class PresetSerializerTest {
             indent = 3f,
             pageAnimType = PageAnimType.SIMULATION,
             backgroundColor = ReaderTheme.DARK,
-            marginHorizontal = 32f,
-            marginVertical = 60f,
+            bodyBox = BoxInsetsDp(top = 60f, bottom = 60f, left = 32f, right = 32f),
             brightness = 0.5f,
             readingFont = "serif",
             letterSpacing = 0.05f,

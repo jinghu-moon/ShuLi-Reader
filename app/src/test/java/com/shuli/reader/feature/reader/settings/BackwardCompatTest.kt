@@ -3,6 +3,7 @@ package com.shuli.reader.feature.reader.settings
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.data.toLayoutConfig
 import com.shuli.reader.core.database.entity.BookReaderPrefsOverrides
+import com.shuli.reader.core.reader.model.BoxInsetsDp
 import com.shuli.reader.core.reader.layout.ReaderLayoutInput
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -70,50 +71,38 @@ class BackwardCompatTest {
         assertEquals("harmony", overrides.readingFont)
     }
 
-    // T-C.3: marginVertical/marginHorizontal 旧值正确 fallback 到四边距
+    // T-C.3: bodyBox 均匀四边距正确映射到 bodyInsets
     @Test
-    fun oldMargins_fallbackToIndependentMargins() {
+    fun uniformBodyBox_mapsToEqualBodyInsets() {
         val prefs = ReaderPreferences(
-            marginVertical = 48f,
-            marginHorizontal = 24f,
-            marginTop = null,
-            marginBottom = null,
-            marginLeft = null,
-            marginRight = null,
+            bodyBox = BoxInsetsDp(top = 48f, bottom = 48f, left = 24f, right = 24f),
         )
 
         val pageSize = com.shuli.reader.core.reader.model.PageSize(width = 1080, height = 1920)
         val density = 3f
         val config = prefs.toLayoutConfig(pageSize, density)
 
-        // nullable 新字段为 null → fallback 到旧字段值
-        assertEquals(48f * density, config.marginTop, 0.001f)
-        assertEquals(48f * density, config.marginBottom, 0.001f)
-        assertEquals(24f * density, config.marginLeft, 0.001f)
-        assertEquals(24f * density, config.marginRight, 0.001f)
+        assertEquals(48f * density, config.bodyInsets.top, 0.001f)
+        assertEquals(48f * density, config.bodyInsets.bottom, 0.001f)
+        assertEquals(24f * density, config.bodyInsets.left, 0.001f)
+        assertEquals(24f * density, config.bodyInsets.right, 0.001f)
     }
 
-    // T-C.3b: 新字段优先于旧字段
+    // T-C.3b: 非均匀 bodyBox 正确映射
     @Test
-    fun newMarginFields_takePrecedenceOverOld() {
+    fun nonUniformBodyBox_mapsToIndependentInsets() {
         val prefs = ReaderPreferences(
-            marginVertical = 48f,
-            marginHorizontal = 24f,
-            marginTop = 60f,
-            marginBottom = 30f,
-            marginLeft = 40f,
-            marginRight = 20f,
+            bodyBox = BoxInsetsDp(top = 60f, bottom = 30f, left = 40f, right = 20f),
         )
 
         val pageSize = com.shuli.reader.core.reader.model.PageSize(width = 1080, height = 1920)
         val density = 3f
         val config = prefs.toLayoutConfig(pageSize, density)
 
-        // 新字段非 null → 优先使用
-        assertEquals(60f * density, config.marginTop, 0.001f)
-        assertEquals(30f * density, config.marginBottom, 0.001f)
-        assertEquals(40f * density, config.marginLeft, 0.001f)
-        assertEquals(20f * density, config.marginRight, 0.001f)
+        assertEquals(60f * density, config.bodyInsets.top, 0.001f)
+        assertEquals(30f * density, config.bodyInsets.bottom, 0.001f)
+        assertEquals(40f * density, config.bodyInsets.left, 0.001f)
+        assertEquals(20f * density, config.bodyInsets.right, 0.001f)
     }
 
     // T-C.4: LAYOUT_ALGORITHM_VERSION = 2 使旧缓存失效

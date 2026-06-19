@@ -50,7 +50,7 @@ class CanvasTextSelection {
     /** 计算行的选区矩形 */
     fun lineBounds(index: Int, page: TextPage, viewWidth: Float): RectF {
         val line = page.lines.getOrNull(index) ?: return RectF()
-        val startX = page.marginHorizontal + line.startXOffset
+        val startX = page.layout.body.left + line.startXOffset
         val right = (startX + line.measuredWidth).coerceAtMost(viewWidth - TEXT_END_PADDING)
         return RectF(
             startX - SELECTION_HORIZONTAL_PADDING,

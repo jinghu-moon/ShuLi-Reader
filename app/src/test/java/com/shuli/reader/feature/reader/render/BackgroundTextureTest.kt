@@ -3,7 +3,6 @@ package com.shuli.reader.feature.reader.render
 import com.shuli.reader.feature.reader.settings.ReaderSettingRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -55,14 +54,11 @@ class BackgroundTextureTest {
         assertFalse(config1.shouldRebuild(config2))
     }
 
-    // T-3.6.6: Registry 注册 background_texture 为 SHELL scope
+    // T-3.6.6: Registry 注册 background_texture 为 null scope（SHELL 已由 key-diff 驱动）
     @Test
-    fun registry_backgroundTexture_hasShellScope() {
+    fun registry_backgroundTexture_hasNullScope() {
         val def = ReaderSettingRegistry.all.first { it.key == "background_texture" }
-        assertEquals(
-            InvalidationScope.SHELL,
-            def.scope,
-        )
+        assertNull(def.scope)
     }
 
     @Test

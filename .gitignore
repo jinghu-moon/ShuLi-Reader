@@ -23,3 +23,5 @@ captures/
 .serena/keystore/
 keystore.properties
 *.jks
+
+mdict/test-dict/
