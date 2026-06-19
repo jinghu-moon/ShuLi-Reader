@@ -106,8 +106,13 @@ private fun DictionaryContent(
         Spacer(modifier = Modifier.height(12.dp))
 
         if (results.isEmpty()) {
-            // 空状态
-            EmptyState(word = word, onLookup = onLookup)
+            // 空状态（带前缀建议）
+            EmptyState(
+                word = word,
+                onLookup = onLookup,
+                onCopy = { onCopyDefinition(word) },
+                suggestions = uiState.dictionarySuggestions,
+            )
         } else if (results.size == 1) {
             // 单词典直接显示
             DefinitionCard(

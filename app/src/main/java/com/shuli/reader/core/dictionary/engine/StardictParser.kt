@@ -38,6 +38,11 @@ class StardictParser(
         get() = synIndex != null
 
     /**
+     * 获取索引对象（用于模糊匹配）
+     */
+    fun getIndex(): StardictIndex = index ?: throw IllegalStateException("Index not loaded")
+
+    /**
      * 加载词典索引
      *
      * 解析 .ifo 文件，加载 .idx 索引

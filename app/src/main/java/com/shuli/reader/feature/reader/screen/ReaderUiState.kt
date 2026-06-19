@@ -98,6 +98,8 @@ data class ReaderUiState(
     val dictionaryContextSentence: String = "",
     /** 选区滚动偏移（防遮挡用） */
     val selectionScrollOffset: Float = 0f,
+    /** 前缀匹配建议（未找到时显示） */
+    val dictionarySuggestions: List<String> = emptyList(),
 ) {
     val showDirectory: Boolean get() = overlayPanel == OverlayPanel.DIRECTORY
     val showQuickSettings: Boolean get() = overlayPanel == OverlayPanel.QUICK_SETTINGS

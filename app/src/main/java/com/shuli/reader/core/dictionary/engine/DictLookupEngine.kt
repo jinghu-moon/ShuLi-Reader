@@ -242,6 +242,26 @@ class DictLookupEngine(
             }
         }
 
+        // 5. 模糊匹配（Levenshtein 距离 ≤ 1）
+        if (results.isEmpty() && word.length <= 6) {
+            for ((dictKey, parser) in parsers) {
+                if (parser is StardictParser) {
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                    val fuzzyEntries = FuzzyMatcher.fuzzyMatch(word, parser.getIndex())
+                    for (entry in fuzzyEntries) {
+                        val dictEntry = parser.lookup(entry.word)
+                        if (dictEntry != null) {
+                            results.add(dictEntry.copy(
+                                dictKey = dictKey,
+                                dictName = dictMetaMap[dictKey]?.displayName ?: dictKey,
+                            ))
+                        }
+                    }
+                    if (results.isNotEmpty()) break // 只在一个词典中做模糊匹配
+                }
+            }
+        }
+
         // 按词典优先级排序
         return results.sortedBy { entry ->
             dictMetaMap[entry.dictKey]?.priority ?: Int.MAX_VALUE

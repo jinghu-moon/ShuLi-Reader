@@ -789,17 +789,27 @@ class ReaderViewModel(
                     currentLookupWord = word,
                     dictionaryContextSentence = contextSentence,
                     dictionaryResults = emptyList(),
+                    dictionarySuggestions = emptyList(),
                 )
 
                 val results = manager.lookup(word, contextSentence)
 
+                // 如果没有结果，获取前缀建议
+                val suggestions = if (results.isEmpty()) {
+                    manager.searchByPrefix(word.take(2), 5)
+                } else {
+                    emptyList()
+                }
+
                 _uiState.value = _uiState.value.copy(
                     dictionaryResults = results,
+                    dictionarySuggestions = suggestions,
                 )
             } catch (e: Exception) {
                 android.util.Log.w("ReaderVM", "lookupWord failed", e)
                 _uiState.value = _uiState.value.copy(
                     dictionaryResults = emptyList(),
+                    dictionarySuggestions = emptyList(),
                 )
             }
         }
@@ -814,6 +824,7 @@ class ReaderViewModel(
             dictionaryResults = emptyList(),
             currentLookupWord = "",
             dictionaryContextSentence = "",
+            dictionarySuggestions = emptyList(),
         )
     }
 
