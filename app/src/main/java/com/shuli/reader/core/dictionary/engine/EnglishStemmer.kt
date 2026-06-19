@@ -256,33 +256,46 @@ object EnglishStemmer {
     }
 
     /**
-     * 生成单词的可能变体
+     * 生成单词的可能原形变体
      *
-     * 用于查词时的模糊匹配
+     * 用于查词时的模糊匹配（反向还原）
+     * 例如：用户选中 "waving"，词典中可能存的是 "wave"
      */
     fun generateVariants(word: String): List<String> {
         val variants = mutableListOf<String>()
         val lower = word.lowercase()
 
-        // 添加常见复数/时态变体
-        if (!lower.endsWith("s")) {
-            variants.add(lower + "s")
+        // 去掉复数后缀
+        if (lower.endsWith("ies") && lower.length > 4) {
+            variants.add(lower.dropLast(3) + "y")
         }
-        if (!lower.endsWith("ed")) {
-            variants.add(lower + "ed")
+        if (lower.endsWith("es") && lower.length > 3) {
+            variants.add(lower.dropLast(2))
+            variants.add(lower.dropLast(1)) // 去掉 s，保留 e
         }
-        if (!lower.endsWith("ing")) {
-            variants.add(lower + "ing")
-        }
-        if (lower.endsWith("y")) {
-            variants.add(lower.dropLast(1) + "ies")
-        }
-        if (lower.endsWith("e")) {
-            variants.add(lower.dropLast(1) + "ing")
-            variants.add(lower + "d")
+        if (lower.endsWith("s") && !lower.endsWith("ss") && lower.length > 3) {
+            variants.add(lower.dropLast(1))
         }
 
-        return variants
+        // 去掉过去式/进行时后缀
+        if (lower.endsWith("ed") && lower.length > 4) {
+            variants.add(lower.dropLast(2))
+            variants.add(lower.dropLast(1)) // 去掉 d，保留 e
+        }
+        if (lower.endsWith("ing") && lower.length > 5) {
+            variants.add(lower.dropLast(3))
+            variants.add(lower.dropLast(3) + "e") // hoping -> hope
+        }
+
+        // 去掉比较级/最高级
+        if (lower.endsWith("er") && lower.length > 3) {
+            variants.add(lower.dropLast(2))
+        }
+        if (lower.endsWith("est") && lower.length > 4) {
+            variants.add(lower.dropLast(3))
+        }
+
+        return variants.distinct()
     }
 
     /**

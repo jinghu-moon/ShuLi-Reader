@@ -226,10 +226,11 @@ class StardictParser(
     /**
      * 解析带 sametypesequence 的条目
      *
-     * 当 sametypesequence 存在时（如 "m"、"mh"、"mt"）：
-     * - 类型标记被省略
-     * - 数据按 sametypesequence 的字符顺序排列
-     * - 前 N-1 个字段以 null 结尾
+     * Stardict 规范：
+     * - 类型标记被省略，数据按 sametypesequence 的字符顺序排列
+     * - 小写类型（m, h, t, x, y, w, l, g, k, r）：null 结尾字符串
+     * - 大写类型（W, P, X）：4 字节大端序长度前缀 + 二进制数据
+     * - 前 N-1 个字段按上述规则读取
      * - 最后一个字段延伸到数据末尾
      */
     private fun parseSametypesequenceEntry(bytes: ByteArray): String {
@@ -243,21 +244,39 @@ class StardictParser(
             val type = sameTypeSequence[i]
             val isLast = (i == sameTypeSequence.length - 1)
 
-            // 读取数据（最后一个字段延伸到末尾）
-            val data: String = if (isLast) {
-                // 最后一个字段：读取到数据末尾
-                if (pos < bytes.size) {
-                    String(bytes, pos, bytes.size - pos, charset)
-                } else ""
-            } else {
-                // 非最后一个字段：读取到 null 结尾
-                val start = pos
-                while (pos < bytes.size && bytes[pos] != 0.toByte()) {
-                    pos++
+            // 根据类型和位置读取数据
+            val data: String = when {
+                // 大写类型：4 字节大端序长度前缀 + 数据
+                type.isUpperCase() -> {
+                    if (pos + 4 > bytes.size) break
+                    // big-endian per Stardict spec
+                    val dataSize = ((bytes[pos].toInt() and 0xFF) shl 24) or
+                        ((bytes[pos + 1].toInt() and 0xFF) shl 16) or
+                        ((bytes[pos + 2].toInt() and 0xFF) shl 8) or
+                        (bytes[pos + 3].toInt() and 0xFF)
+                    pos += 4
+
+                    if (pos + dataSize > bytes.size) break
+                    val str = String(bytes, pos, dataSize, charset)
+                    pos += dataSize
+                    str
                 }
-                val str = if (pos > start) String(bytes, start, pos - start, charset) else ""
-                pos++ // 跳过 null 字节
-                str
+                // 小写类型 + 最后一个字段：读取到数据末尾
+                isLast -> {
+                    if (pos < bytes.size) {
+                        String(bytes, pos, bytes.size - pos, charset)
+                    } else ""
+                }
+                // 小写类型 + 非最后字段：null 结尾字符串
+                else -> {
+                    val start = pos
+                    while (pos < bytes.size && bytes[pos] != 0.toByte()) {
+                        pos++
+                    }
+                    val str = if (pos > start) String(bytes, start, pos - start, charset) else ""
+                    pos++ // 跳过 null 字节
+                    str
+                }
             }
 
             // 根据类型处理
@@ -267,19 +286,14 @@ class StardictParser(
                     if (result.isNotEmpty()) result.append("\n")
                     result.append(data)
                 }
-                't' -> {
-                    // 英语音标
+                't', 'y', 'w' -> {
+                    // 音标（t=英文音标, y=中文音标, w=音标）
                     phonetic.append(data)
                 }
-                'y' -> {
-                    // 中文音标
-                    phonetic.append(data)
+                'W', 'P', 'X' -> {
+                    // 大写类型：媒体/图片/扩展数据，暂忽略二进制内容
                 }
-                'w' -> {
-                    // 音标
-                    phonetic.append(data)
-                }
-                // 其他类型（l, g, k, r 等）忽略
+                // 其他小写类型（l, g, k, r 等）忽略
             }
         }
 

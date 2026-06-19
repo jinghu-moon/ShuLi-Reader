@@ -105,6 +105,7 @@ class DictionaryManager(
         val idxFile = File("$basePath.idx")
         val dictFile = File("$basePath.dict")
         val dictDzFile = File("$basePath.dict.dz")
+        val synFile = File("$basePath.syn")
 
         // 检查文件完整性
         if (!ifoFile.exists()) throw IllegalArgumentException("IFO file not found")
@@ -112,6 +113,9 @@ class DictionaryManager(
         if (!dictFile.exists() && !dictDzFile.exists()) {
             throw IllegalArgumentException("Dict file not found")
         }
+
+        // 验证 idxfilesize（设计文档 §5.1 要求）
+        validateIdxFileSize(ifoFile, idxFile)
 
         // 复制文件到词典目录
         val destIfo = File(dictDir, ifoFile.name)
@@ -122,6 +126,10 @@ class DictionaryManager(
         }
         if (dictDzFile.exists()) {
             dictDzFile.copyTo(File(dictDir, dictDzFile.name), overwrite = true)
+        }
+        // 复制 .syn 同义词文件（可选）
+        if (synFile.exists()) {
+            synFile.copyTo(File(dictDir, synFile.name), overwrite = true)
         }
 
         // 解析词典
@@ -147,6 +155,25 @@ class DictionaryManager(
         dictMetaDao.insert(entity)
 
         return meta
+    }
+
+    /**
+     * 验证 idxfilesize（设计文档 §5.1）
+     *
+     * 解析 .ifo 中的 idxfilesize 并与实际 .idx 文件大小比对
+     */
+    private fun validateIdxFileSize(ifoFile: File, idxFile: File) {
+        val expectedSize = ifoFile.readLines()
+            .firstOrNull { it.startsWith("idxfilesize=") }
+            ?.substringAfter("=")
+            ?.trim()
+            ?.toLongOrNull()
+
+        if (expectedSize != null && expectedSize != idxFile.length()) {
+            throw IllegalArgumentException(
+                "IDX file size mismatch: expected $expectedSize, actual ${idxFile.length()}. File may be corrupted."
+            )
+        }
     }
 
     /**
@@ -238,14 +265,16 @@ class DictionaryManager(
             val dictKey = fileNameWithoutExt(ifoFileName)
             val basePath = fileNameWithoutExt(ifoFileName)
 
-            // 查找配套的 .idx 和 .dict/.dict.dz 文件
+            // 查找配套的 .idx、.dict/.dict.dz、.syn 文件
             val idxFileName = "$basePath.idx"
             val dictFileName = "$basePath.dict"
             val dictDzFileName = "$basePath.dict.dz"
+            val synFileName = "$basePath.syn"
 
             val idxPath = copiedFiles[idxFileName]
             val dictPath = copiedFiles[dictFileName]
             val dictDzPath = copiedFiles[dictDzFileName]
+            val synPath = copiedFiles[synFileName]
 
             // 检查文件是否齐全
             if (idxPath != null && (dictPath != null || dictDzPath != null)) {

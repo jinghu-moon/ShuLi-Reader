@@ -25,12 +25,14 @@ class DictZipReader(
     /** 压缩数据开始的文件偏移（GZip 头结束后） */
     private var dataStartOffset: Long = 0
 
-    /** 复用 Inflater 对象，避免频繁创建 */
-    private val inflater = Inflater(true)
-
-    /** 最近解压的块缓存 */
+    /** 最近解压的块缓存（volatile 保证线程可见性） */
+    @Volatile
     private var cachedChunkIndex: Int = -1
+    @Volatile
     private var cachedChunkData: ByteArray? = null
+
+    /** 同步锁，保护 Inflater 和文件读取 */
+    private val lock = Any()
 
     init {
         parseHeader()
@@ -203,7 +205,7 @@ class DictZipReader(
             val chunkOffset = (currentOffset % chunkSize).toInt()
             val bytesToRead = minOf(remaining, chunkSize - chunkOffset)
 
-            // 解压块
+            // 解压块（内部已同步）
             val decompressed = decompressChunk(chunk)
 
             // 复制数据
@@ -218,56 +220,105 @@ class DictZipReader(
     }
 
     /**
-     * 解压指定块
+     * 读取指定偏移和大小的数据（返回 ByteArray）
      *
-     * 使用块缓存和复用 Inflater 提升性能
+     * @param offset 解压后数据中的偏移
+     * @param size 数据大小（字节）
+     * @return 原始字节数据
      */
-    private fun decompressChunk(chunk: ChunkInfo): ByteArray {
-        // 检查缓存
-        if (chunk.index == cachedChunkIndex) {
-            cachedChunkData?.let { return it }
+    fun readBytes(offset: Long, size: Int): ByteArray {
+        if (chunks.isEmpty()) {
+            throw IllegalStateException("DictZip not initialized: no chunks loaded")
         }
 
-        val compressedData = ByteArray(chunk.compressedSize)
-        file.seek(chunk.compressedOffset)
-        file.readFully(compressedData)
+        val chunkSize = chunks[0].uncompressedSize
+        val result = ByteArray(size)
+        var remaining = size
+        var resultPos = 0
+        var currentOffset = offset
 
-        // 复用 Inflater 对象
-        inflater.reset()
-        inflater.setInput(compressedData)
+        while (remaining > 0) {
+            val chunkIndex = (currentOffset / chunkSize).toInt()
+            if (chunkIndex >= chunks.size) break
 
-        val outputStream = ByteArrayOutputStream(chunk.uncompressedSize)
-        val buffer = ByteArray(4096)
+            val chunk = chunks[chunkIndex]
+            val chunkOffset = (currentOffset % chunkSize).toInt()
+            val bytesToRead = minOf(remaining, chunkSize - chunkOffset)
 
-        try {
-            while (!inflater.finished()) {
-                val count = inflater.inflate(buffer)
-                if (count == 0) {
-                    if (inflater.needsDictionary()) {
-                        throw IllegalStateException("Inflater needs dictionary")
-                    }
-                    if (inflater.finished()) break
-                    if (inflater.needsInput()) {
-                        throw IllegalStateException("Inflater needs more input")
-                    }
-                }
-                outputStream.write(buffer, 0, count)
-            }
-        } finally {
-            inflater.reset()
+            val decompressed = decompressChunk(chunk)
+            System.arraycopy(decompressed, chunkOffset, result, resultPos, bytesToRead)
+
+            resultPos += bytesToRead
+            remaining -= bytesToRead
+            currentOffset += bytesToRead
         }
-
-        val result = outputStream.toByteArray()
-
-        // 更新缓存
-        cachedChunkIndex = chunk.index
-        cachedChunkData = result
 
         return result
     }
 
+    /**
+     * 解压指定块
+     *
+     * 使用块缓存和 synchronized 保证线程安全
+     */
+    private fun decompressChunk(chunk: ChunkInfo): ByteArray {
+        // 检查缓存（volatile 读取）
+        if (chunk.index == cachedChunkIndex) {
+            cachedChunkData?.let { return it }
+        }
+
+        // 同步块：保护文件读取和 Inflater
+        synchronized(lock) {
+            // 双重检查缓存
+            if (chunk.index == cachedChunkIndex) {
+                cachedChunkData?.let { return it }
+            }
+
+            val compressedData = ByteArray(chunk.compressedSize)
+            file.seek(chunk.compressedOffset)
+            file.readFully(compressedData)
+
+            // 每次创建新的 Inflater（线程安全，避免共享状态）
+            val inflater = Inflater(true)
+            inflater.setInput(compressedData)
+
+            val outputStream = ByteArrayOutputStream(chunk.uncompressedSize)
+            val buffer = ByteArray(4096)
+
+            try {
+                while (!inflater.finished()) {
+                    val count = inflater.inflate(buffer)
+                    if (count == 0) {
+                        if (inflater.needsDictionary()) {
+                            throw IllegalStateException("Inflater needs dictionary")
+                        }
+                        if (inflater.finished()) break
+                        if (inflater.needsInput()) {
+                            throw IllegalStateException("Inflater needs more input")
+                        }
+                    }
+                    outputStream.write(buffer, 0, count)
+                }
+            } finally {
+                inflater.end()
+            }
+
+            val result = outputStream.toByteArray()
+
+            // 更新缓存（volatile 写入）
+            cachedChunkIndex = chunk.index
+            cachedChunkData = result
+
+            return result
+        }
+    }
+
     override fun close() {
-        file.close()
+        synchronized(lock) {
+            file.close()
+            cachedChunkData = null
+            cachedChunkIndex = -1
+        }
     }
 
     /**

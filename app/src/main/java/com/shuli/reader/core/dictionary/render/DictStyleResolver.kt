@@ -10,8 +10,19 @@ import androidx.compose.ui.text.style.TextDecoration
  * CSS 样式解析器
  *
  * 将 CSS class 和内联样式映射为 DictStyle
+ * 支持 px→sp 转换（根据用户阅读器字号缩放）
  */
 object DictStyleResolver {
+
+    /** 基准字号（sp），用于 px→sp 转换 */
+    private var baseFontSizeSp: Float = 16f
+
+    /**
+     * 设置基准字号（从阅读器设置中获取）
+     */
+    fun setBaseFontSize(sp: Float) {
+        baseFontSizeSp = sp.coerceIn(8f, 32f)
+    }
 
     /** 常见 CSS class 到样式的映射 */
     private val CLASS_MAP = mapOf(
@@ -197,17 +208,30 @@ object DictStyleResolver {
     }
 
     /**
-     * 解析 font-size（px → sp）
+     * 解析 font-size（px → sp 转换）
+     *
+     * 设计文档 §10.3 要求：
+     * "DictStyleResolver 解析 CSS 时必须做一层拦截：
+     *  将 px 强制转换为相对单位 sp（根据用户当前阅读器字体大小按比例缩放）"
+     *
+     * 转换公式：sp = px * (baseFontSizeSp / 14)
+     * 其中 14px 是 MDX 词典常用的基准字号
      */
     private fun parseFontSize(value: String): Float? {
         val v = value.trim().lowercase()
         return try {
-            when {
+            val rawPx = when {
                 v.endsWith("px") -> v.removeSuffix("px").toFloat()
                 v.endsWith("pt") -> v.removeSuffix("pt").toFloat() * 1.33f
-                v.endsWith("em") -> v.removeSuffix("em").toFloat() * 16f
-                v.endsWith("%") -> v.removeSuffix("%").toFloat() / 100f * 16f
+                v.endsWith("em") -> v.removeSuffix("em").toFloat() * baseFontSizeSp
+                v.endsWith("%") -> v.removeSuffix("%").toFloat() / 100f * baseFontSizeSp
                 else -> v.toFloatOrNull()
+            }
+
+            // px → sp 转换（按用户字号缩放）
+            rawPx?.let { px ->
+                val scaleFactor = baseFontSizeSp / 14f  // 14px 是 MDX 常用基准
+                (px * scaleFactor).coerceIn(8f, 48f)    // 限制范围
             }
         } catch (_: Exception) {
             null

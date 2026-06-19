@@ -78,8 +78,8 @@ object CedictEntryParser {
      *
      * "Zhong1" → "Zhōng"
      * "guo2" → "guó"
-     * "liu2" → "liú"
-     * "gui4" → "guì"
+     * "nv3" → "nǚ"（v → ü）
+     * "lve4" → "lüè"（ve → üe）
      *
      * 声调优先级规则：
      * 1. a, e, o 优先标调
@@ -91,7 +91,10 @@ object CedictEntryParser {
         if (toneMatch == null) return syllable
 
         val tone = toneMatch.groupValues[1].toIntOrNull() ?: return syllable
-        val base = syllable.removeSuffix(toneMatch.groupValues[1]).lowercase()
+        var base = syllable.removeSuffix(toneMatch.groupValues[1]).lowercase()
+
+        // CC-CEDICT 使用 'v' 表示 'ü'（nv → nü, lve → lüe）
+        base = base.replace("v", "ü")
 
         // 声调符号映射
         val toneMap = mapOf(
