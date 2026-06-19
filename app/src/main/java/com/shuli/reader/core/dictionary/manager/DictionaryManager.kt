@@ -24,6 +24,12 @@ import java.util.concurrent.ConcurrentHashMap
  * 词典管理器
  *
  * 负责词库增删改查、索引加载/卸载、LRU 管理
+ *
+ * 词典存储位置：
+ * - 内部存储：/data/data/<pkg>/files/dictionaries/
+ * - 外部存储：/storage/emulated/0/ShuLi/dictionaries/
+ *
+ * 优先使用外部存储，用户可以通过文件管理器直接管理词典文件。
  */
 class DictionaryManager(
     private val context: Context,
@@ -37,19 +43,166 @@ class DictionaryManager(
     /** MDD 资源加载器缓存 */
     private val mddLoaders = ConcurrentHashMap<String, MddResourceLoader>()
 
-    /** 词典存储目录 */
-    private val dictDir: File
-        get() = File(context.filesDir, "dictionaries").also { it.mkdirs() }
+    /**
+     * 词典存储目录（优先外部存储）
+     *
+     * 外部存储：/storage/emulated/0/ShuLi/dictionaries/
+     * 内部存储：/data/data/<pkg>/files/dictionaries/
+     */
+    val dictDir: File
+        get() {
+            // 优先使用外部存储
+            val externalDir = File(
+                android.os.Environment.getExternalStorageDirectory(),
+                "ShuLi/dictionaries"
+            )
+            if (externalDir.exists() || externalDir.mkdirs()) {
+                return externalDir
+            }
+            // 回退到内部存储
+            return File(context.filesDir, "dictionaries").also { it.mkdirs() }
+        }
 
     /**
      * 初始化
      */
     suspend fun initialize() = withContext(Dispatchers.IO) {
+        // 确保目录存在
+        dictDir.mkdirs()
+
         // 安装内置词典
         BuiltinDictInstaller.installIfNeeded(context, dictMetaDao)
+
+        // 扫描外部存储目录中的词典文件
+        scanExternalDictionaries()
+
         // 初始化查询引擎
         lookupEngine.initialize()
     }
+
+    /**
+     * 扫描外部存储目录中的词典文件
+     *
+     * 自动发现并注册用户放入目录的词典
+     */
+    private suspend fun scanExternalDictionaries() = withContext(Dispatchers.IO) {
+        val dir = dictDir
+        if (!dir.exists()) return@withContext
+
+        val files = dir.listFiles() ?: return@withContext
+
+        // 按文件类型分组
+        val ifoFiles = files.filter { it.extension == "ifo" }
+        val mdxFiles = files.filter { it.extension == "mdx" }
+
+        // 注册 Stardict 词典
+        for (ifoFile in ifoFiles) {
+            val dictKey = ifoFile.nameWithoutExtension
+            val existing = dictMetaDao.getByKey(dictKey)
+            if (existing == null) {
+                try {
+                    registerStardictFromDir(ifoFile)
+                } catch (e: Exception) {
+                    android.util.Log.w("DictionaryManager", "Failed to register: $dictKey", e)
+                }
+            }
+        }
+
+        // 注册 MDX 词典
+        for (mdxFile in mdxFiles) {
+            val dictKey = mdxFile.nameWithoutExtension
+            val existing = dictMetaDao.getByKey(dictKey)
+            if (existing == null) {
+                try {
+                    registerMdxFromDir(mdxFile)
+                } catch (e: Exception) {
+                    android.util.Log.w("DictionaryManager", "Failed to register: $dictKey", e)
+                }
+            }
+        }
+    }
+
+    /**
+     * 从目录注册 Stardict 词典
+     */
+    private suspend fun registerStardictFromDir(ifoFile: File) {
+        val basePath = ifoFile.absolutePath.substringBeforeLast('.')
+        val idxFile = File("$basePath.idx")
+        val dictFile = File("$basePath.dict")
+        val dictDzFile = File("$basePath.dict.dz")
+
+        // 检查文件完整性
+        if (!idxFile.exists()) return
+        if (!dictFile.exists() && !dictDzFile.exists()) return
+
+        // 解析 .ifo 获取词典信息
+        val info = parseIfFile(ifoFile)
+
+        val entity = DictMetaEntity(
+            dictKey = ifoFile.nameWithoutExtension,
+            displayName = info.bookName.ifBlank { ifoFile.nameWithoutExtension },
+            format = "stardict",
+            langPair = info.langPair,
+            filePath = ifoFile.absolutePath,
+            indexPath = idxFile.absolutePath,
+            dataPath = if (dictDzFile.exists()) dictDzFile.absolutePath else dictFile.absolutePath,
+            entryCount = info.wordCount,
+            isEnabled = true,
+            priority = 0,
+        )
+
+        dictMetaDao.insert(entity)
+    }
+
+    /**
+     * 从目录注册 MDX 词典
+     */
+    private suspend fun registerMdxFromDir(mdxFile: File) {
+        val dictKey = mdxFile.nameWithoutExtension
+
+        val entity = DictMetaEntity(
+            dictKey = dictKey,
+            displayName = dictKey,
+            format = "mdx",
+            filePath = mdxFile.absolutePath,
+        )
+
+        dictMetaDao.insert(entity)
+    }
+
+    /**
+     * 简单解析 .ifo 文件
+     */
+    private fun parseIfFile(file: File): IfInfo {
+        val info = IfInfo()
+        file.readLines().forEach { line ->
+            val parts = line.split("=", limit = 2)
+            if (parts.size == 2) {
+                val key = parts[0].trim()
+                val value = parts[1].trim()
+                when (key) {
+                    "bookname" -> info.bookName = value
+                    "wordcount" -> info.wordCount = value.toIntOrNull() ?: 0
+                }
+            }
+        }
+
+        val name = info.bookName.lowercase()
+        info.langPair = when {
+            "cedict" in name || "chinese-english" in name || "汉英" in name -> "zh-en"
+            "ecdict" in name || "english-chinese" in name || "英汉" in name -> "en-zh"
+            "成语" in name -> "zh-zh"
+            else -> ""
+        }
+
+        return info
+    }
+
+    private data class IfInfo(
+        var bookName: String = "",
+        var wordCount: Int = 0,
+        var langPair: String = "",
+    )
 
     /**
      * 获取 MDD 资源加载器
