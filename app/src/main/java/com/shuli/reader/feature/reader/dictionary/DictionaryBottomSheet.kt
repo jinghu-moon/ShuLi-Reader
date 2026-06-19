@@ -7,11 +7,16 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
@@ -20,11 +25,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.isSystemInDarkTheme
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -76,6 +86,7 @@ private fun DictionaryContent(
     onAddToWordBook: (String) -> Unit,
     onCopyDefinition: (String) -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
     val word = uiState.currentLookupWord
     val results = uiState.dictionaryResults
     val contextSentence = uiState.dictionaryContextSentence
@@ -97,41 +108,55 @@ private fun DictionaryContent(
         if (results.isEmpty()) {
             // 空状态
             EmptyState(word = word, onLookup = onLookup)
+        } else if (results.size == 1) {
+            // 单词典直接显示
+            DefinitionCard(
+                entry = results.first(),
+                word = word,
+                onAddToWordBook = { onAddToWordBook(word) },
+                onCopyDefinition = { onCopyDefinition(results.first().definition) },
+                onLookup = onLookup,
+            )
         } else {
-            // 词典标签页
-            var selectedDictIndex by remember { mutableIntStateOf(0) }
+            // 多词典 Tab 切换
+            val pagerState = rememberPagerState(pageCount = { results.size })
 
-            if (results.size > 1) {
-                ScrollableTabRow(
-                    selectedTabIndex = selectedDictIndex,
-                    edgePadding = 0.dp,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    results.forEachIndexed { index, entry ->
-                        Tab(
-                            selected = selectedDictIndex == index,
-                            onClick = { selectedDictIndex = index },
-                            text = {
-                                Text(
-                                    text = entry.dictName,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            },
-                        )
-                    }
+            // Tab 栏
+            ScrollableTabRow(
+                selectedTabIndex = pagerState.currentPage,
+                edgePadding = 0.dp,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                results.forEachIndexed { index, entry ->
+                    Tab(
+                        selected = pagerState.currentPage == index,
+                        onClick = {
+                            scope.launch { pagerState.animateScrollToPage(index) }
+                        },
+                        text = {
+                            Text(
+                                text = entry.dictName,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                    )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // 释义列表
-            val currentEntry = results.getOrNull(selectedDictIndex)
-            if (currentEntry != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 滑动切换
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxWidth(),
+            ) { page ->
+                val entry = results[page]
                 DefinitionCard(
-                    entry = currentEntry,
+                    entry = entry,
                     word = word,
                     onAddToWordBook = { onAddToWordBook(word) },
-                    onCopyDefinition = { onCopyDefinition(currentEntry.definition) },
+                    onCopyDefinition = { onCopyDefinition(entry.definition) },
                     onLookup = onLookup,
                 )
             }
@@ -147,11 +172,22 @@ private fun DictionarySearchBar(
     onSearch: (String) -> Unit,
 ) {
     var text by remember { mutableStateOf(initialWord) }
+    var isEditing by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
+
+    // 进入编辑态时自动获取焦点
+    LaunchedEffect(isEditing) {
+        if (isEditing) {
+            focusRequester.requestFocus()
+        }
+    }
 
     Surface(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { isEditing = true },
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -165,14 +201,28 @@ private fun DictionarySearchBar(
             Spacer(modifier = Modifier.width(8.dp))
             BasicTextField(
                 value = text,
-                onValueChange = { text = it },
+                onValueChange = {
+                    text = it
+                    // 输入时实时搜索
+                    if (it.isNotBlank()) {
+                        onSearch(it)
+                    }
+                },
                 textStyle = TextStyle(
                     fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.onSurface,
                 ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 singleLine = true,
-                modifier = Modifier.weight(1f),
+                readOnly = !isEditing,
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focusRequester),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = {
+                    onSearch(text)
+                    isEditing = false
+                }),
             )
             if (text.isNotEmpty()) {
                 IconButton(onClick = { text = ""; onSearch("") }) {
@@ -184,8 +234,15 @@ private fun DictionarySearchBar(
                 }
             }
             IconButton(
-                onClick = { onSearch(text) },
-                enabled = text.isNotBlank(),
+                onClick = {
+                    if (isEditing) {
+                        onSearch(text)
+                        isEditing = false
+                    } else {
+                        isEditing = true
+                    }
+                },
+                enabled = text.isNotBlank() || !isEditing,
             ) {
                 Icon(
                     Icons.Filled.Search,
@@ -208,6 +265,8 @@ private fun DefinitionCard(
     onAddToWordBook: () -> Unit,
     onCopyDefinition: () -> Unit,
     onLookup: (String) -> Unit,
+    contextSentence: String = "",
+    onTtsClick: ((String) -> Unit)? = null,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -218,25 +277,46 @@ private fun DefinitionCard(
         Column(
             modifier = Modifier.padding(16.dp),
         ) {
-            // 词头
+            // 词头（自适应字号）
+            val titleFontSize = when {
+                word.length <= 4 -> MaterialTheme.typography.headlineSmall.fontSize
+                word.length <= 6 -> MaterialTheme.typography.titleLarge.fontSize
+                word.length <= 10 -> MaterialTheme.typography.titleMedium.fontSize
+                else -> MaterialTheme.typography.titleSmall.fontSize
+            }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
                     text = word,
-                    style = MaterialTheme.typography.headlineSmall,
+                    fontSize = titleFontSize,
                     fontWeight = FontWeight.Bold,
+                    maxLines = 2,
                     modifier = Modifier.weight(1f),
                 )
 
                 // TTS 按钮
-                IconButton(onClick = { /* TODO: TTS */ }) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.VolumeUp,
-                        contentDescription = "发音",
-                    )
+                if (onTtsClick != null) {
+                    IconButton(onClick = { onTtsClick(word) }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = "发音",
+                        )
+                    }
                 }
+            }
+
+            // 上下文句子
+            if (contextSentence.isNotBlank()) {
+                Text(
+                    text = "来自：「${contextSentence.take(50)}」",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontStyle = FontStyle.Italic,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
 
             // 音标（如果有）
@@ -308,6 +388,8 @@ private fun DefinitionCard(
 private fun EmptyState(
     word: String,
     onLookup: (String) -> Unit,
+    onCopy: ((String) -> Unit)? = null,
+    suggestions: List<String> = emptyList(),
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -328,13 +410,48 @@ private fun EmptyState(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(8.dp))
+
+        // 前缀匹配建议
+        if (suggestions.isNotEmpty()) {
+            Text(
+                text = "你是不是要找：",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            suggestions.take(3).forEach { suggestion ->
+                TextButton(onClick = { onLookup(suggestion) }) {
+                    Text(
+                        text = suggestion,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // 操作按钮
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            // 复制该词按钮
+            if (onCopy != null) {
+                OutlinedButton(onClick = { onCopy(word) }) {
+                    Icon(Icons.Outlined.ContentCopy, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("复制该词")
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 引导文案
         Text(
-            text = "请检查拼写或尝试其他词典",
-            style = MaterialTheme.typography.bodyMedium,
+            text = "可在「设置 → 词典管理」中导入更多词库",
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-
-        // 前缀建议（如果有）
-        // TODO: 集成 searchByPrefix
     }
 }

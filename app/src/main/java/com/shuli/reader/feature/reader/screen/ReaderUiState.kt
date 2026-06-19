@@ -96,6 +96,8 @@ data class ReaderUiState(
     val currentLookupWord: String = "",
     /** 查词上下文句子 */
     val dictionaryContextSentence: String = "",
+    /** 选区滚动偏移（防遮挡用） */
+    val selectionScrollOffset: Float = 0f,
 ) {
     val showDirectory: Boolean get() = overlayPanel == OverlayPanel.DIRECTORY
     val showQuickSettings: Boolean get() = overlayPanel == OverlayPanel.QUICK_SETTINGS

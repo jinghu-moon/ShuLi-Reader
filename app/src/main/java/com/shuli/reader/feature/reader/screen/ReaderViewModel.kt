@@ -430,6 +430,22 @@ class ReaderViewModel(
         reflowCurrentChapter(_uiState.value.readerPreferences)
     }
 
+    /**
+     * 设置选区滚动偏移（防遮挡用）
+     *
+     * 当选中词在下半屏时，BottomSheet 弹出前自动上滚 Canvas
+     */
+    fun setSelectionScrollOffset(offset: Float) {
+        _uiState.value = _uiState.value.copy(selectionScrollOffset = offset)
+    }
+
+    /**
+     * 清除选区滚动偏移
+     */
+    fun clearSelectionScrollOffset() {
+        _uiState.value = _uiState.value.copy(selectionScrollOffset = 0f)
+    }
+
     // ── 字节↔字符坐标桥接（v4） ──────────────────────────
 
     private fun charToByteOffset(charIndex: Int): Int {
@@ -803,8 +819,16 @@ class ReaderViewModel(
 
     /**
      * 添加到生词本
+     *
+     * 停用词会被过滤，不自动加入生词本
      */
     private fun addToWordBook(word: String) {
+        // 停用词过滤
+        if (!com.shuli.reader.core.dictionary.engine.StopWords.shouldAddToWordBook(word)) {
+            android.util.Log.d("ReaderVM", "Skip stop word: $word")
+            return
+        }
+
         val manager = dictionaryManager ?: return
         val state = _uiState.value
         val definition = state.dictionaryResults.firstOrNull()?.definition ?: ""

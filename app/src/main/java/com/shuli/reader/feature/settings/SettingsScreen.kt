@@ -55,6 +55,7 @@ internal sealed class SettingsSubScreen {
     data object LocalBackup : SettingsSubScreen()
     data object DictManagement : SettingsSubScreen()
     data object WordBook : SettingsSubScreen()
+    data object DictHistory : SettingsSubScreen()
 }
 
 // ================= 主屏幕（薄容器） =================
@@ -145,6 +146,7 @@ fun SettingsScreen(
                 DictionarySection(
                     onNavigateToDictManagement = { currentSubScreen = SettingsSubScreen.DictManagement },
                     onNavigateToWordBook = { currentSubScreen = SettingsSubScreen.WordBook },
+                    onNavigateToDictHistory = { currentSubScreen = SettingsSubScreen.DictHistory },
                 )
             }
             item {
@@ -194,6 +196,7 @@ fun SettingsScreen(
 private fun DictionarySection(
     onNavigateToDictManagement: () -> Unit,
     onNavigateToWordBook: () -> Unit,
+    onNavigateToDictHistory: () -> Unit,
 ) {
     val strings = LocalAppStrings.current
 
@@ -214,6 +217,11 @@ private fun DictionarySection(
                 title = "生词本",
                 subtitle = "查看收藏的生词",
                 onClick = onNavigateToWordBook,
+            )
+            SettingsClickItem(
+                title = "查词历史",
+                subtitle = "查看历史查询记录",
+                onClick = onNavigateToDictHistory,
             )
         }
     }

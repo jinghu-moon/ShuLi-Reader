@@ -207,6 +207,24 @@ internal fun SubScreenNavigation(
                 )
             }
         }
+        is SettingsSubScreen.DictHistory -> {
+            val dictHistoryDao = appContainer?.database?.dictHistoryDao()
+            if (dictHistoryDao != null) {
+                val historyViewModel = remember {
+                    com.shuli.reader.feature.settings.dictionary.DictHistoryViewModel(
+                        dictHistoryDao = dictHistoryDao,
+                    )
+                }
+
+                com.shuli.reader.feature.settings.dictionary.DictHistoryScreen(
+                    viewModel = historyViewModel,
+                    onBack = { onSubScreenChange(null) },
+                    onLookup = { word ->
+                        // TODO: 跳转到查词界面
+                    },
+                )
+            }
+        }
         null -> {}
     }
 }

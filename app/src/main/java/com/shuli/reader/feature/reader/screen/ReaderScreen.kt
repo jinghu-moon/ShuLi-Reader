@@ -230,6 +230,11 @@ fun ReaderScreen(
                             }
                             onTextSelected = { range, screenX, screenY ->
                                 viewModel.navigationCoordinator.selectText(range, screenY = screenY, screenX = screenX)
+                                // 防遮挡：下半屏选词时记录滚动偏移
+                                // screenY 是屏幕坐标，大于 0.45 屏幕高度时需要上滚
+                                if (screenY > 0.45f) {
+                                    viewModel.setSelectionScrollOffset(screenY - 0.45f)
+                                }
                             }
                             onSelectionDragStart = {
                                 // 拖动开始，隐藏菜单
