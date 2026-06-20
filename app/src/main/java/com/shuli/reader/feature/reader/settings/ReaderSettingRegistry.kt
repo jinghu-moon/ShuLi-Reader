@@ -329,16 +329,6 @@ object ReaderSettingRegistry {
             includeInPreset = true,
             previewStrategy = PreviewStrategy.ON_APPLY,
         ))
-        add(SettingDefinition(
-            key = "max_page_width",
-            defaultValue = 0f,
-            storageTier = StorageTier.BOTH,
-            scope = InvalidationScope.REFLOW,
-            recompositionTier = 3,
-            uiGroup = UiGroup.TEXT_LAYOUT,
-            includeInPreset = true,
-            previewStrategy = PreviewStrategy.LIVE,
-        ))
 
         // ── 主题（recompositionTier = 2，CONTENT scope）──
         add(SettingDefinition(

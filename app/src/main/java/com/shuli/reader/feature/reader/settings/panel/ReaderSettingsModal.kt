@@ -173,7 +173,6 @@ private fun bridgeSettingChange(key: String, value: Any): ReaderIntent? {
         "paragraph_spacing" -> f(ReaderSettingKey.PARAGRAPH_SPACING)
         "indent" -> f(ReaderSettingKey.INDENT)
         "letter_spacing" -> f(ReaderSettingKey.LETTER_SPACING)
-        "max_page_width" -> f(ReaderSettingKey.MAX_PAGE_WIDTH)
         // ── 边距 ──
         "body_box" -> (value as? com.shuli.reader.core.reader.model.BoxInsetsDp)?.let {
             ReaderIntent.UpdateSetting(ReaderSettingKey.BODY_BOX, ReaderSettingValue.BoxInsetsDpVal(it))

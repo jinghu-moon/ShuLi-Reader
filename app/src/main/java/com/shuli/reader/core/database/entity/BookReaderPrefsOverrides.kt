@@ -37,7 +37,6 @@ data class BookReaderPrefsOverrides(
     val usePanguSpacing: Boolean? = null,
     val bionicReading: Boolean? = null,
     val bottomJustify: Boolean? = null,
-    val maxPageWidth: Float? = null,
     val removeEmptyLines: Boolean? = null,
     val cleanChapterTitle: Boolean? = null,
     val adFiltering: Boolean? = null,

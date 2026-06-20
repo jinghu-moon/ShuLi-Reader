@@ -669,7 +669,6 @@ class ReaderViewModel(
             ReaderSettingKey.EDGE_TURN_PAGE -> s.setEdgeTurnPage((value as ReaderSettingValue.Bool).value)
             ReaderSettingKey.EDGE_WIDTH_PERCENT -> s.setEdgeWidthPercent((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.IMMERSIVE_MODE -> s.setImmersiveMode((value as ReaderSettingValue.Bool).value)
-            ReaderSettingKey.MAX_PAGE_WIDTH -> s.setMaxPageWidth((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.REMOVE_EMPTY_LINES -> s.setRemoveEmptyLines((value as ReaderSettingValue.Bool).value)
             ReaderSettingKey.CLEAN_CHAPTER_TITLE -> s.setCleanChapterTitle((value as ReaderSettingValue.Bool).value)
             ReaderSettingKey.PROGRESS_STYLE -> s.setProgressStyle((value as ReaderSettingValue.ProgressStyle).value)

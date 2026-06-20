@@ -132,7 +132,6 @@ fun BookReaderPrefsOverrides.mergeOnto(global: ReaderPreferences): ReaderPrefere
         ttsVoice = this.ttsVoice ?: global.ttsVoice,
         ttsAutoPage = this.ttsAutoPage ?: global.ttsAutoPage,
         ttsTimer = this.ttsTimer ?: global.ttsTimer,
-        maxPageWidth = this.maxPageWidth ?: global.maxPageWidth,
         removeEmptyLines = this.removeEmptyLines ?: global.removeEmptyLines,
         cleanChapterTitle = this.cleanChapterTitle ?: global.cleanChapterTitle,
         progressStyle = this.progressStyle?.toProgressStyle() ?: global.progressStyle,

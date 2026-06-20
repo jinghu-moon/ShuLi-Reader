@@ -60,7 +60,6 @@ data class ReaderPreferences(
     val ttsSpeed: Float = ReaderSettingRegistry.getDefault("tts_speed"),
     val ttsPitch: Float = ReaderSettingRegistry.getDefault("tts_pitch"),
     // P1: 排版增强
-    val maxPageWidth: Float = ReaderSettingRegistry.getDefault("max_page_width"),
     val removeEmptyLines: Boolean = ReaderSettingRegistry.getDefault("remove_empty_lines"),
     val cleanChapterTitle: Boolean = ReaderSettingRegistry.getDefault("clean_chapter_title"),
     // P1: 进度显示样式
@@ -503,7 +502,6 @@ fun <T> ReaderPreferences.getValueByKey(key: String): T? = when (key) {
     "immersive_mode" -> immersiveMode
     "tts_speed" -> ttsSpeed
     "tts_pitch" -> ttsPitch
-    "max_page_width" -> maxPageWidth
     "remove_empty_lines" -> removeEmptyLines
     "clean_chapter_title" -> cleanChapterTitle
     "progress_style" -> progressStyle

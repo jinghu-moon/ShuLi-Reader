@@ -145,8 +145,6 @@ interface ReaderStrings {
     val immersiveModeLabel: String
     val immersiveModeDesc: String
     // P1 设置项
-    val maxPageWidthLabel: String
-    val maxPageWidthUnlimited: String
     val removeEmptyLinesLabel: String
     val removeEmptyLinesDesc: String
     val cleanChapterTitleLabel: String
@@ -239,7 +237,6 @@ interface ReaderStrings {
     val syncMarginsLabel: String
     val unifiedLeftRightLabel: String
     val resetMarginsLabel: String
-    val maxPageWidthUnlimitedShort: String
     val fontCardTitle: String
     val advancedTypesettingCard: String
     val fontWeightMediumFull: String

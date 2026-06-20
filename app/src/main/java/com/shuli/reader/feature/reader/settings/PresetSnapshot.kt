@@ -82,7 +82,6 @@ data class PresetSnapshot(
         readingFont = readingFont,
         bionicReading = bionicReading,
         bottomJustify = bottomJustify,
-        maxPageWidth = maxPageWidth,
         removeEmptyLines = removeEmptyLines,
         cleanChapterTitle = cleanChapterTitle,
         preserveOriginalIndent = preserveOriginalIndent,

@@ -95,7 +95,6 @@ class UserPreferences(
         val KEY_EDGE_WIDTH_PERCENT = floatPreferencesKey("edge_width_percent")
         val KEY_IMMERSIVE_MODE = booleanPreferencesKey("immersive_mode")
         // P1 新增
-        val KEY_MAX_PAGE_WIDTH = floatPreferencesKey("max_page_width")
         val KEY_REMOVE_EMPTY_LINES = booleanPreferencesKey("remove_empty_lines")
         val KEY_CLEAN_CHAPTER_TITLE = booleanPreferencesKey("clean_chapter_title")
         val KEY_PRESERVE_ORIGINAL_INDENT = booleanPreferencesKey("preserve_original_indent")
@@ -214,7 +213,6 @@ class UserPreferences(
     val edgeWidthPercent: Flow<Float> = dataStore.data.map { it[KEY_EDGE_WIDTH_PERCENT] ?: 0.33f }.distinctUntilChanged()
     val immersiveMode: Flow<Boolean> = dataStore.data.map { it[KEY_IMMERSIVE_MODE] ?: false }.distinctUntilChanged()
     // P1 新增
-    val maxPageWidth: Flow<Float> = dataStore.data.map { it[KEY_MAX_PAGE_WIDTH] ?: 0f }.distinctUntilChanged()
     val removeEmptyLines: Flow<Boolean> = dataStore.data.map { it[KEY_REMOVE_EMPTY_LINES] ?: false }.distinctUntilChanged()
     val cleanChapterTitle: Flow<Boolean> = dataStore.data.map { it[KEY_CLEAN_CHAPTER_TITLE] ?: false }.distinctUntilChanged()
     val preserveOriginalIndent: Flow<Boolean> = dataStore.data.map { it[KEY_PRESERVE_ORIGINAL_INDENT] ?: false }.distinctUntilChanged()
@@ -326,7 +324,6 @@ class UserPreferences(
     suspend fun setEdgeWidthPercent(value: Float) = dataStore.edit { it[KEY_EDGE_WIDTH_PERCENT] = value }
     suspend fun setImmersiveMode(value: Boolean) = dataStore.edit { it[KEY_IMMERSIVE_MODE] = value }
     // P1 新增
-    suspend fun setMaxPageWidth(value: Float) = dataStore.edit { it[KEY_MAX_PAGE_WIDTH] = value }
     suspend fun setRemoveEmptyLines(value: Boolean) = dataStore.edit { it[KEY_REMOVE_EMPTY_LINES] = value }
     suspend fun setCleanChapterTitle(value: Boolean) = dataStore.edit { it[KEY_CLEAN_CHAPTER_TITLE] = value }
     suspend fun setPreserveOriginalIndent(value: Boolean) = dataStore.edit { it[KEY_PRESERVE_ORIGINAL_INDENT] = value }

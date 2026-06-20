@@ -145,7 +145,6 @@ internal class ReaderSettingsManager(
             usePanguSpacing = p.usePanguSpacing,
             bionicReading = p.bionicReading,
             bottomJustify = p.bottomJustify,
-            maxPageWidth = p.maxPageWidth,
             removeEmptyLines = p.removeEmptyLines,
             cleanChapterTitle = p.cleanChapterTitle,
             adFiltering = p.adFiltering,
@@ -557,12 +556,6 @@ internal class ReaderSettingsManager(
     }
 
     // ── P1: 排版增强 ──────────────────────────────────────────────
-
-    fun setMaxPageWidth(width: Float) {
-        resetToolbarAutoHide()
-        updatePrefs({ it.copy(maxPageWidth = width) }, { it.setMaxPageWidth(width) },
-            bookOverride = { o -> o.copy(maxPageWidth = width) }, reflow = true)
-    }
 
     fun setRemoveEmptyLines(enabled: Boolean) {
         resetToolbarAutoHide()
