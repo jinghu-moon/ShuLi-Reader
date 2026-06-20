@@ -163,6 +163,8 @@ fun TypeAndFontTab(
                 bottomLabel = m.boxMarginBottom,
                 leftLabel = m.boxMarginLeft,
                 rightLabel = m.boxMarginRight,
+                collapsible = true,
+                initiallyExpanded = true,
             )
         }
 
