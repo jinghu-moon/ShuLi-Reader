@@ -964,6 +964,14 @@ class ReaderViewModel(
         }
     }
 
+    /** 清空编辑（放弃修改） */
+    fun clearEdits() {
+        viewModelScope.launch {
+            editStore.clear()
+            _uiState.value = _uiState.value.copy(hasUnsavedEdits = false)
+        }
+    }
+
     /** 保存编辑到文件 */
     private fun saveEdits() {
         val file = currentBookFilePath?.let { java.io.File(it) } ?: return

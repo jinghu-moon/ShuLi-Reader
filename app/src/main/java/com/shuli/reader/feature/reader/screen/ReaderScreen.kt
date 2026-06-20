@@ -39,9 +39,11 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -164,6 +166,36 @@ fun ReaderScreen(
             // 离开阅读页时恢复系统栏
             controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         }
+    }
+
+    // 退出保护对话框状态
+    var showExitDialog by remember { mutableStateOf(false) }
+
+    // 退出保护对话框
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text("未保存的修改") },
+            text = { Text("有未保存的编辑，确定要退出吗？") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showExitDialog = false
+                    dispatch(ReaderIntent.SaveEdits)
+                    onBackClick()
+                }) {
+                    Text("保存并退出")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showExitDialog = false
+                    viewModel.clearEdits()
+                    onBackClick()
+                }) {
+                    Text("放弃修改", color = MaterialTheme.colorScheme.error)
+                }
+            },
+        )
     }
 
     // 内层返回：选区 > 各浮层 > 工具栏，依次回退
