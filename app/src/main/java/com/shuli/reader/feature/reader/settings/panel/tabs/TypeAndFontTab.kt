@@ -151,16 +151,6 @@ fun TypeAndFontTab(
                 formatValue = { "%.2f".format(it) },
                 testTagPrefix = "Slider_LetterSpacing",
             )
-            InkStepperSlider(
-                value = prefs.maxPageWidth,
-                onValueChange = { onSettingChanged("max_page_width", it) },
-                valueRange = 0f..900f,
-                step = 50f,
-                label = strings.maxPageWidthLabel,
-                sublabel = strings.maxPageWidthUnlimited,
-                formatValue = { if (it <= 0f) strings.maxPageWidthUnlimitedShort else "${it.toInt()}" },
-                testTagPrefix = "Slider_MaxPageWidth",
-            )
             BoxMarginSection(
                 title = m.bodyBoxLabel,
                 insets = prefs.bodyBox,
