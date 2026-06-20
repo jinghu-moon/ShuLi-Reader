@@ -32,4 +32,10 @@ interface BookChapterDao {
 
     @Query("SELECT COUNT(*) FROM book_chapters WHERE bookId = :bookId")
     suspend fun countChapters(bookId: Long): Int
+
+    /**
+     * 批量更新章节字节偏移（用于编辑保存后）
+     */
+    @Query("UPDATE book_chapters SET byteStart = byteStart + :byteDelta, byteEnd = byteEnd + :byteDelta WHERE bookId = :bookId AND chapterIndex >= :fromChapterIndex")
+    suspend fun shiftByteOffsets(bookId: Long, fromChapterIndex: Int, byteDelta: Long)
 }
