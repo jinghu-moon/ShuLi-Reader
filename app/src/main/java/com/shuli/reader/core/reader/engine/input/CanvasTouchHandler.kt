@@ -142,7 +142,7 @@ class CanvasTouchHandler(context: Context) {
             return true
         }
 
-        // 处理文本选区手势
+        // 处理文本选区手势（长按选词后拦截后续事件）
         if (isTextSelectionGesture) {
             if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
                 isTextSelectionGesture = false
@@ -160,12 +160,8 @@ class CanvasTouchHandler(context: Context) {
                 touchDownX = event.x
                 touchDownY = event.y
                 touchMoved = false
-
-                val isEdge = event.x <= w * edgeWidthPercent || event.x >= w * (1f - edgeWidthPercent)
-                if (isEdge && delegate != null) {
-                    delegate.onTouch(event)
-                    return true
-                }
+                // 所有按下事件都先走 GestureDetector，让长按有机会触发
+                // 即使在边缘区域，也不立即发送给翻页 delegate
                 gestureDetector.onTouchEvent(event)
                 return true
             }
@@ -181,6 +177,7 @@ class CanvasTouchHandler(context: Context) {
                 }
 
                 if (touchMoved) {
+                    // 手指移动超过阈值：交给翻页 delegate 处理拖拽翻页
                     val isEdgeStart = touchDownX <= w * edgeWidthPercent || touchDownX >= w * (1f - edgeWidthPercent)
                     if (isEdgeStart && delegate != null) {
                         delegate.onTouch(event)
@@ -192,29 +189,21 @@ class CanvasTouchHandler(context: Context) {
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                val isEdgeStart = touchDownX <= w * edgeWidthPercent || touchDownX >= w * (1f - edgeWidthPercent)
                 val wasMoved = touchMoved
                 touchMoved = false
 
+                // 如果是边缘拖拽翻页（已交给 delegate），把 UP 也交给 delegate 完成翻页
+                val isEdgeStart = touchDownX <= w * edgeWidthPercent || touchDownX >= w * (1f - edgeWidthPercent)
                 if (wasMoved && isEdgeStart && delegate != null) {
                     delegate.onTouch(event)
                     return true
                 }
 
+                // 所有非拖拽事件交给 GestureDetector 处理
+                // GestureDetector 自动区分：
+                //   长按 → onLongPress → 文本选择
+                //   短按 → onSingleTapUp → 区域手势（边缘区域默认翻页）
                 gestureDetector.onTouchEvent(event)
-
-                if (!wasMoved && isEdgeStart && cb.isEdgeTurnPageEnabled()) {
-                    val isCenter = touchDownX > w * edgeWidthPercent && touchDownX < w * (1f - edgeWidthPercent) &&
-                        touchDownY > h / 3f && touchDownY < h * 2f / 3f
-                    if (!isCenter) {
-                        if (touchDownX <= w * edgeWidthPercent) {
-                            delegate?.startPrev() ?: cb.onPageChanged(PageDelegate.Direction.PREV)
-                        } else {
-                            delegate?.startNext() ?: cb.onPageChanged(PageDelegate.Direction.NEXT)
-                        }
-                        return true
-                    }
-                }
                 return true
             }
         }

@@ -110,6 +110,9 @@ android {
 }
 
 dependencies {
+    // MDX/MDD 词典解析库
+    implementation(project(":mdict"))
+
     // AndroidX Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

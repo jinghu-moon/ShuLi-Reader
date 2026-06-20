@@ -5,6 +5,7 @@ import com.shuli.reader.core.dictionary.model.DictEntry
 import com.shuli.reader.core.dictionary.model.DictFormat
 import com.shuli.reader.core.database.dao.DictMetaDao
 import com.shuli.reader.core.database.entity.DictMetaEntity
+import com.shuli.reader.mdict.MdictParser
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -85,41 +86,19 @@ class DictLookupEngine(
                 stardict
             }
             "mdx" -> {
-                // MDX 支持已在 mdict 模块实现
-                // MdictParser.open(file: File, cacheDir: File? = null): MdictParser
-                loadMdxParser(entity.filePath, entity.dictKey)
+                // MDX 支持：直接调用 mdict 模块的 MdictParser
+                try {
+                    MdictParser.open(java.io.File(entity.filePath))
+                } catch (e: Exception) {
+                    android.util.Log.w("DictLookupEngine", "Failed to load MDX: ${entity.dictKey}", e)
+                    null
+                }
             }
             else -> null
         }
 
         if (parser != null) {
             parsers[entity.dictKey] = parser
-        }
-    }
-
-    /**
-     * 通过反射加载 MDX 词典
-     *
-     * MdictParser.open 是普通函数（非 suspend），签名：
-     * fun open(file: File, cacheDir: File? = null): MdictParser
-     */
-    private fun loadMdxParser(filePath: String, dictKey: String): Any? {
-        return try {
-            val mdictClass = Class.forName("com.shuli.reader.mdict.MdictParser")
-            val companionField = mdictClass.getDeclaredField("Companion")
-            val companion = companionField.get(null)
-            val companionClass = companion.javaClass
-
-            // open(file: File, cacheDir: File?)
-            val openMethod = companionClass.getMethod(
-                "open",
-                java.io.File::class.java,
-                java.io.File::class.java,
-            )
-            openMethod.invoke(companion, java.io.File(filePath), null)
-        } catch (e: Exception) {
-            android.util.Log.w("DictLookupEngine", "Failed to load MDX: $dictKey", e)
-            null
         }
     }
 
@@ -291,38 +270,18 @@ class DictLookupEngine(
     private fun lookupInParser(parser: Any, word: String): DictEntry? {
         return when (parser) {
             is StardictParser -> parser.lookup(word)
-            else -> {
-                // MDX 通过反射调用
-                try {
-                    // MdictParser.lookup(word: String): MdxEntry?
-                    val lookupMethod = parser.javaClass.getMethod("lookup", String::class.java)
-                    val mdxEntry = lookupMethod.invoke(parser, word)
-
-                    if (mdxEntry != null) {
-                        // MdictParser.readDefinition(entry: MdxEntry, depth: Int = 0): String
-                        // Kotlin 默认参数不生成重载，需要显式传入所有参数
-                        val readDefMethod = parser.javaClass.getMethod(
-                            "readDefinition",
-                            mdxEntry.javaClass,
-                            Int::class.java,
-                        )
-                        val definition = readDefMethod.invoke(parser, mdxEntry, 0) as? String ?: ""
-
-                        DictEntry(
-                            word = word,
-                            definition = definition,
-                            dictKey = "",
-                            dictName = "",
-                            definitionType = if (definition.contains("<") && definition.contains(">")) DefinitionType.HTML else DefinitionType.TEXT,
-                        )
-                    } else {
-                        null
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.w("DictLookupEngine", "MDX lookup failed for: $word", e)
-                    null
-                }
+            is MdictParser -> {
+                val mdxEntry = parser.lookup(word) ?: return null
+                val definition = parser.readDefinition(mdxEntry)
+                DictEntry(
+                    word = word,
+                    definition = definition,
+                    dictKey = "",
+                    dictName = "",
+                    definitionType = if (definition.contains("<") && definition.contains(">")) DefinitionType.HTML else DefinitionType.TEXT,
+                )
             }
+            else -> null
         }
     }
 
@@ -336,17 +295,8 @@ class DictLookupEngine(
             for ((_, parser) in parsers) {
                 val words = when (parser) {
                     is StardictParser -> parser.searchByPrefix(prefix, limit)
-                    else -> {
-                        try {
-                            val method = parser.javaClass.getMethod("prefixRange", String::class.java, Int::class.java)
-                            val entries = method.invoke(parser, prefix, limit) as? List<*>
-                            entries?.mapNotNull { entry ->
-                                entry?.javaClass?.getMethod("getWord")?.invoke(entry) as? String
-                            } ?: emptyList()
-                        } catch (e: Exception) {
-                            emptyList()
-                        }
-                    }
+                    is MdictParser -> parser.prefixRange(prefix, limit).map { it.keyword }
+                    else -> emptyList()
                 }
                 results.addAll(words)
             }

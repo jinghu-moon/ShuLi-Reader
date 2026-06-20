@@ -105,6 +105,15 @@ class ReaderCanvasView @JvmOverloads constructor(
         isAntiAlias = true
     }
 
+    /**
+     * 更新选区和把手颜色（使用主题色）
+     */
+    fun updateSelectionColors(accentColor: Int) {
+        selectionPaint.color = (accentColor and 0x00FFFFFF) or 0x33000000  // 20% 透明度
+        selectionHandlePaint.color = accentColor
+        selectionHandleStemPaint.color = accentColor
+    }
+
     private val selectionMagnifierFillPaint = Paint().apply {
         style = Paint.Style.FILL
         isAntiAlias = true
@@ -695,7 +704,11 @@ class ReaderCanvasView @JvmOverloads constructor(
     internal fun clearSelection() = visualParams.clearSelection()
     internal fun setNoteRanges(ranges: List<Pair<SelectionRange, String?>>) = visualParams.setNoteRanges(ranges)
 
-    internal fun setThemeColors(colors: ThemeColors) = visualParams.setThemeColors(colors)
+    internal fun setThemeColors(colors: ThemeColors) {
+        visualParams.setThemeColors(colors)
+        // 更新选区和把手颜色为主题色
+        updateSelectionColors(colors.accentColor)
+    }
 
     internal fun setEdgeTurnPageEnabled(enabled: Boolean) = visualParams.setEdgeTurnPageEnabled(enabled)
     internal fun setEdgeWidthPercent(percent: Float) = visualParams.setEdgeWidthPercent(percent)

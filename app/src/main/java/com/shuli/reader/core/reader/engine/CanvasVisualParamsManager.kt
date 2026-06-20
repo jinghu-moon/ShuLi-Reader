@@ -249,7 +249,9 @@ internal class CanvasVisualParamsManager(
         headerPaint.color = headerColor
         footerPaint.color = footerColor
         progressPaint.color = progressColor
-        selectionPaint.color = SelectionVisualStyle.HIGHLIGHT_COLOR
+
+        // 选区颜色使用主题色（accent）的半透明版本
+        selectionPaint.color = (progressColor and 0x00FFFFFF) or 0x33000000
 
         onInvalidate()
     }
