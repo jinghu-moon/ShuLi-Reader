@@ -48,15 +48,18 @@ class BookContentRepository(
      * 获取章节正文。
      * EPUB: 通过 spineIndex 解析 XHTML
      * TXT: 从 DB 读取字节偏移，按需读取
+     *
+     * @param editStore 编辑存储（可选），如果不为空则叠加 Delta
      */
     suspend fun getChapterText(
         file: File,
         chapterIndex: Int,
         chapters: List<com.shuli.reader.core.parser.model.Chapter>,
         bookId: Long = 0L,
+        editStore: com.shuli.reader.feature.reader.editor.EditStore? = null,
     ): String = withContext(Dispatchers.IO) {
         val chapter = chapters.getOrNull(chapterIndex) ?: return@withContext ""
-        return@withContext if (file.name.endsWith(".epub", ignoreCase = true)) {
+        val rawText = if (file.name.endsWith(".epub", ignoreCase = true)) {
             epubParser.parseChapter(file, chapter.spineIndex)
         } else {
             // TXT: 从 DB 单条查询字节偏移，按需读取
@@ -72,6 +75,20 @@ class BookContentRepository(
             val window = byteWindowReader.loadRange(file, chapter.byteStart, chapter.byteEnd)
             streamDecoder.decode(window, charset).text
         }
+
+        // 叠加编辑 Delta
+        if (editStore != null) {
+            val deltas = editStore.getDeltasForChapter(chapterIndex)
+            if (deltas.isNotEmpty()) {
+                val sb = StringBuilder(rawText)
+                for (delta in deltas) {  // 已按 charStart 降序排列
+                    sb.replace(delta.charStart, delta.charEnd, delta.newText)
+                }
+                return@withContext sb.toString()
+            }
+        }
+
+        return@withContext rawText
     }
 
     /**
