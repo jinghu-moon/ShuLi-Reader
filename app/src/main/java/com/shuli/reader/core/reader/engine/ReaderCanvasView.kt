@@ -586,7 +586,8 @@ class ReaderCanvasView @JvmOverloads constructor(
         if (this.colorTemperature != sh.colorTemperature) {
             this.colorTemperature = sh.colorTemperature
         }
-        visualParams.setThemeColors(v.themeColors)
+        // 更新主题颜色（包括选区和把手颜色）
+        setThemeColors(v.themeColors)
         if (pageDelegate != null) {
             setPageDelegate(pageDelegate)
         }
