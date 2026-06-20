@@ -11,6 +11,7 @@ import com.shuli.reader.core.database.dao.BookReaderPrefsDao
 import com.shuli.reader.core.database.dao.ChapterReadingStatsDao
 import com.shuli.reader.core.database.dao.DictHistoryDao
 import com.shuli.reader.core.database.dao.DictMetaDao
+import com.shuli.reader.core.database.dao.EditDeltaDao
 import com.shuli.reader.core.database.dao.NoteDao
 import com.shuli.reader.core.database.dao.ReadingHistoryDao
 import com.shuli.reader.core.database.dao.ReadingProgressDao
@@ -29,6 +30,7 @@ import com.shuli.reader.core.database.entity.BookTagCrossRef
 import com.shuli.reader.core.database.entity.BookmarkEntity
 import com.shuli.reader.core.database.entity.DictHistoryEntity
 import com.shuli.reader.core.database.entity.DictMetaEntity
+import com.shuli.reader.core.database.entity.EditDeltaEntity
 import com.shuli.reader.core.database.entity.NoteEntity
 import com.shuli.reader.core.database.entity.ReaderPresetEntity
 import com.shuli.reader.core.database.entity.ReadingHistoryEntity
@@ -59,8 +61,9 @@ import com.shuli.reader.core.database.entity.WordBookEntity
         DictMetaEntity::class,
         DictHistoryEntity::class,
         WordBookEntity::class,
+        EditDeltaEntity::class,
     ],
-    version = 25,
+    version = 26,
     exportSchema = true,
 )
 abstract class ShuLiDatabase : RoomDatabase() {
@@ -79,6 +82,7 @@ abstract class ShuLiDatabase : RoomDatabase() {
     abstract fun dictMetaDao(): DictMetaDao
     abstract fun dictHistoryDao(): DictHistoryDao
     abstract fun wordBookDao(): WordBookDao
+    abstract fun editDeltaDao(): EditDeltaDao
 
     companion object {
         const val DATABASE_NAME = "shuli_database"
@@ -336,6 +340,25 @@ abstract class ShuLiDatabase : RoomDatabase() {
             }
         }
 
+        /** v26: 编辑补丁表（用于崩溃恢复） */
+        val MIGRATION_25_26 = object : Migration(25, 26) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE edit_delta (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        book_id INTEGER NOT NULL,
+                        chapter_index INTEGER NOT NULL,
+                        char_start INTEGER NOT NULL,
+                        char_end INTEGER NOT NULL,
+                        new_text TEXT NOT NULL,
+                        original_text TEXT NOT NULL DEFAULT '',
+                        timestamp INTEGER NOT NULL DEFAULT 0
+                    )
+                """)
+                database.execSQL("CREATE INDEX index_edit_delta_book_id ON edit_delta(book_id)")
+            }
+        }
+
         val ALL_MIGRATIONS = arrayOf(
             MIGRATION_16_17,
             MIGRATION_17_18,
@@ -346,6 +369,7 @@ abstract class ShuLiDatabase : RoomDatabase() {
             MIGRATION_22_23,
             MIGRATION_23_24,
             MIGRATION_24_25,
+            MIGRATION_25_26,
         )
     }
 }

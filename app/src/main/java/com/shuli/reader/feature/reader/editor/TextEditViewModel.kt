@@ -269,16 +269,18 @@ class TextEditViewModel(
         val s = _uiState.value
         val match = s.matches.getOrNull(s.currentMatchIndex) ?: return
 
-        editStore.addSingle(EditDelta(
-            chapterIndex = chapterIndex,
-            charStart = match.charStart,
-            charEnd = match.charEnd,
-            newText = s.replaceText,
-            originalText = s.findText,
-        ))
+        viewModelScope.launch {
+            editStore.addSingle(EditDelta(
+                chapterIndex = chapterIndex,
+                charStart = match.charStart,
+                charEnd = match.charEnd,
+                newText = s.replaceText,
+                originalText = s.findText,
+            ))
 
-        // 跳到下一个匹配
-        nextMatch()
+            // 跳到下一个匹配
+            nextMatch()
+        }
     }
 
     /** 全部替换（当前章节） */
@@ -286,31 +288,39 @@ class TextEditViewModel(
         val s = _uiState.value
         if (s.matches.isEmpty()) return
 
-        val batch = BatchEditDelta(
-            chapterIndex = chapterIndex,
-            findText = s.findText,
-            replaceText = s.replaceText,
-            ranges = s.matches.map { it.charStart..it.charEnd },
-            isRegex = s.isRegex,
-        )
+        viewModelScope.launch {
+            val batch = BatchEditDelta(
+                chapterIndex = chapterIndex,
+                findText = s.findText,
+                replaceText = s.replaceText,
+                ranges = s.matches.map { it.charStart..it.charEnd },
+                isRegex = s.isRegex,
+            )
 
-        editStore.addBatch(batch)
+            editStore.addBatch(batch)
 
-        _uiState.update { it.copy(matches = emptyList(), currentMatchIndex = -1) }
+            _uiState.update { it.copy(matches = emptyList(), currentMatchIndex = -1) }
+        }
     }
 
     /** 撤销 */
     fun undo() {
-        editStore.undo()
+        viewModelScope.launch {
+            editStore.undo()
+        }
     }
 
     /** 重做 */
     fun redo() {
-        editStore.redo()
+        viewModelScope.launch {
+            editStore.redo()
+        }
     }
 
     /** 清空编辑 */
     fun clearEdits() {
-        editStore.clear()
+        viewModelScope.launch {
+            editStore.clear()
+        }
     }
 }

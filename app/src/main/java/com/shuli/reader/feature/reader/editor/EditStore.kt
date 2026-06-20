@@ -1,5 +1,7 @@
 package com.shuli.reader.feature.reader.editor
 
+import com.shuli.reader.core.database.dao.EditDeltaDao
+import com.shuli.reader.core.database.entity.EditDeltaEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -7,10 +9,15 @@ import kotlinx.coroutines.flow.asStateFlow
 /**
  * 编辑补丁存储。
  *
- * 内存中维护，支持撤销/重做。
- * 保存到文件后清空。
+ * 内存 + DB 双层存储：
+ * - 内存：快速访问（撤销/重做/应用）
+ * - Room edit_delta 表：防崩溃丢失
+ *
+ * 保存到文件后清空内存和 DB。
  */
-class EditStore {
+class EditStore(
+    private val editDeltaDao: EditDeltaDao? = null,
+) {
 
     /** 补丁类型（单个或批量） */
     sealed interface Patch {
@@ -55,21 +62,48 @@ class EditStore {
     }
 
     /** 添加单个编辑 */
-    fun addSingle(delta: EditDelta) {
+    suspend fun addSingle(delta: EditDelta) {
         val patch = SinglePatch(delta)
         _patches.add(patch)
         undoStack.addLast(patch)
         redoStack.clear()
         updateState()
+
+        // 持久化到 DB
+        editDeltaDao?.insert(
+            EditDeltaEntity(
+                bookId = 0, // TODO: 传入实际 bookId
+                chapterIndex = delta.chapterIndex,
+                charStart = delta.charStart,
+                charEnd = delta.charEnd,
+                newText = delta.newText,
+                originalText = delta.originalText,
+                timestamp = delta.timestamp,
+            )
+        )
     }
 
     /** 添加批量编辑 */
-    fun addBatch(batch: BatchEditDelta) {
+    suspend fun addBatch(batch: BatchEditDelta) {
         val patch = BatchPatch(batch)
         _patches.add(patch)
         undoStack.addLast(patch)
         redoStack.clear()
         updateState()
+
+        // 持久化到 DB
+        val entities = batch.expand().map { delta ->
+            EditDeltaEntity(
+                bookId = 0, // TODO: 传入实际 bookId
+                chapterIndex = delta.chapterIndex,
+                charStart = delta.charStart,
+                charEnd = delta.charEnd,
+                newText = delta.newText,
+                originalText = delta.originalText,
+                timestamp = delta.timestamp,
+            )
+        }
+        editDeltaDao?.insertAll(entities)
     }
 
     /** 获取指定章节的所有 Delta（展开批量，按 charStart 降序） */
@@ -98,21 +132,53 @@ class EditStore {
             }
 
     /** 撤销最后一条编辑 */
-    fun undo(): Patch? {
+    suspend fun undo(): Patch? {
         val patch = undoStack.removeLastOrNull() ?: return null
         _patches.remove(patch)
         redoStack.addLast(patch)
         updateState()
+
+        // 同步到 DB
+        syncToDb()
         return patch
     }
 
     /** 重做 */
-    fun redo(): Patch? {
+    suspend fun redo(): Patch? {
         val patch = redoStack.removeLastOrNull() ?: return null
         _patches.add(patch)
         undoStack.addLast(patch)
         updateState()
+
+        // 同步到 DB
+        syncToDb()
         return patch
+    }
+
+    /** 同步当前状态到 DB */
+    private suspend fun syncToDb() {
+        editDeltaDao?.let { dao ->
+            dao.deleteAll()
+            val entities = _patches.flatMap { patch ->
+                when (patch) {
+                    is SinglePatch -> listOf(patch.delta)
+                    is BatchPatch -> patch.batch.expand()
+                }
+            }.map { delta ->
+                EditDeltaEntity(
+                    bookId = 0, // TODO: 传入实际 bookId
+                    chapterIndex = delta.chapterIndex,
+                    charStart = delta.charStart,
+                    charEnd = delta.charEnd,
+                    newText = delta.newText,
+                    originalText = delta.originalText,
+                    timestamp = delta.timestamp,
+                )
+            }
+            if (entities.isNotEmpty()) {
+                dao.insertAll(entities)
+            }
+        }
     }
 
     val canUndo: Boolean get() = undoStack.isNotEmpty()
@@ -120,10 +186,40 @@ class EditStore {
     val isEmpty: Boolean get() = _patches.isEmpty()
     val isDirty: Boolean get() = _patches.isNotEmpty()
 
-    fun clear() {
+    suspend fun clear() {
         _patches.clear()
         undoStack.clear()
         redoStack.clear()
         updateState()
+
+        // 清空 DB
+        editDeltaDao?.deleteAll()
+    }
+
+    /** 从 DB 恢复编辑（崩溃恢复） */
+    suspend fun restoreFromDb(bookId: Long) {
+        editDeltaDao?.let { dao ->
+            val entities = dao.getByBookId(bookId)
+            if (entities.isNotEmpty()) {
+                val patches = entities.map { entity ->
+                    SinglePatch(
+                        EditDelta(
+                            chapterIndex = entity.chapterIndex,
+                            charStart = entity.charStart,
+                            charEnd = entity.charEnd,
+                            newText = entity.newText,
+                            originalText = entity.originalText,
+                            timestamp = entity.timestamp,
+                        )
+                    )
+                }
+                _patches.clear()
+                _patches.addAll(patches)
+                undoStack.clear()
+                undoStack.addAll(patches)
+                redoStack.clear()
+                updateState()
+            }
+        }
     }
 }

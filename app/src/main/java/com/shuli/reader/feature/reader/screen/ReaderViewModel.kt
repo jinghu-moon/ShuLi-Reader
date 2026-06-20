@@ -903,21 +903,23 @@ class ReaderViewModel(
         val range = _uiState.value.selectedRange ?: return
         val state = _uiState.value
 
-        editStore.addSingle(com.shuli.reader.feature.reader.editor.EditDelta(
-            chapterIndex = state.chapterIndex,
-            charStart = range.startPos,
-            charEnd = range.endPos,
-            newText = newText,
-            originalText = range.selectedText ?: "",
-        ))
+        viewModelScope.launch {
+            editStore.addSingle(com.shuli.reader.feature.reader.editor.EditDelta(
+                chapterIndex = state.chapterIndex,
+                charStart = range.startPos,
+                charEnd = range.endPos,
+                newText = newText,
+                originalText = range.selectedText ?: "",
+            ))
 
-        _uiState.value = state.copy(
-            hasUnsavedEdits = true,
-            selectedRange = null,
-        )
+            _uiState.value = state.copy(
+                hasUnsavedEdits = true,
+                selectedRange = null,
+            )
 
-        // 触发重新分页
-        reflowCurrentChapter(_uiState.value.readerPreferences)
+            // 触发重新分页
+            reflowCurrentChapter(_uiState.value.readerPreferences)
+        }
     }
 
     /** 查找下一个 */
@@ -946,16 +948,20 @@ class ReaderViewModel(
 
     /** 撤销编辑 */
     private fun undoEdit() {
-        editStore.undo()
-        _uiState.value = _uiState.value.copy(hasUnsavedEdits = editStore.isDirty)
-        reflowCurrentChapter(_uiState.value.readerPreferences)
+        viewModelScope.launch {
+            editStore.undo()
+            _uiState.value = _uiState.value.copy(hasUnsavedEdits = editStore.isDirty)
+            reflowCurrentChapter(_uiState.value.readerPreferences)
+        }
     }
 
     /** 重做编辑 */
     private fun redoEdit() {
-        editStore.redo()
-        _uiState.value = _uiState.value.copy(hasUnsavedEdits = editStore.isDirty)
-        reflowCurrentChapter(_uiState.value.readerPreferences)
+        viewModelScope.launch {
+            editStore.redo()
+            _uiState.value = _uiState.value.copy(hasUnsavedEdits = editStore.isDirty)
+            reflowCurrentChapter(_uiState.value.readerPreferences)
+        }
     }
 
     /** 保存编辑到文件 */
