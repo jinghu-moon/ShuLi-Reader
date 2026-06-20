@@ -241,6 +241,10 @@ class ReaderCanvasView @JvmOverloads constructor(
             override fun onCenterClicked() {
                 this@ReaderCanvasView.onCenterClicked?.invoke()
             }
+            override fun onSelectionCleared() {
+                // 选区被清除，通知上层
+                this@ReaderCanvasView.onTextCleared?.invoke()
+            }
             override fun onLongPress(x: Float, y: Float) {
                 pageDelegate?.abort()
                 val page = currentPage ?: return
@@ -250,7 +254,14 @@ class ReaderCanvasView @JvmOverloads constructor(
                     beginTextSelection()
                     renderStateStore.getPageState(page.toKey()).invalidateContent()
                     invalidate()
-                    onTextSelected?.invoke(range, x, y)
+
+                    // 计算选区起始和结束位置的屏幕坐标
+                    val handleRects = textSelection.getHandleRects(page, width.toFloat())
+                    val startX = handleRects?.first?.centerX() ?: x
+                    val endX = handleRects?.second?.centerX() ?: x
+                    val screenY = handleRects?.second?.bottom ?: y
+
+                    onTextSelected?.invoke(range, startX, endX, screenY)
                 }
             }
             override fun onSelectionHandleDragStart(handleType: CanvasTextSelection.HandleType) {
@@ -296,8 +307,11 @@ class ReaderCanvasView @JvmOverloads constructor(
     var canTurnPrev: (() -> Boolean)? = null
     var canTurnNext: (() -> Boolean)? = null
 
-    // 文本选区回调
-    var onTextSelected: ((SelectionRange, Float, Float) -> Unit)? = null
+    // 文本选区回调 (range, startX, endX, screenY)
+    var onTextSelected: ((SelectionRange, Float, Float, Float) -> Unit)? = null
+
+    // 选区清除回调
+    var onTextCleared: (() -> Unit)? = null
 
     // 选区拖动开始回调（用于隐藏菜单）
     var onSelectionDragStart: (() -> Unit)? = null

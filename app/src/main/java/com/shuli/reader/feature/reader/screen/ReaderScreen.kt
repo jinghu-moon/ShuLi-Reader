@@ -228,13 +228,22 @@ fun ReaderScreen(
                                     else -> { /* NONE: no-op */ }
                                 }
                             }
-                            onTextSelected = { range, screenX, screenY ->
-                                viewModel.navigationCoordinator.selectText(range, screenY = screenY, screenX = screenX)
+                            onTextSelected = { range, startX, endX, screenY ->
+                                viewModel.navigationCoordinator.selectText(
+                                    range,
+                                    screenY = screenY,
+                                    screenX = startX,
+                                    endScreenX = endX,
+                                )
                                 // 防遮挡：下半屏选词时记录滚动偏移
                                 // screenY 是屏幕坐标，大于 0.45 屏幕高度时需要上滚
                                 if (screenY > 0.45f) {
                                     viewModel.setSelectionScrollOffset(screenY - 0.45f)
                                 }
+                            }
+                            onTextCleared = {
+                                // 点击选区外部，清除选区
+                                dispatch(ReaderIntent.ClearSelection)
                             }
                             onSelectionDragStart = {
                                 // 拖动开始，隐藏菜单
@@ -349,19 +358,28 @@ fun ReaderScreen(
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
 
-                // 选区浮动操作菜单（浮动在选区上方或下方）
+                // 选区浮动操作菜单（浮动在选区上方或下方，小三角指向选区中间）
                 uiState.selectedRange?.let { range ->
                     val density = LocalDensity.current
-                    val selX = uiState.selectionScreenX
+                    // 选区的起始和结束 X 坐标
+                    val selStartX = uiState.selectionScreenX
+                    val selEndX = uiState.selectionEndScreenX
+                    // 选区中间 X 坐标（小三角指向位置）
+                    val selCenterX = (selStartX + selEndX) / 2f
+                    // 选区 Y 坐标（最后一行）
                     val selY = uiState.selectionScreenY
+
                     val menuWidthPx = with(density) { SelectionMenuWidth.roundToPx() }
                     val menuHeightPx = with(density) { SelectionMenuHeight.roundToPx() }
                     val handleGapPx = with(density) { SelectionMenuHandleGap.roundToPx() }
                     val screenWidth = uiState.currentPage?.layout?.pageWidth ?: 0f
                     val screenHeight = uiState.currentPage?.layout?.pageHeight ?: 0f
+
+                    // 判断菜单显示在选区上方还是下方
                     val preferBelow = screenHeight <= 0f ||
                         selY + handleGapPx + menuHeightPx <= screenHeight - handleGapPx ||
                         selY < menuHeightPx + handleGapPx
+
                     val popupOffsetY = if (preferBelow) {
                         selY + handleGapPx
                     } else {
@@ -373,13 +391,16 @@ fun ReaderScreen(
                     } else {
                         popupOffsetY
                     }
-                    val popupOffsetX = if (screenWidth > 0f && selX > 0f) {
+
+                    // 水平定位：让菜单中心对齐选区中心
+                    val popupOffsetX = if (screenWidth > 0f && selCenterX > 0f) {
                         val minCenterX = menuWidthPx / 2f + handleGapPx
                         val maxCenterX = (screenWidth - menuWidthPx / 2f - handleGapPx).coerceAtLeast(minCenterX)
-                        selX.coerceIn(minCenterX, maxCenterX) - screenWidth / 2f
+                        selCenterX.coerceIn(minCenterX, maxCenterX) - screenWidth / 2f
                     } else {
                         0f
                     }
+
                     androidx.compose.ui.window.Popup(
                         alignment = Alignment.TopCenter,
                         offset = androidx.compose.ui.unit.IntOffset(popupOffsetX.toInt(), clampedOffsetY.toInt()),

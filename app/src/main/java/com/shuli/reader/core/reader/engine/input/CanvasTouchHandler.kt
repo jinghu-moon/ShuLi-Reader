@@ -46,6 +46,9 @@ class CanvasTouchHandler(context: Context) {
 
         /** 选区把手拖动结束 */
         fun onSelectionHandleDragEnd() {}
+
+        /** 选区被清除 */
+        fun onSelectionCleared() {}
     }
 
     /** 手势配置快捷访问 */
@@ -113,6 +116,7 @@ class CanvasTouchHandler(context: Context) {
             MotionEvent.ACTION_DOWN -> {
                 val textSelection = cb.getTextSelection()
                 if (textSelection != null && textSelection.selectedRange != null) {
+                    // 检查是否点击了把手
                     val hitHandle = textSelection.hitTestHandle(event.x, event.y)
                     if (hitHandle != null) {
                         // 开始拖动把手
@@ -121,6 +125,17 @@ class CanvasTouchHandler(context: Context) {
                         cb.onSelectionHandleDragStart(hitHandle)
                         return true
                     }
+
+                    // 检查是否点击了选区内部
+                    if (textSelection.isPointInSelection(event.x, event.y)) {
+                        // 点击选区内部，不做任何操作（等待后续手势）
+                        return false
+                    }
+
+                    // 点击选区外部，清除选区
+                    textSelection.clearSelection()
+                    cb.onSelectionCleared()
+                    return false
                 }
             }
         }

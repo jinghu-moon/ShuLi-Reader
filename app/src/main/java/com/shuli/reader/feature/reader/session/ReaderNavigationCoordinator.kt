@@ -230,8 +230,20 @@ internal class ReaderNavigationCoordinator(
 
     // ── 文本选择 ──────────────────────────────────────────────
 
-    fun selectText(range: SelectionRange, screenY: Float = 0f, screenX: Float = 0f) {
-        uiState.update { it.copy(selectedRange = range, selectionScreenX = screenX, selectionScreenY = screenY) }
+    fun selectText(
+        range: SelectionRange,
+        screenY: Float = 0f,
+        screenX: Float = 0f,
+        endScreenX: Float = 0f,
+    ) {
+        uiState.update {
+            it.copy(
+                selectedRange = range,
+                selectionScreenX = screenX,
+                selectionScreenY = screenY,
+                selectionEndScreenX = endScreenX,
+            )
+        }
     }
 
     fun clearTextSelection() {
