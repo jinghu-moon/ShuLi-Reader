@@ -112,6 +112,8 @@ class ReaderCanvasView @JvmOverloads constructor(
         selectionPaint.color = (accentColor and 0x00FFFFFF) or 0x33000000  // 20% 透明度
         selectionHandlePaint.color = accentColor
         selectionHandleStemPaint.color = accentColor
+        // 放大镜边框也使用主题色
+        selectionMagnifierBorderPaint.color = (accentColor and 0x00FFFFFF) or 0x40000000  // 25% 透明度
     }
 
     private val selectionMagnifierFillPaint = Paint().apply {
@@ -262,11 +264,13 @@ class ReaderCanvasView @JvmOverloads constructor(
                     renderStateStore.getPageState(page.toKey()).invalidateContent()
                     invalidate()
 
-                    // 计算选区起始和结束位置的屏幕坐标
+                    // 计算选区最后一行的左右边界（小三角指向最后一行中间）
                     val handleRects = textSelection.getHandleRects(page, width.toFloat())
-                    val startX = handleRects?.first?.centerX() ?: x
-                    val endX = handleRects?.second?.centerX() ?: x
                     val screenY = handleRects?.second?.bottom ?: y
+                    // 获取最后一行选区的左右 X 边界
+                    val lastLineXRange = textSelection.getLastLineXRange(page, width.toFloat())
+                    val startX = lastLineXRange?.first ?: (handleRects?.first?.centerX() ?: x)
+                    val endX = lastLineXRange?.second ?: (handleRects?.second?.centerX() ?: x)
 
                     onTextSelected?.invoke(range, startX, endX, screenY)
                 }
@@ -292,11 +296,15 @@ class ReaderCanvasView @JvmOverloads constructor(
             override fun onSelectionHandleDragEnd() {
                 // 结束拖动把手，显示菜单
                 val range = textSelection.selectedRange
-                if (range != null) {
-                    val handlePos = textSelection.charToPixel(range.endPos - 1, currentPage!!)
-                    val screenX = handlePos?.x ?: 0f
-                    val screenY = handlePos?.y ?: 0f
-                    onSelectionDragEnd?.invoke(range, screenX, screenY)
+                val page = currentPage
+                if (range != null && page != null) {
+                    val handleRects = textSelection.getHandleRects(page, width.toFloat())
+                    val screenY = handleRects?.second?.bottom ?: 0f
+                    // 获取最后一行选区的左右 X 边界
+                    val lastLineXRange = textSelection.getLastLineXRange(page, width.toFloat())
+                    val startX = lastLineXRange?.first ?: (handleRects?.first?.centerX() ?: 0f)
+                    val endX = lastLineXRange?.second ?: (handleRects?.second?.centerX() ?: 0f)
+                    onSelectionDragEnd?.invoke(range, startX, endX, screenY)
                 }
             }
         }
@@ -323,8 +331,8 @@ class ReaderCanvasView @JvmOverloads constructor(
     // 选区拖动开始回调（用于隐藏菜单）
     var onSelectionDragStart: (() -> Unit)? = null
 
-    // 选区拖动结束回调（用于显示菜单）
-    var onSelectionDragEnd: ((SelectionRange, Float, Float) -> Unit)? = null
+    // 选区拖动结束回调（用于显示菜单）(range, startX, endX, screenY)
+    var onSelectionDragEnd: ((SelectionRange, Float, Float, Float) -> Unit)? = null
 
     // 中心区域点击回调
     var onCenterClicked: (() -> Unit)? = null

@@ -269,6 +269,48 @@ class CanvasTextSelection {
     }
 
     /**
+     * 获取选区最后一行的 X 范围（用于小三角指向最后一行中间）。
+     *
+     * - 单行选区：返回 (起始把手 X, 结束把手 X)
+     * - 跨行选区：返回 (最后一行行首 X, 结束把手 X)
+     *
+     * @return Pair<leftX, rightX>，如果没有选区返回 null
+     */
+    fun getLastLineXRange(page: TextPage, viewWidth: Float): Pair<Float, Float>? {
+        if (selectStart < 0 || selectEnd <= 0) return null
+
+        val bodyLeft = page.layout.body.left
+
+        // 找到起始位置所在的行
+        val startLine = page.lines.firstOrNull { line ->
+            selectStart >= line.startCharOffset && selectStart < line.endCharOffset
+        }
+        // 找到结束位置所在的行
+        val endCharIndex = selectEnd - 1
+        val endLine = page.lines.firstOrNull { line ->
+            endCharIndex >= line.startCharOffset && endCharIndex < line.endCharOffset
+        }
+
+        if (startLine == null || endLine == null) return null
+
+        val endX = bodyLeft + endLine.startXOffset + getCharXOffset(endLine, selectEnd)
+
+        // 判断是否跨行：起始行和结束行是否相同
+        val isSameLine = startLine === endLine ||
+            (startLine.startCharOffset == endLine.startCharOffset && startLine.endCharOffset == endLine.endCharOffset)
+
+        return if (isSameLine) {
+            // 单行选区：左边界 = 起始把手 X，右边界 = 结束把手 X
+            val startX = bodyLeft + startLine.startXOffset + getCharXOffset(startLine, selectStart)
+            Pair(startX, endX)
+        } else {
+            // 跨行选区：最后一行左边界 = 行首 X，右边界 = 结束把手 X
+            val lastLineLeftX = bodyLeft + endLine.startXOffset
+            Pair(lastLineLeftX, endX)
+        }
+    }
+
+    /**
      * 根据字符偏移计算屏幕像素坐标
      */
     fun charToPixel(charOffset: Int, page: TextPage): PointF? {

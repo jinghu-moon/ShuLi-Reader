@@ -250,9 +250,14 @@ fun ReaderScreen(
                                 // 拖动开始，隐藏菜单
                                 viewModel.navigationCoordinator.clearTextSelection()
                             }
-                            onSelectionDragEnd = { range, screenX, screenY ->
+                            onSelectionDragEnd = { range, startX, endX, screenY ->
                                 // 拖动结束，更新选区并显示菜单
-                                viewModel.navigationCoordinator.selectText(range, screenY = screenY, screenX = screenX)
+                                viewModel.navigationCoordinator.selectText(
+                                    range,
+                                    screenY = screenY,
+                                    screenX = startX,
+                                    endScreenX = endX,
+                                )
                             }
                             onCenterClicked = { dispatch(ReaderIntent.ToggleToolbar) }
                             onGestureAction = { action ->
