@@ -545,6 +545,18 @@ class ReaderViewModel(
             is ReaderIntent.DismissDictionary -> dismissDictionary()
             is ReaderIntent.AddToWordBook -> addToWordBook(intent.word)
 
+            // ── 文本编辑 ──
+            is ReaderIntent.OpenTextEdit -> openTextEdit()
+            is ReaderIntent.CloseTextEdit -> closeTextEdit()
+            is ReaderIntent.InlineEdit -> inlineEdit(intent.text)
+            is ReaderIntent.FindNext -> findNext()
+            is ReaderIntent.FindPrev -> findPrev()
+            is ReaderIntent.ReplaceCurrent -> replaceCurrent(intent.replacement)
+            is ReaderIntent.ReplaceAll -> replaceAll(intent.find, intent.replace, intent.isRegex)
+            is ReaderIntent.UndoEdit -> undoEdit()
+            is ReaderIntent.RedoEdit -> redoEdit()
+            is ReaderIntent.SaveEdits -> saveEdits()
+
             // ── 设置 ──
             is ReaderIntent.UpdateSetting -> dispatchSetting(intent.key, intent.value)
             is ReaderIntent.UpdateContinuousSetting -> dispatchContinuousSetting(
@@ -854,6 +866,136 @@ class ReaderViewModel(
                 )
             } catch (e: Exception) {
                 android.util.Log.w("ReaderVM", "addToWordBook failed", e)
+            }
+        }
+    }
+
+    // ── 文本编辑 ──────────────────────────────────────────
+
+    /** 编辑存储 */
+    private val editStore = com.shuli.reader.feature.reader.editor.EditStore()
+
+    /** 编辑 ViewModel（延迟初始化） */
+    private val textEditViewModel by lazy {
+        com.shuli.reader.feature.reader.editor.TextEditViewModel(editStore)
+    }
+
+    /** 编辑管理器 */
+    private val textEditManager by lazy {
+        com.shuli.reader.feature.reader.editor.TextEditManager(
+            context = appContext!!,
+            editStore = editStore,
+        )
+    }
+
+    /** 打开查找/替换面板 */
+    private fun openTextEdit() {
+        _uiState.value = _uiState.value.copy(showTextEdit = true)
+    }
+
+    /** 关闭查找/替换面板 */
+    private fun closeTextEdit() {
+        _uiState.value = _uiState.value.copy(showTextEdit = false)
+    }
+
+    /** 内联编辑当前选区 */
+    private fun inlineEdit(newText: String) {
+        val range = _uiState.value.selectedRange ?: return
+        val state = _uiState.value
+
+        editStore.addSingle(com.shuli.reader.feature.reader.editor.EditDelta(
+            chapterIndex = state.chapterIndex,
+            charStart = range.startPos,
+            charEnd = range.endPos,
+            newText = newText,
+            originalText = range.selectedText ?: "",
+        ))
+
+        _uiState.value = state.copy(
+            hasUnsavedEdits = true,
+            selectedRange = null,
+        )
+
+        // 触发重新分页
+        reflowCurrentChapter(_uiState.value.readerPreferences)
+    }
+
+    /** 查找下一个 */
+    private fun findNext() {
+        textEditViewModel.nextMatch()
+    }
+
+    /** 查找上一个 */
+    private fun findPrev() {
+        textEditViewModel.prevMatch()
+    }
+
+    /** 替换当前匹配 */
+    private fun replaceCurrent(replacement: String) {
+        val state = _uiState.value
+        textEditViewModel.replaceCurrent(state.chapterIndex, "")
+        _uiState.value = state.copy(hasUnsavedEdits = true)
+    }
+
+    /** 全部替换 */
+    private fun replaceAll(find: String, replace: String, isRegex: Boolean) {
+        val state = _uiState.value
+        textEditViewModel.replaceAllInChapter(state.chapterIndex, "")
+        _uiState.value = state.copy(hasUnsavedEdits = true)
+    }
+
+    /** 撤销编辑 */
+    private fun undoEdit() {
+        editStore.undo()
+        _uiState.value = _uiState.value.copy(hasUnsavedEdits = editStore.isDirty)
+        reflowCurrentChapter(_uiState.value.readerPreferences)
+    }
+
+    /** 重做编辑 */
+    private fun redoEdit() {
+        editStore.redo()
+        _uiState.value = _uiState.value.copy(hasUnsavedEdits = editStore.isDirty)
+        reflowCurrentChapter(_uiState.value.readerPreferences)
+    }
+
+    /** 保存编辑到文件 */
+    private fun saveEdits() {
+        val file = currentBookFilePath?.let { java.io.File(it) } ?: return
+        val state = _uiState.value
+        val content = loadedBookContent ?: return
+
+        viewModelScope.launch {
+            try {
+                // 获取 BookChapterDao（通过 appContainer）
+                val appContainer = appContext?.let {
+                    com.shuli.reader.core.ShuLiAppContainer(it)
+                }
+                val bookChapterDao = appContainer?.database?.bookChapterDao()
+
+                if (bookChapterDao == null) {
+                    android.util.Log.w("ReaderVM", "saveEdits: BookChapterDao not available")
+                    return@launch
+                }
+
+                textEditManager.saveToFile(
+                    file = file,
+                    charset = Charsets.UTF_8, // TODO: 从 BookContent 获取实际编码
+                    bookContent = content,
+                    bookChapterDao = bookChapterDao,
+                    getChapterText = { chapterIndex ->
+                        // 获取章节文本
+                        val chapter = content.chapters.getOrNull(chapterIndex)
+                        if (chapter != null) {
+                            content.content.substring(
+                                chapter.byteStart.toInt(),
+                                chapter.byteEnd.toInt().coerceAtMost(content.content.length)
+                            )
+                        } else ""
+                    },
+                )
+                _uiState.value = state.copy(hasUnsavedEdits = false)
+            } catch (e: Exception) {
+                android.util.Log.w("ReaderVM", "saveEdits failed", e)
             }
         }
     }

@@ -194,6 +194,7 @@ interface ReaderStrings {
     val copySelection: String
     val addBookmarkAction: String
     val addNoteAction: String
+    val editAction: String
     val previousChapter: String
     val nextChapter: String
     val customizeCover: String

@@ -434,6 +434,11 @@ fun ReaderScreen(
                                     dispatch(ReaderIntent.LookupWord(text, ""))
                                 }
                             },
+                            onEdit = {
+                                range.selectedText?.takeIf { it.isNotBlank() }?.let { text ->
+                                    dispatch(ReaderIntent.InlineEdit(text))
+                                }
+                            },
                         )
                     }
                 }
@@ -539,6 +544,7 @@ private fun ReaderSelectionActionBar(
     onBookmark: () -> Unit,
     onNote: () -> Unit,
     onLookup: () -> Unit,
+    onEdit: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalAppStrings.current
@@ -597,6 +603,12 @@ private fun ReaderSelectionActionBar(
                         contentColor = contentColor,
                         onClick = onNote,
                         modifier = Modifier.testTag(UiTestTags.READER_NOTE_SELECTION_BUTTON),
+                    )
+                    SelectionMenuAction(
+                        icon = Icons.Outlined.Search,
+                        label = strings.reader.editAction,
+                        contentColor = contentColor,
+                        onClick = onEdit,
                     )
                 }
             }

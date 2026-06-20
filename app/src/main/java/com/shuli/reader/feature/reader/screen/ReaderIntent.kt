@@ -101,6 +101,29 @@ sealed interface ReaderIntent {
     object NextSearchResult : ReaderIntent
     object PrevSearchResult : ReaderIntent
 
+    // ── 文本编辑 ──
+
+    /** 打开查找/替换面板 */
+    object OpenTextEdit : ReaderIntent
+    /** 关闭查找/替换面板 */
+    object CloseTextEdit : ReaderIntent
+    /** 内联编辑当前选区 */
+    data class InlineEdit(val text: String) : ReaderIntent
+    /** 查找下一个 */
+    object FindNext : ReaderIntent
+    /** 查找上一个 */
+    object FindPrev : ReaderIntent
+    /** 替换当前匹配 */
+    data class ReplaceCurrent(val replacement: String) : ReaderIntent
+    /** 全部替换 */
+    data class ReplaceAll(val find: String, val replace: String, val isRegex: Boolean) : ReaderIntent
+    /** 撤销编辑 */
+    object UndoEdit : ReaderIntent
+    /** 重做编辑 */
+    object RedoEdit : ReaderIntent
+    /** 保存编辑到文件 */
+    object SaveEdits : ReaderIntent
+
     // ── 页面拖动 ──
 
     object StartPageScrub : ReaderIntent

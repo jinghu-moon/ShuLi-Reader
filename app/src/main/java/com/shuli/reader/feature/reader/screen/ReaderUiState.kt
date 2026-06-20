@@ -97,6 +97,17 @@ data class ReaderUiState(
     val currentLookupWord: String = "",
     /** 查词上下文句子 */
     val dictionaryContextSentence: String = "",
+
+    // ── 文本编辑 ──
+
+    /** 是否显示查找/替换面板 */
+    val showTextEdit: Boolean = false,
+    /** 是否有未保存的编辑 */
+    val hasUnsavedEdits: Boolean = false,
+    /** 查找匹配结果 */
+    val findMatches: List<com.shuli.reader.feature.reader.editor.TextEditViewModel.FindMatch> = emptyList(),
+    /** 当前匹配索引 */
+    val currentMatchIndex: Int = -1,
     /** 选区滚动偏移（防遮挡用） */
     val selectionScrollOffset: Float = 0f,
     /** 前缀匹配建议（未找到时显示） */
