@@ -58,6 +58,7 @@ fun TextEditPanel(
     onToggleCaseSensitive: () -> Unit,
     onToggleReplace: () -> Unit,
     onToggleHistory: () -> Unit,
+    onToggleFindScope: () -> Unit,
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     onClose: () -> Unit,
@@ -108,10 +109,30 @@ fun TextEditPanel(
                     },
                 )
 
-                // 匹配计数
-                if (uiState.matches.isNotEmpty()) {
+                // 查找范围切换按钮
+                TextButton(onClick = onToggleFindScope) {
+                    Text(
+                        text = if (uiState.findScope == TextEditViewModel.FindScope.CHAPTER) "本章" else "全书",
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+
+                // 匹配计数或搜索进度
+                if (uiState.isSearching) {
+                    Text(
+                        text = uiState.searchProgress,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else if (uiState.matches.isNotEmpty()) {
                     Text(
                         text = "${uiState.currentMatchIndex + 1}/${uiState.matches.size}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else if (uiState.searchProgress.isNotEmpty()) {
+                    Text(
+                        text = uiState.searchProgress,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

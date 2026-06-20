@@ -28,6 +28,8 @@ class TextEditViewModel(
         val showReplace: Boolean = false,
         val showHistory: Boolean = false,
         val isSearching: Boolean = false,
+        val findScope: FindScope = FindScope.CHAPTER,
+        val searchProgress: String = "",
         val editState: EditStore.EditState = EditStore.EditState(),
     )
 
@@ -36,10 +38,26 @@ class TextEditViewModel(
         val charStart: Int,
         val charEnd: Int,
         val contextText: String,
+        val chapterTitle: String = "",
+    )
+
+    /** 查找范围 */
+    enum class FindScope {
+        CHAPTER,  // 当前章节
+        BOOK,     // 全书
+    }
+
+    /** 查找历史记录 */
+    data class FindHistory(
+        val text: String,
+        val timestamp: Long = System.currentTimeMillis(),
     )
 
     private val _uiState = MutableStateFlow(EditUiState())
     val uiState: StateFlow<EditUiState> = _uiState.asStateFlow()
+
+    /** 查找历史（最近 20 条） */
+    private val findHistory = mutableListOf<FindHistory>()
 
     init {
         // 观察 EditStore 状态
@@ -80,63 +98,40 @@ class TextEditViewModel(
         _uiState.update { it.copy(showHistory = !it.showHistory) }
     }
 
+    /** 切换查找范围（本章/全书） */
+    fun toggleFindScope() {
+        _uiState.update {
+            it.copy(findScope = if (it.findScope == FindScope.CHAPTER) FindScope.BOOK else FindScope.CHAPTER)
+        }
+    }
+
+    /** 获取查找历史 */
+    fun getFindHistory(): List<FindHistory> = findHistory.toList()
+
+    /** 添加查找历史 */
+    private fun addToHistory(text: String) {
+        if (text.isBlank()) return
+        findHistory.removeAll { it.text == text }
+        findHistory.add(0, FindHistory(text))
+        if (findHistory.size > 20) {
+            findHistory.removeAt(findHistory.lastIndex)
+        }
+    }
+
     /** 在当前章节中查找 */
-    fun findInChapter(chapterText: String, chapterIndex: Int) {
+    fun findInChapter(chapterText: String, chapterIndex: Int, chapterTitle: String = "") {
         val findText = _uiState.value.findText
         if (findText.isEmpty()) {
             _uiState.update { it.copy(matches = emptyList(), currentMatchIndex = -1) }
             return
         }
 
+        addToHistory(findText)
+
         viewModelScope.launch {
             _uiState.update { it.copy(isSearching = true) }
 
-            val matches = mutableListOf<FindMatch>()
-            val isRegex = _uiState.value.isRegex
-            val isCaseSensitive = _uiState.value.isCaseSensitive
-
-            try {
-                if (isRegex) {
-                    val regex = if (isCaseSensitive) {
-                        Regex(findText)
-                    } else {
-                        Regex(findText, RegexOption.IGNORE_CASE)
-                    }
-                    regex.findAll(chapterText).forEach { match ->
-                        matches.add(FindMatch(
-                            chapterIndex = chapterIndex,
-                            charStart = match.range.first,
-                            charEnd = match.range.last + 1,
-                            contextText = chapterText.substring(
-                                maxOf(0, match.range.first - 10),
-                                minOf(chapterText.length, match.range.last + 11)
-                            ),
-                        ))
-                    }
-                } else {
-                    var start = 0
-                    while (true) {
-                        val idx = if (isCaseSensitive) {
-                            chapterText.indexOf(findText, start)
-                        } else {
-                            chapterText.indexOf(findText, start, ignoreCase = true)
-                        }
-                        if (idx < 0) break
-                        matches.add(FindMatch(
-                            chapterIndex = chapterIndex,
-                            charStart = idx,
-                            charEnd = idx + findText.length,
-                            contextText = chapterText.substring(
-                                maxOf(0, idx - 10),
-                                minOf(chapterText.length, idx + findText.length + 10)
-                            ),
-                        ))
-                        start = idx + 1
-                    }
-                }
-            } catch (e: Exception) {
-                // 正则表达式错误等
-            }
+            val matches = findMatchesInText(chapterText, chapterIndex, chapterTitle)
 
             _uiState.update {
                 it.copy(
@@ -146,6 +141,111 @@ class TextEditViewModel(
                 )
             }
         }
+    }
+
+    /**
+     * 全书查找
+     *
+     * @param chapters 章节列表 (chapterIndex, chapterText, chapterTitle)
+     * @param onProgress 进度回调
+     */
+    fun findInBook(
+        chapters: List<Triple<Int, String, String>>,
+        onProgress: (Int, Int) -> Unit = { _, _ -> },
+    ) {
+        val findText = _uiState.value.findText
+        if (findText.isEmpty()) {
+            _uiState.update { it.copy(matches = emptyList(), currentMatchIndex = -1) }
+            return
+        }
+
+        addToHistory(findText)
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSearching = true, searchProgress = "搜索中...") }
+
+            val allMatches = mutableListOf<FindMatch>()
+            val total = chapters.size
+
+            for ((index, triple) in chapters.withIndex()) {
+                val (chapterIndex, chapterText, chapterTitle) = triple
+                val matches = findMatchesInText(chapterText, chapterIndex, chapterTitle)
+                allMatches.addAll(matches)
+
+                _uiState.update {
+                    it.copy(searchProgress = "搜索中 ${index + 1}/$total...")
+                }
+                onProgress(index + 1, total)
+            }
+
+            _uiState.update {
+                it.copy(
+                    matches = allMatches,
+                    currentMatchIndex = if (allMatches.isNotEmpty()) 0 else -1,
+                    isSearching = false,
+                    searchProgress = if (allMatches.isEmpty()) "未找到匹配" else "找到 ${allMatches.size} 个匹配",
+                )
+            }
+        }
+    }
+
+    /** 在文本中查找匹配 */
+    private fun findMatchesInText(
+        text: String,
+        chapterIndex: Int,
+        chapterTitle: String,
+    ): List<FindMatch> {
+        val findText = _uiState.value.findText
+        val isRegex = _uiState.value.isRegex
+        val isCaseSensitive = _uiState.value.isCaseSensitive
+        val matches = mutableListOf<FindMatch>()
+
+        try {
+            if (isRegex) {
+                val regex = if (isCaseSensitive) {
+                    Regex(findText)
+                } else {
+                    Regex(findText, RegexOption.IGNORE_CASE)
+                }
+                regex.findAll(text).forEach { match ->
+                    matches.add(FindMatch(
+                        chapterIndex = chapterIndex,
+                        charStart = match.range.first,
+                        charEnd = match.range.last + 1,
+                        contextText = text.substring(
+                            maxOf(0, match.range.first - 10),
+                            minOf(text.length, match.range.last + 11)
+                        ),
+                        chapterTitle = chapterTitle,
+                    ))
+                }
+            } else {
+                var start = 0
+                while (true) {
+                    val idx = if (isCaseSensitive) {
+                        text.indexOf(findText, start)
+                    } else {
+                        text.indexOf(findText, start, ignoreCase = true)
+                    }
+                    if (idx < 0) break
+                    matches.add(FindMatch(
+                        chapterIndex = chapterIndex,
+                        charStart = idx,
+                        charEnd = idx + findText.length,
+                        contextText = text.substring(
+                            maxOf(0, idx - 10),
+                            minOf(text.length, idx + findText.length + 10)
+                        ),
+                        chapterTitle = chapterTitle,
+                    ))
+                    start = idx + 1
+                }
+            }
+        } catch (e: Exception) {
+            // 正则表达式错误等
+        }
+
+        return matches
     }
 
     /** 跳转到下一个匹配 */
