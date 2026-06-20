@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -401,12 +402,20 @@ fun ReaderScreen(
                         0f
                     }
 
+                    // 小三角偏移量：指向选区中心相对于菜单中心的偏移
+                    val menuCenterX = screenWidth / 2f + popupOffsetX
+                    val maxTriangleOffset = with(density) { (SelectionMenuWidth / 2 - 20.dp).roundToPx().toFloat() }
+                    val triangleOffsetX = if (screenWidth > 0f && selCenterX > 0f) {
+                        (selCenterX - menuCenterX).coerceIn(-maxTriangleOffset, maxTriangleOffset)
+                    } else 0f
+
                     androidx.compose.ui.window.Popup(
                         alignment = Alignment.TopCenter,
                         offset = androidx.compose.ui.unit.IntOffset(popupOffsetX.toInt(), clampedOffsetY.toInt()),
                     ) {
                         ReaderSelectionActionBar(
                             anchorAtTop = preferBelow,
+                            triangleOffsetX = with(density) { triangleOffsetX.toDp() },
                             onCopy = {
                                 range.selectedText?.takeIf { it.isNotBlank() }?.let { text ->
                                     clipboardManager.setText(AnnotatedString(text))
@@ -520,6 +529,7 @@ private fun ErrorDisplay(error: String, readerColors: com.shuli.reader.ui.theme.
 @Composable
 private fun ReaderSelectionActionBar(
     anchorAtTop: Boolean,
+    triangleOffsetX: androidx.compose.ui.unit.Dp = 0.dp,
     onCopy: () -> Unit,
     onBookmark: () -> Unit,
     onNote: () -> Unit,
@@ -530,66 +540,84 @@ private fun ReaderSelectionActionBar(
     val menuColor = Color(0xFF252525)
     val contentColor = Color.White
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+    // 使用 Box 包裹，三角箭头通过 matchParentSize 独立定位，不影响菜单布局
+    Box(
         modifier = modifier
             .wrapContentWidth()
             .testTag(UiTestTags.READER_SELECTION_ACTION_BAR),
     ) {
-        if (anchorAtTop) {
-            SelectionMenuAnchor(color = menuColor, pointsUp = true)
-        }
-        Surface(
-            color = menuColor,
-            contentColor = contentColor,
-            tonalElevation = 0.dp,
-            shadowElevation = ReaderDimens.ElevationMedium + 2.dp,
-            shape = RoundedCornerShape(8.dp),
-            modifier = Modifier.width(SelectionMenuWidth),
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            // 上方占位（与箭头等高），保持菜单位置一致
+            if (anchorAtTop) {
+                Spacer(modifier = Modifier.height(SelectionMenuArrowHeight))
+            }
+            Surface(
+                color = menuColor,
+                contentColor = contentColor,
+                tonalElevation = 0.dp,
+                shadowElevation = ReaderDimens.ElevationMedium + 2.dp,
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.width(SelectionMenuWidth),
             ) {
-                SelectionMenuAction(
-                    icon = Icons.Outlined.Search,
-                    label = strings.reader.lookupWord,
-                    contentColor = contentColor,
-                    onClick = onLookup,
-                )
-                SelectionMenuAction(
-                    icon = Icons.Outlined.ContentCopy,
-                    label = strings.reader.copySelection,
-                    contentColor = contentColor,
-                    onClick = onCopy,
-                    modifier = Modifier.testTag(UiTestTags.READER_COPY_SELECTION_BUTTON),
-                )
-                SelectionMenuAction(
-                    icon = Icons.Outlined.Bookmark,
-                    label = strings.reader.addBookmarkAction,
-                    contentColor = contentColor,
-                    onClick = onBookmark,
-                    modifier = Modifier.testTag(UiTestTags.READER_BOOKMARK_SELECTION_BUTTON),
-                )
-                SelectionMenuAction(
-                    icon = Icons.AutoMirrored.Outlined.Note,
-                    label = strings.reader.addNoteAction,
-                    contentColor = contentColor,
-                    onClick = onNote,
-                    modifier = Modifier.testTag(UiTestTags.READER_NOTE_SELECTION_BUTTON),
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                ) {
+                    SelectionMenuAction(
+                        icon = Icons.Outlined.Search,
+                        label = strings.reader.lookupWord,
+                        contentColor = contentColor,
+                        onClick = onLookup,
+                    )
+                    SelectionMenuAction(
+                        icon = Icons.Outlined.ContentCopy,
+                        label = strings.reader.copySelection,
+                        contentColor = contentColor,
+                        onClick = onCopy,
+                        modifier = Modifier.testTag(UiTestTags.READER_COPY_SELECTION_BUTTON),
+                    )
+                    SelectionMenuAction(
+                        icon = Icons.Outlined.Bookmark,
+                        label = strings.reader.addBookmarkAction,
+                        contentColor = contentColor,
+                        onClick = onBookmark,
+                        modifier = Modifier.testTag(UiTestTags.READER_BOOKMARK_SELECTION_BUTTON),
+                    )
+                    SelectionMenuAction(
+                        icon = Icons.AutoMirrored.Outlined.Note,
+                        label = strings.reader.addNoteAction,
+                        contentColor = contentColor,
+                        onClick = onNote,
+                        modifier = Modifier.testTag(UiTestTags.READER_NOTE_SELECTION_BUTTON),
+                    )
+                }
+            }
+            // 下方占位
+            if (!anchorAtTop) {
+                Spacer(modifier = Modifier.height(SelectionMenuArrowHeight))
             }
         }
-        if (!anchorAtTop) {
-            SelectionMenuAnchor(color = menuColor, pointsUp = false)
+
+        // 三角箭头：独立层，通过 offset 精确定位到选区中心
+        Box(
+            modifier = Modifier.matchParentSize(),
+            contentAlignment = if (anchorAtTop) Alignment.TopCenter else Alignment.BottomCenter,
+        ) {
+            SelectionMenuAnchor(
+                color = menuColor,
+                pointsUp = anchorAtTop,
+                modifier = Modifier.offset(x = triangleOffsetX),
+            )
         }
     }
 }
 
 @Composable
-private fun SelectionMenuAnchor(color: Color, pointsUp: Boolean) {
-    Canvas(modifier = Modifier.size(width = 24.dp, height = SelectionMenuArrowHeight)) {
+private fun SelectionMenuAnchor(color: Color, pointsUp: Boolean, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(width = 24.dp, height = SelectionMenuArrowHeight)) {
         val path = Path().apply {
             if (pointsUp) {
                 moveTo(size.width / 2f, 0f)

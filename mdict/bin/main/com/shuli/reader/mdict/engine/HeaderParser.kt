@@ -47,6 +47,7 @@ object HeaderParser {
         val (charset, unitWidth) = resolveCharset(encodingName, isMdd)
 
         return MdxHeader(
+            title = attrs["Title"].orEmpty(),
             isMdd = isMdd,
             version = version,
             numberWidth = numberWidth,

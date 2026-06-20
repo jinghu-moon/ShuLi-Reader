@@ -330,18 +330,9 @@ private fun BookGridItem(
         Text(
             text = getHighlightedText(text = book.title, highlight = searchQuery),
             style = MaterialTheme.typography.bodySmall,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-
-        if (book.readingDuration.isNotBlank()) {
-            Text(
-                text = book.readingDuration,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
         }
         
         if (isHighlighted) {

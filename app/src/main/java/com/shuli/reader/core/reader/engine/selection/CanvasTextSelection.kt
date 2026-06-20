@@ -471,13 +471,17 @@ class CanvasTextSelection {
     fun isPointInSelection(x: Float, y: Float): Boolean {
         val range = selectedRange ?: return false
 
-        // 简化检测：检查触摸点是否在选区的 Y 范围内
-        // 由于选区可能跨行，我们检查把手的 Y 坐标范围
+        // 检查触摸点是否在选区的 Y 范围内
         val padding = HANDLE_TOUCH_RADIUS
         val minY = minOf(startHandleScreenY, endHandleScreenY) - padding
         val maxY = maxOf(startHandleScreenY, endHandleScreenY) + padding
+        if (y !in minY..maxY) return false
 
-        return y in minY..maxY
+        // 检查 X 坐标：在选区的起始 X 和结束 X 范围内（加宽裕量）
+        val xPadding = HANDLE_TOUCH_RADIUS * 2
+        val minX = minOf(startHandleScreenX, endHandleScreenX) - xPadding
+        val maxX = maxOf(startHandleScreenX, endHandleScreenX) + xPadding
+        return x in minX..maxX
     }
 
     /** 计算行的选区矩形 */

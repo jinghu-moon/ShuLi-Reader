@@ -242,7 +242,14 @@ class ReaderCanvasView @JvmOverloads constructor(
                 this@ReaderCanvasView.onCenterClicked?.invoke()
             }
             override fun onSelectionCleared() {
-                // 选区被清除，通知上层
+                // 清除 Canvas 渲染层的选区状态并重绘
+                renderContext.selectedRange = null
+                val page = currentPage
+                if (page != null) {
+                    renderStateStore.getPageState(page.toKey()).invalidateContent()
+                }
+                invalidate()
+                // 通知上层（ViewModel 清除 Compose 状态）
                 this@ReaderCanvasView.onTextCleared?.invoke()
             }
             override fun onLongPress(x: Float, y: Float) {

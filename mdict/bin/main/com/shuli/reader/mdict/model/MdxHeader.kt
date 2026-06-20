@@ -5,6 +5,7 @@ import java.nio.charset.Charset
 /**
  * MDX/MDD 文件头解析出的元信息。对应 docs/38 §5.1。
  *
+ * @property title            词典标题（Title 属性）
  * @property isMdd            true = MDD（资源库，`<Library_Data>`），false = MDX（词典，`<Dictionary>`）
  * @property version          格式版本（1.2 或 2.0）
  * @property numberWidth      计数字段字节宽度：version >= 2.0 为 8，否则 4
@@ -17,6 +18,7 @@ import java.nio.charset.Charset
  * @property keySectionStart  Keyword Section 在文件中的起始字节偏移
  */
 data class MdxHeader(
+    val title: String = "",
     val isMdd: Boolean,
     val version: Float,
     val numberWidth: Int,
