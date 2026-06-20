@@ -208,6 +208,10 @@ class ReaderPageRenderer(
         selectionPaint: Paint? = null,
         textSelection: CanvasTextSelection? = null,
         noteRanges: List<Pair<SelectionRange, Paint>> = emptyList(),
+        findMatches: List<SelectionRange> = emptyList(),
+        currentFindMatch: SelectionRange? = null,
+        findMatchPaint: Paint? = null,
+        currentFindMatchPaint: Paint? = null,
     ) {
         // 1. 笔记高亮背景（彩色半透明，在 TTS/选区高亮之下）
         if (noteRanges.isNotEmpty()) {
@@ -261,7 +265,26 @@ class ReaderPageRenderer(
             }
         }
 
-        // 3. 绘制选区把手（如果有选区）
+        // 3. 查找匹配高亮
+        if (findMatches.isNotEmpty() && findMatchPaint != null) {
+            page.lines.forEach { line ->
+                for (match in findMatches) {
+                    if (intersects(match, line.startCharOffset, line.endCharOffset)) {
+                        drawFindMatchHighlight(canvas, page, line, match, findMatchPaint)
+                    }
+                }
+            }
+        }
+        // 当前匹配高亮（更醒目）
+        if (currentFindMatch != null && currentFindMatchPaint != null) {
+            page.lines.forEach { line ->
+                if (intersects(currentFindMatch, line.startCharOffset, line.endCharOffset)) {
+                    drawFindMatchHighlight(canvas, page, line, currentFindMatch, currentFindMatchPaint)
+                }
+            }
+        }
+
+        // 4. 绘制选区把手（如果有选区）
         if (selectedRange != null && selectionPaint != null && textSelection != null) {
             val viewWidth = page.layout.pageWidth
             val handleRects = textSelection.getHandleRects(page, viewWidth)
@@ -294,6 +317,41 @@ class ReaderPageRenderer(
         val dotCenterY = if (isStart) rect.top + dotRadius else rect.bottom - dotRadius
         canvas.drawLine(centerX, stemStartY, centerX, stemEndY, linePaint)
         canvas.drawCircle(centerX, dotCenterY, dotRadius, handlePaint)
+    }
+
+    /**
+     * 绘制查找匹配高亮
+     */
+    private fun drawFindMatchHighlight(
+        canvas: Canvas,
+        page: TextPage,
+        line: TextLine,
+        range: SelectionRange,
+        paint: Paint,
+    ) {
+        val bodyLeft = page.layout.body.left
+        val lineStart = line.startCharOffset
+        val lineEnd = line.endCharOffset
+        val matchStart = maxOf(range.startPos, lineStart)
+        val matchEnd = minOf(range.endPos, lineEnd)
+
+        if (matchStart >= matchEnd) return
+
+        val charWidths = line.charWidths
+        var startX = bodyLeft + line.startXOffset
+        var endX = startX
+
+        if (charWidths != null && charWidths.size == (lineEnd - lineStart)) {
+            for (i in 0 until (matchStart - lineStart)) { startX += charWidths[i] }
+            endX = startX
+            for (i in (matchStart - lineStart) until (matchEnd - lineStart)) { endX += charWidths[i] }
+        } else {
+            startX = bodyLeft + line.startXOffset
+            endX = startX + line.measuredWidth
+        }
+
+        val rect = RectF(startX - 1f, line.top, endX + 1f, line.bottom)
+        canvas.drawRoundRect(rect, 3f, 3f, paint)
     }
 
     /**

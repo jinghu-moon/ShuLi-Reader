@@ -141,6 +141,24 @@ class ReaderCanvasView @JvmOverloads constructor(
         isAntiAlias = true
     }
 
+    // 查找匹配高亮 Paint
+    private val findMatchPaint = Paint().apply {
+        color = 0x40FFAB40.toInt()  // 浅橙色
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
+    private val currentFindMatchPaint = Paint().apply {
+        color = 0x80FFAB40.toInt()  // 深橙色
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
+
+    /** 查找匹配列表 */
+    var findMatches: List<SelectionRange> = emptyList()
+
+    /** 当前查找匹配 */
+    var currentFindMatch: SelectionRange? = null
+
     // ── VIEW_INVALIDATE overlay state（§1.4.1，不进 recorder）──
     private var colorTemperature: Float = 6500f
 
@@ -928,21 +946,85 @@ class ReaderCanvasView @JvmOverloads constructor(
     }
 
     /**
-     * 绘制选区把手（只绘制把手，选区高亮由 renderOverlay 负责）
+     * 绘制选区把手和查找匹配高亮
      */
     private fun drawSelectionOverlay(canvas: Canvas) {
-        if (textSelection.selectedRange == null) return
         val page = currentPage ?: return
 
+        // 绘制查找匹配高亮
+        if (findMatches.isNotEmpty() || currentFindMatch != null) {
+            drawFindMatches(canvas, page)
+        }
+
         // 绘制选区把手
-        val handleRects = textSelection.getHandleRects(page, width.toFloat()) ?: return
-        val (startRect, endRect) = handleRects
+        if (textSelection.selectedRange != null) {
+            val handleRects = textSelection.getHandleRects(page, width.toFloat())
+            if (handleRects != null) {
+                val (startRect, endRect) = handleRects
+                drawHandle(canvas, startRect, isStart = true)
+                drawHandle(canvas, endRect, isStart = false)
+            }
+        }
+    }
 
-        // 绘制起始把手
-        drawHandle(canvas, startRect, isStart = true)
+    /**
+     * 绘制查找匹配高亮
+     */
+    private fun drawFindMatches(canvas: Canvas, page: TextPage) {
+        val bodyLeft = page.layout.body.left
 
-        // 绘制结束把手
-        drawHandle(canvas, endRect, isStart = false)
+        // 绘制其他匹配（浅色）
+        for (match in findMatches) {
+            if (match == currentFindMatch) continue
+            page.lines.forEach { line ->
+                if (intersects(match, line.startCharOffset, line.endCharOffset)) {
+                    val rect = calculateMatchRect(line, match, bodyLeft)
+                    canvas.drawRoundRect(rect, 3f, 3f, findMatchPaint)
+                }
+            }
+        }
+
+        // 绘制当前匹配（深色）
+        currentFindMatch?.let { match ->
+            page.lines.forEach { line ->
+                if (intersects(match, line.startCharOffset, line.endCharOffset)) {
+                    val rect = calculateMatchRect(line, match, bodyLeft)
+                    canvas.drawRoundRect(rect, 3f, 3f, currentFindMatchPaint)
+                }
+            }
+        }
+    }
+
+    /**
+     * 计算匹配矩形
+     */
+    private fun calculateMatchRect(line: com.shuli.reader.core.reader.model.TextLine, match: SelectionRange, bodyLeft: Float): RectF {
+        val lineStart = line.startCharOffset
+        val lineEnd = line.endCharOffset
+        val matchStart = maxOf(match.startPos, lineStart)
+        val matchEnd = minOf(match.endPos, lineEnd)
+
+        val charWidths = line.charWidths
+        var startX = bodyLeft + line.startXOffset
+        var endX = startX
+
+        if (charWidths != null && charWidths.size == (lineEnd - lineStart)) {
+            for (i in 0 until (matchStart - lineStart)) { startX += charWidths[i] }
+            endX = startX
+            for (i in (matchStart - lineStart) until (matchEnd - lineStart)) { endX += charWidths[i] }
+        } else {
+            startX = bodyLeft + line.startXOffset
+            endX = startX + line.measuredWidth
+        }
+
+        return RectF(startX - 1f, line.top, endX + 1f, line.bottom)
+    }
+
+    /**
+     * 判断选区是否与行相交
+     */
+    private fun intersects(range: SelectionRange, lineStart: Int, lineEnd: Int): Boolean {
+        return range.startPos < lineEnd && range.endPos > lineStart
     }
 
     /**
