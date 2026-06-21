@@ -3,6 +3,7 @@ import com.shuli.reader.feature.reader.screen.PageDirection
 import com.shuli.reader.feature.reader.screen.ReaderSettingKey
 import com.shuli.reader.feature.reader.screen.ReaderSettingValue
 import com.shuli.reader.feature.reader.screen.ReaderIntent
+import com.shuli.reader.feature.reader.editor.EditorOverlay
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -555,6 +556,20 @@ fun ReaderScreen(
                     onSearchTags = { prefix -> viewModel.searchTagSuggestions(prefix) },
                 ),
                 onDismiss = { showBookDetailsSheet = false },
+            )
+        }
+
+        // 编辑器覆盖层
+        if (uiState.showTextEdit) {
+            EditorOverlay(
+                editViewModel = viewModel.textEditViewModel,
+                chapterIndex = uiState.chapterIndex,
+                chapterTitles = uiState.chapterTitles,
+                getChapterText = { chapterIndex ->
+                    viewModel.getChapterTextForSearch(chapterIndex)
+                },
+                onSave = { dispatch(ReaderIntent.SaveEdits) },
+                onExit = { dispatch(ReaderIntent.CloseTextEdit) },
             )
         }
     }

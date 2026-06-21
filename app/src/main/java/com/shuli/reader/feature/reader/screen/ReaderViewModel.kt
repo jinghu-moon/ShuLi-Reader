@@ -880,9 +880,18 @@ class ReaderViewModel(
     /** 编辑存储 */
     private val editStore = com.shuli.reader.feature.reader.editor.EditStore()
 
-    /** 编辑 ViewModel（延迟初始化） */
-    private val textEditViewModel by lazy {
+    /** 编辑 ViewModel（延迟初始化，外部可访问） */
+    internal val textEditViewModel by lazy {
         com.shuli.reader.feature.reader.editor.TextEditViewModel(editStore)
+    }
+
+    /**
+     * 获取章节文本（用于全书查找）
+     */
+    suspend fun getChapterTextForSearch(chapterIndex: Int): String {
+        val file = currentBookFilePath?.let { java.io.File(it) } ?: return ""
+        val content = loadedBookContent ?: return ""
+        return bookContentRepository?.getChapterText(file, chapterIndex, content) ?: ""
     }
 
     /** 编辑管理器 */
@@ -956,17 +965,21 @@ class ReaderViewModel(
     /** 替换当前匹配 */
     private fun replaceCurrent(replacement: String) {
         val state = _uiState.value
-        textEditViewModel.replaceCurrent(state.chapterIndex, "")
-        _uiState.value = state.copy(hasUnsavedEdits = true)
-        reflowCurrentChapter(_uiState.value.readerPreferences)
+        viewModelScope.launch {
+            textEditViewModel.replaceCurrent(state.chapterIndex)
+            _uiState.value = state.copy(hasUnsavedEdits = true)
+            reflowCurrentChapter(_uiState.value.readerPreferences)
+        }
     }
 
     /** 全部替换 */
     private fun replaceAll(find: String, replace: String, isRegex: Boolean) {
         val state = _uiState.value
-        textEditViewModel.replaceAllInChapter(state.chapterIndex, "")
-        _uiState.value = state.copy(hasUnsavedEdits = true)
-        reflowCurrentChapter(_uiState.value.readerPreferences)
+        viewModelScope.launch {
+            textEditViewModel.replaceAllInChapter(state.chapterIndex)
+            _uiState.value = state.copy(hasUnsavedEdits = true)
+            reflowCurrentChapter(_uiState.value.readerPreferences)
+        }
     }
 
     /** 撤销编辑 */
