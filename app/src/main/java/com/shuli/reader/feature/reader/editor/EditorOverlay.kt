@@ -31,6 +31,7 @@ fun EditorOverlay(
     editViewModel: TextEditViewModel,
     chapterIndex: Int,
     chapterTitles: List<String>,
+    getCurrentChapterText: () -> String,
     getChapterText: suspend (Int) -> String,
     onSave: () -> Unit,
     onExit: () -> Unit,
@@ -50,8 +51,9 @@ fun EditorOverlay(
             onReplaceTextChange = { editViewModel.updateReplaceText(it) },
             onFind = {
                 if (uiState.findScope == TextEditViewModel.FindScope.CHAPTER) {
-                    // 本章查找 - 需要从外部获取章节文本
-                    // TODO: 通过回调获取当前章节文本
+                    // 本章查找
+                    val chapterText = getCurrentChapterText()
+                    editViewModel.findInChapter(chapterText, chapterIndex)
                 } else {
                     // 全书查找
                     editViewModel.startBookSearch(
@@ -121,12 +123,12 @@ fun EditorOverlay(
             visible = uiState.showHistorySheet,
             patches = uiState.editState.let { editViewModel.editStore.patches },
             onUndo = {
-                kotlinx.coroutines.MainScope().launch {
+                coroutineScope.launch {
                     editViewModel.undo()
                 }
             },
             onClearAll = {
-                kotlinx.coroutines.MainScope().launch {
+                coroutineScope.launch {
                     editViewModel.clearEdits()
                 }
             },
@@ -158,7 +160,7 @@ fun EditorOverlay(
                 onExit()
             },
             onDiscardAndExit = {
-                kotlinx.coroutines.MainScope().launch {
+                coroutineScope.launch {
                     editViewModel.clearEdits()
                 }
                 editViewModel.dismissExitDialog()

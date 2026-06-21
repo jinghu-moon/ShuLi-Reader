@@ -886,6 +886,19 @@ class ReaderViewModel(
     }
 
     /**
+     * 获取当前章节文本（用于本章查找）
+     */
+    fun getCurrentChapterText(): String {
+        val state = _uiState.value
+        val content = loadedBookContent ?: return ""
+        val chapter = content.chapters.getOrNull(state.chapterIndex) ?: return ""
+        return content.content.substring(
+            chapter.byteStart.toInt().coerceAtMost(content.content.length),
+            chapter.byteEnd.toInt().coerceAtMost(content.content.length)
+        )
+    }
+
+    /**
      * 获取章节文本（用于全书查找）
      */
     suspend fun getChapterTextForSearch(chapterIndex: Int): String {

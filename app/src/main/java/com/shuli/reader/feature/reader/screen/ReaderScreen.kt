@@ -564,6 +564,7 @@ fun ReaderScreen(
                 editViewModel = viewModel.textEditViewModel,
                 chapterIndex = uiState.chapterIndex,
                 chapterTitles = uiState.chapterTitles,
+                getCurrentChapterText = { viewModel.getCurrentChapterText() },
                 getChapterText = { chapterIndex ->
                     viewModel.getChapterTextForSearch(chapterIndex)
                 },
