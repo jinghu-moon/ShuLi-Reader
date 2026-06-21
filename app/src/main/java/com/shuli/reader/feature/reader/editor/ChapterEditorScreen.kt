@@ -70,6 +70,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -763,7 +764,7 @@ private fun DiffCard(
                             withStyle(SpanStyle(
                                 background = Color(0xFFF5E5E2),
                                 color = Color(0xFF9B3525),
-                                textDecoration = androidx.compose.ui.text.TextDecoration.LineThrough,
+                                textDecoration = TextDecoration.LineThrough,
                             )) { append(originalText) }
                             append("…")
                         },
