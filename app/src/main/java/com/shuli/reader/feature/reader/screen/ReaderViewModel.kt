@@ -1068,7 +1068,16 @@ class ReaderViewModel(
                             ?: ""
                     },
                 )
-                _uiState.value = state.copy(hasUnsavedEdits = false)
+
+                // 保存成功后，关闭编辑模式并刷新显示
+                _uiState.value = state.copy(
+                    hasUnsavedEdits = false,
+                    showTextEdit = false,
+                )
+
+                // 重新加载当前章节（文件已更新）
+                openChapter(state.chapterIndex)
+
             } catch (e: Exception) {
                 android.util.Log.w("ReaderVM", "saveEdits failed", e)
             }
