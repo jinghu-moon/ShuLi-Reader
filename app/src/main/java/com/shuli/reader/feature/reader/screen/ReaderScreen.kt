@@ -99,7 +99,6 @@ import com.shuli.reader.ui.theme.ReaderDimens
 fun ReaderScreen(
     bookId: Long,
     onBackClick: () -> Unit,
-    onOpenEditor: (Long, Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
     viewModel: ReaderViewModel = run {
         val context = LocalContext.current
@@ -505,7 +504,7 @@ fun ReaderScreen(
                                     icon = Icons.Outlined.Edit,
                                     label = strings.reader.editAction,
                                     onClick = {
-                                        onOpenEditor(bookId, uiState.chapterIndex)
+                                        dispatch(ReaderIntent.OpenTextEdit)
                                     },
                                 ),
                             ),
