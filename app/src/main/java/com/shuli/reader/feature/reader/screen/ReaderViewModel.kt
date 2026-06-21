@@ -253,6 +253,7 @@ class ReaderViewModel(
             clearCachedChapterText = { cachedChapterText = null },
             onReflowStart = { hash -> currentLayoutHash = hash },
             logPerf = { label, startMs -> logPerf(label, startMs) },
+            editStoreProvider = { editStore },
         )
     }
 
@@ -505,6 +506,8 @@ class ReaderViewModel(
             readerSettingsManager.loadBookOverrides(bookId)
             // 预加载词典索引
             dictionaryManager?.initialize()
+            // 设置编辑器的 bookId（用于崩溃恢复）
+            editStore.setBookId(bookId)
         }
     }
 

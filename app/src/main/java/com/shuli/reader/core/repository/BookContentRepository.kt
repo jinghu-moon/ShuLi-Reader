@@ -40,8 +40,13 @@ class BookContentRepository(
         }
     }
 
-    suspend fun getChapterText(file: File, chapterIndex: Int, bookContent: BookContent): String {
-        return getChapterText(file, chapterIndex, bookContent.chapters, bookContent.bookId)
+    suspend fun getChapterText(
+        file: File,
+        chapterIndex: Int,
+        bookContent: BookContent,
+        editStore: com.shuli.reader.feature.reader.editor.EditStore? = null,
+    ): String {
+        return getChapterText(file, chapterIndex, bookContent.chapters, bookContent.bookId, editStore)
     }
 
     /**

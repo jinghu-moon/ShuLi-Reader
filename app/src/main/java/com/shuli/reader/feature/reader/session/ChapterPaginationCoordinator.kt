@@ -47,6 +47,7 @@ class ChapterPaginationCoordinator(
     private val clearCachedChapterText: () -> Unit,
     private val onReflowStart: (String) -> Unit,
     private val logPerf: (String, Long) -> Unit,
+    private val editStoreProvider: () -> com.shuli.reader.feature.reader.editor.EditStore? = { null },
 ) {
     private var reflowJob: Job? = null
 
@@ -63,9 +64,10 @@ class ChapterPaginationCoordinator(
 
         val repository = bookContentRepository
         val filePath = currentBookFilePath()
+        val editStore = editStoreProvider()
         val chapterText = if (repository != null && filePath != null) {
             withContext(Dispatchers.IO) {
-                repository.getChapterText(File(filePath), index, content)
+                repository.getChapterText(File(filePath), index, content, editStore = editStore)
             }
         } else {
             content.getChapterText(chapter)
