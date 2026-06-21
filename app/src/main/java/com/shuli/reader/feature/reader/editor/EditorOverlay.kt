@@ -127,6 +127,11 @@ fun EditorOverlay(
                     editViewModel.undo()
                 }
             },
+            onUndoSingle = { patch ->
+                coroutineScope.launch {
+                    editViewModel.undoSingle(patch)
+                }
+            },
             onClearAll = {
                 coroutineScope.launch {
                     editViewModel.clearEdits()
@@ -141,6 +146,7 @@ fun EditorOverlay(
             visible = uiState.showSidebar,
             chapterMatchCounts = uiState.chapterMatchCounts,
             chapterTitles = chapterTitles,
+            currentChapterIndex = chapterIndex,
             scanProgress = uiState.scanProgress,
             totalMatches = uiState.matches.size,
             onClose = { editViewModel.toggleSidebar() },

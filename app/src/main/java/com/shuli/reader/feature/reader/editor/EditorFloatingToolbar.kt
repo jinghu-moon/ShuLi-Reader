@@ -1,7 +1,10 @@
 package com.shuli.reader.feature.reader.editor
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -138,7 +141,11 @@ fun EditorFloatingToolbar(
             }
 
             // 第二排：替换栏（展开时显示）
-            if (uiState.showReplace) {
+            AnimatedVisibility(
+                visible = uiState.showReplace,
+                enter = expandVertically(animationSpec = tween(300)),
+                exit = shrinkVertically(animationSpec = tween(300)),
+            ) {
                 ReplaceRow(
                     replaceText = uiState.replaceText,
                     onReplaceTextChange = onReplaceTextChange,

@@ -60,6 +60,7 @@ fun EditHistorySheet(
     visible: Boolean,
     patches: List<EditStore.Patch>,
     onUndo: () -> Unit,
+    onUndoSingle: (EditStore.Patch) -> Unit,
     onClearAll: () -> Unit,
     onSave: () -> Unit,
     onClose: () -> Unit,
@@ -174,7 +175,7 @@ fun EditHistorySheet(
                             items(chapterPatches.reversed()) { patch ->
                                 DiffCard(
                                     patch = patch,
-                                    onUndo = onUndo,
+                                    onUndo = { onUndoSingle(patch) },
                                 )
                             }
                         }

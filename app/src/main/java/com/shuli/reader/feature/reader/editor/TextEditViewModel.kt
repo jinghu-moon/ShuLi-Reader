@@ -365,6 +365,11 @@ class TextEditViewModel(
         editStore.undo()
     }
 
+    /** 撤销单条记录 */
+    suspend fun undoSingle(patch: EditStore.Patch) {
+        editStore.undoSingle(patch)
+    }
+
     /** 重做 */
     suspend fun redo() {
         editStore.redo()

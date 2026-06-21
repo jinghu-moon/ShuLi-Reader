@@ -158,6 +158,25 @@ class EditStore(
         return patch
     }
 
+    /** 撤销指定的编辑记录 */
+    suspend fun undoSingle(patch: Patch) {
+        if (_patches.remove(patch)) {
+            redoStack.addLast(patch)
+            updateState()
+
+            // 定向删除被撤销的 patch 对应的 DB 记录
+            editDeltaDao?.let { dao ->
+                val deltas = when (patch) {
+                    is SinglePatch -> listOf(patch.delta)
+                    is BatchPatch -> patch.batch.expand()
+                }
+                for (delta in deltas) {
+                    dao.deleteByPosition(bookId, delta.chapterIndex, delta.charStart, delta.timestamp)
+                }
+            }
+        }
+    }
+
     /** 重做 */
     suspend fun redo(): Patch? {
         val patch = redoStack.removeLastOrNull() ?: return null

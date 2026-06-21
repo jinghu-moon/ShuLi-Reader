@@ -60,6 +60,7 @@ fun SearchProgressSidebar(
     visible: Boolean,
     chapterMatchCounts: Map<Int, Int?>,
     chapterTitles: List<String>,
+    currentChapterIndex: Int,
     scanProgress: Float,
     totalMatches: Int,
     onClose: () -> Unit,
@@ -132,7 +133,7 @@ fun SearchProgressSidebar(
                         ChapterItem(
                             title = chapterTitles.getOrElse(index) { "第 ${index + 1} 章" },
                             matchCount = count,
-                            isActive = false, // TODO: 当前章节高亮
+                            isActive = index == currentChapterIndex,
                             onClick = { onChapterClick(index) },
                         )
                     }
