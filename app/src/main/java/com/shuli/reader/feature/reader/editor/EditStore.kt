@@ -17,7 +17,13 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 class EditStore(
     private val editDeltaDao: EditDeltaDao? = null,
+    private var bookId: Long = 0L,
 ) {
+
+    /** 设置当前书籍 ID */
+    fun setBookId(id: Long) {
+        bookId = id
+    }
 
     /** 补丁类型（单个或批量） */
     sealed interface Patch {
@@ -72,7 +78,7 @@ class EditStore(
         // 持久化到 DB
         editDeltaDao?.insert(
             EditDeltaEntity(
-                bookId = 0, // TODO: 传入实际 bookId
+                bookId = bookId,
                 chapterIndex = delta.chapterIndex,
                 charStart = delta.charStart,
                 charEnd = delta.charEnd,
@@ -94,7 +100,7 @@ class EditStore(
         // 持久化到 DB
         val entities = batch.expand().map { delta ->
             EditDeltaEntity(
-                bookId = 0, // TODO: 传入实际 bookId
+                bookId = bookId,
                 chapterIndex = delta.chapterIndex,
                 charStart = delta.charStart,
                 charEnd = delta.charEnd,
@@ -166,7 +172,7 @@ class EditStore(
                 }
             }.map { delta ->
                 EditDeltaEntity(
-                    bookId = 0, // TODO: 传入实际 bookId
+                    bookId = bookId,
                     chapterIndex = delta.chapterIndex,
                     charStart = delta.charStart,
                     charEnd = delta.charEnd,

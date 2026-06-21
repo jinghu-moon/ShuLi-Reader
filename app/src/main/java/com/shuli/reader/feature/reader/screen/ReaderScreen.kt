@@ -180,8 +180,8 @@ fun ReaderScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showExitDialog = false
-                    dispatch(ReaderIntent.SaveEdits)
-                    onBackClick()
+                    // 先保存，保存完成后再退出
+                    viewModel.saveEditsAndExit(onBackClick)
                 }) {
                     Text("保存并退出")
                 }
@@ -198,15 +198,29 @@ fun ReaderScreen(
         )
     }
 
+    // 有未保存编辑时的退出保护
+    BackHandler(
+        enabled = uiState.hasUnsavedEdits &&
+            !uiState.showGestureEditor &&
+            !uiState.showDirectory &&
+            !uiState.showQuickSettings &&
+            !uiState.showToolbar &&
+            !uiState.showTextEdit,
+    ) {
+        showExitDialog = true
+    }
+
     // 内层返回：选区 > 各浮层 > 工具栏，依次回退
     BackHandler(
         enabled = uiState.selectedRange != null
             || uiState.showGestureEditor
             || uiState.showDirectory
             || uiState.showQuickSettings
-            || uiState.showToolbar,
+            || uiState.showToolbar
+            || uiState.showTextEdit,
     ) {
         when {
+            uiState.showTextEdit -> dispatch(ReaderIntent.CloseTextEdit)
             uiState.showGestureEditor -> dispatch(ReaderIntent.CloseGestureZoneEditor)
             uiState.selectedRange != null -> dispatch(ReaderIntent.ClearSelection)
             uiState.showDirectory -> dispatch(ReaderIntent.ToggleDirectory)

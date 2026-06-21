@@ -114,8 +114,8 @@ class TextEditManager(
 
             // 计算本章的字节长度变化
             for (delta in deltas) {
-                val originalByteLen = (delta.charEnd - delta.charStart).toLong() *
-                    if (charset.name().startsWith("UTF-8")) 3L else 2L  // 中文近似
+                // 使用实际字节长度，而非近似值
+                val originalByteLen = delta.originalText.toByteArray(charset).size.toLong()
                 val newByteLen = delta.newText.toByteArray(charset).size.toLong()
                 cumulativeByteDiff += (newByteLen - originalByteLen)
             }

@@ -507,25 +507,25 @@ suspend fun getChapterText(
 
 ## 8. 实施步骤
 
-### Phase 1：查找替换 + 保存（P0）
+### Phase 1：查找替换 + 保存（P0）✅ 已完成
 
-- [ ] `EditDelta` / `BatchEditDelta` 数据模型
-- [ ] `EditDeltaEntity` + `EditDeltaDao`（Room 持久化）
-- [ ] `EditStore` — 内存 + DB 双层存储 + 撤销/重做
-- [ ] `TextEditViewModel` — 查找/替换/正则/导航
-- [ ] `TextEditPanel` — Chrome 式查找悬浮条 + 展开替换
-- [ ] `InlineEditOverlay` — 内联编辑覆盖层
-- [ ] `TextEditManager.saveToFile()` — 流式保存 + 原子替换 + .bak 备份
-- [ ] `TextEditManager.updateChapterOffsetsIncremental()` — 增量偏移更新
-- [ ] `BookContentRepository.getChapterText()` — 叠加 Delta
-- [ ] 阅读器画布查找匹配高亮（当前/其他）
-- [ ] 选区菜单新增「编辑」按钮
-- [ ] 退出时未保存修改确认对话框
+- [x] `EditDelta` / `BatchEditDelta` 数据模型
+- [x] `EditDeltaEntity` + `EditDeltaDao`（Room 持久化）
+- [x] `EditStore` — 内存 + DB 双层存储 + 撤销/重做
+- [x] `TextEditViewModel` — 查找/替换/正则/导航
+- [x] `TextEditPanel` — Chrome 式查找悬浮条 + 展开替换
+- [x] `InlineEditOverlay` — 内联编辑覆盖层
+- [x] `TextEditManager.saveToFile()` — 流式保存 + 原子替换 + .bak 备份
+- [x] `TextEditManager.updateChapterOffsetsIncremental()` — 增量偏移更新
+- [x] `BookContentRepository.getChapterText()` — 叠加 Delta
+- [x] 阅读器画布查找匹配高亮（当前/其他）
+- [x] 选区菜单新增「编辑」按钮
+- [x] 退出时未保存修改确认对话框
 
-### Phase 2：全书查找 + 编辑记录（P1）
+### Phase 2：全书查找 + 编辑记录（P1）✅ 已完成
 
-- [ ] 全书查找（流式跨章节扫描 + 进度显示）
-- [ ] `EditHistoryPanel` — diff 视图 + 逐条撤销
-- [ ] 查找历史（最近 20 条）
-- [ ] 大小写敏感开关
-- [ ] 崩溃恢复（DB + .bak 检测）
+- [x] 全书查找（流式跨章节扫描 + 进度显示）
+- [x] `EditHistoryPanel` — diff 视图 + 逐条撤销
+- [x] 查找历史（最近 20 条）
+- [x] 大小写敏感开关
+- [x] 崩溃恢复（DB + .bak 检测）

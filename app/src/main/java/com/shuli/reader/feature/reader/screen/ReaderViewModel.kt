@@ -937,6 +937,7 @@ class ReaderViewModel(
         val state = _uiState.value
         textEditViewModel.replaceCurrent(state.chapterIndex, "")
         _uiState.value = state.copy(hasUnsavedEdits = true)
+        reflowCurrentChapter(_uiState.value.readerPreferences)
     }
 
     /** 全部替换 */
@@ -944,6 +945,7 @@ class ReaderViewModel(
         val state = _uiState.value
         textEditViewModel.replaceAllInChapter(state.chapterIndex, "")
         _uiState.value = state.copy(hasUnsavedEdits = true)
+        reflowCurrentChapter(_uiState.value.readerPreferences)
     }
 
     /** 撤销编辑 */
@@ -969,6 +971,52 @@ class ReaderViewModel(
         viewModelScope.launch {
             editStore.clear()
             _uiState.value = _uiState.value.copy(hasUnsavedEdits = false)
+        }
+    }
+
+    /** 保存编辑并退出 */
+    fun saveEditsAndExit(onExit: () -> Unit) {
+        val file = currentBookFilePath?.let { java.io.File(it) } ?: run {
+            onExit()
+            return
+        }
+        val content = loadedBookContent ?: run {
+            onExit()
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val appContainer = appContext?.let {
+                    com.shuli.reader.core.ShuLiAppContainer(it)
+                }
+                val bookChapterDao = appContainer?.database?.bookChapterDao()
+
+                if (bookChapterDao != null) {
+                    textEditManager.saveToFile(
+                        file = file,
+                        charset = Charsets.UTF_8,
+                        bookContent = content,
+                        bookChapterDao = bookChapterDao,
+                        getChapterText = { chapterIndex ->
+                            val chapter = content.chapters.getOrNull(chapterIndex)
+                            if (chapter != null) {
+                                content.content.substring(
+                                    chapter.byteStart.toInt(),
+                                    chapter.byteEnd.toInt().coerceAtMost(content.content.length)
+                                )
+                            } else ""
+                        },
+                    )
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("ReaderVM", "saveEditsAndExit failed", e)
+            } finally {
+                // 无论成功失败，都执行退出
+                withContext(Dispatchers.Main) {
+                    onExit()
+                }
+            }
         }
     }
 

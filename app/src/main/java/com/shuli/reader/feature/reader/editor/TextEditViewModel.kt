@@ -293,7 +293,7 @@ class TextEditViewModel(
                 chapterIndex = chapterIndex,
                 findText = s.findText,
                 replaceText = s.replaceText,
-                ranges = s.matches.map { it.charStart..it.charEnd },
+                ranges = s.matches.map { it.charStart until it.charEnd },  // 使用 until 保持 exclusive
                 isRegex = s.isRegex,
             )
 
