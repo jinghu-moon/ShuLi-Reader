@@ -74,11 +74,11 @@ fun TextEditPanel(
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 4.dp),
         ) {
-            // 查找栏
+            // ── Row 1: 查找核心 ──
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 // 查找输入框
                 BasicTextField(
@@ -109,31 +109,23 @@ fun TextEditPanel(
                     },
                 )
 
-                // 查找范围切换按钮
-                TextButton(onClick = onToggleFindScope) {
-                    Text(
-                        text = if (uiState.findScope == TextEditViewModel.FindScope.CHAPTER) "本章" else "全书",
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                }
-
                 // 匹配计数或搜索进度
                 if (uiState.isSearching) {
                     Text(
                         text = uiState.searchProgress,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else if (uiState.matches.isNotEmpty()) {
                     Text(
                         text = "${uiState.currentMatchIndex + 1}/${uiState.matches.size}",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else if (uiState.searchProgress.isNotEmpty()) {
                     Text(
                         text = uiState.searchProgress,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -146,16 +138,33 @@ fun TextEditPanel(
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "下一个")
                 }
 
+                // 关闭按钮
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Filled.Close, contentDescription = "关闭")
+                }
+            }
+
+            // ── Row 2: 工具栏 ──
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
+            ) {
+                // 查找范围切换
+                TextButton(onClick = onToggleFindScope) {
+                    Text(
+                        text = if (uiState.findScope == TextEditViewModel.FindScope.CHAPTER) "本章" else "全书",
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+
                 // 正则开关
                 IconButton(onClick = onToggleRegex) {
                     Text(
                         text = ".*",
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (uiState.isRegex) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                        color = if (uiState.isRegex) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
@@ -164,11 +173,8 @@ fun TextEditPanel(
                     Text(
                         text = "Aa",
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (uiState.isCaseSensitive) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                        color = if (uiState.isCaseSensitive) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
@@ -177,28 +183,12 @@ fun TextEditPanel(
                     Icon(
                         Icons.Filled.FindReplace,
                         contentDescription = "替换",
-                        tint = if (uiState.showReplace) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                        tint = if (uiState.showReplace) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
-                // 编辑历史按钮
-                IconButton(onClick = onToggleHistory) {
-                    Icon(
-                        Icons.Filled.History,
-                        contentDescription = "编辑历史",
-                        tint = if (uiState.showHistory) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                }
-
-                // 撤销/重做按钮
+                // 撤销/重做
                 IconButton(onClick = onUndo, enabled = uiState.editState.canUndo) {
                     Icon(Icons.Filled.Undo, contentDescription = "撤销")
                 }
@@ -206,9 +196,14 @@ fun TextEditPanel(
                     Icon(Icons.Filled.Redo, contentDescription = "重做")
                 }
 
-                // 关闭按钮
-                IconButton(onClick = onClose) {
-                    Icon(Icons.Filled.Close, contentDescription = "关闭")
+                // 编辑历史
+                IconButton(onClick = onToggleHistory) {
+                    Icon(
+                        Icons.Filled.History,
+                        contentDescription = "编辑历史",
+                        tint = if (uiState.showHistory) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
 

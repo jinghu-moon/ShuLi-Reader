@@ -63,7 +63,7 @@ import com.shuli.reader.core.database.entity.WordBookEntity
         WordBookEntity::class,
         EditDeltaEntity::class,
     ],
-    version = 26,
+    version = 27,
     exportSchema = true,
 )
 abstract class ShuLiDatabase : RoomDatabase() {
@@ -359,6 +359,12 @@ abstract class ShuLiDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_26_27 = object : Migration(26, 27) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE edit_delta ADD COLUMN batch_id INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         val ALL_MIGRATIONS = arrayOf(
             MIGRATION_16_17,
             MIGRATION_17_18,
@@ -370,6 +376,7 @@ abstract class ShuLiDatabase : RoomDatabase() {
             MIGRATION_23_24,
             MIGRATION_24_25,
             MIGRATION_25_26,
+            MIGRATION_26_27,
         )
     }
 }

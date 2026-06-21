@@ -551,7 +551,9 @@ class ReaderViewModel(
             // ── 文本编辑 ──
             is ReaderIntent.OpenTextEdit -> openTextEdit()
             is ReaderIntent.CloseTextEdit -> closeTextEdit()
-            is ReaderIntent.InlineEdit -> inlineEdit(intent.text)
+            is ReaderIntent.InlineEdit -> enterInlineEdit(intent.text)
+            is ReaderIntent.ConfirmInlineEdit -> confirmInlineEdit(intent.newText)
+            is ReaderIntent.CancelInlineEdit -> cancelInlineEdit()
             is ReaderIntent.FindNext -> findNext()
             is ReaderIntent.FindPrev -> findPrev()
             is ReaderIntent.ReplaceCurrent -> replaceCurrent(intent.replacement)
@@ -901,9 +903,19 @@ class ReaderViewModel(
         _uiState.value = _uiState.value.copy(showTextEdit = false)
     }
 
-    /** 内联编辑当前选区 */
-    private fun inlineEdit(newText: String) {
-        val range = _uiState.value.selectedRange ?: return
+    /** 进入内联编辑模式：显示覆盖输入框 */
+    private fun enterInlineEdit(originalText: String) {
+        _uiState.value = _uiState.value.copy(
+            inlineEditText = originalText,
+        )
+    }
+
+    /** 确认内联编辑：应用替换 */
+    private fun confirmInlineEdit(newText: String) {
+        val range = _uiState.value.selectedRange ?: run {
+            cancelInlineEdit()
+            return
+        }
         val state = _uiState.value
 
         viewModelScope.launch {
@@ -918,11 +930,17 @@ class ReaderViewModel(
             _uiState.value = state.copy(
                 hasUnsavedEdits = true,
                 selectedRange = null,
+                inlineEditText = null,
             )
 
             // 触发重新分页
             reflowCurrentChapter(_uiState.value.readerPreferences)
         }
+    }
+
+    /** 取消内联编辑 */
+    private fun cancelInlineEdit() {
+        _uiState.value = _uiState.value.copy(inlineEditText = null)
     }
 
     /** 查找下一个 */
@@ -996,19 +1014,16 @@ class ReaderViewModel(
                 val bookChapterDao = appContainer?.database?.bookChapterDao()
 
                 if (bookChapterDao != null) {
+                    val charset = runCatching { java.nio.charset.Charset.forName(content.encoding) }.getOrDefault(Charsets.UTF_8)
                     textEditManager.saveToFile(
                         file = file,
-                        charset = Charsets.UTF_8,
+                        charset = charset,
                         bookContent = content,
                         bookChapterDao = bookChapterDao,
                         getChapterText = { chapterIndex ->
-                            val chapter = content.chapters.getOrNull(chapterIndex)
-                            if (chapter != null) {
-                                content.content.substring(
-                                    chapter.byteStart.toInt(),
-                                    chapter.byteEnd.toInt().coerceAtMost(content.content.length)
-                                )
-                            } else ""
+                            // 从原始文件读取章节文本（不叠加 Delta）
+                            bookContentRepository?.getChapterText(file, chapterIndex, content.chapters, content.bookId)
+                                ?: ""
                         },
                     )
                 }
@@ -1044,18 +1059,13 @@ class ReaderViewModel(
 
                 textEditManager.saveToFile(
                     file = file,
-                    charset = Charsets.UTF_8, // TODO: 从 BookContent 获取实际编码
+                    charset = runCatching { java.nio.charset.Charset.forName(content.encoding) }.getOrDefault(Charsets.UTF_8),
                     bookContent = content,
                     bookChapterDao = bookChapterDao,
                     getChapterText = { chapterIndex ->
-                        // 获取章节文本
-                        val chapter = content.chapters.getOrNull(chapterIndex)
-                        if (chapter != null) {
-                            content.content.substring(
-                                chapter.byteStart.toInt(),
-                                chapter.byteEnd.toInt().coerceAtMost(content.content.length)
-                            )
-                        } else ""
+                        // 从原始文件读取章节文本（不叠加 Delta）
+                        bookContentRepository?.getChapterText(file, chapterIndex, content.chapters, content.bookId)
+                            ?: ""
                     },
                 )
                 _uiState.value = state.copy(hasUnsavedEdits = false)

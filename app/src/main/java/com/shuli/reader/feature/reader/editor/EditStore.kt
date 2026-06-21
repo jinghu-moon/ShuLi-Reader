@@ -97,7 +97,7 @@ class EditStore(
         redoStack.clear()
         updateState()
 
-        // 持久化到 DB
+        // 持久化到 DB（batchId = timestamp，同一批次共享）
         val entities = batch.expand().map { delta ->
             EditDeltaEntity(
                 bookId = bookId,
@@ -107,6 +107,7 @@ class EditStore(
                 newText = delta.newText,
                 originalText = delta.originalText,
                 timestamp = delta.timestamp,
+                batchId = batch.timestamp,
             )
         }
         editDeltaDao?.insertAll(entities)
@@ -144,8 +145,16 @@ class EditStore(
         redoStack.addLast(patch)
         updateState()
 
-        // 同步到 DB
-        syncToDb()
+        // 定向删除被撤销的 patch 对应的 DB 记录
+        editDeltaDao?.let { dao ->
+            val deltas = when (patch) {
+                is SinglePatch -> listOf(patch.delta)
+                is BatchPatch -> patch.batch.expand()
+            }
+            for (delta in deltas) {
+                dao.deleteByPosition(bookId, delta.chapterIndex, delta.charStart, delta.timestamp)
+            }
+        }
         return patch
     }
 
@@ -156,8 +165,24 @@ class EditStore(
         undoStack.addLast(patch)
         updateState()
 
-        // 同步到 DB
-        syncToDb()
+        // 定向插入重做的 patch 对应的 DB 记录
+        editDeltaDao?.let { dao ->
+            val entities = when (patch) {
+                is SinglePatch -> listOf(patch.delta)
+                is BatchPatch -> patch.batch.expand()
+            }.map { delta ->
+                EditDeltaEntity(
+                    bookId = bookId,
+                    chapterIndex = delta.chapterIndex,
+                    charStart = delta.charStart,
+                    charEnd = delta.charEnd,
+                    newText = delta.newText,
+                    originalText = delta.originalText,
+                    timestamp = delta.timestamp,
+                )
+            }
+            dao.insertAll(entities)
+        }
         return patch
     }
 
@@ -206,26 +231,52 @@ class EditStore(
     suspend fun restoreFromDb(bookId: Long) {
         editDeltaDao?.let { dao ->
             val entities = dao.getByBookId(bookId)
-            if (entities.isNotEmpty()) {
-                val patches = entities.map { entity ->
-                    SinglePatch(
-                        EditDelta(
-                            chapterIndex = entity.chapterIndex,
-                            charStart = entity.charStart,
-                            charEnd = entity.charEnd,
-                            newText = entity.newText,
-                            originalText = entity.originalText,
-                            timestamp = entity.timestamp,
+            if (entities.isEmpty()) return
+
+            val patches = mutableListOf<Patch>()
+
+            // 按 batchId 分组：batchId=0 为单个编辑，batchId>0 为批量编辑
+            val grouped = entities.groupBy { it.batchId }
+            for ((batchId, group) in grouped) {
+                if (batchId == 0L) {
+                    // 单个编辑：每个 entity 是一个 SinglePatch
+                    group.forEach { entity ->
+                        patches.add(SinglePatch(
+                            EditDelta(
+                                chapterIndex = entity.chapterIndex,
+                                charStart = entity.charStart,
+                                charEnd = entity.charEnd,
+                                newText = entity.newText,
+                                originalText = entity.originalText,
+                                timestamp = entity.timestamp,
+                            )
+                        ))
+                    }
+                } else {
+                    // 批量编辑：同一 batchId 的所有 entity 组成一个 BatchPatch
+                    val first = group.first()
+                    val ranges = group.map { it.charStart until it.charEnd }
+                    patches.add(BatchPatch(
+                        BatchEditDelta(
+                            chapterIndex = first.chapterIndex,
+                            findText = first.originalText,
+                            replaceText = first.newText,
+                            ranges = ranges,
+                            timestamp = batchId,
                         )
-                    )
+                    ))
                 }
-                _patches.clear()
-                _patches.addAll(patches)
-                undoStack.clear()
-                undoStack.addAll(patches)
-                redoStack.clear()
-                updateState()
             }
+
+            // 按 timestamp 排序恢复顺序
+            patches.sortBy { it.timestamp }
+
+            _patches.clear()
+            _patches.addAll(patches)
+            undoStack.clear()
+            undoStack.addAll(patches)
+            redoStack.clear()
+            updateState()
         }
     }
 }

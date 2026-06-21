@@ -107,8 +107,12 @@ sealed interface ReaderIntent {
     object OpenTextEdit : ReaderIntent
     /** 关闭查找/替换面板 */
     object CloseTextEdit : ReaderIntent
-    /** 内联编辑当前选区 */
+    /** 进入内联编辑模式（显示覆盖输入框） */
     data class InlineEdit(val text: String) : ReaderIntent
+    /** 确认内联编辑（应用替换） */
+    data class ConfirmInlineEdit(val newText: String) : ReaderIntent
+    /** 取消内联编辑 */
+    object CancelInlineEdit : ReaderIntent
     /** 查找下一个 */
     object FindNext : ReaderIntent
     /** 查找上一个 */

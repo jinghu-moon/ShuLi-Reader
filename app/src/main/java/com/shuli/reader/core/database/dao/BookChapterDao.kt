@@ -38,4 +38,10 @@ interface BookChapterDao {
      */
     @Query("UPDATE book_chapters SET byteStart = byteStart + :byteDelta, byteEnd = byteEnd + :byteDelta WHERE bookId = :bookId AND chapterIndex >= :fromChapterIndex")
     suspend fun shiftByteOffsets(bookId: Long, fromChapterIndex: Int, byteDelta: Long)
+
+    /**
+     * 更新单个章节的 byteEnd（编辑保存后）
+     */
+    @Query("UPDATE book_chapters SET byteEnd = :newByteEnd WHERE bookId = :bookId AND chapterIndex = :chapterIndex")
+    suspend fun updateByteEnd(bookId: Long, chapterIndex: Int, newByteEnd: Long)
 }

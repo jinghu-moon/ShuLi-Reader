@@ -71,8 +71,22 @@ class TextEditManager(
                 writer.flush()
             }
 
-            // 3. 原子替换
-            tempFile.renameTo(file)
+            // 3. 原子替换（renameTo 失败时用 Files.move 兜底）
+            val renamed = tempFile.renameTo(file)
+            if (!renamed) {
+                try {
+                    java.nio.file.Files.move(
+                        tempFile.toPath(), file.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                    )
+                } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+                    java.nio.file.Files.move(
+                        tempFile.toPath(), file.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    )
+                }
+            }
 
             // 4. 增量更新章节字节偏移
             updateChapterOffsetsIncremental(

@@ -21,6 +21,9 @@ interface EditDeltaDao {
     @Query("DELETE FROM edit_delta WHERE book_id = :bookId")
     suspend fun deleteByBookId(bookId: Long)
 
+    @Query("DELETE FROM edit_delta WHERE book_id = :bookId AND chapter_index = :chapterIndex AND char_start = :charStart AND timestamp = :timestamp")
+    suspend fun deleteByPosition(bookId: Long, chapterIndex: Int, charStart: Int, timestamp: Long)
+
     @Query("DELETE FROM edit_delta")
     suspend fun deleteAll()
 

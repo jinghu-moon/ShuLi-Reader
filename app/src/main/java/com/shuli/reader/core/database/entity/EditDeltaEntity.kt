@@ -27,4 +27,7 @@ data class EditDeltaEntity(
     val originalText: String = "",
     @ColumnInfo(name = "timestamp")
     val timestamp: Long = System.currentTimeMillis(),
+    /** 批量操作 ID，同一批次的 delta 共享同一 batchId（用于崩溃恢复时重建 BatchPatch） */
+    @ColumnInfo(name = "batch_id", defaultValue = "0")
+    val batchId: Long = 0L,
 )

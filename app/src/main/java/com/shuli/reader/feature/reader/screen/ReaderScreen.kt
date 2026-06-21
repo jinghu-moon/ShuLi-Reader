@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Note
 import androidx.compose.material.icons.outlined.Bookmark
@@ -97,6 +98,7 @@ import com.shuli.reader.ui.theme.ReaderDimens
 fun ReaderScreen(
     bookId: Long,
     onBackClick: () -> Unit,
+    onOpenEditor: (Long, Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
     viewModel: ReaderViewModel = run {
         val context = LocalContext.current
@@ -421,8 +423,11 @@ fun ReaderScreen(
                     // 选区 Y 坐标（最后一行）
                     val selY = uiState.selectionScreenY
 
-                    val menuWidthPx = with(density) { SelectionMenuWidth.roundToPx() }
-                    val menuHeightPx = with(density) { SelectionMenuHeight.roundToPx() }
+                    // 自适应菜单宽度估算：4列 × 54dp + 3间隔 × 2dp + 2padding × 6dp + 1dp分隔线
+                    val estimatedMenuWidth = 54.dp * 4 + 2.dp * 3 + 6.dp * 2 + 1.dp
+                    val estimatedMenuHeight = SelectionMenuItemHeight + 4.dp * 2 + SelectionMenuArrowHeight
+                    val menuWidthPx = with(density) { estimatedMenuWidth.roundToPx() }
+                    val menuHeightPx = with(density) { estimatedMenuHeight.roundToPx() }
                     val handleGapPx = with(density) { SelectionMenuHandleGap.roundToPx() }
                     val screenWidth = uiState.currentPage?.layout?.pageWidth ?: 0f
                     val screenHeight = uiState.currentPage?.layout?.pageHeight ?: 0f
@@ -455,7 +460,7 @@ fun ReaderScreen(
 
                     // 小三角偏移量：指向选区中心相对于菜单中心的偏移
                     val menuCenterX = screenWidth / 2f + popupOffsetX
-                    val maxTriangleOffset = with(density) { (SelectionMenuWidth / 2 - 20.dp).roundToPx().toFloat() }
+                    val maxTriangleOffset = with(density) { (estimatedMenuWidth / 2 - 20.dp).roundToPx().toFloat() }
                     val triangleOffsetX = if (screenWidth > 0f && selCenterX > 0f) {
                         (selCenterX - menuCenterX).coerceIn(-maxTriangleOffset, maxTriangleOffset)
                     } else 0f
@@ -467,24 +472,42 @@ fun ReaderScreen(
                         ReaderSelectionActionBar(
                             anchorAtTop = preferBelow,
                             triangleOffsetX = with(density) { triangleOffsetX.toDp() },
-                            onCopy = {
-                                range.selectedText?.takeIf { it.isNotBlank() }?.let { text ->
-                                    clipboardManager.setText(AnnotatedString(text))
-                                }
-                                dispatch(ReaderIntent.ClearSelection)
-                            },
-                            onBookmark = { dispatch(ReaderIntent.AddBookmarkFromSelection) },
-                            onNote = { dispatch(ReaderIntent.AddNoteFromSelection) },
-                            onLookup = {
-                                range.selectedText?.takeIf { it.isNotBlank() }?.let { text ->
-                                    dispatch(ReaderIntent.LookupWord(text, ""))
-                                }
-                            },
-                            onEdit = {
-                                range.selectedText?.takeIf { it.isNotBlank() }?.let { text ->
-                                    dispatch(ReaderIntent.InlineEdit(text))
-                                }
-                            },
+                            items = listOf(
+                                SelectionMenuItem(
+                                    icon = Icons.Outlined.Search,
+                                    label = strings.reader.lookupWord,
+                                    onClick = {
+                                        range.selectedText?.takeIf { it.isNotBlank() }?.let { text ->
+                                            dispatch(ReaderIntent.LookupWord(text, ""))
+                                        }
+                                    },
+                                    isDividerAfter = true,
+                                ),
+                                SelectionMenuItem(
+                                    icon = Icons.Outlined.ContentCopy,
+                                    label = strings.reader.copySelection,
+                                    onClick = {
+                                        range.selectedText?.takeIf { it.isNotBlank() }?.let { text ->
+                                            clipboardManager.setText(AnnotatedString(text))
+                                        }
+                                        dispatch(ReaderIntent.ClearSelection)
+                                    },
+                                    testTag = UiTestTags.READER_COPY_SELECTION_BUTTON,
+                                ),
+                                SelectionMenuItem(
+                                    icon = Icons.AutoMirrored.Outlined.Note,
+                                    label = "笔记",
+                                    onClick = { dispatch(ReaderIntent.AddNoteFromSelection) },
+                                    testTag = UiTestTags.READER_NOTE_SELECTION_BUTTON,
+                                ),
+                                SelectionMenuItem(
+                                    icon = Icons.Outlined.Edit,
+                                    label = strings.reader.editAction,
+                                    onClick = {
+                                        onOpenEditor(bookId, uiState.chapterIndex)
+                                    },
+                                ),
+                            ),
                         )
                     }
                 }
@@ -586,18 +609,13 @@ private fun ErrorDisplay(error: String, readerColors: com.shuli.reader.ui.theme.
 private fun ReaderSelectionActionBar(
     anchorAtTop: Boolean,
     triangleOffsetX: androidx.compose.ui.unit.Dp = 0.dp,
-    onCopy: () -> Unit,
-    onBookmark: () -> Unit,
-    onNote: () -> Unit,
-    onLookup: () -> Unit,
-    onEdit: () -> Unit = {},
+    items: List<SelectionMenuItem>,
+    columns: Int = 5,
     modifier: Modifier = Modifier,
 ) {
-    val strings = LocalAppStrings.current
     val menuColor = Color(0xFF252525)
     val contentColor = Color.White
 
-    // 使用 Box 包裹，三角箭头通过 matchParentSize 独立定位，不影响菜单布局
     Box(
         modifier = modifier
             .wrapContentWidth()
@@ -606,7 +624,6 @@ private fun ReaderSelectionActionBar(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // 上方占位（与箭头等高），保持菜单位置一致
             if (anchorAtTop) {
                 Spacer(modifier = Modifier.height(SelectionMenuArrowHeight))
             }
@@ -616,55 +633,44 @@ private fun ReaderSelectionActionBar(
                 tonalElevation = 0.dp,
                 shadowElevation = ReaderDimens.ElevationMedium + 2.dp,
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.width(SelectionMenuWidth),
+                modifier = Modifier.wrapContentWidth(),
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                Column(
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
                 ) {
-                    SelectionMenuAction(
-                        icon = Icons.Outlined.Search,
-                        label = strings.reader.lookupWord,
-                        contentColor = contentColor,
-                        onClick = onLookup,
-                    )
-                    SelectionMenuAction(
-                        icon = Icons.Outlined.ContentCopy,
-                        label = strings.reader.copySelection,
-                        contentColor = contentColor,
-                        onClick = onCopy,
-                        modifier = Modifier.testTag(UiTestTags.READER_COPY_SELECTION_BUTTON),
-                    )
-                    SelectionMenuAction(
-                        icon = Icons.Outlined.Bookmark,
-                        label = strings.reader.addBookmarkAction,
-                        contentColor = contentColor,
-                        onClick = onBookmark,
-                        modifier = Modifier.testTag(UiTestTags.READER_BOOKMARK_SELECTION_BUTTON),
-                    )
-                    SelectionMenuAction(
-                        icon = Icons.AutoMirrored.Outlined.Note,
-                        label = strings.reader.addNoteAction,
-                        contentColor = contentColor,
-                        onClick = onNote,
-                        modifier = Modifier.testTag(UiTestTags.READER_NOTE_SELECTION_BUTTON),
-                    )
-                    SelectionMenuAction(
-                        icon = Icons.Outlined.Search,
-                        label = strings.reader.editAction,
-                        contentColor = contentColor,
-                        onClick = onEdit,
-                    )
+                    val rows = items.chunked(columns)
+                    rows.forEachIndexed { rowIndex, rowItems ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            rowItems.forEach { item ->
+                                SelectionMenuButton(
+                                    item = item,
+                                    contentColor = contentColor,
+                                )
+                                if (item.isDividerAfter) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(1.dp)
+                                            .height(28.dp)
+                                            .background(contentColor.copy(alpha = 0.15f)),
+                                    )
+                                }
+                            }
+                        }
+                        if (rowIndex < rows.size - 1) {
+                            Spacer(modifier = Modifier.height(2.dp))
+                        }
+                    }
                 }
             }
-            // 下方占位
             if (!anchorAtTop) {
                 Spacer(modifier = Modifier.height(SelectionMenuArrowHeight))
             }
         }
 
-        // 三角箭头：独立层，通过 offset 精确定位到选区中心
+        // 三角箭头
         Box(
             modifier = Modifier.matchParentSize(),
             contentAlignment = if (anchorAtTop) Alignment.TopCenter else Alignment.BottomCenter,
@@ -677,6 +683,14 @@ private fun ReaderSelectionActionBar(
         }
     }
 }
+
+private data class SelectionMenuItem(
+    val icon: ImageVector,
+    val label: String,
+    val onClick: () -> Unit,
+    val testTag: String? = null,
+    val isDividerAfter: Boolean = false,
+)
 
 @Composable
 private fun SelectionMenuAnchor(color: Color, pointsUp: Boolean, modifier: Modifier = Modifier) {
@@ -697,41 +711,41 @@ private fun SelectionMenuAnchor(color: Color, pointsUp: Boolean, modifier: Modif
     }
 }
 
-private val SelectionMenuWidth = 306.dp
-private val SelectionMenuBodyHeight = 66.dp
 private val SelectionMenuArrowHeight = 10.dp
-private val SelectionMenuHeight = SelectionMenuBodyHeight + SelectionMenuArrowHeight
 private val SelectionMenuHandleGap = 8.dp
+private val SelectionMenuItemWidth = 54.dp
+private val SelectionMenuItemHeight = 40.dp
+private val SelectionMenuIconSize = 20.dp
 
 @Composable
-private fun SelectionMenuAction(
-    icon: ImageVector,
-    label: String,
+private fun SelectionMenuButton(
+    item: SelectionMenuItem,
     contentColor: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
-        modifier = modifier
-            .width(70.dp)
-            .height(50.dp)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp),
+        modifier = Modifier
+            .width(SelectionMenuItemWidth)
+            .height(SelectionMenuItemHeight)
+            .clickable(onClick = item.onClick)
+            .then(
+                if (item.testTag != null) Modifier.testTag(item.testTag) else Modifier
+            )
+            .padding(horizontal = 2.dp),
     ) {
         Icon(
-            imageVector = icon,
-            contentDescription = label,
+            imageVector = item.icon,
+            contentDescription = item.label,
             tint = contentColor,
-            modifier = Modifier.size(24.dp),
+            modifier = Modifier.size(SelectionMenuIconSize),
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(2.dp))
         Text(
-            text = label,
+            text = item.label,
             color = contentColor,
-            fontSize = 12.sp,
-            lineHeight = 14.sp,
+            fontSize = 10.sp,
+            lineHeight = 12.sp,
             maxLines = 1,
             textAlign = TextAlign.Center,
         )

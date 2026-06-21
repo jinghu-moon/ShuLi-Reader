@@ -110,6 +110,8 @@ data class ReaderUiState(
     val currentMatchIndex: Int = -1,
     /** 选区滚动偏移（防遮挡用） */
     val selectionScrollOffset: Float = 0f,
+    /** 内联编辑模式：null = 未编辑，非 null = 正在编辑（值为预填文本） */
+    val inlineEditText: String? = null,
     /** 前缀匹配建议（未找到时显示） */
     val dictionarySuggestions: List<String> = emptyList(),
 ) {

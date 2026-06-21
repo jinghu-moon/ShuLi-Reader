@@ -46,6 +46,7 @@ sealed class ActiveScreen {
     data object Stats : ActiveScreen()
     data object Settings : ActiveScreen()
     data class Reader(val bookId: Long) : ActiveScreen()
+    data class Editor(val bookId: Long, val chapterIndex: Int) : ActiveScreen()
 }
 
 class MainActivity : ComponentActivity() {
@@ -252,7 +253,113 @@ class MainActivity : ComponentActivity() {
                                 ReaderScreen(
                                     bookId = screen.bookId,
                                     onBackClick = { currentScreen = ActiveScreen.Bookshelf },
+                                    onOpenEditor = { bId, chapterIdx ->
+                                        currentScreen = ActiveScreen.Editor(bId, chapterIdx)
+                                    },
                                     viewModel = readerViewModel,
+                                )
+                            }
+                            is ActiveScreen.Editor -> {
+                                BackHandler { currentScreen = ActiveScreen.Reader(screen.bookId) }
+                                val bookContentRepo = appContainer.bookContentRepository
+                                val bookChapterDao = appContainer.database.bookChapterDao()
+
+                                var chapterTitle by remember(screen.bookId, screen.chapterIndex) { mutableStateOf("") }
+                                var chapterText by remember(screen.bookId, screen.chapterIndex) { mutableStateOf("") }
+                                var isLoading by remember(screen.bookId, screen.chapterIndex) { mutableStateOf(true) }
+                                var loadError by remember(screen.bookId, screen.chapterIndex) { mutableStateOf<String?>(null) }
+
+                                LaunchedEffect(screen.bookId, screen.chapterIndex) {
+                                    isLoading = true
+                                    loadError = null
+                                    try {
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                            val book = appContainer.database.bookDao().getBookByIdSync(screen.bookId)
+                                            if (book != null) {
+                                                val chapters = bookChapterDao.getChapters(screen.bookId)
+                                                val chapter = chapters.getOrNull(screen.chapterIndex)
+                                                if (chapter != null) {
+                                                    chapterTitle = chapter.title
+                                                    val file = java.io.File(book.filePath)
+                                                    val chapterModels = chapters.map { ch ->
+                                                        com.shuli.reader.core.parser.model.Chapter(
+                                                            title = ch.title,
+                                                            byteStart = ch.byteStart,
+                                                            byteEnd = ch.byteEnd,
+                                                            spineIndex = ch.spineIndex,
+                                                        )
+                                                    }
+                                                    val content = bookContentRepo.getChapterText(
+                                                        file, screen.chapterIndex, chapterModels, screen.bookId
+                                                    )
+                                                    chapterText = content
+                                                } else {
+                                                    loadError = "章节不存在: index=${screen.chapterIndex}"
+                                                }
+                                            } else {
+                                                loadError = "书籍不存在: id=${screen.bookId}"
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        loadError = "加载失败: ${e.message}"
+                                    } finally {
+                                        isLoading = false
+                                    }
+                                }
+
+                                com.shuli.reader.feature.reader.editor.ChapterEditorScreen(
+                                    chapterTitle = if (isLoading) "加载中..." else chapterTitle,
+                                    chapterText = if (isLoading) "" else if (loadError != null) loadError!! else chapterText,
+                                    onBack = { currentScreen = ActiveScreen.Reader(screen.bookId) },
+                                    onSave = { editedText ->
+                                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                                            try {
+                                                val book = appContainer.database.bookDao().getBookByIdSync(screen.bookId)
+                                                if (book != null) {
+                                                    val chapters = bookChapterDao.getChapters(screen.bookId)
+                                                    val chapter = chapters.getOrNull(screen.chapterIndex)
+                                                    if (chapter != null) {
+                                                        val file = java.io.File(book.filePath)
+                                                        val charset = runCatching { java.nio.charset.Charset.forName(chapter.charset) }.getOrDefault(Charsets.UTF_8)
+
+                                                        // 读取原文件字节
+                                                        val originalBytes = file.readBytes()
+                                                        val originalText = String(originalBytes, charset)
+
+                                                        // 将字节偏移转为字符偏移
+                                                        val charStart = String(originalBytes, 0, chapter.byteStart.toInt().coerceAtMost(originalBytes.size), charset).length
+                                                        val charEnd = String(originalBytes, 0, chapter.byteEnd.toInt().coerceAtMost(originalBytes.size), charset).length
+
+                                                        // 替换章节文本
+                                                        val newText = originalText.substring(0, charStart) + editedText + originalText.substring(charEnd.coerceAtMost(originalText.length))
+
+                                                        // 写回文件
+                                                        file.writeBytes(newText.toByteArray(charset))
+
+                                                        // 更新后续章节的字节偏移
+                                                        val newBytes = newText.toByteArray(charset)
+                                                        val byteDiff = newBytes.size.toLong() - originalBytes.size.toLong()
+                                                        if (byteDiff != 0L) {
+                                                            bookChapterDao.shiftByteOffsets(
+                                                                bookId = screen.bookId,
+                                                                fromChapterIndex = screen.chapterIndex + 1,
+                                                                byteDelta = byteDiff,
+                                                            )
+                                                        }
+                                                        // 更新当前章节的 byteEnd
+                                                        val newByteEnd = chapter.byteStart + editedText.toByteArray(charset).size
+                                                        bookChapterDao.updateByteEnd(screen.bookId, screen.chapterIndex, newByteEnd)
+                                                    }
+                                                }
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("ChapterEditor", "Save failed", e)
+                                            } finally {
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                    currentScreen = ActiveScreen.Reader(screen.bookId)
+                                                }
+                                            }
+                                        }
+                                    },
                                 )
                             }
                         }
