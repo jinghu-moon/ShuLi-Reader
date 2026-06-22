@@ -159,12 +159,13 @@ class ChapterPaginationCoordinator(
             try {
                 val textLoadStart = System.currentTimeMillis()
                 val cached = cachedChapterTextProvider()
+                val editStore = editStoreProvider()
                 val chapterText = if (cached != null) {
                     clearCachedChapterText()
                     cached
                 } else if (repository != null && filePath != null) {
                     withContext(Dispatchers.IO) {
-                        repository.getChapterText(File(filePath), index, content)
+                        repository.getChapterText(File(filePath), index, content, editStore = editStore)
                     }
                 } else {
                     content.getChapterText(chapterMeta)

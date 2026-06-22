@@ -112,6 +112,14 @@ data class ReaderUiState(
     val selectionScrollOffset: Float = 0f,
     /** 内联编辑模式：null = 未编辑，非 null = 正在编辑（值为预填文本） */
     val inlineEditText: String? = null,
+    /** 内联编辑锚点（独立于 selectedRange，编辑模式正文点击时设置） */
+    val editAnchor: com.shuli.reader.core.reader.model.SelectionRange? = null,
+    /** 光标编辑锚点：空选区表示插入位置 */
+    val cursorEditAnchor: com.shuli.reader.core.reader.model.SelectionRange? = null,
+    /** 光标屏幕 X 坐标 */
+    val cursorScreenX: Float = 0f,
+    /** 光标屏幕 Y 坐标 */
+    val cursorScreenY: Float = 0f,
     /** 前缀匹配建议（未找到时显示） */
     val dictionarySuggestions: List<String> = emptyList(),
 ) {

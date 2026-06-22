@@ -7,11 +7,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
 /**
@@ -36,8 +39,16 @@ fun EditorOverlay(
     selectionScreenX: Float = 0f,
     selectionScreenY: Float = 0f,
     inlineEditText: String? = null,
+    cursorEditAnchor: com.shuli.reader.core.reader.model.SelectionRange? = null,
+    cursorScreenX: Float = 0f,
+    cursorScreenY: Float = 0f,
+    bodyFontSize: androidx.compose.ui.unit.TextUnit = 16.sp,
+    bodyTextColor: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Black,
+    onInlineEditTextChanged: (String) -> Unit = {},
     onConfirmInlineEdit: (String) -> Unit = {},
     onDismissInlineEdit: () -> Unit = {},
+    onConfirmCursorEdit: (String) -> Unit = {},
+    onDismissCursorEdit: () -> Unit = {},
     onNavigateToChapter: (Int) -> Unit = {},
     onSave: () -> Unit,
     onExit: () -> Unit,
@@ -50,8 +61,11 @@ fun EditorOverlay(
     val editCount = uiState.editState.patchCount
 
     Box(modifier = modifier.fillMaxSize()) {
-        // 层 1: 悬浮工具栏 (z=100)
+        // 层 1: 悬浮工具栏 (z=100) — 底部对齐
         EditorFloatingToolbar(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .imePadding(),
             uiState = uiState,
             onFindTextChange = { editViewModel.updateFindText(it) },
             onReplaceTextChange = { editViewModel.updateReplaceText(it) },
@@ -98,9 +112,12 @@ fun EditorOverlay(
             onClose = { editViewModel.showExitDialog() },
         )
 
-        // 层 2: 查找历史下拉 (z=99)
+        // 层 2: 查找历史下拉 (z=99) — 底部对齐，在工具栏上方
         val searchHistory by editViewModel.searchHistory.collectAsState()
         SearchHistoryDropdown(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .imePadding(),
             visible = uiState.showSearchHistory,
             history = searchHistory,
             onSelect = { word ->
@@ -168,8 +185,21 @@ fun EditorOverlay(
                 initialText = inlineEditText,
                 anchorX = selectionScreenX,
                 anchorY = selectionScreenY,
+                fontSize = bodyFontSize,
+                textColor = bodyTextColor,
+                onTextChange = onInlineEditTextChanged,
                 onConfirm = onConfirmInlineEdit,
                 onDismiss = onDismissInlineEdit,
+            )
+        }
+
+        // 层 8: 光标输入（编辑模式普通点击）
+        if (cursorEditAnchor != null && inlineEditText == null) {
+            CursorEditField(
+                anchorX = cursorScreenX,
+                anchorY = cursorScreenY,
+                onConfirm = onConfirmCursorEdit,
+                onDismiss = onDismissCursorEdit,
             )
         }
 

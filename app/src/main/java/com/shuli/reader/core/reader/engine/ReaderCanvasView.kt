@@ -255,6 +255,37 @@ class ReaderCanvasView @JvmOverloads constructor(
             override fun onAction(action: GestureAction, x: Float, y: Float) {
                 this@ReaderCanvasView.onGestureAction?.invoke(action)
             }
+            override fun isEditMode() = this@ReaderCanvasView.isEditMode
+            override fun onInlineEditTap(x: Float, y: Float) {
+                val page = currentPage ?: return
+                val range = textSelection.selectWordAt(
+                    x, y, page, chapterContent, width.toFloat(), textPaint,
+                ) ?: return
+                // 清除视觉选区（编辑模式不需要显示选区把手）
+                textSelection.clearSelection()
+                renderContext.selectedRange = null
+                invalidate()
+                // 计算词起始 X 和结束 X（供 Popover 精确定位）
+                val bodyLeft = page.layout.body.left
+                val line = page.lines.firstOrNull { l ->
+                    range.startPos >= l.startCharOffset && range.startPos < l.endCharOffset
+                }
+                var wordStartX = x
+                var wordEndX = x
+                if (line != null && line.charWidths != null) {
+                    val cw = line.charWidths!!
+                    // 计算词起始 X
+                    wordStartX = bodyLeft + line.startXOffset
+                    val startIdx = (range.startPos - line.startCharOffset).coerceAtMost(cw.size)
+                    for (i in 0 until startIdx) wordStartX += cw[i]
+                    // 计算词结束 X
+                    wordEndX = wordStartX
+                    val endIdx = (range.endPos - range.startPos).coerceAtMost(cw.size - startIdx)
+                    for (i in 0 until endIdx) wordEndX += cw[startIdx + i]
+                }
+                val baselineY = line?.baseline ?: y
+                this@ReaderCanvasView.onInlineEditTap?.invoke(range, wordStartX, wordEndX, baselineY)
+            }
             override fun onPageChanged(direction: PageDelegate.Direction) {
                 this@ReaderCanvasView.onPageChanged?.invoke(direction)
             }
@@ -345,6 +376,17 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     // 选区清除回调
     var onTextCleared: (() -> Unit)? = null
+
+    // 编辑模式标志（编辑模式下点击正文触发内联编辑）
+    var isEditMode: Boolean = false
+
+    // 编辑模式正文点击回调 (range, startX, endX, screenY)
+    var onInlineEditTap: ((SelectionRange, Float, Float, Float) -> Unit)? = null
+
+    // 编辑预览：当前正在编辑的文本（实时显示在 Canvas 上）
+    var editPreviewText: String? = null
+    // 编辑预览：对应的选区范围
+    var editPreviewRange: SelectionRange? = null
 
     // 选区拖动开始回调（用于隐藏菜单）
     var onSelectionDragStart: (() -> Unit)? = null
@@ -965,6 +1007,57 @@ class ReaderCanvasView @JvmOverloads constructor(
                 drawHandle(canvas, endRect, isStart = false)
             }
         }
+
+        // 绘制编辑预览
+        drawEditPreview(canvas, page)
+    }
+
+    /**
+     * 绘制编辑预览：覆盖原文并显示实时输入文本
+     */
+    private fun drawEditPreview(canvas: Canvas, page: TextPage) {
+        val previewText = editPreviewText ?: return
+        val range = editPreviewRange ?: return
+
+        // 找到被编辑词所在的行
+        val line = page.lines.firstOrNull { l ->
+            range.startPos >= l.startCharOffset && range.startPos < l.endCharOffset
+        } ?: return
+
+        val bodyLeft = page.layout.body.left
+
+        // 计算原文区域的起止 X 坐标
+        val charWidths = line.charWidths
+        var originalStartX = bodyLeft + line.startXOffset
+        var originalEndX = originalStartX
+
+        if (charWidths != null && charWidths.size == (line.endCharOffset - line.startCharOffset)) {
+            for (i in 0 until (range.startPos - line.startCharOffset).coerceAtMost(charWidths.size)) {
+                originalStartX += charWidths[i]
+            }
+            originalEndX = originalStartX
+            val wordLen = (range.endPos - range.startPos).coerceAtMost(charWidths.size - (range.startPos - line.startCharOffset))
+            for (i in 0 until wordLen) {
+                originalEndX += charWidths[(range.startPos - line.startCharOffset) + i]
+            }
+        }
+
+        // 用背景色覆盖原文
+        val bgPaint = Paint().apply {
+            color = backgroundPaint.color
+            style = Paint.Style.FILL
+        }
+        val coverRect = android.graphics.RectF(
+            originalStartX - 2f,
+            line.top - 2f,
+            originalEndX + 2f,
+            line.bottom + 2f,
+        )
+        canvas.drawRect(coverRect, bgPaint)
+
+        // 在原文位置绘制新文本
+        val previewPaint = Paint(textPaint)
+        canvas.drawText(previewText, originalStartX, line.baseline, previewPaint)
     }
 
     /**

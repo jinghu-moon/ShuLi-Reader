@@ -4,6 +4,7 @@ import com.shuli.reader.feature.reader.screen.ReaderSettingKey
 import com.shuli.reader.feature.reader.screen.ReaderSettingValue
 import com.shuli.reader.feature.reader.screen.ReaderIntent
 import com.shuli.reader.feature.reader.editor.EditorOverlay
+import com.shuli.reader.feature.reader.editor.InlineEditPopover
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -237,9 +238,13 @@ fun ReaderScreen(
         dispatch(ReaderIntent.OpenBook(bookId))
     }
 
+    var canvasView by remember { mutableStateOf<ReaderCanvasView?>(null) }
+    val localDensity = LocalDensity.current
+
     Scaffold(
         containerColor = readerColors.background,
     ) { _ ->
+
         Box(
             modifier = modifier
                 .fillMaxSize()
@@ -252,7 +257,6 @@ fun ReaderScreen(
             } else if (uiState.error != null) {
                 ErrorDisplay(error = uiState.error.orEmpty(), readerColors = readerColors)
             } else {
-                var canvasView by remember { mutableStateOf<ReaderCanvasView?>(null) }
 
                 // 所有 LaunchedEffect 副作用
                 ReaderCanvasEffects(
@@ -278,6 +282,7 @@ fun ReaderScreen(
                                 }
                             }
                             onTextSelected = { range, startX, endX, screenY ->
+                                dispatch(ReaderIntent.CancelCursorEdit)
                                 viewModel.navigationCoordinator.selectText(
                                     range,
                                     screenY = screenY,
@@ -293,6 +298,19 @@ fun ReaderScreen(
                             onTextCleared = {
                                 // 点击选区外部，清除选区
                                 dispatch(ReaderIntent.ClearSelection)
+                            }
+                            onInlineEditTap = { range, wordStartX, wordEndX, baselineY ->
+                                // 编辑模式下点击正文：选中词 → 内联编辑
+                                dispatch(ReaderIntent.InlineEdit(
+                                    text = range.selectedText ?: "",
+                                    anchor = range,
+                                ))
+                                viewModel.navigationCoordinator.selectText(
+                                    range,
+                                    screenY = baselineY,
+                                    screenX = wordStartX,
+                                    endScreenX = wordEndX,
+                                )
                             }
                             onSelectionDragStart = {
                                 // 拖动开始，隐藏菜单
@@ -341,6 +359,7 @@ fun ReaderScreen(
                         }
                     },
                     update = { view ->
+                        view.isEditMode = uiState.showTextEdit
                         val (headerRes, footerRes) = viewModel.readerProgressResolver.resolveHeaderAndFooterSlots()
                         val input = uiState.toRenderInput(
                             density = density,
@@ -372,6 +391,15 @@ fun ReaderScreen(
                     onPreviousSearchResult = { dispatch(ReaderIntent.PrevSearchResult) },
                     onNextSearchResult = { dispatch(ReaderIntent.NextSearchResult) },
                     onShowBookInfo = { showBookDetailsSheet = true },
+                    onToggleTextEdit = {
+                        dispatch(
+                            if (uiState.showTextEdit) {
+                                ReaderIntent.CloseTextEdit
+                            } else {
+                                ReaderIntent.OpenTextEdit
+                            },
+                        )
+                    },
                     modifier = Modifier.align(Alignment.TopCenter),
                 )
 
@@ -413,7 +441,7 @@ fun ReaderScreen(
                 )
 
                 // 选区浮动操作菜单（浮动在选区上方或下方，小三角指向选区中间）
-                uiState.selectedRange?.let { range ->
+                if (uiState.inlineEditText == null) uiState.selectedRange?.let { range ->
                     val density = LocalDensity.current
                     // 选区的起始和结束 X 坐标
                     val selStartX = uiState.selectionScreenX
@@ -504,7 +532,12 @@ fun ReaderScreen(
                                     icon = Icons.Outlined.Edit,
                                     label = strings.reader.editAction,
                                     onClick = {
-                                        dispatch(ReaderIntent.OpenTextEdit)
+                                        dispatch(
+                                            ReaderIntent.InlineEdit(
+                                                text = range.selectedText.orEmpty(),
+                                                anchor = range,
+                                            ),
+                                        )
                                     },
                                 ),
                             ),
@@ -557,33 +590,81 @@ fun ReaderScreen(
                 onDismiss = { showBookDetailsSheet = false },
             )
         }
+    }
 
-        // 编辑器覆盖层
-        if (uiState.showTextEdit) {
-            EditorOverlay(
-                editViewModel = viewModel.textEditViewModel,
-                chapterIndex = uiState.chapterIndex,
-                chapterTitles = uiState.chapterTitles,
-                getCurrentChapterText = { viewModel.getCurrentChapterText() },
-                getChapterText = { chapterIndex ->
-                    viewModel.getChapterTextForSearch(chapterIndex)
-                },
-                selectionScreenX = uiState.selectionScreenX,
-                selectionScreenY = uiState.selectionScreenY,
-                inlineEditText = uiState.inlineEditText,
-                onConfirmInlineEdit = { newText ->
-                    dispatch(ReaderIntent.ConfirmInlineEdit(newText))
-                },
-                onDismissInlineEdit = {
-                    dispatch(ReaderIntent.CancelInlineEdit)
-                },
-                onNavigateToChapter = { index ->
-                    dispatch(ReaderIntent.OpenChapter(index))
-                },
-                onSave = { dispatch(ReaderIntent.SaveEdits) },
-                onExit = { dispatch(ReaderIntent.CloseTextEdit) },
-            )
-        }
+    // 内联编辑弹窗（长按选词后点击"编辑"按钮，不显示工具栏）
+    if (uiState.inlineEditText != null && !uiState.showTextEdit) {
+        InlineEditPopover(
+            initialText = uiState.inlineEditText ?: "",
+            anchorX = uiState.selectionScreenX,
+            anchorY = uiState.selectionScreenY,
+            fontSize = localDensity.run { (canvasView?.textPaint?.textSize ?: 48f).toSp() },
+            textColor = androidx.compose.ui.graphics.Color(canvasView?.textPaint?.color ?: 0xFF000000.toInt()),
+            onTextChange = { text ->
+                canvasView?.editPreviewText = text
+                canvasView?.editPreviewRange = uiState.editAnchor
+                canvasView?.invalidate()
+            },
+            onConfirm = { newText ->
+                canvasView?.editPreviewText = null
+                canvasView?.editPreviewRange = null
+                dispatch(ReaderIntent.ConfirmInlineEdit(newText))
+            },
+            onDismiss = {
+                canvasView?.editPreviewText = null
+                canvasView?.editPreviewRange = null
+                canvasView?.invalidate()
+                dispatch(ReaderIntent.CancelInlineEdit)
+            },
+        )
+    }
+
+    // 编辑器覆盖层（点击顶部"编辑"按钮进入，显示完整工具栏）
+    if (uiState.showTextEdit) {
+        EditorOverlay(
+            editViewModel = viewModel.textEditViewModel,
+            chapterIndex = uiState.chapterIndex,
+            chapterTitles = uiState.chapterTitles,
+            getCurrentChapterText = { viewModel.getCurrentChapterText() },
+            getChapterText = { chapterIndex ->
+                viewModel.getChapterTextForSearch(chapterIndex)
+            },
+            selectionScreenX = uiState.selectionScreenX,
+            selectionScreenY = uiState.selectionScreenY,
+            inlineEditText = uiState.inlineEditText,
+            cursorEditAnchor = uiState.cursorEditAnchor,
+            cursorScreenX = uiState.cursorScreenX,
+            cursorScreenY = uiState.cursorScreenY,
+            bodyFontSize = localDensity.run { (canvasView?.textPaint?.textSize ?: 48f).toSp() },
+            bodyTextColor = androidx.compose.ui.graphics.Color(canvasView?.textPaint?.color ?: 0xFF000000.toInt()),
+            onInlineEditTextChanged = { text ->
+                canvasView?.editPreviewText = text
+                canvasView?.editPreviewRange = uiState.editAnchor
+                canvasView?.invalidate()
+            },
+            onConfirmInlineEdit = { newText ->
+                canvasView?.editPreviewText = null
+                canvasView?.editPreviewRange = null
+                dispatch(ReaderIntent.ConfirmInlineEdit(newText))
+            },
+            onDismissInlineEdit = {
+                canvasView?.editPreviewText = null
+                canvasView?.editPreviewRange = null
+                canvasView?.invalidate()
+                dispatch(ReaderIntent.CancelInlineEdit)
+            },
+            onConfirmCursorEdit = { newText ->
+                dispatch(ReaderIntent.ConfirmCursorEdit(newText))
+            },
+            onDismissCursorEdit = {
+                dispatch(ReaderIntent.CancelCursorEdit)
+            },
+            onNavigateToChapter = { index ->
+                dispatch(ReaderIntent.OpenChapter(index))
+            },
+            onSave = { dispatch(ReaderIntent.SaveEdits) },
+            onExit = { dispatch(ReaderIntent.CloseTextEdit) },
+        )
     }
 }
 

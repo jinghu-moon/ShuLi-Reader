@@ -551,9 +551,12 @@ class ReaderViewModel(
             // ── 文本编辑 ──
             is ReaderIntent.OpenTextEdit -> openTextEdit()
             is ReaderIntent.CloseTextEdit -> closeTextEdit()
-            is ReaderIntent.InlineEdit -> enterInlineEdit(intent.text)
+            is ReaderIntent.InlineEdit -> enterInlineEdit(intent.text, intent.anchor)
+            is ReaderIntent.CursorEdit -> enterCursorEdit(intent.anchor, intent.screenX, intent.screenY)
             is ReaderIntent.ConfirmInlineEdit -> confirmInlineEdit(intent.newText)
             is ReaderIntent.CancelInlineEdit -> cancelInlineEdit()
+            is ReaderIntent.ConfirmCursorEdit -> confirmCursorEdit(intent.newText)
+            is ReaderIntent.CancelCursorEdit -> cancelCursorEdit()
             is ReaderIntent.FindNext -> findNext()
             is ReaderIntent.FindPrev -> findPrev()
             is ReaderIntent.ReplaceCurrent -> replaceCurrent(intent.replacement)
@@ -922,19 +925,47 @@ class ReaderViewModel(
 
     /** 关闭查找/替换面板 */
     private fun closeTextEdit() {
-        _uiState.value = _uiState.value.copy(showTextEdit = false)
+        _uiState.value = _uiState.value.copy(
+            showTextEdit = false,
+            inlineEditText = null,
+            editAnchor = null,
+            cursorEditAnchor = null,
+        )
     }
 
-    /** 进入内联编辑模式：显示覆盖输入框 */
-    private fun enterInlineEdit(originalText: String) {
+    /** 进入内联编辑模式：显示覆盖输入框，保存编辑锚点 */
+    private fun enterInlineEdit(
+        originalText: String,
+        anchor: com.shuli.reader.core.reader.model.SelectionRange? = null,
+    ) {
         _uiState.value = _uiState.value.copy(
+            showTextEdit = true,
             inlineEditText = originalText,
+            editAnchor = anchor,
+            cursorEditAnchor = null,
+        )
+    }
+
+    /** 进入光标编辑模式：不显示修改框，只显示光标并唤起键盘 */
+    private fun enterCursorEdit(
+        anchor: com.shuli.reader.core.reader.model.SelectionRange,
+        screenX: Float,
+        screenY: Float,
+    ) {
+        _uiState.value = _uiState.value.copy(
+            showTextEdit = true,
+            selectedRange = null,
+            inlineEditText = null,
+            editAnchor = null,
+            cursorEditAnchor = anchor,
+            cursorScreenX = screenX,
+            cursorScreenY = screenY,
         )
     }
 
     /** 确认内联编辑：应用替换 */
     private fun confirmInlineEdit(newText: String) {
-        val range = _uiState.value.selectedRange ?: run {
+        val range = _uiState.value.editAnchor ?: run {
             cancelInlineEdit()
             return
         }
@@ -942,7 +973,7 @@ class ReaderViewModel(
 
         viewModelScope.launch {
             editStore.addSingle(com.shuli.reader.feature.reader.editor.EditDelta(
-                chapterIndex = state.chapterIndex,
+                chapterIndex = range.chapterIndex,
                 charStart = range.startPos,
                 charEnd = range.endPos,
                 newText = newText,
@@ -953,6 +984,8 @@ class ReaderViewModel(
                 hasUnsavedEdits = true,
                 selectedRange = null,
                 inlineEditText = null,
+                editAnchor = null,
+                cursorEditAnchor = null,
             )
 
             // 触发重新分页
@@ -962,7 +995,39 @@ class ReaderViewModel(
 
     /** 取消内联编辑 */
     private fun cancelInlineEdit() {
-        _uiState.value = _uiState.value.copy(inlineEditText = null)
+        _uiState.value = _uiState.value.copy(inlineEditText = null, editAnchor = null)
+    }
+
+    /** 确认光标输入：在光标位置插入文本 */
+    private fun confirmCursorEdit(newText: String) {
+        val range = _uiState.value.cursorEditAnchor ?: return
+        if (newText.isEmpty()) {
+            cancelCursorEdit()
+            return
+        }
+        val state = _uiState.value
+
+        viewModelScope.launch {
+            editStore.addSingle(com.shuli.reader.feature.reader.editor.EditDelta(
+                chapterIndex = state.chapterIndex,
+                charStart = range.startPos,
+                charEnd = range.endPos,
+                newText = newText,
+                originalText = "",
+            ))
+
+            _uiState.value = state.copy(
+                hasUnsavedEdits = true,
+                cursorEditAnchor = null,
+            )
+
+            reflowCurrentChapter(_uiState.value.readerPreferences)
+        }
+    }
+
+    /** 取消光标输入 */
+    private fun cancelCursorEdit() {
+        _uiState.value = _uiState.value.copy(cursorEditAnchor = null)
     }
 
     /** 查找下一个 */

@@ -35,6 +35,12 @@ class CanvasTouchHandler(context: Context) {
         /** 获取当前手势配置（v5.1），默认返回默认配置 */
         fun getGestureConfig(): GestureConfig = GestureConfig()
 
+        /** 是否处于编辑模式（编辑模式下点击正文触发内联编辑而非翻页） */
+        fun isEditMode(): Boolean = false
+
+        /** 编辑模式下点击正文（非中心区域），触发内联编辑 */
+        fun onInlineEditTap(x: Float, y: Float) {}
+
         /** 获取文本选区对象 */
         fun getTextSelection(): CanvasTextSelection? = null
 
@@ -90,6 +96,12 @@ class CanvasTouchHandler(context: Context) {
                 val h = cb.getHeight()
                 val leftRatio = cb.getLeftZoneRatio().coerceIn(0.2f, 0.5f)
 
+                // 编辑模式：点击正文区域触发内联编辑
+                if (cb.isEditMode()) {
+                    cb.onInlineEditTap(x, y)
+                    return true
+                }
+
                 val isCenter = x > w * leftRatio && x < w * (1f - leftRatio) &&
                     y > h / 3f && y < h * 2f / 3f
                 if (isCenter) {
@@ -115,7 +127,7 @@ class CanvasTouchHandler(context: Context) {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 val textSelection = cb.getTextSelection()
-                if (textSelection != null && textSelection.selectedRange != null) {
+                if (!cb.isEditMode() && textSelection != null && textSelection.selectedRange != null) {
                     // 检查是否点击了把手
                     val hitHandle = textSelection.hitTestHandle(event.x, event.y)
                     if (hitHandle != null) {

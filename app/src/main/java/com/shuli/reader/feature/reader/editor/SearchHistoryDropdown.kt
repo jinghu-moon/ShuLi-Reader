@@ -35,7 +35,7 @@ import com.shuli.reader.ui.theme.LocalReaderColorScheme
  * 模块 B: 查找历史下拉菜单
  *
  * 参考 edit-interface-demo.html 设计：
- * - 定位在工具栏下方
+ * - 定位在工具栏上方（工具栏在底部）
  * - 搜索输入框获焦时显示
  * - 列表项：时钟图标 + 文字 + 删除按钮
  * - 底部：清空搜索历史
@@ -53,8 +53,8 @@ fun SearchHistoryDropdown(
 
     AnimatedVisibility(
         visible = visible && history.isNotEmpty(),
-        enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { -10 },
-        exit = fadeOut(tween(150)) + slideOutVertically(tween(150)) { -10 },
+        enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { 10 },
+        exit = fadeOut(tween(150)) + slideOutVertically(tween(150)) { 10 },
     ) {
         Surface(
             modifier = modifier
@@ -62,7 +62,7 @@ fun SearchHistoryDropdown(
                 .padding(
                     start = tokens.ToolbarHorizontalPadding,
                     end = tokens.ToolbarHorizontalPadding,
-                    top = tokens.HistoryDropdownTopOffset,
+                    bottom = tokens.HistoryDropdownTopOffset,
                 ),
             shape = RoundedCornerShape(tokens.HistoryDropdownCornerRadius),
             color = tokens.Surface,

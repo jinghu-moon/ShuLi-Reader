@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,6 +45,7 @@ internal fun ReaderTopBar(
     onPreviousSearchResult: () -> Unit,
     onNextSearchResult: () -> Unit,
     onShowBookInfo: () -> Unit,
+    onToggleTextEdit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalAppStrings.current
@@ -93,6 +95,13 @@ internal fun ReaderTopBar(
                             imageVector = Icons.Outlined.Info,
                             contentDescription = strings.bookshelf.bookInfo,
                             tint = readerColors.textPrimary,
+                        )
+                    }
+                    IconButton(onClick = onToggleTextEdit) {
+                        Icon(
+                            imageVector = Icons.Outlined.Edit,
+                            contentDescription = strings.reader.editAction,
+                            tint = if (uiState.showTextEdit) readerColors.accent else readerColors.textPrimary,
                         )
                     }
                     IconButton(onClick = onToggleSearch) {
