@@ -1,9 +1,7 @@
 package com.shuli.reader.feature.reader.editor
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -15,12 +13,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -56,7 +54,6 @@ fun InlineEditPopover(
     modifier: Modifier = Modifier,
 ) {
     val tokens = EditorTokens
-    val density = LocalDensity.current
     val keyboardController = LocalSoftwareKeyboardController.current
     var editText by remember(initialText) { mutableStateOf(initialText) }
     val focusRequester = remember { FocusRequester() }
@@ -67,14 +64,14 @@ fun InlineEditPopover(
         keyboardController?.show()
     }
 
-    // 定位：输入框左边缘对齐文字起始 X，底部在 baseline 上方
-    val fontSizePx = with(density) { fontSize.toPx() }
-    val paddingPx = with(density) { 8.dp.toPx() }
-    val lineHeightPx = with(density) { 48.dp.toPx() }  // 弹窗总高度
-    val popupOffsetX = (anchorX - paddingPx).toInt()
-    val popupOffsetY = (anchorY - lineHeightPx).toInt()  // 在 baseline 上方显示
+    // 定位：参考选区菜单的定位逻辑
+    // 使用 Alignment.TopCenter，通过 offset 调整位置
+    // anchorX 是词的起始 X 坐标，anchorY 是 baseline Y 坐标
+    val popupOffsetX = anchorX.toInt() - 100  // 居中对齐（假设弹窗宽度约200dp）
+    val popupOffsetY = anchorY.toInt() - 80   // 在选区上方显示
 
     Popup(
+        alignment = Alignment.TopCenter,
         offset = IntOffset(popupOffsetX, popupOffsetY),
         onDismissRequest = onDismiss,
         properties = PopupProperties(focusable = true),
@@ -95,9 +92,9 @@ fun InlineEditPopover(
                 .drawBehind {
                     val triangleSize = 6.dp.toPx()
                     val path = androidx.compose.ui.graphics.Path().apply {
-                        moveTo(paddingPx, size.height)
-                        lineTo(paddingPx + triangleSize, size.height + triangleSize)
-                        lineTo(paddingPx + triangleSize * 2, size.height)
+                        moveTo(size.width / 2 - triangleSize, size.height)
+                        lineTo(size.width / 2, size.height + triangleSize)
+                        lineTo(size.width / 2 + triangleSize, size.height)
                         close()
                     }
                     drawPath(path, tokens.SurfaceInverse)
@@ -124,7 +121,7 @@ fun CursorEditField(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val density = LocalDensity.current
+    val tokens = EditorTokens
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
     var draftText by remember { mutableStateOf("") }
@@ -135,10 +132,12 @@ fun CursorEditField(
         keyboardController?.show()
     }
 
-    val popupOffsetX = anchorX.toInt()
-    val popupOffsetY = with(density) { (anchorY - 28.dp.toPx()).toInt() }
+    // 定位：在光标位置显示输入框
+    val popupOffsetX = anchorX.toInt() - 50
+    val popupOffsetY = anchorY.toInt() - 60
 
     Popup(
+        alignment = Alignment.TopCenter,
         offset = IntOffset(popupOffsetX, popupOffsetY),
         onDismissRequest = onDismiss,
         properties = PopupProperties(focusable = true),
@@ -147,14 +146,14 @@ fun CursorEditField(
             value = draftText,
             onValueChange = { draftText = it },
             textStyle = TextStyle(
-                fontSize = 20.sp,
-                color = EditorTokens.TextPrimary,
+                fontSize = 16.sp,
+                color = tokens.TextPrimary,
             ),
-            cursorBrush = SolidColor(EditorTokens.Primary),
+            cursorBrush = SolidColor(tokens.Primary),
             singleLine = true,
             modifier = modifier
-                .widthIn(min = 2.dp, max = 220.dp)
-                .height(32.dp)
+                .background(tokens.SurfaceInverse, RoundedCornerShape(6.dp))
+                .padding(horizontal = 8.dp, vertical = 6.dp)
                 .focusRequester(focusRequester),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(

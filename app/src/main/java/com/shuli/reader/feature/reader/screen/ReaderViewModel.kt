@@ -933,13 +933,12 @@ class ReaderViewModel(
         )
     }
 
-    /** 进入内联编辑模式：显示覆盖输入框，保存编辑锚点 */
+    /** 进入内联编辑模式：显示覆盖输入框，保存编辑锚点（不显示工具栏） */
     private fun enterInlineEdit(
         originalText: String,
         anchor: com.shuli.reader.core.reader.model.SelectionRange? = null,
     ) {
         _uiState.value = _uiState.value.copy(
-            showTextEdit = true,
             inlineEditText = originalText,
             editAnchor = anchor,
             cursorEditAnchor = null,
