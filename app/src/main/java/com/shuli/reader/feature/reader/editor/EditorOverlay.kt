@@ -33,6 +33,12 @@ fun EditorOverlay(
     chapterTitles: List<String>,
     getCurrentChapterText: () -> String,
     getChapterText: suspend (Int) -> String,
+    selectionScreenX: Float = 0f,
+    selectionScreenY: Float = 0f,
+    inlineEditText: String? = null,
+    onConfirmInlineEdit: (String) -> Unit = {},
+    onDismissInlineEdit: () -> Unit = {},
+    onNavigateToChapter: (Int) -> Unit = {},
     onSave: () -> Unit,
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
@@ -151,10 +157,21 @@ fun EditorOverlay(
             totalMatches = uiState.matches.size,
             onClose = { editViewModel.toggleSidebar() },
             onChapterClick = { index ->
-                // TODO: 跳转到指定章节
                 editViewModel.toggleSidebar()
+                onNavigateToChapter(index)
             },
         )
+
+        // 层 7: 内联编辑气泡（精确定位）
+        if (inlineEditText != null) {
+            InlineEditPopover(
+                initialText = inlineEditText,
+                anchorX = selectionScreenX,
+                anchorY = selectionScreenY,
+                onConfirm = onConfirmInlineEdit,
+                onDismiss = onDismissInlineEdit,
+            )
+        }
 
         // 层 6: 退出保护对话框 (z=200)
         ExitProtectionDialog(

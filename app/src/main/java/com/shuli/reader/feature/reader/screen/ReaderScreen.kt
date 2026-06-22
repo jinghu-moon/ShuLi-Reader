@@ -568,6 +568,18 @@ fun ReaderScreen(
                 getChapterText = { chapterIndex ->
                     viewModel.getChapterTextForSearch(chapterIndex)
                 },
+                selectionScreenX = uiState.selectionScreenX,
+                selectionScreenY = uiState.selectionScreenY,
+                inlineEditText = uiState.inlineEditText,
+                onConfirmInlineEdit = { newText ->
+                    dispatch(ReaderIntent.ConfirmInlineEdit(newText))
+                },
+                onDismissInlineEdit = {
+                    dispatch(ReaderIntent.CancelInlineEdit)
+                },
+                onNavigateToChapter = { index ->
+                    dispatch(ReaderIntent.OpenChapter(index))
+                },
                 onSave = { dispatch(ReaderIntent.SaveEdits) },
                 onExit = { dispatch(ReaderIntent.CloseTextEdit) },
             )
