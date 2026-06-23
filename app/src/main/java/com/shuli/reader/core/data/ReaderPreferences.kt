@@ -108,6 +108,7 @@ enum class PageAnimType {
     COVER,
     HORIZONTAL,
     SIMULATION,
+    VERTICAL_SLIDE,
     SCROLL,
 }
 
@@ -196,7 +197,19 @@ fun PageAnimType.toFactoryType(): com.shuli.reader.core.reader.engine.animation.
         PageAnimType.COVER -> com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.COVER
         PageAnimType.HORIZONTAL -> com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.HORIZONTAL
         PageAnimType.SIMULATION -> com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.SIMULATION
+        PageAnimType.VERTICAL_SLIDE -> com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.VERTICAL_SLIDE
         PageAnimType.SCROLL -> com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.SCROLL
+    }
+}
+
+fun PageAnimType.toStorageString(): String {
+    return when (this) {
+        PageAnimType.NONE -> PageAnimConst.NONE
+        PageAnimType.COVER -> PageAnimConst.OVERLAY
+        PageAnimType.HORIZONTAL -> PageAnimConst.SLIDE
+        PageAnimType.SIMULATION -> PageAnimConst.SIMULATION
+        PageAnimType.VERTICAL_SLIDE -> PageAnimConst.VERTICAL_SLIDE
+        PageAnimType.SCROLL -> PageAnimConst.SCROLL
     }
 }
 
@@ -209,7 +222,15 @@ fun String.toPageAnimType(): PageAnimType {
         PageAnimConst.OVERLAY -> PageAnimType.COVER
         PageAnimConst.SLIDE -> PageAnimType.HORIZONTAL
         PageAnimConst.SIMULATION -> PageAnimType.SIMULATION
+        PageAnimConst.VERTICAL_SLIDE -> PageAnimType.VERTICAL_SLIDE
+        PageAnimConst.SCROLL -> PageAnimType.SCROLL
         PageAnimConst.FADE -> PageAnimType.NONE  // 淡入淡出暂用无动画
+        PageAnimType.NONE.name -> PageAnimType.NONE
+        PageAnimType.COVER.name -> PageAnimType.COVER
+        PageAnimType.HORIZONTAL.name -> PageAnimType.HORIZONTAL
+        PageAnimType.SIMULATION.name -> PageAnimType.SIMULATION
+        PageAnimType.VERTICAL_SLIDE.name -> PageAnimType.VERTICAL_SLIDE
+        PageAnimType.SCROLL.name -> PageAnimType.SCROLL
         else -> PageAnimType.HORIZONTAL
     }
 }
@@ -430,6 +451,12 @@ enum class PageAnimSpeed(val durationMs: Int) {
         fun fromDurationMs(ms: Int): PageAnimSpeed =
             entries.firstOrNull { it.durationMs == ms } ?: NORMAL
     }
+}
+
+fun String.toPageAnimSpeed(): PageAnimSpeed {
+    return PageAnimSpeed.entries.firstOrNull { it.name == this }
+        ?: toIntOrNull()?.let(PageAnimSpeed::fromDurationMs)
+        ?: PageAnimSpeed.NORMAL
 }
 
 fun ReaderPreferences.toLayoutConfig(

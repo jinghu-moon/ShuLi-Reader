@@ -37,7 +37,10 @@ fun EditorOverlay(
     getCurrentChapterText: () -> String,
     getChapterText: suspend (Int) -> String,
     selectionScreenX: Float = 0f,
+    selectionEndScreenX: Float = 0f,
     selectionScreenY: Float = 0f,
+    screenWidth: Float = 0f,
+    screenHeight: Float = 0f,
     inlineEditText: String? = null,
     cursorEditAnchor: com.shuli.reader.core.reader.model.SelectionRange? = null,
     cursorScreenX: Float = 0f,
@@ -183,8 +186,11 @@ fun EditorOverlay(
         if (inlineEditText != null) {
             InlineEditPopover(
                 initialText = inlineEditText,
-                anchorX = selectionScreenX,
+                anchorStartX = selectionScreenX,
+                anchorEndX = selectionEndScreenX,
                 anchorY = selectionScreenY,
+                screenWidth = screenWidth,
+                screenHeight = screenHeight,
                 fontSize = bodyFontSize,
                 textColor = bodyTextColor,
                 onTextChange = onInlineEditTextChanged,
@@ -198,6 +204,8 @@ fun EditorOverlay(
             CursorEditField(
                 anchorX = cursorScreenX,
                 anchorY = cursorScreenY,
+                screenWidth = screenWidth,
+                screenHeight = screenHeight,
                 onConfirm = onConfirmCursorEdit,
                 onDismiss = onDismissCursorEdit,
             )

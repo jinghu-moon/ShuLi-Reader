@@ -5,14 +5,17 @@ import android.graphics.Canvas
 import android.view.MotionEvent
 import android.view.animation.DecelerateInterpolator
 import com.shuli.reader.core.recorder.CanvasRecorder
+import kotlin.math.abs
 
 /**
- * 垂直滚动翻页委托
- * 支持连续滚动阅读模式
+ * 连续滚动委托。
+ *
+ * 该模式没有“拖动不足阈值则回弹”的翻页语义。用户松手后保留当前正文偏移，
+ * 只有累计滚过当前正文流片段高度时才提交内部页引用，用分页模型模拟连续正文流。
  */
 class ScrollPageDelegate(
     private val durationMs: Long = ReaderMotionTokens.MEDIUM_MS,
-) : PageDelegate {
+) : BodyScrollPageDelegate {
 
     override var state: PageDelegate.State = PageDelegate.State.IDLE
         private set
@@ -23,11 +26,12 @@ class ScrollPageDelegate(
     private var callback: PageDelegate.Callback? = null
     private var startY: Float = 0f
     private var currentY: Float = 0f
+    private var dragStartOffset: Float = 0f
     private var scrollOffset: Float = 0f
-    private var screenHeight: Float = 1920f
+    private var nextScrollExtent: Float = 1920f
+    private var prevScrollExtent: Float = 1920f
 
     private var animator: ValueAnimator? = null
-    private var pendingResetOffset = false
     private var isAborting = false
 
     override fun setCallback(callback: PageDelegate.Callback) {
@@ -37,30 +41,28 @@ class ScrollPageDelegate(
     override fun onTouch(event: MotionEvent): Boolean {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                cancelAnimator()
                 startY = event.y
                 currentY = event.y
+                dragStartOffset = scrollOffset
+                direction = directionForOffset(scrollOffset)
                 state = PageDelegate.State.DRAGGING
-                animator?.cancel()
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
                 if (state == PageDelegate.State.DRAGGING) {
-                    val deltaY = event.y - currentY
                     currentY = event.y
-                    scrollOffset += deltaY
+                    setContinuousOffset(dragStartOffset + currentY - startY)
                     callback?.invalidate()
                 }
                 return true
             }
-            MotionEvent.ACTION_UP -> {
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (state == PageDelegate.State.DRAGGING) {
-                    val velocity = (event.y - startY) / 100f
-
-                    if (Math.abs(velocity) > 1f) {
-                        startInertiaScroll(velocity)
-                    } else {
-                        state = PageDelegate.State.IDLE
-                    }
+                    currentY = event.y
+                    setContinuousOffset(dragStartOffset + currentY - startY)
+                    settleCompletedPage()
+                    callback?.invalidate()
                 }
                 return true
             }
@@ -68,103 +70,106 @@ class ScrollPageDelegate(
         return false
     }
 
-    private fun startInertiaScroll(velocity: Float) {
-        state = PageDelegate.State.ANIMATING
-        val startOffset = scrollOffset
-        val targetOffset = scrollOffset + velocity * 500f
-
-        animator?.cancel()
-        animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = durationMs
-            interpolator = DecelerateInterpolator()
-            addUpdateListener { anim ->
-                val progress = anim.animatedValue as Float
-                scrollOffset = startOffset + (targetOffset - startOffset) * progress
-                callback?.invalidate()
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    state = PageDelegate.State.IDLE
-                    checkChapterBoundary()
-                }
-            })
-            start()
-        }
+    private fun setContinuousOffset(offset: Float) {
+        scrollOffset = offset.coerceIn(-nextScrollExtent, prevScrollExtent)
+        direction = directionForOffset(scrollOffset)
     }
 
-    private fun checkChapterBoundary() {
-        if (isAborting) return
-        if (scrollOffset < -screenHeight) {
-            direction = PageDelegate.Direction.NEXT
-            state = PageDelegate.State.SETTLING
-            pendingResetOffset = true
-            callback?.onPageChanged(direction)
-        } else if (scrollOffset > screenHeight) {
-            direction = PageDelegate.Direction.PREV
-            state = PageDelegate.State.SETTLING
-            pendingResetOffset = true
-            callback?.onPageChanged(direction)
+    private fun settleCompletedPage() {
+        val completedDirection = when {
+            scrollOffset <= -nextScrollExtent -> PageDelegate.Direction.NEXT
+            scrollOffset >= prevScrollExtent -> PageDelegate.Direction.PREV
+            else -> PageDelegate.Direction.NONE
+        }
+
+        if (completedDirection == PageDelegate.Direction.NONE) {
+            state = PageDelegate.State.IDLE
+            return
+        }
+
+        direction = completedDirection
+        state = PageDelegate.State.SETTLING
+        callback?.onPageChanged(completedDirection)
+    }
+
+    private fun directionForOffset(offset: Float): PageDelegate.Direction {
+        return when {
+            offset > 0f -> PageDelegate.Direction.PREV
+            offset < 0f -> PageDelegate.Direction.NEXT
+            else -> PageDelegate.Direction.NONE
         }
     }
 
     override fun confirmPageSettled() {
         if (state == PageDelegate.State.SETTLING) {
-            if (pendingResetOffset) {
-                scrollOffset = 0f
-                pendingResetOffset = false
-            }
+            scrollOffset = 0f
+            dragStartOffset = 0f
             state = PageDelegate.State.IDLE
             direction = PageDelegate.Direction.NONE
         }
     }
 
     override fun onDraw(canvas: Canvas, current: CanvasRecorder, target: CanvasRecorder) {
-        screenHeight = canvas.height.toFloat()
+        setViewportHeight(canvas.height.toFloat())
+
+        if (scrollOffset == 0f && state == PageDelegate.State.IDLE) {
+            current.draw(canvas)
+            return
+        }
 
         canvas.save()
         canvas.translate(0f, scrollOffset)
         current.draw(canvas)
         canvas.restore()
 
-        if (scrollOffset < -screenHeight * 0.8f) {
-            canvas.save()
-            canvas.translate(0f, scrollOffset + screenHeight)
-            target.draw(canvas)
-            canvas.restore()
-        } else if (scrollOffset > screenHeight * 0.8f) {
-            canvas.save()
-            canvas.translate(0f, scrollOffset - screenHeight)
-            target.draw(canvas)
-            canvas.restore()
+        val targetOffset = if (isDraggingBackward()) {
+            scrollOffset - prevScrollExtent
+        } else {
+            scrollOffset + nextScrollExtent
         }
+        canvas.save()
+        canvas.translate(0f, targetOffset)
+        target.draw(canvas)
+        canvas.restore()
     }
 
     override fun startNext() {
-        startScrollAnimation(-screenHeight)
+        startScrollAnimation(PageDelegate.Direction.NEXT)
     }
 
     override fun startPrev() {
-        startScrollAnimation(screenHeight)
+        startScrollAnimation(PageDelegate.Direction.PREV)
     }
 
-    private fun startScrollAnimation(targetDelta: Float) {
+    private fun startScrollAnimation(targetDirection: PageDelegate.Direction) {
+        direction = targetDirection
         state = PageDelegate.State.ANIMATING
         val startOffset = scrollOffset
-        val targetOffset = scrollOffset + targetDelta
+        val targetOffset = when (targetDirection) {
+            PageDelegate.Direction.NEXT -> -nextScrollExtent
+            PageDelegate.Direction.PREV -> prevScrollExtent
+            PageDelegate.Direction.NONE -> 0f
+        }
+        val targetExtent = when (targetDirection) {
+            PageDelegate.Direction.PREV -> prevScrollExtent
+            else -> nextScrollExtent
+        }
+        val fraction = (abs(targetOffset - startOffset) / targetExtent.coerceAtLeast(1f)).coerceIn(0f, 1f)
 
-        animator?.cancel()
-        animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = durationMs
+        cancelAnimator()
+        animator = ValueAnimator.ofFloat(startOffset, targetOffset).apply {
+            duration = (durationMs * fraction).toLong().coerceAtLeast(50L)
             interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
-                val progress = anim.animatedValue as Float
-                scrollOffset = startOffset + (targetOffset - startOffset) * progress
+                scrollOffset = anim.animatedValue as Float
+                direction = targetDirection
                 callback?.invalidate()
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
-                    state = PageDelegate.State.IDLE
-                    checkChapterBoundary()
+                    if (isAborting) return
+                    state = PageDelegate.State.SETTLING
+                    callback?.onPageChanged(targetDirection)
                 }
             })
             start()
@@ -178,15 +183,85 @@ class ScrollPageDelegate(
         animator = null
         state = PageDelegate.State.IDLE
         direction = PageDelegate.Direction.NONE
+        scrollOffset = 0f
+        dragStartOffset = 0f
     }
 
     override fun isDraggingBackward(): Boolean {
-        return currentY < startY
+        return if (scrollOffset == 0f) {
+            direction == PageDelegate.Direction.PREV
+        } else {
+            scrollOffset > 0f
+        }
     }
 
-    fun getScrollPosition(): Float = scrollOffset
+    override fun getScrollPosition(): Float = scrollOffset
 
-    fun setScrollPosition(position: Float) {
-        scrollOffset = position
+    override fun getViewportHeight(): Float = currentScrollExtent()
+
+    override fun setViewportHeight(height: Float) {
+        setScrollExtents(forwardExtent = height, backwardExtent = height)
+    }
+
+    fun setScrollExtents(forwardExtent: Float, backwardExtent: Float) {
+        val newNextExtent = forwardExtent.coerceAtLeast(1f)
+        val newPrevExtent = backwardExtent.coerceAtLeast(1f)
+        if (newNextExtent == nextScrollExtent && newPrevExtent == prevScrollExtent) return
+
+        scrollOffset = rescaleOffset(scrollOffset, newNextExtent, newPrevExtent)
+        dragStartOffset = rescaleOffset(dragStartOffset, newNextExtent, newPrevExtent)
+        nextScrollExtent = newNextExtent
+        prevScrollExtent = newPrevExtent
+    }
+
+    fun setScrollPosition(position: Float, active: Boolean = false) {
+        cancelAnimator()
+        scrollOffset = position.coerceIn(-nextScrollExtent, prevScrollExtent)
+        dragStartOffset = scrollOffset
+        direction = directionForOffset(scrollOffset)
+        state = if (active && scrollOffset != 0f) {
+            PageDelegate.State.DRAGGING
+        } else {
+            PageDelegate.State.IDLE
+        }
+    }
+
+    fun resetScrollPosition() {
+        cancelAnimator()
+        animator = null
+        scrollOffset = 0f
+        dragStartOffset = 0f
+        direction = PageDelegate.Direction.NONE
+        state = PageDelegate.State.IDLE
+    }
+
+    private fun cancelAnimator() {
+        isAborting = true
+        animator?.cancel()
+        isAborting = false
+        animator = null
+    }
+
+    private fun currentScrollExtent(): Float {
+        return when {
+            scrollOffset > 0f -> prevScrollExtent
+            scrollOffset < 0f -> nextScrollExtent
+            direction == PageDelegate.Direction.PREV -> prevScrollExtent
+            else -> nextScrollExtent
+        }
+    }
+
+    private fun rescaleOffset(offset: Float, newNextExtent: Float, newPrevExtent: Float): Float {
+        return when {
+            offset > 0f -> {
+                val ratio = offset / prevScrollExtent.coerceAtLeast(1f)
+                (ratio * newPrevExtent).coerceAtMost(newPrevExtent)
+            }
+            offset < 0f -> {
+                val ratio = offset / nextScrollExtent.coerceAtLeast(1f)
+                (ratio * newNextExtent).coerceAtLeast(-newNextExtent)
+            }
+            else -> 0f
+        }
     }
 }

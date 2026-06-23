@@ -34,4 +34,10 @@ class PageDelegateFactoryTest {
         val delegate = PageDelegateFactory.create(PageDelegateFactory.PageAnimType.SCROLL)
         assertTrue(delegate is ScrollPageDelegate)
     }
+
+    @Test
+    fun createVerticalSlide_returnsVerticalSlidePageDelegate() {
+        val delegate = PageDelegateFactory.create(PageDelegateFactory.PageAnimType.VERTICAL_SLIDE)
+        assertTrue(delegate is VerticalSlidePageDelegate)
+    }
 }

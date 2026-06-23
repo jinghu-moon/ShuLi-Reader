@@ -112,6 +112,8 @@ data class ReaderUiState(
     val selectionScrollOffset: Float = 0f,
     /** 内联编辑模式：null = 未编辑，非 null = 正在编辑（值为预填文本） */
     val inlineEditText: String? = null,
+    /** 请求 Canvas 滚动到指定 Y 偏移（用于编辑模式将选区滚到屏幕上方） */
+    val scrollToY: Float? = null,
     /** 内联编辑锚点（独立于 selectedRange，编辑模式正文点击时设置） */
     val editAnchor: com.shuli.reader.core.reader.model.SelectionRange? = null,
     /** 光标编辑锚点：空选区表示插入位置 */

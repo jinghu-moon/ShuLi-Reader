@@ -83,14 +83,16 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.shuli.reader.core.font.FontManager
 import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.core.reader.engine.ReaderCanvasView
+import com.shuli.reader.core.reader.engine.animation.PageDelegateFactory
 import com.shuli.reader.feature.bookshelf.component.BookDetailsActions
 import com.shuli.reader.feature.bookshelf.component.BookDetailsSheet
 import com.shuli.reader.feature.bookshelf.component.BookDetailsTagActions
 import com.shuli.reader.feature.bookshelf.component.BookDetailsTagState
 import com.shuli.reader.feature.reader.render.ReaderCanvasEffects
-import com.shuli.reader.feature.reader.settings.panel.GestureZoneEditorOverlay
 import com.shuli.reader.feature.reader.render.toFallbackRenderInput
 import com.shuli.reader.feature.reader.render.toRenderInput
+import com.shuli.reader.feature.reader.settings.GestureAction
+import com.shuli.reader.feature.reader.settings.panel.GestureZoneEditorOverlay
 import com.shuli.reader.ui.testing.UiTestTags
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 import com.shuli.reader.ui.theme.ReaderDimens
@@ -275,9 +277,9 @@ fun ReaderScreen(
                             onPageChanged = { direction ->
                                 when (direction) {
                                     com.shuli.reader.core.reader.engine.animation.PageDelegate.Direction.NEXT ->
-                                        dispatch(ReaderIntent.TurnPage(PageDirection.NEXT))
+                                        dispatch(ReaderIntent.CommitPageTurn(PageDirection.NEXT))
                                     com.shuli.reader.core.reader.engine.animation.PageDelegate.Direction.PREV ->
-                                        dispatch(ReaderIntent.TurnPage(PageDirection.PREV))
+                                        dispatch(ReaderIntent.CommitPageTurn(PageDirection.PREV))
                                     else -> { /* NONE: no-op */ }
                                 }
                             }
@@ -327,33 +329,36 @@ fun ReaderScreen(
                             }
                             onCenterClicked = { dispatch(ReaderIntent.ToggleToolbar) }
                             onGestureAction = { action ->
-                                when (action) {
-                                    com.shuli.reader.feature.reader.settings.GestureAction.PREV_PAGE ->
-                                        dispatch(ReaderIntent.TurnPage(PageDirection.PREV))
-                                    com.shuli.reader.feature.reader.settings.GestureAction.NEXT_PAGE ->
-                                        dispatch(ReaderIntent.TurnPage(PageDirection.NEXT))
-                                    com.shuli.reader.feature.reader.settings.GestureAction.SCROLL_UP ->
-                                        dispatch(ReaderIntent.TurnPage(PageDirection.PREV))
-                                    com.shuli.reader.feature.reader.settings.GestureAction.SCROLL_DOWN ->
-                                        dispatch(ReaderIntent.TurnPage(PageDirection.NEXT))
-                                    com.shuli.reader.feature.reader.settings.GestureAction.TOGGLE_TOOLBAR ->
-                                        dispatch(ReaderIntent.ToggleToolbar)
-                                    com.shuli.reader.feature.reader.settings.GestureAction.TOGGLE_DIRECTORY ->
-                                        dispatch(ReaderIntent.ToggleDirectory)
-                                    com.shuli.reader.feature.reader.settings.GestureAction.ADD_BOOKMARK ->
-                                        dispatch(ReaderIntent.AddBookmark())
-                                    com.shuli.reader.feature.reader.settings.GestureAction.TOGGLE_THEME ->
-                                        dispatch(ReaderIntent.CycleTheme)
-                                    com.shuli.reader.feature.reader.settings.GestureAction.TOGGLE_IMMERSIVE ->
-                                        dispatch(
-                                            ReaderIntent.UpdateSetting(
-                                                ReaderSettingKey.IMMERSIVE_MODE,
-                                                ReaderSettingValue.Bool(
-                                                    !viewModel.uiState.value.readerPreferences.immersiveMode,
-                                                ),
+                                val isContinuousScroll = viewModel.uiState.value.pageAnimType == PageDelegateFactory.PageAnimType.SCROLL
+                                if (!(isContinuousScroll && action.isDiscretePageTurnAction())) {
+                                    when (action) {
+                                        GestureAction.PREV_PAGE ->
+                                            dispatch(ReaderIntent.TurnPage(PageDirection.PREV))
+                                        GestureAction.NEXT_PAGE ->
+                                            dispatch(ReaderIntent.TurnPage(PageDirection.NEXT))
+                                        GestureAction.SCROLL_UP ->
+                                            dispatch(ReaderIntent.TurnPage(PageDirection.PREV))
+                                        GestureAction.SCROLL_DOWN ->
+                                            dispatch(ReaderIntent.TurnPage(PageDirection.NEXT))
+                                        GestureAction.TOGGLE_TOOLBAR ->
+                                            dispatch(ReaderIntent.ToggleToolbar)
+                                        GestureAction.TOGGLE_DIRECTORY ->
+                                            dispatch(ReaderIntent.ToggleDirectory)
+                                        GestureAction.ADD_BOOKMARK ->
+                                            dispatch(ReaderIntent.AddBookmark())
+                                        GestureAction.TOGGLE_THEME ->
+                                            dispatch(ReaderIntent.CycleTheme)
+                                        GestureAction.TOGGLE_IMMERSIVE ->
+                                            dispatch(
+                                                ReaderIntent.UpdateSetting(
+                                                    ReaderSettingKey.IMMERSIVE_MODE,
+                                                    ReaderSettingValue.Bool(
+                                                        !viewModel.uiState.value.readerPreferences.immersiveMode,
+                                                    ),
+                                                )
                                             )
-                                        )
-                                    com.shuli.reader.feature.reader.settings.GestureAction.NONE -> { /* no-op */ }
+                                        GestureAction.NONE -> { /* no-op */ }
+                                    }
                                 }
                             }
                         }
@@ -594,10 +599,15 @@ fun ReaderScreen(
 
     // 内联编辑弹窗（长按选词后点击"编辑"按钮，不显示工具栏）
     if (uiState.inlineEditText != null && !uiState.showTextEdit) {
+        val inlineEditScreenWidth = uiState.currentPage?.layout?.pageWidth ?: 0f
+        val inlineEditScreenHeight = uiState.currentPage?.layout?.pageHeight ?: 0f
         InlineEditPopover(
             initialText = uiState.inlineEditText ?: "",
-            anchorX = uiState.selectionScreenX,
+            anchorStartX = uiState.selectionScreenX,
+            anchorEndX = uiState.selectionEndScreenX,
             anchorY = uiState.selectionScreenY,
+            screenWidth = inlineEditScreenWidth,
+            screenHeight = inlineEditScreenHeight,
             fontSize = localDensity.run { (canvasView?.textPaint?.textSize ?: 48f).toSp() },
             textColor = androidx.compose.ui.graphics.Color(canvasView?.textPaint?.color ?: 0xFF000000.toInt()),
             onTextChange = { text ->
@@ -630,7 +640,10 @@ fun ReaderScreen(
                 viewModel.getChapterTextForSearch(chapterIndex)
             },
             selectionScreenX = uiState.selectionScreenX,
+            selectionEndScreenX = uiState.selectionEndScreenX,
             selectionScreenY = uiState.selectionScreenY,
+            screenWidth = uiState.currentPage?.layout?.pageWidth ?: 0f,
+            screenHeight = uiState.currentPage?.layout?.pageHeight ?: 0f,
             inlineEditText = uiState.inlineEditText,
             cursorEditAnchor = uiState.cursorEditAnchor,
             cursorScreenX = uiState.cursorScreenX,
@@ -824,6 +837,16 @@ private val SelectionMenuHandleGap = 8.dp
 private val SelectionMenuItemWidth = 54.dp
 private val SelectionMenuItemHeight = 40.dp
 private val SelectionMenuIconSize = 20.dp
+
+private fun GestureAction.isDiscretePageTurnAction(): Boolean {
+    return when (this) {
+        GestureAction.PREV_PAGE,
+        GestureAction.NEXT_PAGE,
+        GestureAction.SCROLL_UP,
+        GestureAction.SCROLL_DOWN -> true
+        else -> false
+    }
+}
 
 @Composable
 private fun SelectionMenuButton(

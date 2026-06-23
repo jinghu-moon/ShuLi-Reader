@@ -15,6 +15,8 @@ object PageAnimConst {
     const val OVERLAY = "overlay"
     const val SLIDE = "slide"
     const val SIMULATION = "simulation"
+    const val VERTICAL_SLIDE = "vertical_slide"
+    const val SCROLL = "scroll"
     const val FADE = "fade"
     const val NONE = "none"
 }
@@ -114,6 +116,7 @@ class UserPreferences(
         val KEY_EYE_CARE_REMINDER_INTERVAL = intPreferencesKey("eye_care_reminder_interval")
         val KEY_BACKGROUND_TEXTURE = stringPreferencesKey("background_texture")
         val KEY_ORIENTATION_LOCK = stringPreferencesKey("orientation_lock")
+        val KEY_PAGE_ANIM_SPEED = stringPreferencesKey("page_anim_speed")
         val KEY_AUTO_PAGE_TURN = booleanPreferencesKey("auto_page_turn")
         val KEY_AUTO_PAGE_TURN_INTERVAL = floatPreferencesKey("auto_page_turn_interval")
         val KEY_EPUB_OVERRIDE_STYLE = booleanPreferencesKey("epub_override_style")
@@ -265,6 +268,7 @@ class UserPreferences(
     val backupLocation: Flow<String> = dataStore.data.map { it[KEY_BACKUP_LOCATION] ?: "" }.distinctUntilChanged()
 
     val viewMode: Flow<String> = dataStore.data.map { it[KEY_VIEW_MODE] ?: "GRID" }
+    val pageAnimSpeed: Flow<String> = dataStore.data.map { it[KEY_PAGE_ANIM_SPEED] ?: PageAnimSpeed.NORMAL.name }.distinctUntilChanged()
 
     // 状态编辑写入方法
     suspend fun setLanguage(value: String) = dataStore.edit { it[KEY_LANGUAGE] = value }
@@ -277,6 +281,7 @@ class UserPreferences(
     suspend fun setDefaultIndent(value: Float) = dataStore.edit { it[KEY_DEFAULT_INDENT] = value }
     suspend fun setIndentUnit(value: String) = dataStore.edit { it[KEY_INDENT_UNIT] = value }
     suspend fun setDefaultPageAnim(value: String) = dataStore.edit { it[KEY_DEFAULT_PAGE_ANIM] = value }
+    suspend fun setPageAnimSpeed(value: String) = dataStore.edit { it[KEY_PAGE_ANIM_SPEED] = value }
     suspend fun setPageTurnDir(value: String) = dataStore.edit { it[KEY_PAGE_TURN_DIR] = value }
     suspend fun setFullScreen(value: Boolean) = dataStore.edit { it[KEY_FULL_SCREEN] = value }
     suspend fun setKeepScreenOn(value: Boolean) = dataStore.edit { it[KEY_KEEP_SCREEN_ON] = value }

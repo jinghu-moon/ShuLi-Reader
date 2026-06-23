@@ -15,7 +15,8 @@ object PageDelegateFactory {
         COVER,     // 覆盖翻页
         HORIZONTAL, // 水平平移
         SIMULATION, // 仿真翻页
-        SCROLL,    // 垂直滚动
+        VERTICAL_SLIDE, // 上下滑动翻页
+        SCROLL,    // 连续滚动
     }
 
     /**
@@ -36,6 +37,7 @@ object PageDelegateFactory {
             PageAnimType.COVER -> CoverPageDelegate(durationMs = spec.durationMs)
             PageAnimType.HORIZONTAL -> HorizontalPageDelegate(durationMs = spec.durationMs)
             PageAnimType.SIMULATION -> SimulationPageDelegate(durationMs = spec.durationMs)
+            PageAnimType.VERTICAL_SLIDE -> VerticalSlidePageDelegate(durationMs = spec.durationMs)
             PageAnimType.SCROLL -> ScrollPageDelegate(durationMs = spec.durationMs)
         }
     }

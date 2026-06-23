@@ -9,6 +9,7 @@ import com.shuli.reader.core.reader.engine.selection.CanvasTextSelection
 import com.shuli.reader.feature.reader.settings.GestureAction
 import com.shuli.reader.feature.reader.settings.GestureConfig
 import com.shuli.reader.feature.reader.settings.TouchZone
+import kotlin.math.abs
 
 /**
  * 触摸手势处理：tap / long-press / 边缘拖拽 / 边缘点击翻页 / 选区把手拖动。
@@ -37,6 +38,12 @@ class CanvasTouchHandler(context: Context) {
 
         /** 是否处于编辑模式（编辑模式下点击正文触发内联编辑而非翻页） */
         fun isEditMode(): Boolean = false
+
+        /** 当前翻页动画是否为上下滚动模式 */
+        fun isScrollPageMode(): Boolean = false
+
+        /** 触摸点是否位于正文盒子内 */
+        fun isInBodyBox(x: Float, y: Float): Boolean = true
 
         /** 编辑模式下点击正文（非中心区域），触发内联编辑 */
         fun onInlineEditTap(x: Float, y: Float) {}
@@ -70,6 +77,10 @@ class CanvasTouchHandler(context: Context) {
     var isHandleDragGesture: Boolean = false
         private set
 
+    /** 是否正在由 PageDelegate 接管本次拖动 */
+    var isPageDelegateGesture: Boolean = false
+        private set
+
     private var touchDownX: Float = 0f
     private var touchDownY: Float = 0f
     private var touchMoved: Boolean = false
@@ -83,6 +94,7 @@ class CanvasTouchHandler(context: Context) {
             override fun onDown(event: MotionEvent): Boolean = true
 
             override fun onLongPress(event: MotionEvent) {
+                if (isPageDelegateGesture || touchMoved || isHandleDragGesture) return
                 val cb = callbacks ?: return
                 cb.getPageDelegate()?.abort()
                 cb.onLongPress(event.x, event.y)
@@ -187,6 +199,7 @@ class CanvasTouchHandler(context: Context) {
                 touchDownX = event.x
                 touchDownY = event.y
                 touchMoved = false
+                isPageDelegateGesture = false
                 // 所有按下事件都先走 GestureDetector，让长按有机会触发
                 // 即使在边缘区域，也不立即发送给翻页 delegate
                 gestureDetector.onTouchEvent(event)
@@ -194,6 +207,11 @@ class CanvasTouchHandler(context: Context) {
             }
 
             MotionEvent.ACTION_MOVE -> {
+                if (isPageDelegateGesture) {
+                    delegate?.onTouch(event)
+                    return true
+                }
+
                 if (!touchMoved) {
                     val dx = event.x - touchDownX
                     val dy = event.y - touchDownY
@@ -205,8 +223,16 @@ class CanvasTouchHandler(context: Context) {
 
                 if (touchMoved) {
                     // 手指移动超过阈值：交给翻页 delegate 处理拖拽翻页
+                    val dx = event.x - touchDownX
+                    val dy = event.y - touchDownY
+                    val isContinuousScrollMode = cb.isScrollPageMode()
                     val isEdgeStart = touchDownX <= w * edgeWidthPercent || touchDownX >= w * (1f - edgeWidthPercent)
-                    if (isEdgeStart && delegate != null) {
+                    val isScrollDrag = isContinuousScrollMode &&
+                        cb.isInBodyBox(touchDownX, touchDownY) &&
+                        abs(dy) > abs(dx)
+                    val shouldStartPageDelegate = if (isContinuousScrollMode) isScrollDrag else isEdgeStart
+                    if (shouldStartPageDelegate && delegate != null) {
+                        beginPageDelegateGesture(delegate, event)
                         delegate.onTouch(event)
                         return true
                     }
@@ -219,9 +245,15 @@ class CanvasTouchHandler(context: Context) {
                 val wasMoved = touchMoved
                 touchMoved = false
 
+                if (isPageDelegateGesture) {
+                    isPageDelegateGesture = false
+                    delegate?.onTouch(event)
+                    return true
+                }
+
                 // 如果是边缘拖拽翻页（已交给 delegate），把 UP 也交给 delegate 完成翻页
                 val isEdgeStart = touchDownX <= w * edgeWidthPercent || touchDownX >= w * (1f - edgeWidthPercent)
-                if (wasMoved && isEdgeStart && delegate != null) {
+                if (wasMoved && !cb.isScrollPageMode() && isEdgeStart && delegate != null) {
                     delegate.onTouch(event)
                     return true
                 }
@@ -235,6 +267,35 @@ class CanvasTouchHandler(context: Context) {
             }
         }
         return false
+    }
+
+    private fun beginPageDelegateGesture(delegate: PageDelegate, event: MotionEvent) {
+        if (isPageDelegateGesture) return
+        isPageDelegateGesture = true
+        cancelGestureDetector(event)
+        val downEvent = MotionEvent.obtain(
+            event.downTime,
+            event.eventTime,
+            MotionEvent.ACTION_DOWN,
+            touchDownX,
+            touchDownY,
+            event.metaState,
+        )
+        delegate.onTouch(downEvent)
+        downEvent.recycle()
+    }
+
+    private fun cancelGestureDetector(event: MotionEvent) {
+        val cancelEvent = MotionEvent.obtain(
+            event.downTime,
+            event.eventTime,
+            MotionEvent.ACTION_CANCEL,
+            event.x,
+            event.y,
+            event.metaState,
+        )
+        gestureDetector.onTouchEvent(cancelEvent)
+        cancelEvent.recycle()
     }
 
     private fun resolveTouchZone(

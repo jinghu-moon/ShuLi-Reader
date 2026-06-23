@@ -304,7 +304,10 @@ class ReaderViewModel(
     }
 
     /** 翻页动画委托 */
-    var pageDelegate: PageDelegate = PageDelegateFactory.create(_uiState.value.pageAnimType)
+    var pageDelegate: PageDelegate = PageDelegateFactory.create(
+        _uiState.value.pageAnimType,
+        _uiState.value.readerPreferences.pageAnimSpeed,
+    )
         internal set
 
     private var loadedBookContent: BookContent? = null
@@ -521,10 +524,8 @@ class ReaderViewModel(
             // ── 导航 ──
             is ReaderIntent.OpenBook -> openBook(intent.bookId)
             is ReaderIntent.OpenChapter -> openChapter(intent.index, intent.targetToLastPage, intent.targetByteOffset)
-            is ReaderIntent.TurnPage -> when (intent.direction) {
-                PageDirection.NEXT -> nextPage()
-                PageDirection.PREV -> prevPage()
-            }
+            is ReaderIntent.TurnPage -> turnPageAnimated(intent.direction)
+            is ReaderIntent.CommitPageTurn -> commitPageTurn(intent.direction)
             is ReaderIntent.NextPage -> nextPage()
             is ReaderIntent.PrevPage -> prevPage()
             is ReaderIntent.JumpToPosition -> jumpToChapterPosition(intent.chapterIndex, intent.byteOffset)
@@ -607,9 +608,16 @@ class ReaderViewModel(
 
             // ── 屏幕 / 排版 ──
             is ReaderIntent.SetScreenSize -> setScreenSize(intent.width, intent.height)
-            is ReaderIntent.SetPageAnimType -> navigationCoordinator.setPageAnimType(
-                intent.type.toFactoryType(),
-            ) { pageDelegate = it }
+            is ReaderIntent.SetPageAnimType -> {
+                // 用户手动切换翻页类型，清除自动保存（避免退出编辑时覆盖用户选择）
+                savedPageAnimType = null
+                navigationCoordinator.setPageAnimType(
+                    intent.type.toFactoryType(),
+                    _uiState.value.readerPreferences.pageAnimSpeed,
+                ) { pageDelegate = it }
+                // 持久化到 DataStore，确保下拉菜单显示正确、重启后生效
+                readerSettingsManager.setPageAnimType(intent.type)
+            }
 
             // ── 字体 ──
             is ReaderIntent.ImportFont -> fontImportManager.importFont(intent.uri)
@@ -723,10 +731,11 @@ class ReaderViewModel(
             )
             ReaderSettingKey.HAPTIC_FEEDBACK -> s.setHapticFeedback((value as ReaderSettingValue.Bool).value)
             ReaderSettingKey.ORIENTATION_LOCK -> s.setOrientationLock((value as ReaderSettingValue.OrientationLock).value)
-            ReaderSettingKey.PAGE_ANIM_SPEED -> s.updatePrefsGeneric(
-                { it.copy(pageAnimSpeed = (value as ReaderSettingValue.PageAnimSpeed).value) },
-                reflow = false,
-            )
+            ReaderSettingKey.PAGE_ANIM_SPEED -> {
+                val speed = (value as ReaderSettingValue.PageAnimSpeed).value
+                s.setPageAnimSpeed(speed)
+                navigationCoordinator.setPageAnimType(_uiState.value.pageAnimType, speed) { pageDelegate = it }
+            }
             ReaderSettingKey.AD_FILTERING -> s.setAdFiltering(
                 (value as ReaderSettingValue.Bool).value,
                 reflow = true,
@@ -754,9 +763,39 @@ class ReaderViewModel(
         }
     }
 
-    fun nextPage() = navigationCoordinator.nextPage()
+    fun nextPage() = turnPageAnimated(PageDirection.NEXT)
 
-    fun prevPage() = navigationCoordinator.prevPage()
+    fun prevPage() = turnPageAnimated(PageDirection.PREV)
+
+    private fun turnPageAnimated(direction: PageDirection) {
+        if (pageDelegate.state != PageDelegate.State.IDLE) return
+
+        if (!canTurnPage(direction)) {
+            commitPageTurn(direction)
+            return
+        }
+
+        when (direction) {
+            PageDirection.NEXT -> pageDelegate.startNext()
+            PageDirection.PREV -> pageDelegate.startPrev()
+        }
+    }
+
+    private fun commitPageTurn(direction: PageDirection) {
+        when (direction) {
+            PageDirection.NEXT -> navigationCoordinator.handlePageDirection(PageDelegate.Direction.NEXT)
+            PageDirection.PREV -> navigationCoordinator.handlePageDirection(PageDelegate.Direction.PREV)
+        }
+    }
+
+    private fun canTurnPage(direction: PageDirection): Boolean {
+        val state = _uiState.value
+        val chapter = state.currentChapter ?: return false
+        return when (direction) {
+            PageDirection.NEXT -> state.pageIndex < chapter.lastIndex || state.chapterIndex < state.totalChapters - 1
+            PageDirection.PREV -> state.pageIndex > 0 || state.chapterIndex > 0
+        }
+    }
 
     fun jumpToChapterPosition(chapterIndex: Int, byteOffset: Long) {
         val state = _uiState.value
@@ -920,28 +959,66 @@ class ReaderViewModel(
 
     /** 打开查找/替换面板 */
     private fun openTextEdit() {
+        switchToScrollPageMode()
         _uiState.value = _uiState.value.copy(showTextEdit = true)
     }
 
     /** 关闭查找/替换面板 */
     private fun closeTextEdit() {
+        restorePageAnimType()
         _uiState.value = _uiState.value.copy(
             showTextEdit = false,
             inlineEditText = null,
             editAnchor = null,
             cursorEditAnchor = null,
+            scrollToY = null,
         )
     }
 
-    /** 进入内联编辑模式：显示覆盖输入框，保存编辑锚点（不显示工具栏） */
+    /** 进入内联编辑模式：自动切换 SCROLL 模式并将选区滚到屏幕上方 */
+    private var savedPageAnimType: com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType? = null
+
+    private fun switchToScrollPageMode() {
+        val state = _uiState.value
+        if (savedPageAnimType == null) {
+            savedPageAnimType = state.pageAnimType
+        }
+        val scrollType = com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.SCROLL
+        if (state.pageAnimType != scrollType) {
+            navigationCoordinator.setPageAnimType(
+                scrollType,
+                state.readerPreferences.pageAnimSpeed,
+            ) { pageDelegate = it }
+        }
+    }
+
     private fun enterInlineEdit(
         originalText: String,
         anchor: com.shuli.reader.core.reader.model.SelectionRange? = null,
     ) {
+        val state = _uiState.value
+        val selY = state.selectionScreenY
+        val screenHeight = state.currentPage?.layout?.pageHeight ?: 0f
+
+        // 切换为 SCROLL（支持内容上下滚动），再基于最新状态写入编辑字段。
+        switchToScrollPageMode()
+
+        // 计算滚动偏移：将选区 Y 滚到屏幕上方 1/4 处
+        val targetY = screenHeight * 0.25f
+        val scrollDelta = if (screenHeight > 0f && selY > targetY) {
+            -(selY - targetY)
+        } else {
+            0f
+        }
+        val adjustedSelectionY = selY + scrollDelta
+
         _uiState.value = _uiState.value.copy(
+            // 注意：不设 showTextEdit=true，否则 InlineEditPopover 被隐藏、EditorOverlay 弹出
             inlineEditText = originalText,
             editAnchor = anchor,
             cursorEditAnchor = null,
+            selectionScreenY = adjustedSelectionY,
+            scrollToY = scrollDelta,
         )
     }
 
@@ -968,8 +1045,6 @@ class ReaderViewModel(
             cancelInlineEdit()
             return
         }
-        val state = _uiState.value
-
         viewModelScope.launch {
             editStore.addSingle(com.shuli.reader.feature.reader.editor.EditDelta(
                 chapterIndex = range.chapterIndex,
@@ -979,12 +1054,14 @@ class ReaderViewModel(
                 originalText = range.selectedText ?: "",
             ))
 
-            _uiState.value = state.copy(
+            restorePageAnimType()
+            _uiState.value = _uiState.value.copy(
                 hasUnsavedEdits = true,
                 selectedRange = null,
                 inlineEditText = null,
                 editAnchor = null,
                 cursorEditAnchor = null,
+                scrollToY = null,
             )
 
             // 触发重新分页
@@ -994,7 +1071,20 @@ class ReaderViewModel(
 
     /** 取消内联编辑 */
     private fun cancelInlineEdit() {
-        _uiState.value = _uiState.value.copy(inlineEditText = null, editAnchor = null)
+        restorePageAnimType()
+        _uiState.value = _uiState.value.copy(inlineEditText = null, editAnchor = null, scrollToY = null)
+    }
+
+    /** 恢复进入编辑前的翻页模式 */
+    private fun restorePageAnimType() {
+        val saved = savedPageAnimType ?: return
+        savedPageAnimType = null
+        if (_uiState.value.pageAnimType != saved) {
+            navigationCoordinator.setPageAnimType(
+                saved,
+                _uiState.value.readerPreferences.pageAnimSpeed,
+            ) { pageDelegate = it }
+        }
     }
 
     /** 确认光标输入：在光标位置插入文本 */
@@ -1160,9 +1250,14 @@ class ReaderViewModel(
                 )
 
                 // 保存成功后，关闭编辑模式并刷新显示
-                _uiState.value = state.copy(
+                restorePageAnimType()
+                _uiState.value = _uiState.value.copy(
                     hasUnsavedEdits = false,
                     showTextEdit = false,
+                    inlineEditText = null,
+                    editAnchor = null,
+                    cursorEditAnchor = null,
+                    scrollToY = null,
                 )
 
                 // 重新加载当前章节（文件已更新）
@@ -1205,7 +1300,10 @@ class ReaderViewModel(
         readerSettingsManager.setFooterBox(prefs.footerBox)
         readerSettingsManager.setTitleBox(prefs.titleBox)
         readerSettingsManager.setReadingFont(prefs.readingFont)
-        navigationCoordinator.setPageAnimType(prefs.pageAnimType.toFactoryType()) { pageDelegate = it }
+        navigationCoordinator.setPageAnimType(
+            prefs.pageAnimType.toFactoryType(),
+            _uiState.value.readerPreferences.pageAnimSpeed,
+        ) { pageDelegate = it }
         readerSettingsManager.setReaderTheme(prefs.backgroundColor)
         readerSettingsManager.setLetterSpacing(prefs.letterSpacing)
         readerSettingsManager.setFontWeight(prefs.fontWeight)

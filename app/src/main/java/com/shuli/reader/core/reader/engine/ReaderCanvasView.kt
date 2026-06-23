@@ -27,11 +27,15 @@ import android.view.animation.DecelerateInterpolator
 import com.shuli.reader.core.data.ReaderTheme
 import com.shuli.reader.core.data.ThemeColors
 import com.shuli.reader.core.font.FontManager
+import com.shuli.reader.core.reader.engine.animation.BodyScrollPageDelegate
 import com.shuli.reader.core.reader.engine.animation.PageDelegate
+import com.shuli.reader.core.reader.engine.animation.PageDelegateFactory
+import com.shuli.reader.core.reader.engine.animation.ScrollPageDelegate
 import com.shuli.reader.feature.reader.settings.GestureAction
 import com.shuli.reader.feature.reader.settings.GestureConfig
 import com.shuli.reader.core.reader.model.PageRenderMode
 import com.shuli.reader.core.reader.model.SelectionRange
+import com.shuli.reader.core.reader.model.BoxBounds
 import com.shuli.reader.core.reader.model.TextPage
 import com.shuli.reader.feature.reader.render.colorTemperatureToRgb
 import com.shuli.reader.ui.theme.toCanvasThemeColors
@@ -195,6 +199,7 @@ class ReaderCanvasView @JvmOverloads constructor(
     private val renderContext = RenderContext()
 
     private val pageRenderer = ReaderPageRenderer(textPaint, headerPaint, footerPaint, progressPaint)
+    private var currentTitleStyle: TitleStyleConfig = TitleStyleConfig()
 
     // ── 拆分委托 ──────────────────────────────────────────────
 
@@ -252,6 +257,11 @@ class ReaderCanvasView @JvmOverloads constructor(
             override fun getLeftZoneRatio() = this@ReaderCanvasView.leftZoneRatio
             override fun getGestureConfig() = this@ReaderCanvasView.gestureConfig
             override fun getTextSelection() = this@ReaderCanvasView.textSelection
+            override fun isScrollPageMode() = pageAnimType == PageDelegateFactory.PageAnimType.SCROLL
+            override fun isInBodyBox(x: Float, y: Float): Boolean {
+                val body = currentPage?.layout?.body ?: return true
+                return x >= body.left && x <= body.right && y >= body.top && y <= body.bottom
+            }
             override fun onAction(action: GestureAction, x: Float, y: Float) {
                 this@ReaderCanvasView.onGestureAction?.invoke(action)
             }
@@ -363,6 +373,7 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     // 翻页动画委托
     private var pageDelegate: PageDelegate? = null
+    private var pageAnimType: PageDelegateFactory.PageAnimType = PageDelegateFactory.PageAnimType.HORIZONTAL
 
     // 翻页回调
     var onPageChanged: ((PageDelegate.Direction) -> Unit)? = null
@@ -645,6 +656,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         val layoutInput = snapshot.layout.input
         val v = snapshot.visual
         val sh = snapshot.shell
+        pageAnimType = snapshot.page.pageAnimType
 
         // 1. 始终应用全部视觉参数（幂等操作，值未变时各 setter 内部跳过）
         // PR-4: 将 snapshot 的 generation 传递给 renderContext，用于后台任务过期校验
@@ -667,6 +679,7 @@ class ReaderCanvasView @JvmOverloads constructor(
             showHeaderLine = sh.showHeaderLine,
             showFooterLine = sh.showFooterLine,
         )
+        currentTitleStyle = v.titleStyle
         visualParams.setTitleStyle(v.titleStyle)
         visualParams.setEdgeTurnPageEnabled(sh.edgeTurnPage)
         visualParams.setEdgeWidthPercent(sh.edgeWidthPercent)
@@ -757,6 +770,18 @@ class ReaderCanvasView @JvmOverloads constructor(
         })
     }
 
+    /** 将滚动模式的页面内容垂直移动指定偏移量，用于选区编辑时避让键盘。 */
+    fun scrollToY(deltaY: Float) {
+        (pageDelegate as? ScrollPageDelegate)?.setScrollPosition(deltaY, active = deltaY != 0f)
+        invalidate()
+    }
+
+    /** 重置编辑避让产生的滚动偏移。 */
+    fun resetCanvasOffset() {
+        (pageDelegate as? ScrollPageDelegate)?.resetScrollPosition()
+        invalidate()
+    }
+
     // ── 视觉参数委托（CanvasVisualParamsManager） ────────────
 
     internal fun setHeaderText(text: String) = visualParams.setHeaderText(text)
@@ -779,7 +804,10 @@ class ReaderCanvasView @JvmOverloads constructor(
     internal fun setLetterSpacing(emSpacing: Float) = visualParams.setLetterSpacing(emSpacing)
     internal fun setFakeBoldText(fakeBold: Boolean) = visualParams.setFakeBoldText(fakeBold)
     internal fun setTextAlign(align: com.shuli.reader.core.data.ReaderTextAlign) = visualParams.setTextAlign(align)
-    internal fun setTitleStyle(style: TitleStyleConfig) = visualParams.setTitleStyle(style)
+    internal fun setTitleStyle(style: TitleStyleConfig) {
+        currentTitleStyle = style
+        visualParams.setTitleStyle(style)
+    }
     internal fun setFontFamily(fontKey: String) = visualParams.setFontFamily(fontKey)
 
     internal fun updatePaintSnapshot(
@@ -899,29 +927,21 @@ class ReaderCanvasView @JvmOverloads constructor(
 
         val currentState = renderStateStore.getPageState(current.toKey())
 
-        if (currentState.content.needRecord() || currentState.shell.needRecord() || currentState.overlay.needRecord()) {
-            pageBitmapCache.recordPage(
-                page = current,
-                renderState = currentState,
-                width = width,
-                height = height,
-                content = currentContent,
-                contentChapterIndex = current.chapterIndex,
-                renderContext = renderContext,
-                backgroundPaint = backgroundPaint,
-                textPaint = textPaint,
-                selectionPaint = selectionPaint,
-                renderStateStore = renderStateStore,
-            )
-        }
+        recordPageIfNeeded(current, currentState, currentContent)
 
         val delegate = pageDelegate
-        if (delegate != null && delegate.state != PageDelegate.State.IDLE) {
+        val bodyScrollDelegate = delegate as? BodyScrollPageDelegate
+        updateBodyScrollExtent(current, bodyScrollDelegate)
+        val isDelegateActive = delegate != null &&
+            (delegate.state != PageDelegate.State.IDLE || (bodyScrollDelegate?.getScrollPosition() ?: 0f) != 0f)
+        if (bodyScrollDelegate is ScrollPageDelegate) {
+            drawContinuousScrollFrame(canvas, current, currentState, bodyScrollDelegate)
+        } else if (delegate != null && isDelegateActive) {
             val isPrevDirection = when (delegate.state) {
                 PageDelegate.State.DRAGGING -> delegate.isDraggingBackward()
                 PageDelegate.State.ANIMATING -> delegate.direction == PageDelegate.Direction.PREV
                 PageDelegate.State.SETTLING -> delegate.direction == PageDelegate.Direction.PREV
-                PageDelegate.State.IDLE -> false
+                PageDelegate.State.IDLE -> delegate.isDraggingBackward()
             }
             val target = if (isPrevDirection) prevPage else nextPage
             val drawableTarget = target?.let { page ->
@@ -932,33 +952,20 @@ class ReaderCanvasView @JvmOverloads constructor(
                 targetState.invalidateAll()
                 currentState.shell.draw(canvas)
                 currentState.content.draw(canvas)
+                currentState.overlay.draw(canvas)
             } else {
-                drawableTarget?.let { (targetPage, targetContent) ->
+                val targetState = drawableTarget?.let { (targetPage, targetContent) ->
                     val targetState = renderStateStore.getPageState(targetPage.toKey())
-                    if (targetState.content.needRecord() || targetState.shell.needRecord() || targetState.overlay.needRecord()) {
-                        pageBitmapCache.recordPage(
-                            page = targetPage,
-                            renderState = targetState,
-                            width = width,
-                            height = height,
-                            content = targetContent,
-                            contentChapterIndex = targetPage.chapterIndex,
-                            renderContext = renderContext,
-                            backgroundPaint = backgroundPaint,
-                            textPaint = textPaint,
-                            selectionPaint = selectionPaint,
-                            renderStateStore = renderStateStore,
-                        )
-                    }
-                    targetState.recordComposite(width, height)
+                    recordPageIfNeeded(targetPage, targetState, targetContent)
+                    targetState
                 }
-                currentState.recordComposite(width, height)
-                delegate.onDraw(
-                    canvas,
-                    currentState.composite,
-                    drawableTarget?.let { renderStateStore.getPageState(it.first.toKey()).composite }
-                        ?: currentState.composite,
-                )
+                if (bodyScrollDelegate != null) {
+                    drawScrollBodyAnimation(canvas, current, currentState, targetState, bodyScrollDelegate)
+                } else {
+                    targetState?.recordComposite(width, height)
+                    currentState.recordComposite(width, height)
+                    delegate.onDraw(canvas, currentState.composite, targetState?.composite ?: currentState.composite)
+                }
             }
         } else {
             currentState.shell.draw(canvas)
@@ -983,8 +990,174 @@ class ReaderCanvasView @JvmOverloads constructor(
         }
 
         // 绘制选区高亮和把手（在最上层，不进 recorder，确保实时更新）
+        val activeScrollOffset = (pageDelegate as? BodyScrollPageDelegate)
+            ?.getScrollPosition()
+            ?: 0f
+        if (activeScrollOffset != 0f) {
+            canvas.save()
+            val body = if (pageDelegate is ScrollPageDelegate) {
+                ScrollBodyFlowLayout.viewportFor(current)
+            } else {
+                current.layout.body
+            }
+            canvas.clipRect(body.left, body.top, body.right, body.bottom)
+            canvas.translate(0f, activeScrollOffset)
+        }
         drawSelectionOverlay(canvas)
         drawSelectionMagnifier(canvas, current, currentState)
+        if (activeScrollOffset != 0f) {
+            canvas.restore()
+        }
+    }
+
+    private fun recordPageIfNeeded(
+        page: TextPage,
+        state: PageRenderState,
+        content: CharSequence,
+    ) {
+        if (!state.content.needRecord() && !state.shell.needRecord() && !state.overlay.needRecord()) {
+            return
+        }
+        pageBitmapCache.recordPage(
+            page = page,
+            renderState = state,
+            width = width,
+            height = height,
+            content = content,
+            contentChapterIndex = page.chapterIndex,
+            renderContext = renderContext,
+            backgroundPaint = backgroundPaint,
+            textPaint = textPaint,
+            selectionPaint = selectionPaint,
+            renderStateStore = renderStateStore,
+        )
+    }
+
+    private fun drawContinuousScrollFrame(
+        canvas: Canvas,
+        current: TextPage,
+        currentState: PageRenderState,
+        delegate: ScrollPageDelegate,
+    ) {
+        val isPrevDirection = when (delegate.state) {
+            PageDelegate.State.DRAGGING -> delegate.isDraggingBackward()
+            PageDelegate.State.ANIMATING -> delegate.direction == PageDelegate.Direction.PREV
+            PageDelegate.State.SETTLING -> delegate.direction == PageDelegate.Direction.PREV
+            PageDelegate.State.IDLE -> delegate.getScrollPosition() > 0f
+        }
+        val target = if (isPrevDirection) prevPage else nextPage
+        val targetState = target?.let { targetPage ->
+            contentForPage(targetPage)?.let { targetContent ->
+                renderStateStore.getPageState(targetPage.toKey()).also { state ->
+                    recordPageIfNeeded(targetPage, state, targetContent)
+                }
+            }
+        }
+        if (target != null && targetState == null) {
+            renderStateStore.getPageState(target.toKey()).invalidateAll()
+        }
+        drawContinuousScrollBody(canvas, current, currentState, target, targetState, delegate)
+    }
+
+    private fun drawScrollBodyAnimation(
+        canvas: Canvas,
+        current: TextPage,
+        currentState: PageRenderState,
+        targetState: PageRenderState?,
+        delegate: BodyScrollPageDelegate,
+    ) {
+        currentState.shell.draw(canvas)
+
+        val body = current.layout.body
+        if (body.width <= 0f || body.height <= 0f) {
+            currentState.content.draw(canvas)
+            currentState.overlay.draw(canvas)
+            return
+        }
+
+        val scrollOffset = delegate.getScrollPosition()
+        val viewportHeight = delegate.getViewportHeight()
+        val targetOffset = if (delegate.isDraggingBackward()) {
+            scrollOffset - viewportHeight
+        } else {
+            scrollOffset + viewportHeight
+        }
+
+        canvas.save()
+        canvas.clipRect(body.left, body.top, body.right, body.bottom)
+        drawBodyLayers(canvas, currentState, scrollOffset)
+        targetState?.let { drawBodyLayers(canvas, it, targetOffset) }
+        canvas.restore()
+    }
+
+    private fun drawContinuousScrollBody(
+        canvas: Canvas,
+        current: TextPage,
+        currentState: PageRenderState,
+        target: TextPage?,
+        targetState: PageRenderState?,
+        delegate: ScrollPageDelegate,
+    ) {
+        currentState.shell.draw(canvas)
+
+        val viewport = ScrollBodyFlowLayout.viewportFor(current)
+        if (viewport.width <= 0f || viewport.height <= 0f) {
+            currentState.content.draw(canvas)
+            currentState.overlay.draw(canvas)
+            return
+        }
+
+        val currentSegment = ScrollBodyFlowLayout.segmentFor(current, currentTitleStyle)
+        val targetSegment = target?.let { ScrollBodyFlowLayout.segmentFor(it, currentTitleStyle) }
+        val scrollOffset = delegate.getScrollPosition()
+        val targetOffset = if (delegate.isDraggingBackward()) {
+            scrollOffset - (targetSegment?.height ?: delegate.getViewportHeight())
+        } else {
+            scrollOffset + currentSegment.height
+        }
+
+        canvas.save()
+        canvas.clipRect(viewport.left, viewport.top, viewport.right, viewport.bottom)
+        drawScrollFlowSegment(canvas, viewport, currentSegment, currentState, scrollOffset)
+        if (targetState != null && targetSegment != null) {
+            drawScrollFlowSegment(canvas, viewport, targetSegment, targetState, targetOffset)
+        }
+        canvas.restore()
+    }
+
+    private fun drawScrollFlowSegment(
+        canvas: Canvas,
+        viewport: BoxBounds,
+        segment: ScrollBodySegment,
+        state: PageRenderState,
+        offsetY: Float,
+    ) {
+        canvas.save()
+        canvas.translate(viewport.left - segment.sourceLeft, viewport.top + offsetY - segment.sourceTop)
+        state.content.draw(canvas)
+        state.overlay.draw(canvas)
+        canvas.restore()
+    }
+
+    private fun updateBodyScrollExtent(current: TextPage, delegate: BodyScrollPageDelegate?) {
+        if (delegate == null) return
+        if (delegate is ScrollPageDelegate) {
+            val currentExtent = ScrollBodyFlowLayout.segmentFor(current, currentTitleStyle).height
+            val previousExtent = prevPage
+                ?.let { ScrollBodyFlowLayout.segmentFor(it, currentTitleStyle).height }
+                ?: currentExtent
+            delegate.setScrollExtents(forwardExtent = currentExtent, backwardExtent = previousExtent)
+        } else {
+            delegate.setViewportHeight(current.layout.body.height)
+        }
+    }
+
+    private fun drawBodyLayers(canvas: Canvas, state: PageRenderState, offsetY: Float) {
+        canvas.save()
+        canvas.translate(0f, offsetY)
+        state.content.draw(canvas)
+        state.overlay.draw(canvas)
+        canvas.restore()
     }
 
     /**

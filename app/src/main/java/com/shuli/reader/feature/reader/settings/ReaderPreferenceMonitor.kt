@@ -3,6 +3,7 @@ import com.shuli.reader.feature.reader.screen.ReaderUiState
 
 import com.shuli.reader.core.data.ChineseConvert
 import com.shuli.reader.core.data.IndentUnit
+import com.shuli.reader.core.data.PageAnimSpeed
 import com.shuli.reader.core.data.ReaderFontWeight
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.data.ReaderTextAlign
@@ -12,6 +13,7 @@ import com.shuli.reader.core.data.toFactoryType
 import com.shuli.reader.core.data.toIndentUnit
 import com.shuli.reader.core.data.toFontWeight
 import com.shuli.reader.core.data.toHeaderVisibility
+import com.shuli.reader.core.data.toPageAnimSpeed
 import com.shuli.reader.core.data.toPageAnimType
 import com.shuli.reader.core.data.toSlotContent
 import com.shuli.reader.core.data.toTextAlign
@@ -57,6 +59,8 @@ internal class ReaderPreferenceMonitor(
     suspend fun syncFromDataStore() {
         val prefs = userPreferences
         val current = uiState.value.readerPreferences
+        val pageAnimType = prefs.defaultPageAnim.first().toPageAnimType()
+        val pageAnimSpeed = prefs.pageAnimSpeed.first().toPageAnimSpeed()
         uiState.value = uiState.value.copy(
             readerPreferences = current.copy(
                 // Group A
@@ -86,6 +90,8 @@ internal class ReaderPreferenceMonitor(
                 readingFont = prefs.readingFont.first(),
                 fontWeight = prefs.fontWeight.first().toFontWeight(),
                 textAlign = prefs.textAlign.first().toTextAlign(),
+                pageAnimType = pageAnimType,
+                pageAnimSpeed = pageAnimSpeed,
                 header = HeaderConfig(
                     visibility = prefs.headerVisibility.first().toHeaderVisibility(),
                     left = prefs.headerLeft.first().toSlotContent(),
@@ -113,7 +119,7 @@ internal class ReaderPreferenceMonitor(
                 edgeTurnPage = prefs.edgeTurnPage.first(),
                 edgeWidthPercent = prefs.edgeWidthPercent.first(),
             ),
-            pageAnimType = prefs.defaultPageAnim.first().toPageAnimType().toFactoryType(),
+            pageAnimType = pageAnimType.toFactoryType(),
         )
     }
 
@@ -193,6 +199,7 @@ internal class ReaderPreferenceMonitor(
                 userPreferences.fontWeight,
                 userPreferences.textAlign,
                 userPreferences.defaultPageAnim,
+                userPreferences.pageAnimSpeed,
                 userPreferences.headerVisibility,
                 userPreferences.headerLeft,
                 userPreferences.headerCenter,
@@ -215,26 +222,27 @@ internal class ReaderPreferenceMonitor(
                     fontWeight = (flows[1] as String).toFontWeight(),
                     textAlign = (flows[2] as String).toTextAlign(),
                     pageAnimType = (flows[3] as String).toPageAnimType(),
+                    pageAnimSpeed = (flows[4] as String).toPageAnimSpeed(),
                     header = HeaderConfig(
-                        visibility = (flows[4] as String).toHeaderVisibility(),
-                        left = (flows[5] as String).toSlotContent(),
-                        center = (flows[6] as String).toSlotContent(),
-                        right = (flows[7] as String).toSlotContent(),
+                        visibility = (flows[5] as String).toHeaderVisibility(),
+                        left = (flows[6] as String).toSlotContent(),
+                        center = (flows[7] as String).toSlotContent(),
+                        right = (flows[8] as String).toSlotContent(),
                     ),
-                    headerBox = BoxInsetsDp(top = flows[14] as Float, bottom = 0f, left = 24f, right = 24f),
+                    headerBox = BoxInsetsDp(top = flows[15] as Float, bottom = 0f, left = 24f, right = 24f),
                     footer = FooterConfig(
-                        visibility = (flows[8] as String).toHeaderVisibility(),
-                        left = (flows[9] as String).toSlotContent(),
-                        center = (flows[10] as String).toSlotContent(),
-                        right = (flows[11] as String).toSlotContent(),
+                        visibility = (flows[9] as String).toHeaderVisibility(),
+                        left = (flows[10] as String).toSlotContent(),
+                        center = (flows[11] as String).toSlotContent(),
+                        right = (flows[12] as String).toSlotContent(),
                     ),
-                    footerBox = BoxInsetsDp(top = 0f, bottom = flows[15] as Float, left = 24f, right = 24f),
-                    headerFooterAlpha = flows[12] as Float,
-                    showProgress = flows[13] as Boolean,
-                    showHeaderLine = flows[16] as Boolean,
-                    showFooterLine = flows[17] as Boolean,
-                    headerFontSizeRatio = flows[18] as Float,
-                    footerFontSizeRatio = flows[19] as Float,
+                    footerBox = BoxInsetsDp(top = 0f, bottom = flows[16] as Float, left = 24f, right = 24f),
+                    headerFooterAlpha = flows[13] as Float,
+                    showProgress = flows[14] as Boolean,
+                    showHeaderLine = flows[17] as Boolean,
+                    showFooterLine = flows[18] as Boolean,
+                    headerFontSizeRatio = flows[19] as Float,
+                    footerFontSizeRatio = flows[20] as Float,
                 )
             }
                 .collectLatest { visual ->
@@ -244,6 +252,7 @@ internal class ReaderPreferenceMonitor(
                         fontWeight = visual.fontWeight,
                         textAlign = visual.textAlign,
                         pageAnimType = visual.pageAnimType,
+                        pageAnimSpeed = visual.pageAnimSpeed,
                         header = visual.header,
                         headerBox = visual.headerBox,
                         footer = visual.footer,
@@ -259,13 +268,14 @@ internal class ReaderPreferenceMonitor(
                     // 仅当 pageAnimType 真正变化时才重建 PageDelegate，
                     // 避免 combine 每次发射（含 syncFromDataStore 后的首射与值相同的发射）
                     // 都替换 delegate，从而打断翻页动画 / 丢失已注册的 Callback。
-                    val animChanged = uiState.value.pageAnimType != factoryType
+                    val animChanged = uiState.value.pageAnimType != factoryType ||
+                        uiState.value.readerPreferences.pageAnimSpeed != visual.pageAnimSpeed
                     uiState.value = uiState.value.copy(
                         readerPreferences = updated,
                         pageAnimType = factoryType,
                     )
                     if (animChanged) {
-                        onPageAnimTypeChanged(PageDelegateFactory.create(factoryType))
+                        onPageAnimTypeChanged(PageDelegateFactory.create(factoryType, visual.pageAnimSpeed))
                     }
                 }
         }
@@ -333,6 +343,7 @@ internal data class ReaderVisualPrefs(
     val fontWeight: ReaderFontWeight,
     val textAlign: ReaderTextAlign,
     val pageAnimType: com.shuli.reader.core.data.PageAnimType,
+    val pageAnimSpeed: PageAnimSpeed,
     val header: HeaderConfig,
     val headerBox: BoxInsetsDp,
     val footer: FooterConfig,

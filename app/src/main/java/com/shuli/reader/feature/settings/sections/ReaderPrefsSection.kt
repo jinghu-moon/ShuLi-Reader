@@ -72,6 +72,8 @@ internal fun ReaderPrefsSection(
                 PageAnimConst.OVERLAY -> strings.reader.pageAnimOverlay
                 PageAnimConst.SLIDE -> strings.reader.pageAnimSlide
                 PageAnimConst.SIMULATION -> strings.reader.pageAnimSimulation
+                PageAnimConst.VERTICAL_SLIDE -> strings.reader.pageAnimTypeVerticalSlide
+                PageAnimConst.SCROLL -> strings.reader.pageAnimTypeScroll
                 PageAnimConst.FADE -> strings.reader.pageAnimFade
                 PageAnimConst.NONE -> strings.reader.pageAnimNone
                 else -> uiState.defaultPageAnim

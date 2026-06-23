@@ -124,6 +124,7 @@ fun AppearanceTab(
                     PageAnimType.HORIZONTAL to strings.pageAnimTypeHorizontal,
                     PageAnimType.COVER to strings.pageAnimOverlay,
                     PageAnimType.SIMULATION to strings.pageAnimSimulation,
+                    PageAnimType.VERTICAL_SLIDE to strings.pageAnimTypeVerticalSlide,
                     PageAnimType.SCROLL to strings.pageAnimTypeScroll,
                     PageAnimType.NONE to strings.pageAnimNone,
                 ),

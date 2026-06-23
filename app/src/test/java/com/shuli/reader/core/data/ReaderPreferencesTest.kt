@@ -110,11 +110,47 @@ class ReaderPreferencesTest {
     }
 
     @Test
+    fun verticalSlidePageAnimation_mapsCorrectly() {
+        assertEquals(PageDelegateFactory.PageAnimType.VERTICAL_SLIDE, PageAnimType.VERTICAL_SLIDE.toFactoryType())
+    }
+
+    @Test
     fun stringToPageAnimType_mapsKnownValuesCorrectly() {
         assertEquals(PageAnimType.NONE, PageAnimConst.NONE.toPageAnimType())
         assertEquals(PageAnimType.COVER, PageAnimConst.OVERLAY.toPageAnimType())
         assertEquals(PageAnimType.HORIZONTAL, PageAnimConst.SLIDE.toPageAnimType())
         assertEquals(PageAnimType.SIMULATION, PageAnimConst.SIMULATION.toPageAnimType())
+        assertEquals(PageAnimType.VERTICAL_SLIDE, PageAnimConst.VERTICAL_SLIDE.toPageAnimType())
+        assertEquals(PageAnimType.SCROLL, PageAnimConst.SCROLL.toPageAnimType())
+    }
+
+    @Test
+    fun pageAnimTypeToStorageString_usesStablePreferenceValues() {
+        assertEquals(PageAnimConst.NONE, PageAnimType.NONE.toStorageString())
+        assertEquals(PageAnimConst.OVERLAY, PageAnimType.COVER.toStorageString())
+        assertEquals(PageAnimConst.SLIDE, PageAnimType.HORIZONTAL.toStorageString())
+        assertEquals(PageAnimConst.SIMULATION, PageAnimType.SIMULATION.toStorageString())
+        assertEquals(PageAnimConst.VERTICAL_SLIDE, PageAnimType.VERTICAL_SLIDE.toStorageString())
+        assertEquals(PageAnimConst.SCROLL, PageAnimType.SCROLL.toStorageString())
+    }
+
+    @Test
+    fun stringToPageAnimType_acceptsLegacyEnumNames() {
+        assertEquals(PageAnimType.NONE, "NONE".toPageAnimType())
+        assertEquals(PageAnimType.COVER, "COVER".toPageAnimType())
+        assertEquals(PageAnimType.HORIZONTAL, "HORIZONTAL".toPageAnimType())
+        assertEquals(PageAnimType.SIMULATION, "SIMULATION".toPageAnimType())
+        assertEquals(PageAnimType.VERTICAL_SLIDE, "VERTICAL_SLIDE".toPageAnimType())
+        assertEquals(PageAnimType.SCROLL, "SCROLL".toPageAnimType())
+    }
+
+    @Test
+    fun stringToPageAnimSpeed_acceptsEnumNamesAndDurations() {
+        assertEquals(PageAnimSpeed.FAST, "FAST".toPageAnimSpeed())
+        assertEquals(PageAnimSpeed.SLOW, "SLOW".toPageAnimSpeed())
+        assertEquals(PageAnimSpeed.FAST, "100".toPageAnimSpeed())
+        assertEquals(PageAnimSpeed.NORMAL, "250".toPageAnimSpeed())
+        assertEquals(PageAnimSpeed.SLOW, "400".toPageAnimSpeed())
     }
 
     @Test

@@ -258,6 +258,7 @@ internal data object ZhHansReader : ReaderStrings {
     override val pageAnimSpeedSlow = "慢 (400ms)"
     override val pageAnimTypeLabel = "翻页动画类型"
     override val pageAnimTypeHorizontal = "水平滑动"
+    override val pageAnimTypeVerticalSlide = "上下滑动"
     override val pageAnimTypeScroll = "连续滚动"
 
     // BehaviorTab
@@ -638,6 +639,7 @@ internal data object ZhHantReader : ReaderStrings {
     override val pageAnimSpeedSlow = "慢 (400ms)"
     override val pageAnimTypeLabel = "翻頁動畫類型"
     override val pageAnimTypeHorizontal = "水平滑動"
+    override val pageAnimTypeVerticalSlide = "上下滑動"
     override val pageAnimTypeScroll = "連續滾動"
 
     // BehaviorTab
@@ -1018,6 +1020,7 @@ internal data object EnReader : ReaderStrings {
     override val pageAnimSpeedSlow = "Slow (400ms)"
     override val pageAnimTypeLabel = "Page Anim Type"
     override val pageAnimTypeHorizontal = "Horizontal"
+    override val pageAnimTypeVerticalSlide = "Vertical Slide"
     override val pageAnimTypeScroll = "Continuous Scroll"
 
     // BehaviorTab

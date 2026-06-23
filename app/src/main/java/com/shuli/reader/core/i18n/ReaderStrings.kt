@@ -275,6 +275,7 @@ interface ReaderStrings {
     val pageAnimSpeedSlow: String
     val pageAnimTypeLabel: String
     val pageAnimTypeHorizontal: String
+    val pageAnimTypeVerticalSlide: String
     val pageAnimTypeScroll: String
 
     // BehaviorTab

@@ -4,6 +4,7 @@ import com.shuli.reader.feature.reader.screen.ReaderUiState
 
 import com.shuli.reader.core.reader.engine.animation.PageDelegate
 import com.shuli.reader.core.reader.engine.animation.PageDelegateFactory
+import com.shuli.reader.core.data.PageAnimSpeed
 import com.shuli.reader.core.reader.model.PageRenderMode
 import com.shuli.reader.core.reader.model.SelectionRange
 import kotlinx.coroutines.CoroutineScope
@@ -215,9 +216,13 @@ internal class ReaderNavigationCoordinator(
 
     // ── 翻页动画 ──────────────────────────────────────────────
 
-    fun setPageAnimType(type: PageDelegateFactory.PageAnimType, setPageDelegate: (PageDelegate) -> Unit) {
+    fun setPageAnimType(
+        type: PageDelegateFactory.PageAnimType,
+        speed: PageAnimSpeed = uiState.value.readerPreferences.pageAnimSpeed,
+        setPageDelegate: (PageDelegate) -> Unit,
+    ) {
         uiState.update { it.copy(pageAnimType = type) }
-        setPageDelegate(PageDelegateFactory.create(type))
+        setPageDelegate(PageDelegateFactory.create(type, speed))
     }
 
     fun handlePageDirection(direction: PageDelegate.Direction) {

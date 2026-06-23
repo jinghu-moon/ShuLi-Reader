@@ -23,6 +23,12 @@ class ReaderIntentTest {
     }
 
     @Test
+    fun readerIntent_commitPageTurn_carriesDirection() {
+        val intent = ReaderIntent.CommitPageTurn(PageDirection.PREV)
+        assertEquals(PageDirection.PREV, intent.direction)
+    }
+
+    @Test
     fun readerIntent_updateSetting_carriesKeyAndValue() {
         val intent = ReaderIntent.UpdateSetting(
             ReaderSettingKey.FONT_SIZE,

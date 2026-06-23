@@ -4,6 +4,8 @@ import com.shuli.reader.feature.reader.screen.ReaderUiState
 
 import com.shuli.reader.core.data.ChineseConvert
 import com.shuli.reader.core.data.IndentUnit
+import com.shuli.reader.core.data.PageAnimSpeed
+import com.shuli.reader.core.data.PageAnimType
 import com.shuli.reader.core.data.ProgressStyle
 import com.shuli.reader.core.data.ReaderFontWeight
 import com.shuli.reader.core.data.ReaderPreferences
@@ -188,7 +190,7 @@ internal class ReaderSettingsManager(
             epubOverrideStyle = p.epubOverrideStyle,
             hapticFeedback = p.hapticFeedback,
             orientationLock = p.orientationLock.name,
-            pageAnimType = p.pageAnimType.name,
+            pageAnimType = p.pageAnimType.toStorageString(),
             pageAnimSpeed = p.pageAnimSpeed.name,
             verticalText = p.verticalText,
             dualPageMode = p.dualPageMode.name,
@@ -316,6 +318,16 @@ internal class ReaderSettingsManager(
         resetToolbarAutoHide()
         updatePrefs({ it.copy(chineseConvert = convert) }, { it.setChineseConvert(convert.toStorageString()) },
             bookOverride = { o -> o.copy(chineseConvert = convert.toStorageString()) }, reflow = true)
+    }
+
+    fun setPageAnimType(type: PageAnimType) {
+        updatePrefs({ it.copy(pageAnimType = type) }, { it.setDefaultPageAnim(type.toStorageString()) },
+            bookOverride = { o -> o.copy(pageAnimType = type.toStorageString()) }, reflow = false)
+    }
+
+    fun setPageAnimSpeed(speed: PageAnimSpeed) {
+        updatePrefs({ it.copy(pageAnimSpeed = speed) }, { it.setPageAnimSpeed(speed.name) },
+            bookOverride = { o -> o.copy(pageAnimSpeed = speed.name) }, reflow = false)
     }
 
     fun setUseZhLayout(enabled: Boolean) {

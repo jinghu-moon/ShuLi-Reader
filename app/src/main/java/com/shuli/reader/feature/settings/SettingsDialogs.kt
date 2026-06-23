@@ -164,6 +164,8 @@ internal fun SettingsDialogs(
             PageAnimConst.OVERLAY,
             PageAnimConst.SLIDE,
             PageAnimConst.SIMULATION,
+            PageAnimConst.VERTICAL_SLIDE,
+            PageAnimConst.SCROLL,
             PageAnimConst.FADE,
             PageAnimConst.NONE
         )
@@ -171,6 +173,8 @@ internal fun SettingsDialogs(
             strings.reader.pageAnimOverlay,
             strings.reader.pageAnimSlide,
             strings.reader.pageAnimSimulation,
+            strings.reader.pageAnimTypeVerticalSlide,
+            strings.reader.pageAnimTypeScroll,
             strings.reader.pageAnimFade,
             strings.reader.pageAnimNone
         )

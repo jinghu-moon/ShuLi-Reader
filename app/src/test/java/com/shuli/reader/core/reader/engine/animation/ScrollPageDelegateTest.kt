@@ -1,7 +1,6 @@
 package com.shuli.reader.core.reader.engine.animation
 
 import android.graphics.Canvas
-import android.os.Looper
 import android.view.MotionEvent
 import com.shuli.reader.core.recorder.CanvasRecorder
 import io.mockk.*
@@ -10,7 +9,6 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 
 @RunWith(RobolectricTestRunner::class)
 class ScrollPageDelegateTest {
@@ -68,6 +66,30 @@ class ScrollPageDelegateTest {
     }
 
     @Test
+    fun dragUp_setsNextDirection() {
+        val delegate = ScrollPageDelegate()
+        delegate.setCallback(callback)
+
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_DOWN, y = 500f))
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_MOVE, y = 400f))
+
+        assertEquals(PageDelegate.Direction.NEXT, delegate.direction)
+        assertFalse(delegate.isDraggingBackward())
+    }
+
+    @Test
+    fun dragDown_setsPrevDirection() {
+        val delegate = ScrollPageDelegate()
+        delegate.setCallback(callback)
+
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_DOWN, y = 500f))
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_MOVE, y = 620f))
+
+        assertEquals(PageDelegate.Direction.PREV, delegate.direction)
+        assertTrue(delegate.isDraggingBackward())
+    }
+
+    @Test
     fun releaseAfterSlowSwipe_entersIdleState() {
         val delegate = ScrollPageDelegate()
         delegate.setCallback(callback)
@@ -79,14 +101,17 @@ class ScrollPageDelegateTest {
     }
 
     @Test
-    fun fastSwipe_startsInertiaScroll() {
+    fun releaseAfterPartialDrag_keepsOffsetWithoutPageChange() {
         val delegate = ScrollPageDelegate()
         delegate.setCallback(callback)
 
         delegate.onTouch(createMotionEvent(MotionEvent.ACTION_DOWN, y = 500f))
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_MOVE, y = 300f))
         delegate.onTouch(createMotionEvent(MotionEvent.ACTION_UP, y = 300f))
 
-        assertEquals(PageDelegate.State.ANIMATING, delegate.state)
+        assertEquals(PageDelegate.State.IDLE, delegate.state)
+        assertEquals(-200f, delegate.getScrollPosition(), 1f)
+        verify(exactly = 0) { callback.onPageChanged(any()) }
     }
 
     @Test
@@ -97,6 +122,7 @@ class ScrollPageDelegateTest {
         delegate.startNext()
 
         assertEquals(PageDelegate.State.ANIMATING, delegate.state)
+        assertEquals(PageDelegate.Direction.NEXT, delegate.direction)
     }
 
     @Test
@@ -107,6 +133,7 @@ class ScrollPageDelegateTest {
         delegate.startPrev()
 
         assertEquals(PageDelegate.State.ANIMATING, delegate.state)
+        assertEquals(PageDelegate.Direction.PREV, delegate.direction)
     }
 
     @Test
@@ -155,15 +182,59 @@ class ScrollPageDelegateTest {
     }
 
     @Test
-    fun scrollingDownBeyondOneScreen_triggersChapterChange() {
+    fun onDraw_whenSmallDrag_drawsTargetPage() {
         val delegate = ScrollPageDelegate()
         delegate.setCallback(callback)
 
-        delegate.setScrollPosition(-2000f)
-        delegate.startNext()
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_DOWN, y = 500f))
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_MOVE, y = 400f))
+        delegate.onDraw(canvas, currentRecorder, targetRecorder)
 
-        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(ReaderMotionTokens.MEDIUM_MS + 100L))
+        verify { currentRecorder.draw(canvas) }
+        verify { targetRecorder.draw(canvas) }
+    }
 
-        verify(atLeast = 1) { callback.onPageChanged(any()) }
+    @Test
+    fun releaseBeyondOneViewport_triggersPageChange() {
+        val delegate = ScrollPageDelegate()
+        delegate.setCallback(callback)
+        delegate.setViewportHeight(1000f)
+
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_DOWN, y = 500f))
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_MOVE, y = -600f))
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_UP, y = -600f))
+
+        assertEquals(PageDelegate.State.SETTLING, delegate.state)
+        verify(exactly = 1) { callback.onPageChanged(PageDelegate.Direction.NEXT) }
+    }
+
+    @Test
+    fun releaseBeyondConfiguredScrollExtent_triggersPageChange() {
+        val delegate = ScrollPageDelegate()
+        delegate.setCallback(callback)
+        delegate.setViewportHeight(240f)
+
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_DOWN, y = 500f))
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_MOVE, y = 230f))
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_UP, y = 230f))
+
+        assertEquals(PageDelegate.State.SETTLING, delegate.state)
+        assertEquals(-240f, delegate.getScrollPosition(), 0.1f)
+        verify(exactly = 1) { callback.onPageChanged(PageDelegate.Direction.NEXT) }
+    }
+
+    @Test
+    fun releaseBeyondBackwardScrollExtent_triggersPrevPageChange() {
+        val delegate = ScrollPageDelegate()
+        delegate.setCallback(callback)
+        delegate.setScrollExtents(forwardExtent = 500f, backwardExtent = 180f)
+
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_DOWN, y = 500f))
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_MOVE, y = 720f))
+        delegate.onTouch(createMotionEvent(MotionEvent.ACTION_UP, y = 720f))
+
+        assertEquals(PageDelegate.State.SETTLING, delegate.state)
+        assertEquals(180f, delegate.getScrollPosition(), 0.1f)
+        verify(exactly = 1) { callback.onPageChanged(PageDelegate.Direction.PREV) }
     }
 }

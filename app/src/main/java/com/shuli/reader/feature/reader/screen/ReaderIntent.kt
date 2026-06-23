@@ -30,6 +30,7 @@ sealed interface ReaderIntent {
         val targetByteOffset: Long = -1L,
     ) : ReaderIntent
     data class TurnPage(val direction: PageDirection) : ReaderIntent
+    data class CommitPageTurn(val direction: PageDirection) : ReaderIntent
     object NextPage : ReaderIntent
     object PrevPage : ReaderIntent
     data class JumpToPosition(val chapterIndex: Int, val byteOffset: Long) : ReaderIntent

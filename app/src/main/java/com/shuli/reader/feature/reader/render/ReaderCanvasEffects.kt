@@ -45,6 +45,22 @@ internal fun ReaderCanvasEffects(
     val uiState by viewModel.uiState.collectAsState()
     val density = androidx.compose.ui.platform.LocalDensity.current.density
 
+    // ── 编辑模式自动滚动：将选区滚到屏幕上方 ──
+    val scrollToY = uiState.scrollToY
+    LaunchedEffect(scrollToY) {
+        if (scrollToY != null && scrollToY != 0f) {
+            canvasView?.scrollToY(scrollToY)
+        }
+    }
+
+    // 退出编辑模式时重置画布偏移
+    val isEditing = uiState.inlineEditText != null || uiState.showTextEdit
+    LaunchedEffect(isEditing) {
+        if (!isEditing) {
+            canvasView?.resetCanvasOffset()
+        }
+    }
+
     // ── Lifecycle Effects ──
 
     LaunchedEffect(density) {
