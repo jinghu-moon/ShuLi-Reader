@@ -241,6 +241,51 @@ class ReaderCanvasView @JvmOverloads constructor(
     private val pageBitmapCache = PageBitmapCache(pageRenderer)
 
     private val textSelection = CanvasTextSelection()
+    
+    private val autoScrollController = com.shuli.reader.core.reader.engine.selection.SelectionAutoScrollController(
+        scrollCallback = object : com.shuli.reader.core.reader.engine.selection.SelectionAutoScrollController.ScrollCallback {
+            override fun scrollBy(dy: Float) {
+                if (pageAnimType == com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.SCROLL) {
+                    val delegate = pageDelegate as? com.shuli.reader.core.reader.engine.animation.ScrollPageDelegate
+                    delegate?.scrollBy(dy)
+                    // 滚动时重算选中
+                    recalculateSelectionOnScroll()
+                }
+            }
+
+            override fun turnPage(direction: PageDelegate.Direction) {
+                if (direction == PageDelegate.Direction.NEXT) {
+                    pageDelegate?.startNext()
+                } else if (direction == PageDelegate.Direction.PREV) {
+                    pageDelegate?.startPrev()
+                }
+                // 翻页后重算选中
+                recalculateSelectionOnScroll()
+            }
+
+            override fun onScrollStateChanged(isScrolling: Boolean) {
+                // 如果需要，可以在这里抑制放大镜等
+            }
+        }
+    )
+    
+    private var lastDragXForAutoScroll = 0f
+    private var lastDragYForAutoScroll = 0f
+    
+    private fun recalculateSelectionOnScroll() {
+        if (textSelection.selectedRange != null) {
+            val page = currentPage ?: return
+            val charIndex = textSelection.pixelToChar(lastDragXForAutoScroll, lastDragYForAutoScroll, page, chapterContent, textPaint)
+            if (charIndex != null) {
+                val result = textSelection.moveHandle(charIndex, chapterContent, page, false)
+                if (result != null) {
+                    renderContext.selectedRange = result.range
+                    renderStateStore.getPageState(page.toKey()).invalidateOverlay()
+                    invalidate()
+                }
+            }
+        }
+    }
 
     /** 视觉参数管理器（从 ReaderCanvasView 拆出，SRP） */
     private val visualParams = CanvasVisualParamsManager(
@@ -266,7 +311,8 @@ class ReaderCanvasView @JvmOverloads constructor(
         callbacks = object : CanvasTouchHandler.Callbacks {
             override fun getWidth() = this@ReaderCanvasView.width.toFloat()
             override fun getHeight() = this@ReaderCanvasView.height.toFloat()
-            override fun getPageDelegate() = pageDelegate
+            override fun getPageDelegate(): PageDelegate? = pageDelegate
+            override fun getCurrentPage(): com.shuli.reader.core.reader.model.TextPage? = currentPage
             override fun isEdgeTurnPageEnabled() = visualParams.isEdgeTurnPageEnabled()
             override fun getEdgeWidthPercent() = visualParams.getEdgeWidthPercent()
             override fun getLeftZoneRatio() = this@ReaderCanvasView.leftZoneRatio
@@ -318,15 +364,18 @@ class ReaderCanvasView @JvmOverloads constructor(
                 this@ReaderCanvasView.onCenterClicked?.invoke()
             }
             override fun onSelectionCleared() {
-                // 清除 Canvas 渲染层的选区状态并重绘
-                renderContext.selectedRange = null
-                val page = currentPage
-                if (page != null) {
-                    renderStateStore.getPageState(page.toKey()).invalidateContent()
+                val old = textSelection.clearSelection()
+                if (old != null) {
+                    pageRenderer.clearCache()
+                    renderContext.selectedRange = null
+                    val page = currentPage
+                    if (page != null) {
+                        renderStateStore.getPageState(page.toKey()).invalidateContent()
+                    }
+                    invalidate()
+                    // 通知上层（ViewModel 清除 Compose 状态）
+                    this@ReaderCanvasView.onTextCleared?.invoke()
                 }
-                invalidate()
-                // 通知上层（ViewModel 清除 Compose 状态）
-                this@ReaderCanvasView.onTextCleared?.invoke()
             }
             override fun onLongPress(x: Float, y: Float) {
                 pageDelegate?.abort()
@@ -352,6 +401,7 @@ class ReaderCanvasView @JvmOverloads constructor(
             override fun onSelectionHandleDragStart(anchorId: CanvasTextSelection.AnchorId) {
                 // 开始拖动把手，隐藏菜单
                 onSelectionDragStart?.invoke()
+                autoScrollController.setViewport(height.toFloat(), pageAnimType == com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.SCROLL)
                 magnifierScaleAnimator?.cancel()
                 magnifierScaleAnimator = android.animation.ValueAnimator.ofFloat(magnifierScale, 1.2f).apply {
                     duration = 200
@@ -364,6 +414,9 @@ class ReaderCanvasView @JvmOverloads constructor(
                 }
             }
             override fun onSelectionHandleDragMove(x: Float, y: Float, isFastDrag: Boolean) {
+                lastDragXForAutoScroll = x
+                lastDragYForAutoScroll = y
+                autoScrollController.updateTouch(y)
                 val page = currentPage ?: return
                 // 将像素坐标转换为字符位置
                 val charIndex = textSelection.pixelToChar(x, y, page, chapterContent, textPaint)
@@ -391,6 +444,7 @@ class ReaderCanvasView @JvmOverloads constructor(
                 }
             }
             override fun onSelectionHandleDragEnd() {
+                autoScrollController.stopAutoScroll()
                 // 结束拖动把手，显示菜单
                 val range = textSelection.selectedRange
                 val page = currentPage
@@ -756,6 +810,10 @@ class ReaderCanvasView @JvmOverloads constructor(
         val v = snapshot.visual
         val sh = snapshot.shell
         pageAnimType = snapshot.page.pageAnimType
+        
+        // 更新几何缓存版本标识
+        pageRenderer.layoutVersion = layoutInput.hashCode()
+        pageRenderer.styleVersion = v.hashCode()
 
         // 1. 始终应用全部视觉参数（幂等操作，值未变时各 setter 内部跳过）
         // PR-4: 将 snapshot 的 generation 传递给 renderContext，用于后台任务过期校验
@@ -1284,8 +1342,19 @@ class ReaderCanvasView @JvmOverloads constructor(
         if (textSelection.selectedRange != null) {
             val handleInfos = textSelection.getHandleRects(page, width.toFloat())
             if (handleInfos != null) {
+                val activeAnchor = textSelection.activeAnchor
+                // 先画 inactive
                 for (info in handleInfos) {
-                    drawHandle(canvas, info.rect, info.isStart)
+                    if (info.anchorId != activeAnchor) {
+                        drawHandle(canvas, info.rect, info.isStart, scale = 1.0f, alpha = 216) // 85% alpha
+                    }
+                }
+                // 后画 active (在上层)
+                for (info in handleInfos) {
+                    if (info.anchorId == activeAnchor) {
+                        val scale = 1.0f + (magnifierScale * 0.2f) // max scale 1.2
+                        drawHandle(canvas, info.rect, info.isStart, scale = scale, alpha = 255)
+                    }
                 }
             }
         }
@@ -1409,6 +1478,8 @@ class ReaderCanvasView @JvmOverloads constructor(
         canvas: Canvas,
         rect: RectF,
         isStart: Boolean,
+        scale: Float = 1.0f,
+        alpha: Int = 255
     ) {
         val centerX = rect.centerX()
         val dotRadius = SelectionVisualStyle.HANDLE_DOT_RADIUS
@@ -1416,8 +1487,23 @@ class ReaderCanvasView @JvmOverloads constructor(
         val stemEndY = if (isStart) rect.bottom else rect.bottom - dotRadius
         val dotCenterY = if (isStart) rect.top + dotRadius else rect.bottom - dotRadius
 
+        selectionHandleStemPaint.alpha = alpha
+        selectionHandlePaint.alpha = alpha
+
+        if (scale != 1.0f) {
+            canvas.save()
+            canvas.scale(scale, scale, centerX, dotCenterY)
+        }
+
         canvas.drawLine(centerX, stemStartY, centerX, stemEndY, selectionHandleStemPaint)
         canvas.drawCircle(centerX, dotCenterY, dotRadius, selectionHandlePaint)
+
+        if (scale != 1.0f) {
+            canvas.restore()
+        }
+        
+        selectionHandleStemPaint.alpha = 255
+        selectionHandlePaint.alpha = 255
     }
 
     /**
@@ -1503,7 +1589,10 @@ class ReaderCanvasView @JvmOverloads constructor(
         pageState.content.draw(canvas)
         pageState.overlay.draw(canvas)
         for (info in handleInfos) {
-            drawHandle(canvas, info.rect, info.isStart)
+            val isFocus = info.anchorId == activeAnchor
+            val scale = if (isFocus) 1.0f + (magnifierScale * 0.2f) else 1.0f
+            val alpha = if (isFocus) 255 else 216
+            drawHandle(canvas, info.rect, info.isStart, scale = scale, alpha = alpha)
         }
         canvas.restore() // 恢复 clipPath 之前的状态，但保留 magnifierScale
 

@@ -59,6 +59,23 @@ class ReaderPageRenderer(
         isAntiAlias = true
     }
 
+    /** 选区绘制复用对象 (Phase 1 低分配优化) */
+    private val highlightRects = ArrayList<RectF>(50)
+    private val unifiedPath = Path()
+    private val tempPath = Path()
+
+    /** 选区几何缓存 (Phase 2) */
+    private val selectionGeometryCache = com.shuli.reader.core.reader.engine.selection.SelectionGeometryCache()
+    var layoutVersion: Int = 0
+    var styleVersion: Int = 0
+
+    /**
+     * 清理资源
+     */
+    fun clearCache() {
+        selectionGeometryCache.clear()
+    }
+
     /**
      * 更新对齐方式
      */
@@ -232,49 +249,50 @@ class ReaderPageRenderer(
 
         // 2. 选区高亮背景（字符级精确范围）
         if (selectedRange != null && selectionPaint != null) {
-            val highlightRects = mutableListOf<RectF>()
-            page.lines.forEach { line ->
-                if (intersects(selectedRange, line.startCharOffset, line.endCharOffset)) {
-                    val bodyLeft = page.layout.body.left
-                    val lineStart = line.startCharOffset
-                    val lineEnd = line.endCharOffset
-                    val selStart = maxOf(selectedRange.startPos, lineStart)
-                    val selEnd = minOf(selectedRange.endPos, lineEnd)
-                    val charWidths = line.charWidths
-                    var selStartX = bodyLeft + line.startXOffset
-                    var selEndX = selStartX
-                    if (charWidths != null && charWidths.size == (lineEnd - lineStart)) {
-                        for (i in 0 until (selStart - lineStart)) { selStartX += charWidths[i] }
-                        selEndX = selStartX
-                        for (i in (selStart - lineStart) until (selEnd - lineStart)) { selEndX += charWidths[i] }
-                    } else {
-                        selStartX = bodyLeft + line.startXOffset
-                        selEndX = selStartX + line.measuredWidth
+            val cacheKey = com.shuli.reader.core.reader.engine.selection.SelectionGeometryCacheKey.create(
+                page, selectedRange, layoutVersion, styleVersion
+            )
+            var geometry = selectionGeometryCache.get(cacheKey)
+            
+            if (geometry == null) {
+                geometry = com.shuli.reader.core.reader.engine.selection.SelectionGeometry()
+                val linesSize = page.lines.size
+                for (lineIndex in 0 until linesSize) {
+                    val line = page.lines[lineIndex]
+                    if (intersects(selectedRange, line.startCharOffset, line.endCharOffset)) {
+                        val bodyLeft = page.layout.body.left
+                        val lineStart = line.startCharOffset
+                        val lineEnd = line.endCharOffset
+                        val selStart = maxOf(selectedRange.startPos, lineStart)
+                        val selEnd = minOf(selectedRange.endPos, lineEnd)
+                        val charWidths = line.charWidths
+                        var selStartX = bodyLeft + line.startXOffset
+                        var selEndX = selStartX
+                        if (charWidths != null && charWidths.size == (lineEnd - lineStart)) {
+                            for (i in 0 until (selStart - lineStart)) { selStartX += charWidths[i] }
+                            selEndX = selStartX
+                            for (i in (selStart - lineStart) until (selEnd - lineStart)) { selEndX += charWidths[i] }
+                        } else {
+                            selStartX = bodyLeft + line.startXOffset
+                            selEndX = selStartX + line.measuredWidth
+                        }
+                        val rect = RectF(
+                            selStartX - SelectionVisualStyle.HIGHLIGHT_HORIZONTAL_PADDING,
+                            line.top,
+                            selEndX + SelectionVisualStyle.HIGHLIGHT_HORIZONTAL_PADDING,
+                            line.bottom,
+                        )
+                        geometry.highlightRects.add(rect)
                     }
-                    val rect = RectF(
-                        selStartX - SelectionVisualStyle.HIGHLIGHT_HORIZONTAL_PADDING,
-                        line.top,
-                        selEndX + SelectionVisualStyle.HIGHLIGHT_HORIZONTAL_PADDING,
-                        line.bottom,
-                    )
-                    highlightRects.add(rect)
                 }
-            }
-
-            if (highlightRects.isNotEmpty()) {
+                
                 val radius = SelectionVisualStyle.HIGHLIGHT_CORNER_RADIUS
-                if (highlightRects.size == 1 || android.os.Build.VERSION.SDK_INT < 21) {
-                    // 单行或不支持 Path.op 的低版本：直接绘制
-                    for (rect in highlightRects) {
-                        canvas.drawRoundRect(rect, radius, radius, selectionPaint)
-                    }
-                } else {
-                    // 多行流体融合高亮 (Fluid Highlight Path)
+                if (geometry.highlightRects.size > 1 && android.os.Build.VERSION.SDK_INT >= 21) {
                     try {
                         val verticalGrow = 1f * page.density // 纵向延伸1dp以消除行间隙
-                        val unifiedPath = Path()
-                        val tempPath = Path()
-                        for ((index, rect) in highlightRects.withIndex()) {
+                        geometry.unifiedPath.reset()
+                        for (index in 0 until geometry.highlightRects.size) {
+                            val rect = geometry.highlightRects[index]
                             // 稍微放大上下边界，使相邻行有重叠区域从而能够完美 UNION
                             val expandedRect = RectF(
                                 rect.left, 
@@ -286,19 +304,32 @@ class ReaderPageRenderer(
                             tempPath.addRoundRect(expandedRect, radius, radius, Path.Direction.CW)
                             
                             if (index == 0) {
-                                unifiedPath.addPath(tempPath)
+                                geometry.unifiedPath.addPath(tempPath)
                             } else {
-                                unifiedPath.op(tempPath, Path.Op.UNION)
+                                val success = geometry.unifiedPath.op(tempPath, Path.Op.UNION)
+                                if (!success) {
+                                    throw IllegalStateException("Path.op UNION failed")
+                                }
                             }
                         }
-                        canvas.drawPath(unifiedPath, selectionPaint)
+                        geometry.isUnifiedPathValid = true
                     } catch (e: Exception) {
-                        // 回退机制：部分国产魔改 ROM (如 MIUI) 可能会在 Path.op 抛出异常
-                        for (rect in highlightRects) {
-                            canvas.drawRoundRect(rect, radius, radius, selectionPaint)
-                        }
+                        geometry.fallbackToRects = true
                     }
+                } else {
+                    geometry.fallbackToRects = true
                 }
+                selectionGeometryCache.put(cacheKey, geometry)
+            }
+            
+            val radius = SelectionVisualStyle.HIGHLIGHT_CORNER_RADIUS
+            if (geometry.fallbackToRects) {
+                val rects = geometry.highlightRects
+                for (i in 0 until rects.size) {
+                    canvas.drawRoundRect(rects[i], radius, radius, selectionPaint)
+                }
+            } else if (geometry.isUnifiedPathValid) {
+                canvas.drawPath(geometry.unifiedPath, selectionPaint)
             }
         }
 

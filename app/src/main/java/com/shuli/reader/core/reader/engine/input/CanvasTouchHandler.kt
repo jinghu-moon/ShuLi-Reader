@@ -23,6 +23,7 @@ class CanvasTouchHandler(private val context: Context) {
         fun getWidth(): Float
         fun getHeight(): Float
         fun getPageDelegate(): PageDelegate?
+        fun getCurrentPage(): com.shuli.reader.core.reader.model.TextPage?
         fun isEdgeTurnPageEnabled(): Boolean
         fun getEdgeWidthPercent(): Float
         fun getLeftZoneRatio(): Float = 0.33f
@@ -163,7 +164,8 @@ class CanvasTouchHandler(private val context: Context) {
                     }
 
                     // 检查是否点击了选区内部
-                    if (textSelection.isPointInSelection(event.x, event.y)) {
+                    val page = cb.getCurrentPage()
+                    if (textSelection.isPointInSelection(event.x, event.y, page)) {
                         // 点击选区内部，不做任何操作（等待后续手势）
                         return false
                     }

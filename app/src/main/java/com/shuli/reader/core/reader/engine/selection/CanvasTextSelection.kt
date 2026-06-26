@@ -169,7 +169,15 @@ class CanvasTextSelection {
             charIndex
         }
 
-        val clamped = adjustedCharIndex.coerceIn(0, content.length)
+        var clamped = adjustedCharIndex.coerceIn(0, content.length)
+        val otherAnchor = if (activeAnchor == AnchorId.A) anchorB else anchorA
+        if (Math.abs(clamped - otherAnchor) > MAX_SELECTION_LENGTH) {
+            clamped = if (clamped > otherAnchor) {
+                otherAnchor + MAX_SELECTION_LENGTH
+            } else {
+                otherAnchor - MAX_SELECTION_LENGTH
+            }
+        }
 
         val oldA = anchorA
         val oldB = anchorB
@@ -338,17 +346,24 @@ class CanvasTextSelection {
         }
     }
 
-    fun isPointInSelection(x: Float, y: Float): Boolean {
+    fun isPointInSelection(x: Float, y: Float, page: TextPage?): Boolean {
         val range = selectedRange ?: return false
+        if (page == null) return false
+        
+        val line = page.lines.firstOrNull { y >= it.top && y <= it.bottom } ?: return false
+        if (range.startPos >= line.endCharOffset || range.endPos <= line.startCharOffset) return false
+        
+        val bodyLeft = page.layout.body.left
+        val lineStart = line.startCharOffset
+        val lineEnd = line.endCharOffset
+        val selStart = maxOf(range.startPos, lineStart)
+        val selEnd = minOf(range.endPos, lineEnd)
+        
+        val startX = bodyLeft + line.startXOffset + getCharXOffset(line, selStart)
+        val endX = bodyLeft + line.startXOffset + getCharXOffset(line, selEnd)
+        
         val padding = HANDLE_TOUCH_RADIUS
-        val minY = minOf(anchorAY, anchorBY) - padding
-        val maxY = maxOf(anchorAY, anchorBY) + padding
-        if (y !in minY..maxY) return false
-
-        val xPadding = HANDLE_TOUCH_RADIUS * 2
-        val minX = minOf(anchorAX, anchorBX) - xPadding
-        val maxX = maxOf(anchorAX, anchorBX) + xPadding
-        return x in minX..maxX
+        return x in (startX - padding)..(endX + padding)
     }
 
     fun lineBounds(index: Int, page: TextPage, viewWidth: Float): RectF {
@@ -381,9 +396,19 @@ class CanvasTextSelection {
         content: CharSequence,
         paint: Paint?,
     ): Int? {
-        val line = page.lines.firstOrNullIndexed { _, line ->
-            y >= line.top && y <= line.bottom
-        } ?: return null
+        if (page.lines.isEmpty()) return null
+        
+        // 1. 垂直方向 clamp 到最近的行
+        val line = when {
+            y < page.lines.first().top -> page.lines.first()
+            y > page.lines.last().bottom -> page.lines.last()
+            else -> {
+                // 查找包含 y 或者 y 在其上方间隙的行
+                page.lines.firstOrNull { y >= it.top && y <= it.bottom } ?: page.lines.minByOrNull { Math.abs(it.top + (it.bottom - it.top) / 2 - y) } ?: page.lines.last()
+            }
+        }
+        
+        // 2. 在行内查找字符并进行水平 clamp
         return findCharIndexInLine(x, line, page, content, paint)
     }
 
@@ -420,6 +445,9 @@ class CanvasTextSelection {
         val charWidths = line.charWidths
         if (charWidths != null && charWidths.size == (lineEnd - lineStart)) {
             var accX = line.startXOffset
+            // 如果在行首左侧，直接返回行首
+            if (relativeX <= accX) return lineStart
+            
             for (i in charWidths.indices) {
                 val charWidth = charWidths[i]
                 if (relativeX >= accX && relativeX < accX + charWidth) {
@@ -557,6 +585,7 @@ class CanvasTextSelection {
     }
 
     companion object {
+        const val MAX_SELECTION_LENGTH = 5000
         private const val TEXT_END_PADDING = 20f
         private const val SELECTION_HORIZONTAL_PADDING = 6f
         const val HANDLE_TOUCH_RADIUS = SelectionVisualStyle.HANDLE_TOUCH_RADIUS

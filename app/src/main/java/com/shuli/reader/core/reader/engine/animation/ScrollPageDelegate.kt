@@ -119,6 +119,11 @@ class ScrollPageDelegate(
      * 对标 legado [ContentTextView.scroll]：先累加偏移，再在越过当前页边界时
      * 调用 [Pager] 切换当前页并把偏移量平移到新页坐标系。
      */
+    fun scrollBy(dy: Float) {
+        applyScroll(dy)
+        callback?.invalidate()
+    }
+
     private fun applyScroll(dy: Float) {
         val pager = pager ?: run {
             scrollOffset += dy
