@@ -1423,13 +1423,18 @@ class ReaderViewModel(
                 state.nextChapterFirstPage !== nextPage ||
                 state.prevChapterLastPage !== prevPage ||
                 state.nextChapterContent !== nextContent ||
-                state.prevChapterContent !== prevContent
+                state.prevChapterContent !== prevContent ||
+                state.nextChapter !== nextChapter ||
+                state.prevChapter !== prevChapter
             ) {
                 _uiState.value = state.copy(
                     nextChapterFirstPage = nextPage,
                     nextChapterContent = nextContent,
                     prevChapterLastPage = prevPage,
                     prevChapterContent = prevContent,
+                    // 连续滚动跨章页面序列需要相邻章节的完整分页对象
+                    nextChapter = nextChapter,
+                    prevChapter = prevChapter,
                 )
             }
         } catch (e: Exception) {

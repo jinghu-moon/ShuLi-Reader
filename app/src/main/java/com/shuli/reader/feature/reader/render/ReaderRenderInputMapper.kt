@@ -155,6 +155,11 @@ fun ReaderUiState.toRenderInput(
     if (effectivePrevPage != null && prevChapterContent != null) {
         chapterContents[effectivePrevPage.chapterIndex] = prevChapterContent
     }
+    // 连续滚动需要相邻整章正文（视口内可同时堆叠多页、跨章），始终补齐
+    if (pageAnimType == com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.SCROLL) {
+        if (nextChapterContent != null) chapterContents[chapterIndex + 1] = nextChapterContent
+        if (prevChapterContent != null) chapterContents[chapterIndex - 1] = prevChapterContent
+    }
 
     return ReaderRenderInput(
         page = pageSnapshot,
@@ -164,6 +169,30 @@ fun ReaderUiState.toRenderInput(
         chapterContent = currentChapter?.content ?: "",
         chapterContents = chapterContents,
     )
+}
+
+/**
+ * 构建连续滚动模式的跨章页面序列提供者。
+ *
+ * 把"上一章 + 当前章 + 下一章"的分页拍平成一条连续序列，以页对象身份（===）定位锚点，
+ * 返回相对位移 delta 处的页面（可跨章）。供 [com.shuli.reader.core.reader.engine.ReaderCanvasView]
+ * 在连续流绘制与页面回收时按实际高度逐页推进。非滚动模式或数据不足时返回 null。
+ */
+fun ReaderUiState.buildScrollPageProvider():
+    ((com.shuli.reader.core.reader.model.TextPage, Int) -> com.shuli.reader.core.reader.model.TextPage?)? {
+    if (pageAnimType != com.shuli.reader.core.reader.engine.animation.PageDelegateFactory.PageAnimType.SCROLL) {
+        return null
+    }
+    val flat = buildList {
+        prevChapter?.let { addAll(it.pages) }
+        currentChapter?.let { addAll(it.pages) }
+        nextChapter?.let { addAll(it.pages) }
+    }
+    if (flat.isEmpty()) return null
+    return provider@{ anchor, delta ->
+        val idx = flat.indexOfFirst { it === anchor }
+        if (idx < 0) null else flat.getOrNull(idx + delta)
+    }
 }
 
 /**

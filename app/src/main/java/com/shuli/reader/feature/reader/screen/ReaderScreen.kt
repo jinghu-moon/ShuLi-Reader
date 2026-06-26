@@ -89,6 +89,7 @@ import com.shuli.reader.feature.bookshelf.component.BookDetailsSheet
 import com.shuli.reader.feature.bookshelf.component.BookDetailsTagActions
 import com.shuli.reader.feature.bookshelf.component.BookDetailsTagState
 import com.shuli.reader.feature.reader.render.ReaderCanvasEffects
+import com.shuli.reader.feature.reader.render.buildScrollPageProvider
 import com.shuli.reader.feature.reader.render.toFallbackRenderInput
 import com.shuli.reader.feature.reader.render.toRenderInput
 import com.shuli.reader.feature.reader.settings.GestureAction
@@ -373,6 +374,8 @@ fun ReaderScreen(
                             batteryLevel = batteryLevel,
                             pageDelegate = viewModel.pageDelegate,
                         )
+                        // 连续滚动：提供跨章页面序列，使 Canvas 能堆叠多页填满视口、按实际高度回收
+                        view.scrollPageProvider = uiState.buildScrollPageProvider()
                         // §11.1.1.1: T0 fallback — 首帧超预算时用持久化摘要渲染骨架页
                         val digest = uiState.snapshotDigest
                         if (uiState.isLoading && digest != null) {

@@ -52,6 +52,9 @@ import com.shuli.reader.ui.theme.toReaderColorScheme
  * 触摸手势委托给 [CanvasTouchHandler]，
  * 文本选区委托给 [CanvasTextSelection]。
  */
+/** 连续滚动单帧最多堆叠的页面数，防御性上限（正常 2~4 页即填满视口）。 */
+private const val SCROLL_CHAIN_GUARD = 64
+
 class ReaderCanvasView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
@@ -220,6 +223,8 @@ class ReaderCanvasView @JvmOverloads constructor(
         currentPage?.let { keys.add(it.toKey()) }
         nextPage?.let { keys.add(it.toKey()) }
         prevPage?.let { keys.add(it.toKey()) }
+        // 连续滚动时视口内堆叠的多页也需保活，否则其 render state 会被回收导致重录闪烁
+        keys.addAll(scrollChainKeys)
         return keys
     }
 
@@ -374,6 +379,56 @@ class ReaderCanvasView @JvmOverloads constructor(
     // 翻页动画委托
     private var pageDelegate: PageDelegate? = null
     private var pageAnimType: PageDelegateFactory.PageAnimType = PageDelegateFactory.PageAnimType.HORIZONTAL
+
+    // ── 连续滚动：页面序列 + 回收器 ────────────────────────────
+
+    /**
+     * 滚动模式页面序列提供者：给定锚点页与相对位移 delta（0=锚点，+1=下一页，-1=上一页），
+     * 返回连续的页面（可跨章）。由 ReaderScreen 从 uiState 的相邻章节构建。
+     */
+    var scrollPageProvider: ((anchor: TextPage, delta: Int) -> TextPage?)? = null
+
+    /** 上一帧连续流实际绘制的页面 key，纳入 activePageKeys 防止 render state 被回收。 */
+    private var scrollChainKeys: Set<PageKey> = emptySet()
+
+    /**
+     * [ScrollPageDelegate] 的页面回收器实现。
+     * 当连续偏移量越过当前页实际高度边界时，沿页面序列前进/后退一页，
+     * 并通过 [onPageChanged] 通知上层同步章节/页码状态。
+     */
+    private val scrollPagerImpl = object : com.shuli.reader.core.reader.engine.animation.ScrollPageDelegate.Pager {
+        override fun currentSegmentHeight(): Float {
+            val cur = currentPage ?: return height.toFloat().coerceAtLeast(1f)
+            return ScrollBodyFlowLayout.segmentFor(cur, currentTitleStyle).height
+        }
+
+        override fun viewportHeight(): Float {
+            val cur = currentPage ?: return height.toFloat().coerceAtLeast(1f)
+            return ScrollBodyFlowLayout.viewportFor(cur).height
+        }
+
+        override fun advanceForward(): Boolean {
+            val cur = currentPage ?: return false
+            val next = scrollPageProvider?.invoke(cur, 1) ?: return false
+            if (contentForPage(next) == null) return false
+            prevPage = cur
+            currentPage = next
+            nextPage = scrollPageProvider?.invoke(next, 1)
+            onPageChanged?.invoke(PageDelegate.Direction.NEXT)
+            return true
+        }
+
+        override fun advanceBackward(): Boolean {
+            val cur = currentPage ?: return false
+            val prev = scrollPageProvider?.invoke(cur, -1) ?: return false
+            if (contentForPage(prev) == null) return false
+            nextPage = cur
+            currentPage = prev
+            prevPage = scrollPageProvider?.invoke(prev, -1)
+            onPageChanged?.invoke(PageDelegate.Direction.PREV)
+            return true
+        }
+    }
 
     // 翻页回调
     var onPageChanged: ((PageDelegate.Direction) -> Unit)? = null
@@ -742,6 +797,8 @@ class ReaderCanvasView @JvmOverloads constructor(
         }
 
         pageDelegate = actualDelegate
+        // 连续滚动委托注入页面回收器，使其能按实际页高度跨章回收页面
+        (actualDelegate as? ScrollPageDelegate)?.pager = scrollPagerImpl
         actualDelegate?.setCallback(object : PageDelegate.Callback {
             override fun onPageChanged(direction: PageDelegate.Direction) {
                 actualDelegate.abort()
@@ -935,7 +992,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         val isDelegateActive = delegate != null &&
             (delegate.state != PageDelegate.State.IDLE || (bodyScrollDelegate?.getScrollPosition() ?: 0f) != 0f)
         if (bodyScrollDelegate is ScrollPageDelegate) {
-            drawContinuousScrollFrame(canvas, current, currentState, bodyScrollDelegate)
+            drawContinuousFlow(canvas, current, currentState, bodyScrollDelegate)
         } else if (delegate != null && isDelegateActive) {
             val isPrevDirection = when (delegate.state) {
                 PageDelegate.State.DRAGGING -> delegate.isDraggingBackward()
@@ -1033,30 +1090,76 @@ class ReaderCanvasView @JvmOverloads constructor(
         )
     }
 
-    private fun drawContinuousScrollFrame(
+    /**
+     * 连续滚动绘制（对标 legado [ContentTextView.drawPage]）。
+     *
+     * 以当前页为锚点，沿 [scrollPageProvider] 提供的页面序列按"实际内容高度"向下堆叠，
+     * 直到填满视口；必要时向上回填顶部空隙。这样章节尾页内容再短，紧随其后的下一章也会
+     * 立即出现在其下方，彻底消除"短尾页 + 大段空白"的缺陷。
+     */
+    private fun drawContinuousFlow(
         canvas: Canvas,
         current: TextPage,
         currentState: PageRenderState,
         delegate: ScrollPageDelegate,
     ) {
-        val isPrevDirection = when (delegate.state) {
-            PageDelegate.State.DRAGGING -> delegate.isDraggingBackward()
-            PageDelegate.State.ANIMATING -> delegate.direction == PageDelegate.Direction.PREV
-            PageDelegate.State.SETTLING -> delegate.direction == PageDelegate.Direction.PREV
-            PageDelegate.State.IDLE -> delegate.getScrollPosition() > 0f
+        // header/footer 始终取当前页骨架
+        currentState.shell.draw(canvas)
+
+        val viewport = ScrollBodyFlowLayout.viewportFor(current)
+        if (viewport.width <= 0f || viewport.height <= 0f) {
+            currentState.content.draw(canvas)
+            currentState.overlay.draw(canvas)
+            return
         }
-        val target = if (isPrevDirection) prevPage else nextPage
-        val targetState = target?.let { targetPage ->
-            contentForPage(targetPage)?.let { targetContent ->
-                renderStateStore.getPageState(targetPage.toKey()).also { state ->
-                    recordPageIfNeeded(targetPage, state, targetContent)
-                }
+
+        val provider = scrollPageProvider
+        val scrollOffset = delegate.getScrollPosition()
+        val activeKeys = mutableSetOf<PageKey>()
+
+        canvas.save()
+        canvas.clipRect(viewport.left, viewport.top, viewport.right, viewport.bottom)
+
+        // 向下：从当前页起按实际高度堆叠，直到超出视口底部
+        var page: TextPage? = current
+        var offset = scrollOffset
+        var guard = 0
+        while (page != null && offset < viewport.height && guard++ < SCROLL_CHAIN_GUARD) {
+            val seg = ScrollBodyFlowLayout.segmentFor(page, currentTitleStyle)
+            val state = stateForChainPage(page)
+            if (state != null) {
+                drawScrollFlowSegment(canvas, viewport, seg, state, offset)
+                activeKeys.add(page.toKey())
             }
+            offset += seg.height
+            page = provider?.invoke(page, 1)
         }
-        if (target != null && targetState == null) {
-            renderStateStore.getPageState(target.toKey()).invalidateAll()
+
+        // 向上：回填当前页顶部以上的空隙（scrollOffset > 0 时，例如书首回弹瞬态）
+        var up: TextPage? = provider?.invoke(current, -1)
+        var topOffset = scrollOffset
+        guard = 0
+        while (up != null && topOffset > 0f && guard++ < SCROLL_CHAIN_GUARD) {
+            val seg = ScrollBodyFlowLayout.segmentFor(up, currentTitleStyle)
+            topOffset -= seg.height
+            val state = stateForChainPage(up)
+            if (state != null) {
+                drawScrollFlowSegment(canvas, viewport, seg, state, topOffset)
+                activeKeys.add(up.toKey())
+            }
+            up = provider?.invoke(up, -1)
         }
-        drawContinuousScrollBody(canvas, current, currentState, target, targetState, delegate)
+
+        canvas.restore()
+        scrollChainKeys = activeKeys
+    }
+
+    /** 取（必要时录制）连续流中某一页的 render state；内容缺失时返回 null。 */
+    private fun stateForChainPage(page: TextPage): PageRenderState? {
+        val content = contentForPage(page) ?: return null
+        val state = renderStateStore.getPageState(page.toKey())
+        recordPageIfNeeded(page, state, content)
+        return state
     }
 
     private fun drawScrollBodyAnimation(
@@ -1090,41 +1193,6 @@ class ReaderCanvasView @JvmOverloads constructor(
         canvas.restore()
     }
 
-    private fun drawContinuousScrollBody(
-        canvas: Canvas,
-        current: TextPage,
-        currentState: PageRenderState,
-        target: TextPage?,
-        targetState: PageRenderState?,
-        delegate: ScrollPageDelegate,
-    ) {
-        currentState.shell.draw(canvas)
-
-        val viewport = ScrollBodyFlowLayout.viewportFor(current)
-        if (viewport.width <= 0f || viewport.height <= 0f) {
-            currentState.content.draw(canvas)
-            currentState.overlay.draw(canvas)
-            return
-        }
-
-        val currentSegment = ScrollBodyFlowLayout.segmentFor(current, currentTitleStyle)
-        val targetSegment = target?.let { ScrollBodyFlowLayout.segmentFor(it, currentTitleStyle) }
-        val scrollOffset = delegate.getScrollPosition()
-        val targetOffset = if (delegate.isDraggingBackward()) {
-            scrollOffset - (targetSegment?.height ?: delegate.getViewportHeight())
-        } else {
-            scrollOffset + currentSegment.height
-        }
-
-        canvas.save()
-        canvas.clipRect(viewport.left, viewport.top, viewport.right, viewport.bottom)
-        drawScrollFlowSegment(canvas, viewport, currentSegment, currentState, scrollOffset)
-        if (targetState != null && targetSegment != null) {
-            drawScrollFlowSegment(canvas, viewport, targetSegment, targetState, targetOffset)
-        }
-        canvas.restore()
-    }
-
     private fun drawScrollFlowSegment(
         canvas: Canvas,
         viewport: BoxBounds,
@@ -1142,11 +1210,8 @@ class ReaderCanvasView @JvmOverloads constructor(
     private fun updateBodyScrollExtent(current: TextPage, delegate: BodyScrollPageDelegate?) {
         if (delegate == null) return
         if (delegate is ScrollPageDelegate) {
-            val currentExtent = ScrollBodyFlowLayout.segmentFor(current, currentTitleStyle).height
-            val previousExtent = prevPage
-                ?.let { ScrollBodyFlowLayout.segmentFor(it, currentTitleStyle).height }
-                ?: currentExtent
-            delegate.setScrollExtents(forwardExtent = currentExtent, backwardExtent = previousExtent)
+            // 连续流模型按页逐个计算高度（由 scrollPagerImpl 提供），这里只需告知视口高度用于书末钳制
+            delegate.setViewportHeight(ScrollBodyFlowLayout.viewportFor(current).height)
         } else {
             delegate.setViewportHeight(current.layout.body.height)
         }

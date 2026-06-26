@@ -46,6 +46,10 @@ data class ReaderUiState(
     val prevChapterLastPage: TextPage? = null,
     /** 上一章正文，用于跨章翻页动画录制目标页 */
     val prevChapterContent: String? = null,
+    /** 下一章的完整分页对象，连续滚动模式下用于构建跨章页面序列 */
+    val nextChapter: TextChapter? = null,
+    /** 上一章的完整分页对象，连续滚动模式下用于构建跨章页面序列 */
+    val prevChapter: TextChapter? = null,
     val totalPages: Int = 0,
     val totalChapters: Int = 0,
     val showToolbar: Boolean = false,
