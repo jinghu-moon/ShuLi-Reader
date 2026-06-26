@@ -14,9 +14,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import com.shuli.reader.feature.reader.settings.panel.controls.InkSelect
 import com.shuli.reader.feature.reader.settings.panel.controls.InkToggle
+import com.shuli.reader.feature.reader.settings.panel.controls.SegmentedControl
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
@@ -184,5 +186,68 @@ fun <T> SelectRow(
             onSelect = onSelect,
             testTag = "SelectRow_${label}_Select",
         )
+    }
+}
+
+/**
+ * 分段选择设置行：标签 + 满宽 [SegmentedControl]。
+ *
+ * 用于选项数较少（≤4）的离散设置，相比 [SelectRow] 的下拉框，分段控件一步可达、
+ * 全部选项一眼可见，更直观。选中态采用主题强调色药丸（与"全局/本书"切换一致）。
+ *
+ * API 与 [SelectRow] 对齐，可直接替换。
+ */
+@Composable
+fun <T> SegmentedRow(
+    label: String,
+    options: List<Pair<T, String>>,
+    selected: T,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    topDivider: Boolean = false,
+    icons: List<ImageVector?> = emptyList(),
+) {
+    val colors = LocalReaderColorScheme.current
+    val selectedIndex = options.indexOfFirst { it.first == selected }.coerceAtLeast(0)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("SegmentedRow_$label"),
+    ) {
+        if (topDivider) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(colors.divider),
+            )
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 40.dp)
+                .padding(vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.textPrimary,
+            )
+            SegmentedControl(
+                options = options.map { it.second },
+                selectedIndex = selectedIndex,
+                onSelectedChange = { index ->
+                    options.getOrNull(index)?.first?.let(onSelect)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                equalWidth = true,
+                icons = icons,
+                activeColor = colors.accent,
+                activeTextColor = colors.background,
+                inactiveTextColor = colors.textSecondary,
+                containerColor = colors.divider.copy(alpha = 0.3f),
+            )
+        }
     }
 }

@@ -14,11 +14,22 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Contrast
+import androidx.compose.material.icons.outlined.Fullscreen
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,7 +42,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -59,6 +69,20 @@ private val READING_GESTURE_ACTIONS = listOf(
     GestureAction.TOGGLE_IMMERSIVE,
     GestureAction.NONE,
 )
+
+/** 动作对应图标（大众认知：箭头=翻页/滚动，菜单=工具栏，列表=目录…）。 */
+internal fun GestureAction.icon(): ImageVector = when (this) {
+    GestureAction.NONE -> Icons.Outlined.Block
+    GestureAction.PREV_PAGE -> Icons.AutoMirrored.Outlined.KeyboardArrowLeft
+    GestureAction.NEXT_PAGE -> Icons.AutoMirrored.Outlined.KeyboardArrowRight
+    GestureAction.TOGGLE_TOOLBAR -> Icons.Outlined.Menu
+    GestureAction.TOGGLE_DIRECTORY -> Icons.AutoMirrored.Outlined.List
+    GestureAction.ADD_BOOKMARK -> Icons.Outlined.BookmarkBorder
+    GestureAction.TOGGLE_THEME -> Icons.Outlined.Contrast
+    GestureAction.TOGGLE_IMMERSIVE -> Icons.Outlined.Fullscreen
+    GestureAction.SCROLL_UP -> Icons.Outlined.KeyboardArrowUp
+    GestureAction.SCROLL_DOWN -> Icons.Outlined.KeyboardArrowDown
+}
 
 /** 动作短标签（i18n）。 */
 internal fun GestureAction.label(strings: ReaderStrings): String = when (this) {
@@ -198,27 +222,13 @@ private fun GestureZoneButton(
         contentAlignment = Alignment.Center,
     ) {
         val strings = LocalAppStrings.current.reader
-        Row(
-            modifier = Modifier.padding(horizontal = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-        ) {
-            Text(
-                text = action.label(strings),
-                style = MaterialTheme.typography.labelSmall,
-                color = cellText,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            Icon(
-                imageVector = Icons.Outlined.ExpandMore,
-                contentDescription = strings.expandLabel,
-                tint = iconTint,
-                modifier = Modifier.size(14.dp),
-            )
-        }
+        // 图标化：每格只显示动作图标（少文字、符合大众认知），点击弹出动作选择菜单
+        Icon(
+            imageVector = action.icon(),
+            contentDescription = action.label(strings),
+            tint = if (action == GestureAction.NONE) iconTint else cellText,
+            modifier = Modifier.size(22.dp),
+        )
 
         if (expanded) {
             GestureActionMenu(
@@ -283,6 +293,78 @@ private fun GestureActionMenu(
         minWidth = 240.dp,
         testTag = "GestureActionPicker",
     )
+}
+
+/**
+ * 入口处的迷你九宫格预览：只读展示当前各区域绑定动作的图标。
+ *
+ * 用于"点击区域设置"行,一眼看清整体配置(替代"当前中间区域：xxx"的单点文字描述)。
+ */
+@Composable
+fun MiniGestureZonePreview(
+    config: GestureConfig,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalReaderColorScheme.current
+    val shape = RoundedCornerShape(6.dp)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(colors.background)
+            .border(BorderStroke(1.dp, colors.divider), shape)
+            .padding(5.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        ZONE_GRID.forEach { rowZones ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                rowZones.forEach { zone ->
+                    val action = config.getAction(zone)
+                    val cellShape = RoundedCornerShape(4.dp)
+                    val cellBackground = when (action) {
+                        GestureAction.TOGGLE_TOOLBAR -> colors.accent.copy(alpha = 0.14f)
+                        GestureAction.PREV_PAGE,
+                        GestureAction.NEXT_PAGE,
+                        GestureAction.SCROLL_UP,
+                        GestureAction.SCROLL_DOWN -> colors.accent.copy(alpha = 0.08f)
+                        GestureAction.NONE -> colors.divider.copy(alpha = 0.10f)
+                        else -> colors.background
+                    }
+                    val cellBorder = when (action) {
+                        GestureAction.TOGGLE_TOOLBAR -> colors.accent.copy(alpha = 0.40f)
+                        GestureAction.PREV_PAGE,
+                        GestureAction.NEXT_PAGE,
+                        GestureAction.SCROLL_UP,
+                        GestureAction.SCROLL_DOWN -> colors.accent.copy(alpha = 0.22f)
+                        else -> colors.divider.copy(alpha = 0.7f)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(30.dp)
+                            .clip(cellShape)
+                            .background(cellBackground)
+                            .border(BorderStroke(1.dp, cellBorder), cellShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = action.icon(),
+                            contentDescription = null,
+                            tint = if (action == GestureAction.NONE) {
+                                colors.textTertiary.copy(alpha = 0.4f)
+                            } else {
+                                colors.textSecondary
+                            },
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** 返回替换了指定 [zone] 动作后的新配置。 */

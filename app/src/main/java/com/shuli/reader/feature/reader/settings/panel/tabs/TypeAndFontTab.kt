@@ -5,6 +5,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.FormatAlignLeft
+import androidx.compose.material.icons.outlined.FormatAlignCenter
+import androidx.compose.material.icons.outlined.FormatAlignJustify
+import androidx.compose.material.icons.outlined.VerticalAlignBottom
+import androidx.compose.material.icons.outlined.VerticalAlignTop
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -21,11 +28,12 @@ import com.shuli.reader.core.data.ReaderTextAlign
 import com.shuli.reader.core.reader.model.BoxInsetsDp
 import com.shuli.reader.core.font.FontManager
 import com.shuli.reader.core.i18n.LocalAppStrings
-import com.shuli.reader.feature.reader.settings.panel.SelectRow
+import com.shuli.reader.feature.reader.settings.panel.SegmentedRow
 import com.shuli.reader.feature.reader.settings.panel.SettingsCard
 import com.shuli.reader.feature.reader.settings.panel.SwitchRow
 import com.shuli.reader.feature.reader.settings.panel.controls.BoxMarginSection
 import com.shuli.reader.feature.reader.settings.panel.controls.InkStepperSlider
+import com.shuli.reader.feature.reader.settings.panel.controls.SegmentedControl
 import com.shuli.reader.feature.reader.settings.panel.controls.MarginPreset
 import com.shuli.reader.feature.reader.settings.panel.controls.MarginPresetRow
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
@@ -169,19 +177,43 @@ fun TypeAndFontTab(
         }
 
         // ════════════════════════════════════════════
-        //  页眉卡片
+        //  页眉页脚卡片（合并去重：顶部「页眉 | 页脚」切换，下方为所选目标的参数）
         // ════════════════════════════════════════════
-        SettingsCard(title = m.headerBoxLabel) {
+        SettingsCard(title = strings.headerFooterCard) {
+            // 0 = 页眉，1 = 页脚
+            val hfTarget = remember { mutableStateOf(0) }
+            val isHeader = hfTarget.value == 0
+            SegmentedControl(
+                options = listOf(m.headerBoxLabel, m.footerBoxLabel),
+                selectedIndex = hfTarget.value,
+                onSelectedChange = { hfTarget.value = it },
+                modifier = Modifier.fillMaxWidth(),
+                activeColor = colors.accent,
+                activeTextColor = colors.background,
+                inactiveTextColor = colors.textSecondary,
+                containerColor = colors.divider.copy(alpha = 0.3f),
+                icons = listOf(
+                    Icons.Outlined.VerticalAlignTop,
+                    Icons.Outlined.VerticalAlignBottom,
+                ),
+            )
+            // 字号（页眉/页脚各自独立）
             InkStepperSlider(
-                value = prefs.headerFontSizeRatio,
-                onValueChange = { onSettingChanged("header_font_size_ratio", it) },
+                value = if (isHeader) prefs.headerFontSizeRatio else prefs.footerFontSizeRatio,
+                onValueChange = {
+                    onSettingChanged(
+                        if (isHeader) "header_font_size_ratio" else "footer_font_size_ratio",
+                        it,
+                    )
+                },
                 valueRange = 0.5f..1.5f,
                 step = 0.05f,
                 label = strings.fontSizeLabel,
-                sublabel = "${(prefs.fontSize * prefs.headerFontSizeRatio).toInt()}sp",
+                sublabel = "${(prefs.fontSize * (if (isHeader) prefs.headerFontSizeRatio else prefs.footerFontSizeRatio)).toInt()}sp",
                 formatValue = { "%.0f%%".format(it * 100) },
-                testTagPrefix = "Slider_HeaderFontRatio",
+                testTagPrefix = if (isHeader) "Slider_HeaderFontRatio" else "Slider_FooterFontRatio",
             )
+            // 透明度（页眉页脚共用同一值）
             InkStepperSlider(
                 value = prefs.headerFooterAlpha,
                 onValueChange = { onSettingChanged("header_footer_alpha", it) },
@@ -191,63 +223,28 @@ fun TypeAndFontTab(
                 formatValue = { "%.0f%%".format(it * 100) },
                 testTagPrefix = "Slider_HeaderFooterAlpha",
             )
+            // 分隔线（页眉/页脚各自独立）
             SwitchRow(
-                label = strings.headerSeparatorLineLabel,
-                checked = prefs.showHeaderLine,
-                onCheckedChange = { onSettingChanged("show_header_line", it) },
-            )
-            BoxMarginSection(
-                title = m.headerBoxLabel,
-                insets = prefs.headerBox,
-                defaultInsets = BoxInsetsDp(16f, 0f, 24f, 24f),
-                onInsetsChange = { newBox ->
-                    onSettingChanged("header_box", newBox)
-                    if (unifiedSync.value) syncLeftRightToOthers(newBox, "header")
+                label = if (isHeader) strings.headerSeparatorLineLabel else strings.footerSeparatorLineLabel,
+                checked = if (isHeader) prefs.showHeaderLine else prefs.showFooterLine,
+                onCheckedChange = {
+                    onSettingChanged(if (isHeader) "show_header_line" else "show_footer_line", it)
                 },
-                topLabel = m.boxMarginTop,
-                bottomLabel = m.boxMarginBottom,
-                leftLabel = m.boxMarginLeft,
-                rightLabel = m.boxMarginRight,
-                collapsible = true,
-                initiallyExpanded = false,
             )
-        }
-
-        // ════════════════════════════════════════════
-        //  页脚卡片
-        // ════════════════════════════════════════════
-        SettingsCard(title = m.footerBoxLabel) {
-            InkStepperSlider(
-                value = prefs.footerFontSizeRatio,
-                onValueChange = { onSettingChanged("footer_font_size_ratio", it) },
-                valueRange = 0.5f..1.5f,
-                step = 0.05f,
-                label = strings.fontSizeLabel,
-                sublabel = "${(prefs.fontSize * prefs.footerFontSizeRatio).toInt()}sp",
-                formatValue = { "%.0f%%".format(it * 100) },
-                testTagPrefix = "Slider_FooterFontRatio",
-            )
-            InkStepperSlider(
-                value = prefs.headerFooterAlpha,
-                onValueChange = { onSettingChanged("header_footer_alpha", it) },
-                valueRange = 0.1f..1.0f,
-                step = 0.1f,
-                label = strings.opacityLabel,
-                formatValue = { "%.0f%%".format(it * 100) },
-                testTagPrefix = "Slider_FooterAlpha",
-            )
-            SwitchRow(
-                label = strings.footerSeparatorLineLabel,
-                checked = prefs.showFooterLine,
-                onCheckedChange = { onSettingChanged("show_footer_line", it) },
-            )
+            // 边距（页眉/页脚各自独立）
             BoxMarginSection(
-                title = m.footerBoxLabel,
-                insets = prefs.footerBox,
-                defaultInsets = BoxInsetsDp(0f, 16f, 24f, 24f),
+                title = if (isHeader) m.headerBoxLabel else m.footerBoxLabel,
+                insets = if (isHeader) prefs.headerBox else prefs.footerBox,
+                defaultInsets = if (isHeader) {
+                    BoxInsetsDp(16f, 0f, 24f, 24f)
+                } else {
+                    BoxInsetsDp(0f, 16f, 24f, 24f)
+                },
                 onInsetsChange = { newBox ->
-                    onSettingChanged("footer_box", newBox)
-                    if (unifiedSync.value) syncLeftRightToOthers(newBox, "footer")
+                    onSettingChanged(if (isHeader) "header_box" else "footer_box", newBox)
+                    if (unifiedSync.value) {
+                        syncLeftRightToOthers(newBox, if (isHeader) "header" else "footer")
+                    }
                 },
                 topLabel = m.boxMarginTop,
                 bottomLabel = m.boxMarginBottom,
@@ -271,7 +268,7 @@ fun TypeAndFontTab(
                 formatValue = { "${it.toInt()}sp" },
                 testTagPrefix = "Slider_TitleFontSize",
             )
-            SelectRow(
+            SegmentedRow(
                 label = strings.titleAlignLabel,
                 options = listOf(
                     com.shuli.reader.core.reader.model.TitleAlign.LEFT to strings.titleAlignLeft,
@@ -280,6 +277,11 @@ fun TypeAndFontTab(
                 ),
                 selected = prefs.titleStyle.align,
                 onSelect = { onSettingChanged("title_align", it) },
+                icons = listOf(
+                    Icons.AutoMirrored.Outlined.FormatAlignLeft,
+                    Icons.Outlined.FormatAlignCenter,
+                    Icons.Outlined.VisibilityOff,
+                ),
             )
             BoxMarginSection(
                 title = m.titleBoxLabel,
@@ -369,7 +371,7 @@ fun TypeAndFontTab(
                     onDeleteFont(entry.key)
                 },
             )
-            SelectRow(
+            SegmentedRow(
                 label = strings.fontWeightLabel,
                 options = listOf(
                     ReaderFontWeight.LIGHT to strings.fontWeightLight,
@@ -381,7 +383,7 @@ fun TypeAndFontTab(
                 onSelect = { onSettingChanged("font_weight", it) },
                 topDivider = true,
             )
-            SelectRow(
+            SegmentedRow(
                 label = strings.textAlignLabel,
                 options = listOf(
                     ReaderTextAlign.LEFT to strings.textAlignLeft,
@@ -390,6 +392,10 @@ fun TypeAndFontTab(
                 selected = prefs.textAlign,
                 onSelect = { onSettingChanged("text_align", it) },
                 topDivider = true,
+                icons = listOf(
+                    Icons.AutoMirrored.Outlined.FormatAlignLeft,
+                    Icons.Outlined.FormatAlignJustify,
+                ),
             )
         }
 
@@ -397,7 +403,7 @@ fun TypeAndFontTab(
         //  高级排版（可折叠）
         // ════════════════════════════════════════════
         SettingsCard(title = strings.advancedTypesettingCard, collapsible = true, initiallyExpanded = false) {
-            SelectRow(
+            SegmentedRow(
                 label = strings.chineseConvertFullLabel,
                 options = listOf(
                     ChineseConvert.NONE to strings.chineseConvertNoneFull,

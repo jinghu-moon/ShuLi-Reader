@@ -1,23 +1,33 @@
 package com.shuli.reader.feature.reader.settings.panel.tabs
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.ScreenRotation
+import androidx.compose.material.icons.outlined.StayCurrentLandscape
+import androidx.compose.material.icons.outlined.StayCurrentPortrait
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import com.shuli.reader.core.data.OrientationLock
 import com.shuli.reader.core.data.ReaderPreferences
 import com.shuli.reader.core.i18n.LocalAppStrings
+import com.shuli.reader.feature.reader.settings.panel.SegmentedRow
 import com.shuli.reader.feature.reader.settings.panel.SelectRow
-import com.shuli.reader.feature.reader.settings.panel.SettingRow
 import com.shuli.reader.feature.reader.settings.panel.SettingsCard
 import com.shuli.reader.feature.reader.settings.panel.SwitchRow
 import com.shuli.reader.feature.reader.settings.panel.controls.InkStepperSlider
-import com.shuli.reader.feature.reader.settings.panel.controls.label
+import com.shuli.reader.feature.reader.settings.panel.controls.MiniGestureZonePreview
 import com.shuli.reader.feature.reader.settings.GestureConfig
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 
@@ -135,7 +145,7 @@ fun BehaviorTab(
                 onCheckedChange = { onSettingChanged("keep_screen_on", it) },
                 topDivider = true,
             )
-            SelectRow(
+            SegmentedRow(
                 label = strings.orientationLockLabel,
                 options = listOf(
                     OrientationLock.SYSTEM to strings.brightnessFollowSystem,
@@ -145,6 +155,11 @@ fun BehaviorTab(
                 selected = prefs.orientationLock,
                 onSelect = { onSettingChanged("orientation_lock", it) },
                 topDivider = true,
+                icons = listOf(
+                    Icons.Outlined.ScreenRotation,
+                    Icons.Outlined.StayCurrentPortrait,
+                    Icons.Outlined.StayCurrentLandscape,
+                ),
             )
         }
     }
@@ -157,17 +172,31 @@ private fun TouchZoneEditorEntry(
 ) {
     val colors = LocalReaderColorScheme.current
     val strings = LocalAppStrings.current.reader
-    SettingRow(
-        label = strings.gestureZoneSettingsLabel,
-        sublabel = "${strings.currentMiddleZonePrefix}${config.middleCenter.label(strings)}",
+    Column(
         modifier = Modifier
+            .fillMaxWidth()
             .clickable(onClick = onClick)
+            .padding(vertical = 10.dp)
             .testTag("OpenGestureZoneEditor"),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-            contentDescription = strings.enterLabel,
-            tint = colors.textTertiary,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = strings.gestureZoneSettingsLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.textPrimary,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = strings.enterLabel,
+                tint = colors.textTertiary,
+            )
+        }
+        // 整行九宫格预览：让区域与动作关系成为主信息，而不是行尾小附件。
+        MiniGestureZonePreview(config = config)
     }
 }
