@@ -52,7 +52,7 @@ class CanvasTouchHandler(context: Context) {
         fun getTextSelection(): CanvasTextSelection? = null
 
         /** 选区把手拖动开始 */
-        fun onSelectionHandleDragStart(handleType: CanvasTextSelection.HandleType) {}
+        fun onSelectionHandleDragStart(anchorId: CanvasTextSelection.AnchorId) {}
 
         /** 选区把手拖动中 */
         fun onSelectionHandleDragMove(x: Float, y: Float) {}

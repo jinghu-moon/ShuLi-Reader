@@ -329,17 +329,17 @@ class ReaderCanvasView @JvmOverloads constructor(
                     invalidate()
 
                     // 计算选区最后一行的左右边界（小三角指向最后一行中间）
-                    val handleRects = textSelection.getHandleRects(page, width.toFloat())
-                    val screenY = handleRects?.second?.bottom ?: y
+                    val handleInfos = textSelection.getHandleRects(page, width.toFloat())
+                    val screenY = handleInfos?.lastOrNull()?.rect?.bottom ?: y
                     // 获取最后一行选区的左右 X 边界
                     val lastLineXRange = textSelection.getLastLineXRange(page, width.toFloat())
-                    val startX = lastLineXRange?.first ?: (handleRects?.first?.centerX() ?: x)
-                    val endX = lastLineXRange?.second ?: (handleRects?.second?.centerX() ?: x)
+                    val startX = lastLineXRange?.first ?: (handleInfos?.firstOrNull()?.rect?.centerX() ?: x)
+                    val endX = lastLineXRange?.second ?: (handleInfos?.lastOrNull()?.rect?.centerX() ?: x)
 
                     onTextSelected?.invoke(range, startX, endX, screenY)
                 }
             }
-            override fun onSelectionHandleDragStart(handleType: CanvasTextSelection.HandleType) {
+            override fun onSelectionHandleDragStart(anchorId: CanvasTextSelection.AnchorId) {
                 // 开始拖动把手，隐藏菜单
                 onSelectionDragStart?.invoke()
             }
@@ -362,12 +362,12 @@ class ReaderCanvasView @JvmOverloads constructor(
                 val range = textSelection.selectedRange
                 val page = currentPage
                 if (range != null && page != null) {
-                    val handleRects = textSelection.getHandleRects(page, width.toFloat())
-                    val screenY = handleRects?.second?.bottom ?: 0f
+                    val handleInfos = textSelection.getHandleRects(page, width.toFloat())
+                    val screenY = handleInfos?.lastOrNull()?.rect?.bottom ?: 0f
                     // 获取最后一行选区的左右 X 边界
                     val lastLineXRange = textSelection.getLastLineXRange(page, width.toFloat())
-                    val startX = lastLineXRange?.first ?: (handleRects?.first?.centerX() ?: 0f)
-                    val endX = lastLineXRange?.second ?: (handleRects?.second?.centerX() ?: 0f)
+                    val startX = lastLineXRange?.first ?: (handleInfos?.firstOrNull()?.rect?.centerX() ?: 0f)
+                    val endX = lastLineXRange?.second ?: (handleInfos?.lastOrNull()?.rect?.centerX() ?: 0f)
                     onSelectionDragEnd?.invoke(range, startX, endX, screenY)
                 }
             }
@@ -1238,11 +1238,11 @@ class ReaderCanvasView @JvmOverloads constructor(
 
         // 绘制选区把手
         if (textSelection.selectedRange != null) {
-            val handleRects = textSelection.getHandleRects(page, width.toFloat())
-            if (handleRects != null) {
-                val (startRect, endRect) = handleRects
-                drawHandle(canvas, startRect, isStart = true)
-                drawHandle(canvas, endRect, isStart = false)
+            val handleInfos = textSelection.getHandleRects(page, width.toFloat())
+            if (handleInfos != null) {
+                for (info in handleInfos) {
+                    drawHandle(canvas, info.rect, info.isStart)
+                }
             }
         }
 
@@ -1385,12 +1385,10 @@ class ReaderCanvasView @JvmOverloads constructor(
         pageState: PageRenderState,
     ) {
         if (!textSelection.isSelecting) return
-        val activeHandle = textSelection.activeHandle ?: return
-        val handleRects = textSelection.getHandleRects(page, width.toFloat()) ?: return
-        val focusRect = when (activeHandle) {
-            CanvasTextSelection.HandleType.START -> handleRects.first
-            CanvasTextSelection.HandleType.END -> handleRects.second
-        }
+        val activeAnchor = textSelection.activeAnchor ?: return
+        val handleInfos = textSelection.getHandleRects(page, width.toFloat()) ?: return
+        val focusHandle = handleInfos.firstOrNull { it.anchorId == activeAnchor } ?: return
+        val focusRect = focusHandle.rect
 
         val density = page.density.takeIf { it > 0f } ?: resources.displayMetrics.density
         val lensWidth = SelectionVisualStyle.MAGNIFIER_WIDTH_DP * density
@@ -1402,9 +1400,10 @@ class ReaderCanvasView @JvmOverloads constructor(
 
         val dotRadius = SelectionVisualStyle.HANDLE_DOT_RADIUS
         val focusX = focusRect.centerX()
-        val focusY = when (activeHandle) {
-            CanvasTextSelection.HandleType.START -> focusRect.top + dotRadius
-            CanvasTextSelection.HandleType.END -> focusRect.bottom - dotRadius
+        val focusY = if (focusHandle.isStart) {
+            focusRect.top + dotRadius
+        } else {
+            focusRect.bottom - dotRadius
         }
 
         val maxLeft = (width.toFloat() - lensWidth - edgePadding).coerceAtLeast(edgePadding)
@@ -1453,8 +1452,9 @@ class ReaderCanvasView @JvmOverloads constructor(
         pageState.shell.draw(canvas)
         pageState.content.draw(canvas)
         pageState.overlay.draw(canvas)
-        drawHandle(canvas, handleRects.first, isStart = true)
-        drawHandle(canvas, handleRects.second, isStart = false)
+        for (info in handleInfos) {
+            drawHandle(canvas, info.rect, info.isStart)
+        }
         canvas.restore()
 
         canvas.drawRoundRect(

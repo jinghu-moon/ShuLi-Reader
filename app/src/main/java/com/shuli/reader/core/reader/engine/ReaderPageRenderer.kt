@@ -287,11 +287,11 @@ class ReaderPageRenderer(
         // 4. 绘制选区把手（如果有选区）
         if (selectedRange != null && selectionPaint != null && textSelection != null) {
             val viewWidth = page.layout.pageWidth
-            val handleRects = textSelection.getHandleRects(page, viewWidth)
-            if (handleRects != null) {
-                val (startRect, endRect) = handleRects
-                drawSelectionHandle(canvas, startRect, selectionPaint, isStart = true)
-                drawSelectionHandle(canvas, endRect, selectionPaint, isStart = false)
+            val handleInfos = textSelection.getHandleRects(page, viewWidth)
+            if (handleInfos != null) {
+                for (info in handleInfos) {
+                    drawSelectionHandle(canvas, info.rect, selectionPaint, info.isStart)
+                }
             }
         }
     }

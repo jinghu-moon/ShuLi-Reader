@@ -8,9 +8,7 @@ import com.shuli.reader.core.reader.model.TextLine
 import com.shuli.reader.core.reader.model.TextPage
 
 /**
- * 文本选区辅助：行命中检测、字符级选词、选区状态管理、选区范围调整。
- *
- * 从 ReaderCanvasView 拆出，独立测试选区逻辑。
+ * 文本选区辅助：纯中立锚点架构
  */
 class CanvasTextSelection {
 
@@ -18,11 +16,11 @@ class CanvasTextSelection {
     var selectedRange: SelectionRange? = null
         private set
 
-    /** 选区起始字符偏移 */
+    /** 选区起始字符偏移（左/上） */
     var selectStart: Int = -1
         private set
 
-    /** 选区结束字符偏移（不含） */
+    /** 选区结束字符偏移（右/下，不含） */
     var selectEnd: Int = -1
         private set
 
@@ -30,34 +28,38 @@ class CanvasTextSelection {
     var isSelecting: Boolean = false
         private set
 
-    /** 当前正在拖动的把手类型 */
-    var activeHandle: HandleType? = null
-        private set
-
-    /** 把手是否交叉反转 */
-    var reverseHandles: Boolean = false
-        private set
-
-    /** 选区起始把手屏幕坐标 */
-    var startHandleScreenX: Float = 0f
-        private set
-    var startHandleScreenY: Float = 0f
-        private set
-
-    /** 选区结束把手屏幕坐标 */
-    var endHandleScreenX: Float = 0f
-        private set
-    var endHandleScreenY: Float = 0f
-        private set
-
-    /**
-     * 把手类型
-     */
-    enum class HandleType {
-        START, END
+    enum class AnchorId {
+        A, B
     }
 
-    /** 检测长按位置是否命中某行，命中则计算选区并返回 */
+    // 中立锚点：A 和 B，代表文本中的真实偏移量
+    private var anchorA: Int = -1
+    private var anchorB: Int = -1
+    
+    // 当前正在被拖动的锚点
+    var activeAnchor: AnchorId? = null
+        private set
+
+    // 防抖视觉映射：A 是否是视觉上的 START 把手
+    // 当 anchorA == anchorB 时，保持此值不变，实现视觉角色的 hysteresis
+    var anchorAIsStart: Boolean = true
+        private set
+
+    // 锚点的屏幕坐标
+    private var anchorAX: Float = 0f
+    private var anchorAY: Float = 0f
+    private var anchorBX: Float = 0f
+    private var anchorBY: Float = 0f
+
+    /**
+     * 把手的绘制和坐标信息
+     */
+    data class HandleInfo(
+        val rect: RectF,
+        val isStart: Boolean,
+        val anchorId: AnchorId
+    )
+
     fun selectLineAt(
         x: Float,
         y: Float,
@@ -70,20 +72,9 @@ class CanvasTextSelection {
             x >= 0f && x <= viewWidth && y >= bounds.top && y <= bounds.bottom
         } ?: return null
 
-        val selectedText = content.substring(line.startCharOffset, line.endCharOffset)
-        val range = SelectionRange(
-            chapterIndex = page.chapterIndex,
-            startPos = line.startCharOffset,
-            endPos = line.endCharOffset,
-            selectedText = selectedText,
-        )
-        setSelection(range)
-        return range
+        return setSelection(line.startCharOffset, line.endCharOffset, page.chapterIndex, content)
     }
 
-    /**
-     * 字符级选词：检测长按位置命中的单词/词组。
-     */
     fun selectWordAt(
         x: Float,
         y: Float,
@@ -92,200 +83,194 @@ class CanvasTextSelection {
         viewWidth: Float,
         paint: Paint? = null,
     ): SelectionRange? {
-        // 1. 命中检测：找到触摸点所在的行
         val line = page.lines.firstOrNullIndexed { index, _ ->
             val bounds = lineBounds(index, page, viewWidth)
             x >= 0f && x <= viewWidth && y >= bounds.top && y <= bounds.bottom
         } ?: return null
 
-        // 2. 字符级定位：在行内找到触摸点对应的字符索引
         val charIndex = findCharIndexInLine(x, line, page, content, paint)
             ?: return null
 
-        // 3. 词边界扩展：向两侧扩展找到完整单词
         val (wordStart, wordEnd) = findWordBoundary(content, charIndex)
-
         if (wordStart >= wordEnd) return null
 
-        val selectedText = content.substring(wordStart, wordEnd)
-        val range = SelectionRange(
-            chapterIndex = page.chapterIndex,
-            startPos = wordStart,
-            endPos = wordEnd,
-            selectedText = selectedText,
-        )
-        setSelection(range)
-        return range
+        return setSelection(wordStart, wordEnd, page.chapterIndex, content)
+    }
+
+    private fun setSelection(start: Int, end: Int, chapterIndex: Int, content: CharSequence): SelectionRange {
+        anchorA = start
+        anchorB = end
+        anchorAIsStart = true
+        activeAnchor = null
+        isSelecting = false
+        return syncSelectionFromAnchors(chapterIndex, content)!!
     }
 
     /**
-     * 设置选区范围
-     */
-    private fun setSelection(range: SelectionRange) {
-        selectedRange = range
-        selectStart = range.startPos
-        selectEnd = range.endPos
-        reverseHandles = false
-    }
-
-    /**
-     * 检测触摸点是否命中选区把手
-     *
-     * @param x 触摸点 x 坐标
-     * @param y 触摸点 y 坐标
-     * @param handleRadius 把手检测半径
-     * @return 命中的把手类型，未命中返回 null
+     * 命中检测：直接判定触摸点距离哪个锚点的屏幕坐标更近
      */
     fun hitTestHandle(
         x: Float,
         y: Float,
         handleRadius: Float = HANDLE_TOUCH_RADIUS,
-    ): HandleType? {
-        // 检测起始把手
-        val dxStart = x - startHandleScreenX
-        val dyStart = y - startHandleScreenY
-        val distStartSq = dxStart * dxStart + dyStart * dyStart
-        if (distStartSq <= handleRadius * handleRadius) {
-            return if (reverseHandles) HandleType.END else HandleType.START
-        }
+    ): AnchorId? {
+        val dxA = x - anchorAX
+        val dyA = y - anchorAY
+        val distASq = dxA * dxA + dyA * dyA
 
-        // 检测结束把手
-        val dxEnd = x - endHandleScreenX
-        val dyEnd = y - endHandleScreenY
-        val distEndSq = dxEnd * dxEnd + dyEnd * dyEnd
-        if (distEndSq <= handleRadius * handleRadius) {
-            return if (reverseHandles) HandleType.START else HandleType.END
-        }
+        val dxB = x - anchorBX
+        val dyB = y - anchorBY
+        val distBSq = dxB * dxB + dyB * dyB
 
-        return null
+        val radiusSq = handleRadius * handleRadius
+        val hitA = distASq <= radiusSq
+        val hitB = distBSq <= radiusSq
+
+        return when {
+            hitA && hitB -> if (distASq <= distBSq) AnchorId.A else AnchorId.B
+            hitA -> AnchorId.A
+            hitB -> AnchorId.B
+            else -> null
+        }
     }
 
-    /**
-     * 开始拖动选区把手
-     */
-    fun startHandleDrag(handleType: HandleType) {
-        activeHandle = handleType
+    fun startHandleDrag(anchorId: AnchorId) {
+        activeAnchor = anchorId
         isSelecting = true
     }
 
-    /**
-     * 更新选区把手位置（拖动中）
-     *
-     * @param charIndex 新的字符位置
-     * @param content 页面文本内容
-     * @return 更新后的选区
-     */
     fun moveHandle(charIndex: Int, content: CharSequence): SelectionRange? {
-        val handle = activeHandle ?: return selectedRange
+        if (content.isEmpty() || activeAnchor == null) return selectedRange
+        val clamped = charIndex.coerceIn(0, content.length)
 
-        when (handle) {
-            HandleType.START -> {
-                // 拖动起始把手
-                val newStart = charIndex.coerceIn(0, selectEnd - 1)
-                if (newStart == selectStart) return selectedRange
-                selectStart = newStart
-            }
-            HandleType.END -> {
-                // 拖动结束把手（end 是不含的，所以要 +1）
-                val newEnd = (charIndex + 1).coerceIn(selectStart + 1, content.length)
-                if (newEnd == selectEnd) return selectedRange
-                selectEnd = newEnd
-            }
+        if (activeAnchor == AnchorId.A) {
+            anchorA = clamped
+        } else {
+            anchorB = clamped
         }
 
-        // 检查是否需要反转把手
-        if (selectStart >= selectEnd) {
-            val temp = selectStart
-            selectStart = selectEnd - 1
-            selectEnd = temp + 1
-            reverseHandles = !reverseHandles
-            // 切换活跃把手
-            activeHandle = if (activeHandle == HandleType.START) HandleType.END else HandleType.START
+        // 更新视觉映射，带有防抖：相等时不交换角色
+        if (anchorA < anchorB) {
+            anchorAIsStart = true
+        } else if (anchorA > anchorB) {
+            anchorAIsStart = false
         }
 
-        // 更新选区
-        val selectedText = content.substring(selectStart, selectEnd)
-        selectedRange = SelectionRange(
-            chapterIndex = selectedRange?.chapterIndex ?: 0,
+        return syncSelectionFromAnchors(selectedRange?.chapterIndex ?: 0, content)
+    }
+
+    private fun syncSelectionFromAnchors(chapterIndex: Int, content: CharSequence): SelectionRange? {
+        if (anchorA < 0 || anchorB < 0 || anchorA > content.length || anchorB > content.length) {
+            return selectedRange
+        }
+
+        selectStart = minOf(anchorA, anchorB)
+        selectEnd = maxOf(anchorA, anchorB)
+
+        // 允许选区为空（光标态），或者如果不允许，则在这里做判定
+        // 为了防坍缩体验，拖动时可以允许 start == end
+        
+        val selectedText = if (selectStart < selectEnd) content.substring(selectStart, selectEnd) else ""
+        val range = SelectionRange(
+            chapterIndex = chapterIndex,
             startPos = selectStart,
             endPos = selectEnd,
             selectedText = selectedText,
         )
-        return selectedRange
+        selectedRange = range
+        return range
     }
 
-    /**
-     * 结束拖动选区把手
-     */
     fun endHandleDrag() {
         isSelecting = false
-        activeHandle = null
+        activeAnchor = null
+    }
+
+    fun clearSelection(): SelectionRange? {
+        val old = selectedRange
+        selectedRange = null
+        selectStart = -1
+        selectEnd = -1
+        isSelecting = false
+        activeAnchor = null
+        return old
     }
 
     /**
-     * 获取把手的像素矩形（用于绘制和命中检测）
-     *
-     * @return Pair<startRect, endRect>，如果没有选区返回 null
+     * 获取把手的绘制信息
      */
-    fun getHandleRects(page: TextPage, viewWidth: Float): Pair<RectF, RectF>? {
-        if (selectStart < 0 || selectEnd <= 0) return null
+    fun getHandleRects(page: TextPage, viewWidth: Float): List<HandleInfo>? {
+        if (anchorA < 0 || anchorB < 0) return null
 
         val bodyLeft = page.layout.body.left
 
-        // 找到起始位置所在的行
-        val startLine = page.lines.firstOrNull { line ->
-            selectStart >= line.startCharOffset && selectStart < line.endCharOffset
-        }
-        // 找到结束位置所在的行
-        val endCharIndex = selectEnd - 1
-        val endLine = page.lines.firstOrNull { line ->
-            endCharIndex >= line.startCharOffset && endCharIndex < line.endCharOffset
-        }
+        // 计算 A 锚点的位置
+        val (rectA, pxA, pyA) = calcAnchorRect(anchorA, page, bodyLeft, anchorAIsStart) ?: return null
+        anchorAX = pxA
+        anchorAY = pyA
 
-        if (startLine == null || endLine == null) return null
+        // 计算 B 锚点的位置
+        val (rectB, pxB, pyB) = calcAnchorRect(anchorB, page, bodyLeft, !anchorAIsStart) ?: return null
+        anchorBX = pxB
+        anchorBY = pyB
 
-        // 起始把手圆点位于选区左上角，结束把手圆点位于选区右下角。
-        val startX = bodyLeft + startLine.startXOffset + getCharXOffset(startLine, selectStart)
-        startHandleScreenX = startX
-        startHandleScreenY = startLine.top
-        val startRect = RectF(
-            startX - HANDLE_DOT_RADIUS,
-            startLine.top - HANDLE_DOT_RADIUS,
-            startX + HANDLE_DOT_RADIUS,
-            startLine.bottom
+        return listOf(
+            HandleInfo(rectA, anchorAIsStart, AnchorId.A),
+            HandleInfo(rectB, !anchorAIsStart, AnchorId.B)
         )
+    }
 
-        val endX = bodyLeft + endLine.startXOffset + getCharXOffset(endLine, selectEnd)
-        endHandleScreenX = endX
-        endHandleScreenY = endLine.bottom
-        val endRect = RectF(
-            endX - HANDLE_DOT_RADIUS,
-            endLine.top,
-            endX + HANDLE_DOT_RADIUS,
-            endLine.bottom + HANDLE_DOT_RADIUS
-        )
+    /**
+     * 计算单个锚点的屏幕位置和 Rect
+     * @param offset 锚点字符偏移
+     * @param isStart 是否在视觉上作为 START 把手（决定了它的基准坐标取自 char index 之前还是之后，以及圆点朝上还是朝下）
+     */
+    private fun calcAnchorRect(
+        offset: Int,
+        page: TextPage,
+        bodyLeft: Float,
+        isStart: Boolean
+    ): Triple<RectF, Float, Float>? {
+        // 如果作为结束把手，它的视觉位置贴靠在上一个字符的末尾
+        val searchOffset = if (!isStart && offset > 0) offset - 1 else offset
+        val line = page.lines.firstOrNull { line ->
+            searchOffset >= line.startCharOffset && searchOffset < line.endCharOffset
+        } ?: return null
 
-        return Pair(startRect, endRect)
+        val x = bodyLeft + line.startXOffset + getCharXOffset(line, offset)
+        // 视觉上的 START 把手圆点朝上，坐标在 top；END 把手圆点朝下，坐标在 bottom
+        val screenX = x
+        val screenY = if (isStart) line.top else line.bottom
+
+        val rect = if (isStart) {
+            RectF(
+                x - HANDLE_DOT_RADIUS,
+                line.top - HANDLE_DOT_RADIUS,
+                x + HANDLE_DOT_RADIUS,
+                line.bottom
+            )
+        } else {
+            RectF(
+                x - HANDLE_DOT_RADIUS,
+                line.top,
+                x + HANDLE_DOT_RADIUS,
+                line.bottom + HANDLE_DOT_RADIUS
+            )
+        }
+        return Triple(rect, screenX, screenY)
     }
 
     /**
      * 获取选区最后一行的 X 范围（用于小三角指向最后一行中间）。
-     *
-     * - 单行选区：返回 (起始把手 X, 结束把手 X)
-     * - 跨行选区：返回 (最后一行行首 X, 结束把手 X)
-     *
-     * @return Pair<leftX, rightX>，如果没有选区返回 null
      */
     fun getLastLineXRange(page: TextPage, viewWidth: Float): Pair<Float, Float>? {
         if (selectStart < 0 || selectEnd <= 0) return null
 
         val bodyLeft = page.layout.body.left
 
-        // 找到起始位置所在的行
         val startLine = page.lines.firstOrNull { line ->
             selectStart >= line.startCharOffset && selectStart < line.endCharOffset
         }
-        // 找到结束位置所在的行
         val endCharIndex = selectEnd - 1
         val endLine = page.lines.firstOrNull { line ->
             endCharIndex >= line.startCharOffset && endCharIndex < line.endCharOffset
@@ -295,24 +280,43 @@ class CanvasTextSelection {
 
         val endX = bodyLeft + endLine.startXOffset + getCharXOffset(endLine, selectEnd)
 
-        // 判断是否跨行：起始行和结束行是否相同
         val isSameLine = startLine === endLine ||
             (startLine.startCharOffset == endLine.startCharOffset && startLine.endCharOffset == endLine.endCharOffset)
 
         return if (isSameLine) {
-            // 单行选区：左边界 = 起始把手 X，右边界 = 结束把手 X
             val startX = bodyLeft + startLine.startXOffset + getCharXOffset(startLine, selectStart)
             Pair(startX, endX)
         } else {
-            // 跨行选区：最后一行左边界 = 行首 X，右边界 = 结束把手 X
             val lastLineLeftX = bodyLeft + endLine.startXOffset
             Pair(lastLineLeftX, endX)
         }
     }
 
-    /**
-     * 根据字符偏移计算屏幕像素坐标
-     */
+    fun isPointInSelection(x: Float, y: Float): Boolean {
+        val range = selectedRange ?: return false
+        val padding = HANDLE_TOUCH_RADIUS
+        val minY = minOf(anchorAY, anchorBY) - padding
+        val maxY = maxOf(anchorAY, anchorBY) + padding
+        if (y !in minY..maxY) return false
+
+        val xPadding = HANDLE_TOUCH_RADIUS * 2
+        val minX = minOf(anchorAX, anchorBX) - xPadding
+        val maxX = maxOf(anchorAX, anchorBX) + xPadding
+        return x in minX..maxX
+    }
+
+    fun lineBounds(index: Int, page: TextPage, viewWidth: Float): RectF {
+        val line = page.lines.getOrNull(index) ?: return RectF()
+        val startX = page.layout.body.left + line.startXOffset
+        val right = (startX + line.measuredWidth).coerceAtMost(viewWidth - TEXT_END_PADDING)
+        return RectF(
+            startX - SELECTION_HORIZONTAL_PADDING,
+            line.top,
+            right + SELECTION_HORIZONTAL_PADDING,
+            line.bottom,
+        )
+    }
+
     fun charToPixel(charOffset: Int, page: TextPage): PointF? {
         val line = page.lines.firstOrNull { line ->
             charOffset >= line.startCharOffset && charOffset < line.endCharOffset
@@ -324,9 +328,6 @@ class CanvasTextSelection {
         return PointF(x, y)
     }
 
-    /**
-     * 根据像素坐标计算字符偏移
-     */
     fun pixelToChar(
         x: Float,
         y: Float,
@@ -334,17 +335,12 @@ class CanvasTextSelection {
         content: CharSequence,
         paint: Paint?,
     ): Int? {
-        // 找到触摸点所在的行
         val line = page.lines.firstOrNullIndexed { _, line ->
             y >= line.top && y <= line.bottom
         } ?: return null
-
         return findCharIndexInLine(x, line, page, content, paint)
     }
 
-    /**
-     * 计算字符在行内的 x 偏移
-     */
     private fun getCharXOffset(line: TextLine, charIndex: Int): Float {
         val lineStart = line.startCharOffset
         if (charIndex < lineStart) return 0f
@@ -358,14 +354,9 @@ class CanvasTextSelection {
             }
             return offset
         }
-
-        // 回退：估算
         return 0f
     }
 
-    /**
-     * 在行内定位触摸点对应的字符索引
-     */
     private fun findCharIndexInLine(
         touchX: Float,
         line: TextLine,
@@ -380,7 +371,6 @@ class CanvasTextSelection {
         val bodyLeft = page.layout.body.left
         val relativeX = touchX - bodyLeft
 
-        // 使用 charWidths 进行精确定位（如果有）
         val charWidths = line.charWidths
         if (charWidths != null && charWidths.size == (lineEnd - lineStart)) {
             var accX = line.startXOffset
@@ -391,11 +381,9 @@ class CanvasTextSelection {
                 }
                 accX += charWidth
             }
-            // 触摸点超出字符范围，返回最后一个字符
             return lineEnd - 1
         }
 
-        // 回退：使用 Paint 测量
         if (paint == null) return lineStart
 
         val lineText = content.substring(lineStart, lineEnd)
@@ -410,25 +398,18 @@ class CanvasTextSelection {
         return lineEnd - 1
     }
 
-    /**
-     * 从指定字符位置向两侧扩展，找到词边界
-     */
     private fun findWordBoundary(content: CharSequence, charIndex: Int): Pair<Int, Int> {
         if (charIndex < 0 || charIndex >= content.length) return Pair(charIndex, charIndex)
 
         val ch = content[charIndex]
-
-        // 空格或标点：不选词
         if (ch.isWhitespace() || isPunctuation(ch)) {
             return Pair(charIndex, charIndex)
         }
 
-        // CJK 字符：使用前向最大匹配
         if (isCJK(ch)) {
             return findCJKWordBoundary(content, charIndex)
         }
 
-        // 英文字母/数字：向两侧扩展到非字母数字（保留内部连字符和撇号）
         var start = charIndex
         var end = charIndex + 1
         while (start > 0 && isWordChar(content[start - 1])) start--
@@ -436,26 +417,20 @@ class CanvasTextSelection {
         return Pair(start, end)
     }
 
-    /**
-     * CJK 词边界检测（前向最大匹配）
-     */
     private fun findCJKWordBoundary(content: CharSequence, charIndex: Int): Pair<Int, Int> {
         val maxWordLen = 4
         val start = charIndex
 
-        // 向前找到 CJK 词的起始位置
         var wordStart = start
         while (wordStart > 0 && isCJK(content[wordStart - 1]) && (start - wordStart) < maxWordLen - 1) {
             wordStart--
         }
 
-        // 向后找到 CJK 词的结束位置
         var wordEnd = start + 1
         while (wordEnd < content.length && isCJK(content[wordEnd]) && (wordEnd - wordStart) < maxWordLen) {
             wordEnd++
         }
 
-        // 如果只有一个字符，尝试向前扩展
         if (wordEnd - wordStart <= 1 && wordStart > 0 && isCJK(content[wordStart - 1])) {
             wordStart--
         }
@@ -491,54 +466,6 @@ class CanvasTextSelection {
         ) || ch in ".,;:!?\"'()[]{}<>/\\@#$%^&*+-=~|`"
     }
 
-    /** 清除选区 */
-    fun clearSelection(): SelectionRange? {
-        val old = selectedRange
-        selectedRange = null
-        selectStart = -1
-        selectEnd = -1
-        isSelecting = false
-        activeHandle = null
-        reverseHandles = false
-        return old
-    }
-
-    /**
-     * 检测触摸点是否在选区内部
-     *
-     * @param x 触摸点 x 坐标
-     * @param y 触摸点 y 坐标
-     * @return true 表示在选区内部
-     */
-    fun isPointInSelection(x: Float, y: Float): Boolean {
-        val range = selectedRange ?: return false
-
-        // 检查触摸点是否在选区的 Y 范围内
-        val padding = HANDLE_TOUCH_RADIUS
-        val minY = minOf(startHandleScreenY, endHandleScreenY) - padding
-        val maxY = maxOf(startHandleScreenY, endHandleScreenY) + padding
-        if (y !in minY..maxY) return false
-
-        // 检查 X 坐标：在选区的起始 X 和结束 X 范围内（加宽裕量）
-        val xPadding = HANDLE_TOUCH_RADIUS * 2
-        val minX = minOf(startHandleScreenX, endHandleScreenX) - xPadding
-        val maxX = maxOf(startHandleScreenX, endHandleScreenX) + xPadding
-        return x in minX..maxX
-    }
-
-    /** 计算行的选区矩形 */
-    fun lineBounds(index: Int, page: TextPage, viewWidth: Float): RectF {
-        val line = page.lines.getOrNull(index) ?: return RectF()
-        val startX = page.layout.body.left + line.startXOffset
-        val right = (startX + line.measuredWidth).coerceAtMost(viewWidth - TEXT_END_PADDING)
-        return RectF(
-            startX - SELECTION_HORIZONTAL_PADDING,
-            line.top,
-            right + SELECTION_HORIZONTAL_PADDING,
-            line.bottom,
-        )
-    }
-
     private inline fun <T> List<T>.firstOrNullIndexed(predicate: (Int, T) -> Boolean): T? {
         for (index in indices) {
             val item = this[index]
@@ -550,9 +477,7 @@ class CanvasTextSelection {
     companion object {
         private const val TEXT_END_PADDING = 20f
         private const val SELECTION_HORIZONTAL_PADDING = 6f
-        /** 把手检测半径（像素） */
         const val HANDLE_TOUCH_RADIUS = SelectionVisualStyle.HANDLE_TOUCH_RADIUS
-        /** 把手视觉大小（像素） */
         const val HANDLE_DOT_RADIUS = SelectionVisualStyle.HANDLE_DOT_RADIUS
     }
 }
