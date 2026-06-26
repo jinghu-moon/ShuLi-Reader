@@ -9,6 +9,7 @@ import com.shuli.reader.core.reader.model.TitleAlign
 import com.shuli.reader.core.reader.model.TitleStyleConfig
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.text.Layout
 import android.text.StaticLayout
@@ -231,6 +232,7 @@ class ReaderPageRenderer(
 
         // 2. 选区高亮背景（字符级精确范围）
         if (selectedRange != null && selectionPaint != null) {
+            val highlightRects = mutableListOf<RectF>()
             page.lines.forEach { line ->
                 if (intersects(selectedRange, line.startCharOffset, line.endCharOffset)) {
                     val bodyLeft = page.layout.body.left
@@ -255,12 +257,47 @@ class ReaderPageRenderer(
                         selEndX + SelectionVisualStyle.HIGHLIGHT_HORIZONTAL_PADDING,
                         line.bottom,
                     )
-                    canvas.drawRoundRect(
-                        rect,
-                        SelectionVisualStyle.HIGHLIGHT_CORNER_RADIUS,
-                        SelectionVisualStyle.HIGHLIGHT_CORNER_RADIUS,
-                        selectionPaint,
-                    )
+                    highlightRects.add(rect)
+                }
+            }
+
+            if (highlightRects.isNotEmpty()) {
+                val radius = SelectionVisualStyle.HIGHLIGHT_CORNER_RADIUS
+                if (highlightRects.size == 1 || android.os.Build.VERSION.SDK_INT < 21) {
+                    // 单行或不支持 Path.op 的低版本：直接绘制
+                    for (rect in highlightRects) {
+                        canvas.drawRoundRect(rect, radius, radius, selectionPaint)
+                    }
+                } else {
+                    // 多行流体融合高亮 (Fluid Highlight Path)
+                    try {
+                        val verticalGrow = 1f * page.density // 纵向延伸1dp以消除行间隙
+                        val unifiedPath = Path()
+                        val tempPath = Path()
+                        for ((index, rect) in highlightRects.withIndex()) {
+                            // 稍微放大上下边界，使相邻行有重叠区域从而能够完美 UNION
+                            val expandedRect = RectF(
+                                rect.left, 
+                                rect.top - verticalGrow, 
+                                rect.right, 
+                                rect.bottom + verticalGrow
+                            )
+                            tempPath.reset()
+                            tempPath.addRoundRect(expandedRect, radius, radius, Path.Direction.CW)
+                            
+                            if (index == 0) {
+                                unifiedPath.addPath(tempPath)
+                            } else {
+                                unifiedPath.op(tempPath, Path.Op.UNION)
+                            }
+                        }
+                        canvas.drawPath(unifiedPath, selectionPaint)
+                    } catch (e: Exception) {
+                        // 回退机制：部分国产魔改 ROM (如 MIUI) 可能会在 Path.op 抛出异常
+                        for (rect in highlightRects) {
+                            canvas.drawRoundRect(rect, radius, radius, selectionPaint)
+                        }
+                    }
                 }
             }
         }

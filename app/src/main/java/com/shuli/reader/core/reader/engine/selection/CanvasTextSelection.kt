@@ -91,7 +91,8 @@ class CanvasTextSelection {
         val charIndex = findCharIndexInLine(x, line, page, content, paint)
             ?: return null
 
-        val (wordStart, wordEnd) = findWordBoundary(content, charIndex)
+        val quoteBoundary = findQuoteBoundary(content, charIndex)
+        val (wordStart, wordEnd) = quoteBoundary ?: findWordBoundary(content, charIndex)
         if (wordStart >= wordEnd) return null
 
         return setSelection(wordStart, wordEnd, page.chapterIndex, content)
@@ -139,14 +140,57 @@ class CanvasTextSelection {
         isSelecting = true
     }
 
-    fun moveHandle(charIndex: Int, content: CharSequence): SelectionRange? {
-        if (content.isEmpty() || activeAnchor == null) return selectedRange
-        val clamped = charIndex.coerceIn(0, content.length)
+    data class DragResult(
+        val range: SelectionRange,
+        val lineChanged: Boolean,
+        val collided: Boolean,
+        val snapped: Boolean
+    )
 
+    fun moveHandle(
+        charIndex: Int,
+        content: CharSequence,
+        page: TextPage? = null,
+        isFastDrag: Boolean = false
+    ): DragResult? {
+        if (content.isEmpty() || activeAnchor == null) return selectedRange?.let { DragResult(it, false, false, false) }
+        
+        // 如果是快速拖动，尝试吸附到词边界
+        val adjustedCharIndex = if (isFastDrag) {
+            val (wordStart, wordEnd) = findWordBoundary(content, charIndex)
+            if (activeAnchor == AnchorId.A) {
+                // A 锚点通常是起始，倾向于吸附到词首
+                if (charIndex - wordStart < wordEnd - charIndex) wordStart else wordEnd
+            } else {
+                // B 锚点通常是结束，倾向于吸附到词尾
+                if (wordEnd - charIndex < charIndex - wordStart) wordEnd else wordStart
+            }
+        } else {
+            charIndex
+        }
+
+        val clamped = adjustedCharIndex.coerceIn(0, content.length)
+
+        val oldA = anchorA
+        val oldB = anchorB
+        
         if (activeAnchor == AnchorId.A) {
             anchorA = clamped
         } else {
             anchorB = clamped
+        }
+
+        // 碰撞检测
+        val collided = (oldA != oldB) && (anchorA == anchorB)
+
+        // 行变化检测
+        var lineChanged = false
+        if (page != null) {
+            val oldPos = if (activeAnchor == AnchorId.A) oldA else oldB
+            val newPos = if (activeAnchor == AnchorId.A) anchorA else anchorB
+            val oldLine = page.lines.firstOrNull { it.startCharOffset <= oldPos && oldPos < it.endCharOffset }
+            val newLine = page.lines.firstOrNull { it.startCharOffset <= newPos && newPos < it.endCharOffset }
+            lineChanged = (oldLine !== newLine) && (oldLine != null && newLine != null)
         }
 
         // 更新视觉映射，带有防抖：相等时不交换角色
@@ -156,7 +200,9 @@ class CanvasTextSelection {
             anchorAIsStart = false
         }
 
-        return syncSelectionFromAnchors(selectedRange?.chapterIndex ?: 0, content)
+        val range = syncSelectionFromAnchors(selectedRange?.chapterIndex ?: 0, content) ?: return null
+        val snapped = isFastDrag && (adjustedCharIndex != charIndex)
+        return DragResult(range, lineChanged, collided, snapped)
     }
 
     private fun syncSelectionFromAnchors(chapterIndex: Int, content: CharSequence): SelectionRange? {
@@ -436,6 +482,42 @@ class CanvasTextSelection {
         }
 
         return Pair(wordStart, wordEnd)
+    }
+
+    /**
+     * 符号嵌套成对匹配算法
+     * 当点击左侧符号时，向右寻找对应的右侧符号，支持嵌套。
+     */
+    private fun findQuoteBoundary(content: CharSequence, charIndex: Int): Pair<Int, Int>? {
+        if (charIndex < 0 || charIndex >= content.length) return null
+        val ch = content[charIndex]
+
+        val quotePairs = listOf(
+            '"' to '"',
+            '“' to '”',
+            '「' to '」', '『' to '』',
+            '（' to '）', '【' to '】',
+            '(' to ')', '[' to ']'
+        )
+
+        // 查找是否命中了某个左符号
+        val pair = quotePairs.find { it.first == ch }
+        if (pair != null) {
+            val rightChar = pair.second
+            var stack = 0
+            for (i in charIndex + 1 until content.length) {
+                val current = content[i]
+                if (current == ch && ch != rightChar) {
+                    stack++ // 遇到相同的左符号（非同构符号）压栈
+                } else if (current == rightChar) {
+                    if (stack == 0) {
+                        return Pair(charIndex, i + 1) // 包含右符号本身
+                    }
+                    stack--
+                }
+            }
+        }
+        return null
     }
 
     private fun isWordChar(ch: Char): Boolean {

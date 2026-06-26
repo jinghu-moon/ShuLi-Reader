@@ -144,6 +144,16 @@ class ReaderCanvasView @JvmOverloads constructor(
     private val selectionMagnifierShadowRect = RectF()
     private val selectionMagnifierPath = Path()
 
+    // 放大镜弹性缩放动画
+    private var magnifierScale: Float = 0f
+    private var magnifierScaleAnimator: android.animation.ValueAnimator? = null
+
+    private val selectionMagnifierCrosshairPaint = Paint().apply {
+        color = 0x80FFFFFF.toInt()
+        style = Paint.Style.STROKE
+        isAntiAlias = true
+    }
+
     private val crossfadePaint = Paint().apply {
         isAntiAlias = true
     }
@@ -342,15 +352,38 @@ class ReaderCanvasView @JvmOverloads constructor(
             override fun onSelectionHandleDragStart(anchorId: CanvasTextSelection.AnchorId) {
                 // 开始拖动把手，隐藏菜单
                 onSelectionDragStart?.invoke()
+                magnifierScaleAnimator?.cancel()
+                magnifierScaleAnimator = android.animation.ValueAnimator.ofFloat(magnifierScale, 1.2f).apply {
+                    duration = 200
+                    interpolator = android.view.animation.OvershootInterpolator(1.5f)
+                    addUpdateListener { anim ->
+                        magnifierScale = anim.animatedValue as Float
+                        invalidate()
+                    }
+                    start()
+                }
             }
-            override fun onSelectionHandleDragMove(x: Float, y: Float) {
+            override fun onSelectionHandleDragMove(x: Float, y: Float, isFastDrag: Boolean) {
                 val page = currentPage ?: return
                 // 将像素坐标转换为字符位置
                 val charIndex = textSelection.pixelToChar(x, y, page, chapterContent, textPaint)
                 if (charIndex != null) {
-                    val range = textSelection.moveHandle(charIndex, chapterContent)
-                    if (range != null) {
-                        renderContext.selectedRange = range
+                    val result = textSelection.moveHandle(charIndex, chapterContent, page, isFastDrag)
+                    if (result != null) {
+                        renderContext.selectedRange = result.range
+                        // 触发震动反馈
+                        if (isHapticFeedbackEnabled) {
+                            if (result.collided) {
+                                if (android.os.Build.VERSION.SDK_INT >= 29) {
+                                    performHapticFeedback(android.view.HapticFeedbackConstants.TEXT_HANDLE_MOVE)
+                                } else {
+                                    performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                                }
+                            } else if (result.snapped || result.lineChanged) {
+                                performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                            }
+                        }
+
                         // 选区高亮在 overlay 层，需要失效 overlay
                         renderStateStore.getPageState(page.toKey()).invalidateOverlay()
                         invalidate()
@@ -369,6 +402,17 @@ class ReaderCanvasView @JvmOverloads constructor(
                     val startX = lastLineXRange?.first ?: (handleInfos?.firstOrNull()?.rect?.centerX() ?: 0f)
                     val endX = lastLineXRange?.second ?: (handleInfos?.lastOrNull()?.rect?.centerX() ?: 0f)
                     onSelectionDragEnd?.invoke(range, startX, endX, screenY)
+                }
+                
+                magnifierScaleAnimator?.cancel()
+                magnifierScaleAnimator = android.animation.ValueAnimator.ofFloat(magnifierScale, 0f).apply {
+                    duration = 150
+                    interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+                    addUpdateListener { anim ->
+                        magnifierScale = anim.animatedValue as Float
+                        invalidate()
+                    }
+                    start()
                 }
             }
         }
@@ -1384,7 +1428,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         page: TextPage,
         pageState: PageRenderState,
     ) {
-        if (!textSelection.isSelecting) return
+        if (!textSelection.isSelecting || magnifierScale <= 0.01f) return
         val activeAnchor = textSelection.activeAnchor ?: return
         val handleInfos = textSelection.getHandleRects(page, width.toFloat()) ?: return
         val focusHandle = handleInfos.firstOrNull { it.anchorId == activeAnchor } ?: return
@@ -1445,8 +1489,14 @@ class ReaderCanvasView @JvmOverloads constructor(
         )
 
         canvas.save()
+        // 放大镜出现动画：以放大镜中心为基准缩放
+        val lensCenterX = selectionMagnifierRect.centerX()
+        val lensCenterY = selectionMagnifierRect.centerY()
+        canvas.scale(magnifierScale, magnifierScale, lensCenterX, lensCenterY)
+
+        canvas.save()
         canvas.clipPath(selectionMagnifierPath)
-        canvas.translate(selectionMagnifierRect.centerX(), selectionMagnifierRect.centerY())
+        canvas.translate(lensCenterX, lensCenterY)
         canvas.scale(SelectionVisualStyle.MAGNIFIER_ZOOM, SelectionVisualStyle.MAGNIFIER_ZOOM)
         canvas.translate(-focusX, -focusY)
         pageState.shell.draw(canvas)
@@ -1455,7 +1505,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         for (info in handleInfos) {
             drawHandle(canvas, info.rect, info.isStart)
         }
-        canvas.restore()
+        canvas.restore() // 恢复 clipPath 之前的状态，但保留 magnifierScale
 
         canvas.drawRoundRect(
             selectionMagnifierRect,
@@ -1463,6 +1513,18 @@ class ReaderCanvasView @JvmOverloads constructor(
             cornerRadius,
             selectionMagnifierBorderPaint,
         )
+        
+        // 绘制准星十字线 (0.5dp宽)
+        selectionMagnifierCrosshairPaint.strokeWidth = 0.5f * density
+        canvas.drawLine(
+            lensCenterX, 
+            selectionMagnifierRect.top, 
+            lensCenterX, 
+            selectionMagnifierRect.bottom, 
+            selectionMagnifierCrosshairPaint
+        )
+        
+        canvas.restore() // 恢复 magnifierScale 动画状态
     }
 
 }

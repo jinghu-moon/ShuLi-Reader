@@ -16,7 +16,7 @@ import kotlin.math.abs
  *
  * 从 ReaderCanvasView.onTouchEvent 拆出，独立测试手势识别逻辑。
  */
-class CanvasTouchHandler(context: Context) {
+class CanvasTouchHandler(private val context: Context) {
 
     /** 触摸事件回调 */
     interface Callbacks {
@@ -54,8 +54,10 @@ class CanvasTouchHandler(context: Context) {
         /** 选区把手拖动开始 */
         fun onSelectionHandleDragStart(anchorId: CanvasTextSelection.AnchorId) {}
 
-        /** 选区把手拖动中 */
-        fun onSelectionHandleDragMove(x: Float, y: Float) {}
+        /** 选区把手拖动中
+         * @param isFastDrag 是否处于快速拖动状态（用于智能词吸附）
+         */
+        fun onSelectionHandleDragMove(x: Float, y: Float, isFastDrag: Boolean) {}
 
         /** 选区把手拖动结束 */
         fun onSelectionHandleDragEnd() {}
@@ -84,6 +86,12 @@ class CanvasTouchHandler(context: Context) {
     private var touchDownX: Float = 0f
     private var touchDownY: Float = 0f
     private var touchMoved: Boolean = false
+    
+    // 选区拖拽速度计算相关
+    private var lastDragTime: Long = 0
+    private var lastDragX: Float = 0f
+    private var lastDragY: Float = 0f
+    private var isFastDragState: Boolean = false
 
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val slopSquare = touchSlop * touchSlop
@@ -145,6 +153,10 @@ class CanvasTouchHandler(context: Context) {
                     if (hitHandle != null) {
                         // 开始拖动把手
                         isHandleDragGesture = true
+                        lastDragTime = System.currentTimeMillis()
+                        lastDragX = event.x
+                        lastDragY = event.y
+                        isFastDragState = false
                         textSelection.startHandleDrag(hitHandle)
                         cb.onSelectionHandleDragStart(hitHandle)
                         return true
@@ -168,7 +180,28 @@ class CanvasTouchHandler(context: Context) {
         if (isHandleDragGesture) {
             when (event.action) {
                 MotionEvent.ACTION_MOVE -> {
-                    cb.onSelectionHandleDragMove(event.x, event.y)
+                    val currentTime = System.currentTimeMillis()
+                    val dt = currentTime - lastDragTime
+                    if (dt > 0) {
+                        val dx = event.x - lastDragX
+                        val dy = event.y - lastDragY
+                        val dist = Math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
+                        // 计算速度 (pixels per second)
+                        val velocity = dist / (dt / 1000f)
+                        val density = context.resources.displayMetrics.density
+                        // 阈值：50dp/s
+                        val threshold = 50f * density
+                        
+                        // 平滑状态：只有速度明显大或小时才改变状态，避免状态闪烁
+                        if (velocity > threshold * 1.5f) isFastDragState = true
+                        else if (velocity < threshold * 0.5f) isFastDragState = false
+                    }
+                    
+                    lastDragTime = currentTime
+                    lastDragX = event.x
+                    lastDragY = event.y
+                    
+                    cb.onSelectionHandleDragMove(event.x, event.y, isFastDragState)
                     return true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {

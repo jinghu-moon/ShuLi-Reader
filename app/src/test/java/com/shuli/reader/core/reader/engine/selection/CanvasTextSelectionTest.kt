@@ -84,7 +84,7 @@ class CanvasTextSelectionTest {
         assertNotNull(result)
         assertEquals(0, selection.selectStart)
         assertEquals(11, selection.selectEnd)
-        assertEquals("Hello World", result!!.selectedText)
+        assertEquals("Hello World", result!!.range.selectedText)
         assertTrue("正常拖动 A 依然是 START", selection.anchorAIsStart)
     }
 
