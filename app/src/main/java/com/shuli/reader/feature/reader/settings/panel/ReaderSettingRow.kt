@@ -222,12 +222,13 @@ fun <T> SegmentedRow(
                     .background(colors.divider),
             )
         }
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 40.dp)
                 .padding(vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
                 text = label,
@@ -240,8 +241,7 @@ fun <T> SegmentedRow(
                 onSelectedChange = { index ->
                     options.getOrNull(index)?.first?.let(onSelect)
                 },
-                modifier = Modifier.fillMaxWidth(),
-                equalWidth = true,
+                modifier = Modifier.weight(1f),
                 icons = icons,
                 activeColor = colors.accent,
                 activeTextColor = colors.background,

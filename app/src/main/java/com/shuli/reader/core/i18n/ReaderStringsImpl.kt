@@ -54,6 +54,7 @@ internal data object ZhHansReader : ReaderStrings {
     override val marginPresetCompact = "紧凑"
     override val marginPresetStandard = "标准"
     override val marginPresetRelaxed = "宽松"
+    override val marginPresetLabel = "预设"
     override val editValue = "修改数值"
     override val confirm = "确定"
     override val layoutTab = "排版"
@@ -114,10 +115,10 @@ internal data object ZhHansReader : ReaderStrings {
     override val footerCenter = "页脚中"
     override val footerRight = "页脚右"
     override val titleStyleLabel = "标题样式"
-    override val titleAlignLabel = "标题对齐"
+    override val titleAlignLabel = "对齐"
     override val titleAlignLeft = "靠左"
     override val titleAlignCenter = "居中"
-    override val titleAlignHidden = "隐藏"
+    override val titleAlignRight = "靠右"
     override val titleSizeOffset = "字号偏移"
     override val titleSizeLabel = "标题字号"
     override val fontSizeLabel = "字号"
@@ -173,6 +174,13 @@ internal data object ZhHansReader : ReaderStrings {
     override val cancelAction = "取消"
     override val saveAction = "保存"
     override val deleteAction = "删除"
+
+    // 数值输入对话框
+    override val inputNumberTitle = "输入数值"
+    override val rangeLabel = "范围"
+    override val invalidNumberError = "请输入有效数字"
+    override val numberTooSmallError = { min: String -> "不能小于 $min" }
+    override val numberTooLargeError = { max: String -> "不能大于 $max" }
     override val deleteBookmarkTitle = "删除书签"
     override val deleteBookmarkConfirm = "确定要删除这个书签吗？"
     override val deleteNoteTitle = "删除笔记"
@@ -435,6 +443,7 @@ internal data object ZhHantReader : ReaderStrings {
     override val marginPresetCompact = "緊湊"
     override val marginPresetStandard = "標準"
     override val marginPresetRelaxed = "寬鬆"
+    override val marginPresetLabel = "預設"
     override val editValue = "修改數值"
     override val confirm = "確定"
     override val layoutTab = "排版"
@@ -495,10 +504,10 @@ internal data object ZhHantReader : ReaderStrings {
     override val footerCenter = "頁腳中"
     override val footerRight = "頁腳右"
     override val titleStyleLabel = "標題樣式"
-    override val titleAlignLabel = "標題對齊"
+    override val titleAlignLabel = "對齊"
     override val titleAlignLeft = "靠左"
     override val titleAlignCenter = "居中"
-    override val titleAlignHidden = "隱藏"
+    override val titleAlignRight = "靠右"
     override val titleSizeOffset = "字號偏移"
     override val titleSizeLabel = "標題字號"
     override val fontSizeLabel = "字號"
@@ -554,6 +563,13 @@ internal data object ZhHantReader : ReaderStrings {
     override val cancelAction = "取消"
     override val saveAction = "儲存"
     override val deleteAction = "刪除"
+
+    // 數值輸入對話框
+    override val inputNumberTitle = "輸入數值"
+    override val rangeLabel = "範圍"
+    override val invalidNumberError = "請輸入有效數字"
+    override val numberTooSmallError = { min: String -> "不能小於 $min" }
+    override val numberTooLargeError = { max: String -> "不能大於 $max" }
     override val deleteBookmarkTitle = "刪除書籤"
     override val deleteBookmarkConfirm = "確定要刪除這個書籤嗎？"
     override val deleteNoteTitle = "刪除筆記"
@@ -816,6 +832,7 @@ internal data object EnReader : ReaderStrings {
     override val marginPresetCompact = "Compact"
     override val marginPresetStandard = "Standard"
     override val marginPresetRelaxed = "Relaxed"
+    override val marginPresetLabel = "Preset"
     override val editValue = "Edit Value"
     override val confirm = "OK"
     override val layoutTab = "Layout"
@@ -876,10 +893,10 @@ internal data object EnReader : ReaderStrings {
     override val footerCenter = "Footer Center"
     override val footerRight = "Footer Right"
     override val titleStyleLabel = "Title Style"
-    override val titleAlignLabel = "Title Alignment"
+    override val titleAlignLabel = "Alignment"
     override val titleAlignLeft = "Left"
     override val titleAlignCenter = "Center"
-    override val titleAlignHidden = "Hidden"
+    override val titleAlignRight = "Right"
     override val titleSizeOffset = "Size Offset"
     override val titleSizeLabel = "Title Size"
     override val fontSizeLabel = "Size"
@@ -935,6 +952,13 @@ internal data object EnReader : ReaderStrings {
     override val cancelAction = "Cancel"
     override val saveAction = "Save"
     override val deleteAction = "Delete"
+
+    // Number input dialog
+    override val inputNumberTitle = "Enter Value"
+    override val rangeLabel = "Range"
+    override val invalidNumberError = "Please enter a valid number"
+    override val numberTooSmallError = { min: String -> "Cannot be less than $min" }
+    override val numberTooLargeError = { max: String -> "Cannot be greater than $max" }
     override val deleteBookmarkTitle = "Delete Bookmark"
     override val deleteBookmarkConfirm = "Are you sure you want to delete this bookmark?"
     override val deleteNoteTitle = "Delete Note"

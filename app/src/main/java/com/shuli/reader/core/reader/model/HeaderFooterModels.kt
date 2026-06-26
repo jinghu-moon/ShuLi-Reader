@@ -71,7 +71,7 @@ data class FooterConfig(
 enum class TitleAlign {
     LEFT,
     CENTER,
-    HIDDEN,
+    RIGHT,
 }
 
 /**

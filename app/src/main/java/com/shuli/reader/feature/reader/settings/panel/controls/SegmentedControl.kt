@@ -29,10 +29,13 @@ import androidx.compose.ui.unit.dp
 /**
  * 通用分段选择控件：N 个选项中单选。
  *
+ * 宽度策略：
+ * - 有图标时：纯图标模式（只显示图标，不显示文字），各选项等宽
+ * - 无图标时：以最长文本宽度为基准等宽分配
+ *
  * @param options 选项标签列表（至少 2 个）
  * @param selectedIndex 当前选中索引
  * @param onSelectedChange 选中变化回调
- * @param equalWidth true = 所有选项等宽分配；false = 各选项按文本内容自适应宽度
  * @param icons 可选图标，与 [options] 按索引对应；为空时仅显示文字
  */
 @Composable
@@ -41,7 +44,6 @@ fun SegmentedControl(
     selectedIndex: Int,
     onSelectedChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    equalWidth: Boolean = true,
     icons: List<ImageVector?> = emptyList(),
     activeColor: Color = MaterialTheme.colorScheme.primary,
     activeTextColor: Color = MaterialTheme.colorScheme.onPrimary,
@@ -55,6 +57,7 @@ fun SegmentedControl(
     val outerPad = 3.dp
     val chipHPad = 10.dp
     val chipVPad = 5.dp
+    val hasIcons = icons.any { it != null }
 
     Box(
         modifier = modifier
@@ -76,14 +79,9 @@ fun SegmentedControl(
                     label = "segText",
                 )
 
-                val chipModifier = if (equalWidth) {
-                    Modifier.weight(1f)
-                } else {
-                    Modifier
-                }
-
                 Box(
-                    modifier = chipModifier
+                    modifier = Modifier
+                        .weight(1f)
                         .clip(chipShape)
                         .background(chipColor)
                         .clickable(
@@ -93,18 +91,16 @@ fun SegmentedControl(
                         .padding(horizontal = chipHPad, vertical = chipVPad),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (icon != null) {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                tint = textColor,
-                                modifier = Modifier.size(15.dp),
-                            )
-                        }
+                    if (hasIcons && icon != null) {
+                        // 纯图标模式
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = label,
+                            tint = textColor,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    } else {
+                        // 文本模式
                         Text(
                             text = label,
                             style = MaterialTheme.typography.labelMedium,

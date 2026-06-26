@@ -57,6 +57,7 @@ interface ReaderStrings {
     val marginPresetCompact: String
     val marginPresetStandard: String
     val marginPresetRelaxed: String
+    val marginPresetLabel: String
     val editValue: String
     val confirm: String
 
@@ -122,7 +123,7 @@ interface ReaderStrings {
     val titleAlignLabel: String
     val titleAlignLeft: String
     val titleAlignCenter: String
-    val titleAlignHidden: String
+    val titleAlignRight: String
     val titleSizeOffset: String
     val titleSizeLabel: String
     val fontSizeLabel: String
@@ -178,6 +179,13 @@ interface ReaderStrings {
     val cancelAction: String
     val saveAction: String
     val deleteAction: String
+
+    // 数值输入对话框
+    val inputNumberTitle: String
+    val rangeLabel: String
+    val invalidNumberError: String
+    val numberTooSmallError: (String) -> String
+    val numberTooLargeError: (String) -> String
     val deleteBookmarkTitle: String
     val deleteBookmarkConfirm: String
     val deleteNoteTitle: String

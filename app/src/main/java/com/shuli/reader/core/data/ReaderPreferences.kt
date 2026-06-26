@@ -353,7 +353,7 @@ fun String.toTitleAlign(): com.shuli.reader.core.reader.model.TitleAlign {
     return when (this) {
         "left" -> com.shuli.reader.core.reader.model.TitleAlign.LEFT
         "center" -> com.shuli.reader.core.reader.model.TitleAlign.CENTER
-        "hidden" -> com.shuli.reader.core.reader.model.TitleAlign.HIDDEN
+        "right" -> com.shuli.reader.core.reader.model.TitleAlign.RIGHT
         else -> com.shuli.reader.core.reader.model.TitleAlign.CENTER
     }
 }
@@ -365,7 +365,7 @@ fun com.shuli.reader.core.reader.model.TitleAlign.toStorageString(): String {
     return when (this) {
         com.shuli.reader.core.reader.model.TitleAlign.LEFT -> "left"
         com.shuli.reader.core.reader.model.TitleAlign.CENTER -> "center"
-        com.shuli.reader.core.reader.model.TitleAlign.HIDDEN -> "hidden"
+        com.shuli.reader.core.reader.model.TitleAlign.RIGHT -> "right"
     }
 }
 

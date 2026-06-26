@@ -340,7 +340,7 @@ class Paginator(
         availableWidth: Float,
     ): Pair<StaticLayout?, Float> {
         val ts = config.titleStyle
-        if (ts.align == TitleAlign.HIDDEN || chapterTitle.isBlank()) return null to 0f
+        if (chapterTitle.isBlank()) return null to 0f
         val d = config.density
         val titleTextSize = config.titleFontSizePx
         val paint = TextPaint().apply {
@@ -351,7 +351,7 @@ class Paginator(
         val layoutAlign = when (ts.align) {
             TitleAlign.LEFT -> Layout.Alignment.ALIGN_NORMAL
             TitleAlign.CENTER -> Layout.Alignment.ALIGN_CENTER
-            TitleAlign.HIDDEN -> return null to 0f
+            TitleAlign.RIGHT -> Layout.Alignment.ALIGN_OPPOSITE
         }
         val w = availableWidth.toInt().coerceAtLeast(1)
         val builder = StaticLayout.Builder.obtain(

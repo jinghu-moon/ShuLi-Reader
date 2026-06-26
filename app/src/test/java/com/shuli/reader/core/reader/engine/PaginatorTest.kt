@@ -99,7 +99,7 @@ class PaginatorTest {
         val narrowConfig = config.copy(
             pageSize = PageSize(width = 80, height = 400),
             bodyInsets = BoxInsetsPx.ZERO,
-            titleStyle = com.shuli.reader.core.reader.model.TitleStyleConfig(align = com.shuli.reader.core.reader.model.TitleAlign.HIDDEN),
+            titleStyle = com.shuli.reader.core.reader.model.TitleStyleConfig(align = com.shuli.reader.core.reader.model.TitleAlign.LEFT),
         )
         val chapter = paginator.paginateChapter(0, "", content, narrowConfig)
 

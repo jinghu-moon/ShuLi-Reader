@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.5)
 project(zstd-jni C ASM)
 
+# 并行编译
+include(ProcessorCount)
+ProcessorCount(N)
+if(NOT N EQUAL 0)
+    set(CMAKE_BUILD_PARALLEL_LEVEL ${N})
+endif()
+
 set(ZSTD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/native")
 
 # Include directories

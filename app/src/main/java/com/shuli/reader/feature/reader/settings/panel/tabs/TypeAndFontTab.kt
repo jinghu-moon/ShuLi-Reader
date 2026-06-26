@@ -7,11 +7,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.FormatAlignLeft
+import androidx.compose.material.icons.outlined.DensityLarge
+import androidx.compose.material.icons.outlined.DensityMedium
+import androidx.compose.material.icons.outlined.DensitySmall
 import androidx.compose.material.icons.outlined.FormatAlignCenter
 import androidx.compose.material.icons.outlined.FormatAlignJustify
 import androidx.compose.material.icons.outlined.VerticalAlignBottom
 import androidx.compose.material.icons.outlined.VerticalAlignTop
-import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material.icons.automirrored.outlined.FormatAlignRight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,9 +36,8 @@ import com.shuli.reader.feature.reader.settings.panel.SettingsCard
 import com.shuli.reader.feature.reader.settings.panel.SwitchRow
 import com.shuli.reader.feature.reader.settings.panel.controls.BoxMarginSection
 import com.shuli.reader.feature.reader.settings.panel.controls.InkStepperSlider
-import com.shuli.reader.feature.reader.settings.panel.controls.SegmentedControl
 import com.shuli.reader.feature.reader.settings.panel.controls.MarginPreset
-import com.shuli.reader.feature.reader.settings.panel.controls.MarginPresetRow
+import com.shuli.reader.feature.reader.settings.panel.controls.SegmentedControl
 import com.shuli.reader.ui.theme.LocalReaderColorScheme
 
 /**
@@ -174,6 +176,56 @@ fun TypeAndFontTab(
                 collapsible = true,
                 initiallyExpanded = true,
             )
+            // 边距预设 + 统一左右 + 重置
+            SegmentedRow(
+                label = m.marginPresetLabel,
+                options = presets.mapIndexed { index, preset ->
+                    index to preset.label
+                },
+                selected = if (isExactMatch) presets.indexOf(currentPreset) else -1,
+                onSelect = { index ->
+                    presets.getOrNull(index)?.let { preset ->
+                        onSettingChanged("body_box", preset.bodyBox)
+                        onSettingChanged("header_box", preset.headerBox)
+                        onSettingChanged("footer_box", preset.footerBox)
+                        onSettingChanged("title_box", preset.titleBox)
+                    }
+                },
+                topDivider = true,
+                icons = listOf(
+                    Icons.Outlined.DensitySmall,
+                    Icons.Outlined.DensityMedium,
+                    Icons.Outlined.DensityLarge,
+                ),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SwitchRow(
+                    label = m.unifiedLeftRightLabel,
+                    checked = unifiedSync.value,
+                    onCheckedChange = { sync ->
+                        unifiedSync.value = sync
+                        if (sync) syncLeftRightToOthers(prefs.bodyBox, "none")
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    onClick = {
+                        onSettingChanged("body_box", BoxInsetsDp(48f, 48f, 24f, 24f))
+                        onSettingChanged("header_box", BoxInsetsDp(16f, 0f, 24f, 24f))
+                        onSettingChanged("footer_box", BoxInsetsDp(0f, 16f, 24f, 24f))
+                        onSettingChanged("title_box", BoxInsetsDp(9f, 10f, 24f, 24f))
+                    },
+                ) {
+                    Text(
+                        text = m.resetMarginsLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.accent,
+                    )
+                }
+            }
         }
 
         // ════════════════════════════════════════════
@@ -273,14 +325,14 @@ fun TypeAndFontTab(
                 options = listOf(
                     com.shuli.reader.core.reader.model.TitleAlign.LEFT to strings.titleAlignLeft,
                     com.shuli.reader.core.reader.model.TitleAlign.CENTER to strings.titleAlignCenter,
-                    com.shuli.reader.core.reader.model.TitleAlign.HIDDEN to strings.titleAlignHidden,
+                    com.shuli.reader.core.reader.model.TitleAlign.RIGHT to strings.titleAlignRight,
                 ),
                 selected = prefs.titleStyle.align,
                 onSelect = { onSettingChanged("title_align", it) },
                 icons = listOf(
                     Icons.AutoMirrored.Outlined.FormatAlignLeft,
                     Icons.Outlined.FormatAlignCenter,
-                    Icons.Outlined.VisibilityOff,
+                    Icons.AutoMirrored.Outlined.FormatAlignRight,
                 ),
             )
             BoxMarginSection(
@@ -298,50 +350,6 @@ fun TypeAndFontTab(
                 collapsible = true,
                 initiallyExpanded = false,
             )
-        }
-
-        // ════════════════════════════════════════════
-        //  边距预设 + 全局同步 + 重置
-        // ════════════════════════════════════════════
-        SettingsCard(title = m.marginCardTitle) {
-            MarginPresetRow(
-                selected = if (isExactMatch) currentPreset else null,
-                onSelect = { preset ->
-                    onSettingChanged("body_box", preset.bodyBox)
-                    onSettingChanged("header_box", preset.headerBox)
-                    onSettingChanged("footer_box", preset.footerBox)
-                    onSettingChanged("title_box", preset.titleBox)
-                },
-                presets = presets,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SwitchRow(
-                    label = m.unifiedLeftRightLabel,
-                    checked = unifiedSync.value,
-                    onCheckedChange = { sync ->
-                        unifiedSync.value = sync
-                        if (sync) syncLeftRightToOthers(prefs.bodyBox, "none")
-                    },
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(
-                    onClick = {
-                        onSettingChanged("body_box", BoxInsetsDp(48f, 48f, 24f, 24f))
-                        onSettingChanged("header_box", BoxInsetsDp(16f, 0f, 24f, 24f))
-                        onSettingChanged("footer_box", BoxInsetsDp(0f, 16f, 24f, 24f))
-                        onSettingChanged("title_box", BoxInsetsDp(9f, 10f, 24f, 24f))
-                    },
-                ) {
-                    Text(
-                        text = m.resetMarginsLabel,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = colors.accent,
-                    )
-                }
-            }
         }
 
         // ════════════════════════════════════════════

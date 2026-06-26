@@ -99,7 +99,12 @@ android {
         abi {
             isEnable = true
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            // Debug 只构建设备架构，Release 构建全部
+            if (gradle.startParameter.taskNames.any { it.contains("Debug") }) {
+                include("arm64-v8a") // 你的设备是 arm64
+            } else {
+                include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            }
             isUniversalApk = true
         }
     }

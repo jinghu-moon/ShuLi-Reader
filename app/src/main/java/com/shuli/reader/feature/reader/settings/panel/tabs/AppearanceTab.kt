@@ -304,7 +304,6 @@ private fun PageAnimTypeSegmentedRow(
                         rowOptions.getOrNull(index)?.value?.let(onSelect)
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    equalWidth = true,
                     icons = rowOptions.map { it.icon },
                     activeColor = colors.accent,
                     activeTextColor = colors.background,
