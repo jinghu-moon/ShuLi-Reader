@@ -101,4 +101,12 @@ class SelectionAutoScrollController(
             scrollCallback.onScrollStateChanged(false)
         }
     }
+
+    /**
+     * 立即取消自动滚动并清理临时速度状态。
+     */
+    fun cancel() {
+        scrollSpeed = 0f
+        stopAutoScroll()
+    }
 }

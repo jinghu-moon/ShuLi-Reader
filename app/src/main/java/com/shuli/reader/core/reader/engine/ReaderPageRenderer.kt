@@ -63,6 +63,21 @@ class ReaderPageRenderer(
     private val highlightRects = ArrayList<RectF>(50)
     private val unifiedPath = Path()
     private val tempPath = Path()
+    private val noteHighlightRect = RectF()
+    private val findMatchRect = RectF()
+    private val expandedSelectionRect = RectF()
+    private val selectionHandlePaint = Paint().apply {
+        isAntiAlias = true
+        color = SelectionVisualStyle.HANDLE_COLOR
+        style = Paint.Style.FILL
+    }
+    private val selectionHandleStemPaint = Paint().apply {
+        isAntiAlias = true
+        color = SelectionVisualStyle.HANDLE_COLOR
+        style = Paint.Style.STROKE
+        strokeWidth = SelectionVisualStyle.HANDLE_STEM_WIDTH
+        strokeCap = Paint.Cap.ROUND
+    }
 
     /** 选区几何缓存 (Phase 2) */
     private val selectionGeometryCache = com.shuli.reader.core.reader.engine.selection.SelectionGeometryCache()
@@ -231,17 +246,19 @@ class ReaderPageRenderer(
         findMatchPaint: Paint? = null,
         currentFindMatchPaint: Paint? = null,
     ) {
-        // 1. 笔记高亮背景（彩色半透明，在 TTS/选区高亮之下）
+        // 1. 笔记高亮背景（彩色半透明，在选区高亮之下）
         if (noteRanges.isNotEmpty()) {
-            page.lines.forEach { line ->
+            val linesSize = page.lines.size
+            for (lineIndex in 0 until linesSize) {
+                val line = page.lines[lineIndex]
                 val startX = page.layout.body.left + line.startXOffset
                 val textWidth = line.measuredWidth
                 val top = line.top
                 val bottom = line.bottom
-                val rect = RectF(startX - 6f, top, startX + textWidth + 6f, bottom)
+                noteHighlightRect.set(startX - 6f, top, startX + textWidth + 6f, bottom)
                 for ((range, paint) in noteRanges) {
                     if (intersects(range, line.startCharOffset, line.endCharOffset)) {
-                        canvas.drawRoundRect(rect, 6f, 6f, paint)
+                        canvas.drawRoundRect(noteHighlightRect, 6f, 6f, paint)
                     }
                 }
             }
@@ -294,14 +311,14 @@ class ReaderPageRenderer(
                         for (index in 0 until geometry.highlightRects.size) {
                             val rect = geometry.highlightRects[index]
                             // 稍微放大上下边界，使相邻行有重叠区域从而能够完美 UNION
-                            val expandedRect = RectF(
+                            expandedSelectionRect.set(
                                 rect.left, 
                                 rect.top - verticalGrow, 
                                 rect.right, 
                                 rect.bottom + verticalGrow
                             )
                             tempPath.reset()
-                            tempPath.addRoundRect(expandedRect, radius, radius, Path.Direction.CW)
+                            tempPath.addRoundRect(expandedSelectionRect, radius, radius, Path.Direction.CW)
                             
                             if (index == 0) {
                                 geometry.unifiedPath.addPath(tempPath)
@@ -335,7 +352,9 @@ class ReaderPageRenderer(
 
         // 3. 查找匹配高亮
         if (findMatches.isNotEmpty() && findMatchPaint != null) {
-            page.lines.forEach { line ->
+            val linesSize = page.lines.size
+            for (lineIndex in 0 until linesSize) {
+                val line = page.lines[lineIndex]
                 for (match in findMatches) {
                     if (intersects(match, line.startCharOffset, line.endCharOffset)) {
                         drawFindMatchHighlight(canvas, page, line, match, findMatchPaint)
@@ -345,7 +364,9 @@ class ReaderPageRenderer(
         }
         // 当前匹配高亮（更醒目）
         if (currentFindMatch != null && currentFindMatchPaint != null) {
-            page.lines.forEach { line ->
+            val linesSize = page.lines.size
+            for (lineIndex in 0 until linesSize) {
+                val line = page.lines[lineIndex]
                 if (intersects(currentFindMatch, line.startCharOffset, line.endCharOffset)) {
                     drawFindMatchHighlight(canvas, page, line, currentFindMatch, currentFindMatchPaint)
                 }
@@ -357,8 +378,16 @@ class ReaderPageRenderer(
             val viewWidth = page.layout.pageWidth
             val handleInfos = textSelection.getHandleRects(page, viewWidth)
             if (handleInfos != null) {
+                val activeAnchor = textSelection.activeAnchor
                 for (info in handleInfos) {
-                    drawSelectionHandle(canvas, info.rect, selectionPaint, info.isStart)
+                    if (info.anchorId != activeAnchor) {
+                        drawSelectionHandle(canvas, info.rect, selectionPaint, info.isStart)
+                    }
+                }
+                for (info in handleInfos) {
+                    if (info.anchorId == activeAnchor) {
+                        drawSelectionHandle(canvas, info.rect, selectionPaint, info.isStart)
+                    }
                 }
             }
         }
@@ -370,21 +399,12 @@ class ReaderPageRenderer(
     private fun drawSelectionHandle(canvas: Canvas, rect: RectF, paint: Paint, isStart: Boolean) {
         val centerX = rect.centerX()
         val dotRadius = SelectionVisualStyle.HANDLE_DOT_RADIUS
-        val handlePaint = Paint(paint).apply {
-            color = SelectionVisualStyle.HANDLE_COLOR
-            style = Paint.Style.FILL
-        }
-        val linePaint = Paint(handlePaint).apply {
-            style = Paint.Style.STROKE
-            strokeWidth = SelectionVisualStyle.HANDLE_STEM_WIDTH
-            strokeCap = Paint.Cap.ROUND
-        }
 
         val stemStartY = if (isStart) rect.top + dotRadius else rect.top
         val stemEndY = if (isStart) rect.bottom else rect.bottom - dotRadius
         val dotCenterY = if (isStart) rect.top + dotRadius else rect.bottom - dotRadius
-        canvas.drawLine(centerX, stemStartY, centerX, stemEndY, linePaint)
-        canvas.drawCircle(centerX, dotCenterY, dotRadius, handlePaint)
+        canvas.drawLine(centerX, stemStartY, centerX, stemEndY, selectionHandleStemPaint)
+        canvas.drawCircle(centerX, dotCenterY, dotRadius, selectionHandlePaint)
     }
 
     /**
@@ -418,8 +438,8 @@ class ReaderPageRenderer(
             endX = startX + line.measuredWidth
         }
 
-        val rect = RectF(startX - 1f, line.top, endX + 1f, line.bottom)
-        canvas.drawRoundRect(rect, 3f, 3f, paint)
+        findMatchRect.set(startX - 1f, line.top, endX + 1f, line.bottom)
+        canvas.drawRoundRect(findMatchRect, 3f, 3f, paint)
     }
 
     /**

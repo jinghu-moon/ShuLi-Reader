@@ -91,7 +91,6 @@ class ReaderSettingRegistryTest {
         val presetKeys = ReaderSettingRegistry.presetFields().map { it.key }.toSet()
         assertFalse("color_temperature must not be in preset", "color_temperature" in presetKeys)
         assertFalse("haptic_feedback must not be in preset", "haptic_feedback" in presetKeys)
-        assertFalse("tts_speed must not be in preset", "tts_speed" in presetKeys)
     }
 
     @Test

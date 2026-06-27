@@ -456,28 +456,6 @@ object ReaderSettingRegistry {
             previewStrategy = PreviewStrategy.NONE,
         ))
 
-        // ── TTS（不影响 Canvas）──
-        add(SettingDefinition(
-            key = "tts_speed",
-            defaultValue = 1.0f,
-            storageTier = StorageTier.GLOBAL,
-            scope = null,
-            recompositionTier = -1,
-            uiGroup = UiGroup.GENERAL,
-            includeInPreset = false,
-            previewStrategy = PreviewStrategy.NONE,
-        ))
-        add(SettingDefinition(
-            key = "tts_pitch",
-            defaultValue = 1.0f,
-            storageTier = StorageTier.GLOBAL,
-            scope = null,
-            recompositionTier = -1,
-            uiGroup = UiGroup.GENERAL,
-            includeInPreset = false,
-            previewStrategy = PreviewStrategy.NONE,
-        ))
-
         // ── 护眼（不影响 Canvas）──
         add(SettingDefinition(
             key = "eye_care_reminder_interval",
@@ -614,38 +592,6 @@ object ReaderSettingRegistry {
             uiGroup = UiGroup.TEXT_STYLE,
             includeInPreset = true,
             previewStrategy = PreviewStrategy.ON_APPLY,
-        ))
-
-        // ── TTS 扩展字段（NONE scope，不影响 Canvas）──
-        add(SettingDefinition(
-            key = "tts_voice",
-            defaultValue = "",
-            storageTier = StorageTier.GLOBAL,
-            scope = null,
-            recompositionTier = -1,
-            uiGroup = UiGroup.GENERAL,
-            includeInPreset = false,
-            previewStrategy = PreviewStrategy.NONE,
-        ))
-        add(SettingDefinition(
-            key = "tts_auto_page",
-            defaultValue = true,
-            storageTier = StorageTier.GLOBAL,
-            scope = null,
-            recompositionTier = -1,
-            uiGroup = UiGroup.GENERAL,
-            includeInPreset = false,
-            previewStrategy = PreviewStrategy.NONE,
-        ))
-        add(SettingDefinition(
-            key = "tts_timer",
-            defaultValue = 0,
-            storageTier = StorageTier.GLOBAL,
-            scope = null,
-            recompositionTier = -1,
-            uiGroup = UiGroup.GENERAL,
-            includeInPreset = false,
-            previewStrategy = PreviewStrategy.NONE,
         ))
 
         // ── 自定义主题色（SHELL scope，仅影响背景/文字颜色）──

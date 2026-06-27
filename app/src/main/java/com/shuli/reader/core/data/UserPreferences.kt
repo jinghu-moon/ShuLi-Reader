@@ -137,12 +137,6 @@ class UserPreferences(
         val KEY_WEBDAV_USER = stringPreferencesKey("webdav_user")
         val KEY_WEBDAV_PASSWORD = stringPreferencesKey("webdav_password")
 
-        // TTS 朗读
-        val KEY_TTS_SPEED = floatPreferencesKey("tts_speed")
-        val KEY_TTS_PITCH = floatPreferencesKey("tts_pitch")
-        val KEY_TTS_AUTO_PAGE = booleanPreferencesKey("tts_auto_page")
-        val KEY_TTS_HIGHLIGHT_SENTENCE = booleanPreferencesKey("tts_highlight_sentence")
-
         // 高级设置
         val KEY_GPU_ACCELERATION = booleanPreferencesKey("gpu_acceleration")
         val KEY_LOGGING_ENABLED = booleanPreferencesKey("logging_enabled")
@@ -251,11 +245,6 @@ class UserPreferences(
     val webdavUrl: Flow<String> = dataStore.data.map { it[KEY_WEBDAV_URL] ?: "" }.distinctUntilChanged()
     val webdavUser: Flow<String> = dataStore.data.map { it[KEY_WEBDAV_USER] ?: "" }.distinctUntilChanged()
     val webdavPassword: Flow<String> = dataStore.data.map { it[KEY_WEBDAV_PASSWORD] ?: "" }.distinctUntilChanged()
-
-    val ttsSpeed: Flow<Float> = dataStore.data.map { it[KEY_TTS_SPEED] ?: 1.0f }.distinctUntilChanged()
-    val ttsPitch: Flow<Float> = dataStore.data.map { it[KEY_TTS_PITCH] ?: 1.0f }.distinctUntilChanged()
-    val ttsAutoPage: Flow<Boolean> = dataStore.data.map { it[KEY_TTS_AUTO_PAGE] ?: false }.distinctUntilChanged()
-    val ttsHighlightSentence: Flow<Boolean> = dataStore.data.map { it[KEY_TTS_HIGHLIGHT_SENTENCE] ?: false }.distinctUntilChanged()
 
     val gpuAcceleration: Flow<Boolean> = dataStore.data.map { it[KEY_GPU_ACCELERATION] ?: true }.distinctUntilChanged()
     val loggingEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_LOGGING_ENABLED] ?: false }.distinctUntilChanged()
@@ -373,11 +362,6 @@ class UserPreferences(
     suspend fun setWebdavUrl(value: String) = dataStore.edit { it[KEY_WEBDAV_URL] = value }
     suspend fun setWebdavUser(value: String) = dataStore.edit { it[KEY_WEBDAV_USER] = value }
     suspend fun setWebdavPassword(value: String) = dataStore.edit { it[KEY_WEBDAV_PASSWORD] = value }
-
-    suspend fun setTtsSpeed(value: Float) = dataStore.edit { it[KEY_TTS_SPEED] = value }
-    suspend fun setTtsPitch(value: Float) = dataStore.edit { it[KEY_TTS_PITCH] = value }
-    suspend fun setTtsAutoPage(value: Boolean) = dataStore.edit { it[KEY_TTS_AUTO_PAGE] = value }
-    suspend fun setTtsHighlightSentence(value: Boolean) = dataStore.edit { it[KEY_TTS_HIGHLIGHT_SENTENCE] = value }
 
     suspend fun setGpuAcceleration(value: Boolean) = dataStore.edit { it[KEY_GPU_ACCELERATION] = value }
     suspend fun setLoggingEnabled(value: Boolean) = dataStore.edit { it[KEY_LOGGING_ENABLED] = value }

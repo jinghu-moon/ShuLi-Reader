@@ -195,11 +195,6 @@ internal class ReaderSettingsManager(
             verticalText = p.verticalText,
             dualPageMode = p.dualPageMode.name,
             eyeCareReminderInterval = p.eyeCareReminderInterval,
-            ttsSpeed = p.ttsSpeed,
-            ttsPitch = p.ttsPitch,
-            ttsVoice = p.ttsVoice,
-            ttsAutoPage = p.ttsAutoPage,
-            ttsTimer = p.ttsTimer,
             gestureConfig = p.gestureConfig,
         )
     }

@@ -127,11 +127,6 @@ fun BookReaderPrefsOverrides.mergeOnto(global: ReaderPreferences): ReaderPrefere
         orientationLock = this.orientationLock?.let {
             try { OrientationLock.valueOf(it) } catch (_: Exception) { null }
         } ?: global.orientationLock,
-        ttsSpeed = this.ttsSpeed ?: global.ttsSpeed,
-        ttsPitch = this.ttsPitch ?: global.ttsPitch,
-        ttsVoice = this.ttsVoice ?: global.ttsVoice,
-        ttsAutoPage = this.ttsAutoPage ?: global.ttsAutoPage,
-        ttsTimer = this.ttsTimer ?: global.ttsTimer,
         removeEmptyLines = this.removeEmptyLines ?: global.removeEmptyLines,
         cleanChapterTitle = this.cleanChapterTitle ?: global.cleanChapterTitle,
         progressStyle = this.progressStyle?.toProgressStyle() ?: global.progressStyle,

@@ -281,7 +281,6 @@ private fun DefinitionCard(
     onCopyDefinition: () -> Unit,
     onLookup: (String) -> Unit,
     contextSentence: String = "",
-    onTtsClick: ((String) -> Unit)? = null,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -300,28 +299,13 @@ private fun DefinitionCard(
                 else -> MaterialTheme.typography.titleSmall.fontSize
             }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+            Text(
+                text = word,
+                fontSize = titleFontSize,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = word,
-                    fontSize = titleFontSize,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    modifier = Modifier.weight(1f),
-                )
-
-                // TTS 按钮
-                if (onTtsClick != null) {
-                    IconButton(onClick = { onTtsClick(word) }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.VolumeUp,
-                            contentDescription = "发音",
-                        )
-                    }
-                }
-            }
+            )
 
             // 上下文句子
             if (contextSentence.isNotBlank()) {

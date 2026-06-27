@@ -740,18 +740,6 @@ class ReaderViewModel(
                 (value as ReaderSettingValue.Bool).value,
                 reflow = true,
             )
-            ReaderSettingKey.TTS_VOICE -> s.updatePrefsGeneric(
-                { it.copy(ttsVoice = (value as ReaderSettingValue.Str).value) },
-                reflow = false,
-            )
-            ReaderSettingKey.TTS_AUTO_PAGE -> s.updatePrefsGeneric(
-                { it.copy(ttsAutoPage = (value as ReaderSettingValue.Bool).value) },
-                reflow = false,
-            )
-            ReaderSettingKey.TTS_TIMER -> s.updatePrefsGeneric(
-                { it.copy(ttsTimer = (value as ReaderSettingValue.Int).value) },
-                reflow = false,
-            )
             ReaderSettingKey.EYE_CARE_REMINDER_INTERVAL -> s.setEyeCareReminderInterval(
                 (value as ReaderSettingValue.Int).value,
             )

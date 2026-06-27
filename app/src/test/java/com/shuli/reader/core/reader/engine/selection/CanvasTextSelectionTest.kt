@@ -146,6 +146,48 @@ class CanvasTextSelectionTest {
     }
 
     @Test
+    fun moveHandle_overMaxLength_returnsCurrentRangeAndFreezesHandle() {
+        val longContent = "a".repeat(CanvasTextSelection.MAX_SELECTION_LENGTH + 100)
+        val page = singleLinePage(lineStart = 0, lineEnd = content.length)
+        selection.selectWordAt(25f, 25f, page, content, 340f) // 0..5
+        selection.startHandleDrag(CanvasTextSelection.AnchorId.B)
+
+        val result = selection.moveHandle(CanvasTextSelection.MAX_SELECTION_LENGTH + 50, longContent)
+
+        assertNotNull(result)
+        assertTrue(result!!.limitReached)
+        assertEquals("超限时应保持原选区起点", 0, result.range.startPos)
+        assertEquals("超限时应保持原选区终点", 5, result.range.endPos)
+        assertEquals(0, selection.selectStart)
+        assertEquals(5, selection.selectEnd)
+    }
+
+    @Test
+    fun moveHandle_fastDrag_afterCrossoverUsesVisualRole() {
+        val page = singleLinePage()
+        selection.selectWordAt(25f, 25f, page, content, 340f) // 0..5
+        selection.startHandleDrag(CanvasTextSelection.AnchorId.A)
+
+        selection.moveHandle(10, content) // A crosses B, A becomes visual END.
+        assertFalse(selection.anchorAIsStart)
+
+        val result = selection.moveHandle(7, content, page, isFastDrag = true)
+
+        assertNotNull(result)
+        assertTrue(result!!.snapped)
+        assertEquals("A 是视觉结束把手时，快速拖动应吸附到词尾", 11, selection.selectEnd)
+    }
+
+    @Test
+    fun pixelToChar_rightOfLine_returnsLineEnd() {
+        val page = singleLinePage()
+
+        val charIndex = selection.pixelToChar(500f, 25f, page, content, null)
+
+        assertEquals(content.length, charIndex)
+    }
+
+    @Test
     fun getHandleRects_providesCorrectVisualRoles() {
         val page = singleLinePage()
         selection.selectWordAt(25f, 25f, page, content, 340f) // 0..5 (A=0, B=5)

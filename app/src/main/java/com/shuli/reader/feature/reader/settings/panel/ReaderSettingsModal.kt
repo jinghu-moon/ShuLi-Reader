@@ -61,7 +61,7 @@ fun ReaderSettingsModal(
         val prefs = uiState.readerPreferences
         var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
-        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.85f)) {
+        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.5f)) {
             ReaderMaterialTheme(readerTheme = prefs.backgroundColor) {
                 ReaderSettingsSheetContent(
                     prefs = prefs,

@@ -56,9 +56,6 @@ data class ReaderPreferences(
     val edgeTurnPage: Boolean = ReaderSettingRegistry.getDefault("edge_turn_page"),
     val edgeWidthPercent: Float = ReaderSettingRegistry.getDefault("edge_width_percent"),
     val immersiveMode: Boolean = ReaderSettingRegistry.getDefault("immersive_mode"),
-    // TTS 设置
-    val ttsSpeed: Float = ReaderSettingRegistry.getDefault("tts_speed"),
-    val ttsPitch: Float = ReaderSettingRegistry.getDefault("tts_pitch"),
     // P1: 排版增强
     val removeEmptyLines: Boolean = ReaderSettingRegistry.getDefault("remove_empty_lines"),
     val cleanChapterTitle: Boolean = ReaderSettingRegistry.getDefault("clean_chapter_title"),
@@ -90,9 +87,6 @@ data class ReaderPreferences(
         ReaderSettingRegistry.getDefault<Int>("page_anim_speed")
     ),
     val adFiltering: Boolean = ReaderSettingRegistry.getDefault("ad_filtering"),
-    val ttsVoice: String = ReaderSettingRegistry.getDefault("tts_voice"),
-    val ttsAutoPage: Boolean = ReaderSettingRegistry.getDefault("tts_auto_page"),
-    val ttsTimer: Int = ReaderSettingRegistry.getDefault("tts_timer"),
     val eyeCareReminderInterval: Int = ReaderSettingRegistry.getDefault("eye_care_reminder_interval"),
     val backgroundTexture: String? = ReaderSettingRegistry.getDefault("background_texture"),
     // 手势配置（类型安全：@Serializable GestureConfig）
@@ -527,8 +521,6 @@ fun <T> ReaderPreferences.getValueByKey(key: String): T? = when (key) {
     "edge_turn_page" -> edgeTurnPage
     "edge_width_percent" -> edgeWidthPercent
     "immersive_mode" -> immersiveMode
-    "tts_speed" -> ttsSpeed
-    "tts_pitch" -> ttsPitch
     "remove_empty_lines" -> removeEmptyLines
     "clean_chapter_title" -> cleanChapterTitle
     "progress_style" -> progressStyle
@@ -552,9 +544,6 @@ fun <T> ReaderPreferences.getValueByKey(key: String): T? = when (key) {
     "orientation_lock" -> orientationLock
     "page_anim_speed" -> pageAnimSpeed.durationMs
     "ad_filtering" -> adFiltering
-    "tts_voice" -> ttsVoice
-    "tts_auto_page" -> ttsAutoPage
-    "tts_timer" -> ttsTimer
     "eye_care_reminder_interval" -> eyeCareReminderInterval
     "background_texture" -> backgroundTexture
     // 复合类型：返回 null，由调用方特殊处理

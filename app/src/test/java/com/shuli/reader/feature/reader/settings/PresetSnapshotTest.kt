@@ -31,13 +31,12 @@ class PresetSnapshotTest {
         val prefs = ReaderPreferences(
             colorTemperature = 3500f,
             hapticFeedback = true,
-            ttsSpeed = 1.5f,
             pageAnimSpeed = com.shuli.reader.core.data.PageAnimSpeed.FAST,
         )
         val snap = PresetSnapshot.fromPreferences(prefs)
         // These non-preset fields are not in PresetSnapshot; defaults should apply
         assertEquals(16f, snap.fontSize, 0.001f) // unaffected by colorTemperature
-        // (PresetSnapshot has no colorTemperature / hapticFeedback / ttsSpeed fields)
+        // (PresetSnapshot has no colorTemperature / hapticFeedback fields)
     }
 
     @Test
@@ -78,7 +77,6 @@ class PresetSnapshotTest {
         val base = ReaderPreferences(
             colorTemperature = 4000f, // non-preset, should be preserved
             hapticFeedback = true,    // non-preset, should be preserved
-            ttsSpeed = 1.5f,          // non-preset, should be preserved
         )
         val snap = PresetSnapshot(fontSize = 24f, lineSpacing = 2.0f, readingFont = "serif")
         val applied = snap.applyOnto(base)
@@ -88,7 +86,6 @@ class PresetSnapshotTest {
         // non-preset fields preserved
         assertEquals(4000f, applied.colorTemperature, 0.001f)
         assertTrue(applied.hapticFeedback)
-        assertEquals(1.5f, applied.ttsSpeed, 0.001f)
     }
 
     @Test

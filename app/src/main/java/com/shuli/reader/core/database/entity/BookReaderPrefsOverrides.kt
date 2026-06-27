@@ -100,11 +100,4 @@ data class BookReaderPrefsOverrides(
 
     // ── 手势（类型安全：@Serializable GestureConfig，非 JSON String）──
     val gestureConfig: GestureConfig? = null,
-
-    // ── TTS ──
-    val ttsSpeed: Float? = null,
-    val ttsPitch: Float? = null,
-    val ttsVoice: String? = null,
-    val ttsAutoPage: Boolean? = null,
-    val ttsTimer: Int? = null,
 )

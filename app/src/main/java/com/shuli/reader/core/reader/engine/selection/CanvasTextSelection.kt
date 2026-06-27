@@ -56,9 +56,15 @@ class CanvasTextSelection {
      */
     data class HandleInfo(
         val rect: RectF,
-        val isStart: Boolean,
+        var isStart: Boolean,
         val anchorId: AnchorId
     )
+
+    private val handleRectA = RectF()
+    private val handleRectB = RectF()
+    private val handleInfoA = HandleInfo(handleRectA, isStart = true, AnchorId.A)
+    private val handleInfoB = HandleInfo(handleRectB, isStart = false, AnchorId.B)
+    private val handleInfos = listOf(handleInfoA, handleInfoB)
 
     fun selectLineAt(
         x: Float,
@@ -144,7 +150,8 @@ class CanvasTextSelection {
         val range: SelectionRange,
         val lineChanged: Boolean,
         val collided: Boolean,
-        val snapped: Boolean
+        val snapped: Boolean,
+        val limitReached: Boolean = false,
     )
 
     fun moveHandle(
@@ -156,27 +163,24 @@ class CanvasTextSelection {
         if (content.isEmpty() || activeAnchor == null) return selectedRange?.let { DragResult(it, false, false, false) }
         
         // 如果是快速拖动，尝试吸附到词边界
+        val activeIsStart = isActiveAnchorStart()
         val adjustedCharIndex = if (isFastDrag) {
             val (wordStart, wordEnd) = findWordBoundary(content, charIndex)
-            if (activeAnchor == AnchorId.A) {
-                // A 锚点通常是起始，倾向于吸附到词首
-                if (charIndex - wordStart < wordEnd - charIndex) wordStart else wordEnd
+            if (activeIsStart) {
+                // 视觉起始把手倾向于吸附到词首；锚点 A/B 交叉后不能直接代表起止角色。
+                wordStart
             } else {
-                // B 锚点通常是结束，倾向于吸附到词尾
-                if (wordEnd - charIndex < charIndex - wordStart) wordEnd else wordStart
+                // 视觉结束把手倾向于吸附到词尾。
+                wordEnd
             }
         } else {
             charIndex
         }
 
-        var clamped = adjustedCharIndex.coerceIn(0, content.length)
+        val clamped = adjustedCharIndex.coerceIn(0, content.length)
         val otherAnchor = if (activeAnchor == AnchorId.A) anchorB else anchorA
         if (Math.abs(clamped - otherAnchor) > MAX_SELECTION_LENGTH) {
-            clamped = if (clamped > otherAnchor) {
-                otherAnchor + MAX_SELECTION_LENGTH
-            } else {
-                otherAnchor - MAX_SELECTION_LENGTH
-            }
+            return selectedRange?.let { DragResult(it, false, false, false, limitReached = true) }
         }
 
         val oldA = anchorA
@@ -211,6 +215,14 @@ class CanvasTextSelection {
         val range = syncSelectionFromAnchors(selectedRange?.chapterIndex ?: 0, content) ?: return null
         val snapped = isFastDrag && (adjustedCharIndex != charIndex)
         return DragResult(range, lineChanged, collided, snapped)
+    }
+
+    private fun isActiveAnchorStart(): Boolean {
+        return when (activeAnchor) {
+            AnchorId.A -> anchorAIsStart
+            AnchorId.B -> !anchorAIsStart
+            null -> true
+        }
     }
 
     private fun syncSelectionFromAnchors(chapterIndex: Int, content: CharSequence): SelectionRange? {
@@ -259,19 +271,19 @@ class CanvasTextSelection {
         val bodyLeft = page.layout.body.left
 
         // 计算 A 锚点的位置
-        val (rectA, pxA, pyA) = calcAnchorRect(anchorA, page, bodyLeft, anchorAIsStart) ?: return null
-        anchorAX = pxA
-        anchorAY = pyA
+        if (!calcAnchorRect(anchorA, page, bodyLeft, anchorAIsStart, handleRectA)) return null
+        anchorAX = handleRectA.centerX()
+        anchorAY = if (anchorAIsStart) handleRectA.top + HANDLE_DOT_RADIUS else handleRectA.bottom - HANDLE_DOT_RADIUS
 
         // 计算 B 锚点的位置
-        val (rectB, pxB, pyB) = calcAnchorRect(anchorB, page, bodyLeft, !anchorAIsStart) ?: return null
-        anchorBX = pxB
-        anchorBY = pyB
+        val anchorBIsStart = !anchorAIsStart
+        if (!calcAnchorRect(anchorB, page, bodyLeft, anchorBIsStart, handleRectB)) return null
+        anchorBX = handleRectB.centerX()
+        anchorBY = if (anchorBIsStart) handleRectB.top + HANDLE_DOT_RADIUS else handleRectB.bottom - HANDLE_DOT_RADIUS
 
-        return listOf(
-            HandleInfo(rectA, anchorAIsStart, AnchorId.A),
-            HandleInfo(rectB, !anchorAIsStart, AnchorId.B)
-        )
+        handleInfoA.isStart = anchorAIsStart
+        handleInfoB.isStart = anchorBIsStart
+        return handleInfos
     }
 
     /**
@@ -283,35 +295,32 @@ class CanvasTextSelection {
         offset: Int,
         page: TextPage,
         bodyLeft: Float,
-        isStart: Boolean
-    ): Triple<RectF, Float, Float>? {
+        isStart: Boolean,
+        outRect: RectF,
+    ): Boolean {
         // 如果作为结束把手，它的视觉位置贴靠在上一个字符的末尾
         val searchOffset = if (!isStart && offset > 0) offset - 1 else offset
         val line = page.lines.firstOrNull { line ->
             searchOffset >= line.startCharOffset && searchOffset < line.endCharOffset
-        } ?: return null
+        } ?: return false
 
         val x = bodyLeft + line.startXOffset + getCharXOffset(line, offset)
-        // 视觉上的 START 把手圆点朝上，坐标在 top；END 把手圆点朝下，坐标在 bottom
-        val screenX = x
-        val screenY = if (isStart) line.top else line.bottom
-
-        val rect = if (isStart) {
-            RectF(
+        if (isStart) {
+            outRect.set(
                 x - HANDLE_DOT_RADIUS,
                 line.top - HANDLE_DOT_RADIUS,
                 x + HANDLE_DOT_RADIUS,
                 line.bottom
             )
         } else {
-            RectF(
+            outRect.set(
                 x - HANDLE_DOT_RADIUS,
                 line.top,
                 x + HANDLE_DOT_RADIUS,
                 line.bottom + HANDLE_DOT_RADIUS
             )
         }
-        return Triple(rect, screenX, screenY)
+        return true
     }
 
     /**
@@ -455,7 +464,7 @@ class CanvasTextSelection {
                 }
                 accX += charWidth
             }
-            return lineEnd - 1
+            return lineEnd
         }
 
         if (paint == null) return lineStart
@@ -469,7 +478,7 @@ class CanvasTextSelection {
             }
             accX += charWidth
         }
-        return lineEnd - 1
+        return lineEnd
     }
 
     private fun findWordBoundary(content: CharSequence, charIndex: Int): Pair<Int, Int> {

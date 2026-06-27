@@ -10,6 +10,7 @@ import com.shuli.reader.core.reader.model.TextPage
  * 选区几何缓存 Key
  */
 data class SelectionGeometryCacheKey(
+    val chapterIndex: Int,
     val pageIndex: Int,
     val startCharOffset: Int,
     val endCharOffset: Int,
@@ -26,6 +27,7 @@ data class SelectionGeometryCacheKey(
             styleVersion: Int
         ): SelectionGeometryCacheKey {
             return SelectionGeometryCacheKey(
+                chapterIndex = page.chapterIndex,
                 pageIndex = page.pageIndex,
                 startCharOffset = page.startCharOffset,
                 endCharOffset = page.endCharOffset,
@@ -73,6 +75,14 @@ class SelectionGeometryCache {
     }
     
     /** 页面回收时清理对应的缓存 */
+    fun onPageRecycled(chapterIndex: Int, pageIndex: Int) {
+        val keysToRemove = cache.keys.filter { it.chapterIndex == chapterIndex && it.pageIndex == pageIndex }
+        for (k in keysToRemove) {
+            cache.remove(k)
+        }
+    }
+
+    /** 页面回收时清理对应的缓存。仅保留兼容旧调用；跨章节场景优先使用带 chapterIndex 的重载。 */
     fun onPageRecycled(pageIndex: Int) {
         val keysToRemove = cache.keys.filter { it.pageIndex == pageIndex }
         for (k in keysToRemove) {

@@ -7,7 +7,7 @@ import com.shuli.reader.core.reader.model.TextPage
 /**
  * 页面渲染上下文，封装渲染所需的全部依赖。
  *
- * 确保 ReaderPageRenderer、选区绘制、TTS 高亮
+ * 确保 ReaderPageRenderer、选区绘制高亮
  * 使用同一份 content 引用和同一套 paint/metrics，避免数据来源不一致。
  */
 class PageRenderContext(

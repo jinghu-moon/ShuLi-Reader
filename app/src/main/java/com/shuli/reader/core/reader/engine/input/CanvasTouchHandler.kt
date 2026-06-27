@@ -170,8 +170,7 @@ class CanvasTouchHandler(private val context: Context) {
                         return false
                     }
 
-                    // 点击选区外部，清除选区
-                    textSelection.clearSelection()
+                    // 点击选区外部，实际清理由 View 层统一完成，避免状态被提前清空后回调失效。
                     cb.onSelectionCleared()
                     return false
                 }

@@ -16,7 +16,7 @@ import kotlinx.serialization.json.Json
  * 确保新增 Registry 设置时无需手动维护字段映射。
  *
  * 翻页动画类（page_anim_type / page_anim_speed）、行为类（haptic_feedback / orientation_lock）、
- * TTS、护眼、覆盖层类字段均不在预设内。
+ * 护眼、覆盖层类字段均不在预设内。
  */
 @Serializable
 data class PresetSnapshot(

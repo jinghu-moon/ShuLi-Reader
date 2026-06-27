@@ -86,25 +86,6 @@ class DegradationStrategyTest {
         }
     }
 
-    // T-B.5: TTS 引擎不可用时隐藏 UI 入口
-    @Test
-    fun ttsUnavailable_uiEntryHidden() {
-        // 模拟 TTS 初始化失败
-        val ttsAvailable = false
-
-        // TTS 不可用时，UI 入口应隐藏
-        val showTtsButton = ttsAvailable
-        assertFalse("TTS 不可用时应隐藏 UI 入口", showTtsButton)
-    }
-
-    // T-B.5b: TTS 可用时显示 UI 入口
-    @Test
-    fun ttsAvailable_uiEntryVisible() {
-        val ttsAvailable = true
-        val showTtsButton = ttsAvailable
-        assertTrue("TTS 可用时应显示 UI 入口", showTtsButton)
-    }
-
     // T-B.3: 正则管道降级 — 空规则列表时透传原文
     @Test
     fun regexPipeline_degradation_emptyRulesPassThrough() {

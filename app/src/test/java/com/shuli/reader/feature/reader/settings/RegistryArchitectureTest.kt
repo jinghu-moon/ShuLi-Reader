@@ -101,10 +101,6 @@ class RegistryArchitectureTest {
         assertFalse("orientationLock 不应在预设中", "orientation_lock" in presetKeys)
         assertFalse("gestureConfig 不应在预设中", "gesture_config" in presetKeys)
 
-        // TTS 不应在预设中
-        assertFalse("ttsSpeed 不应在预设中", "tts_speed" in presetKeys)
-        assertFalse("ttsPitch 不应在预设中", "tts_pitch" in presetKeys)
-
         // 翻页动画不应在预设中
         assertFalse("pageAnimType 不应在预设中", "page_anim_type" in presetKeys)
         assertFalse("pageAnimSpeed 不应在预设中", "page_anim_speed" in presetKeys)

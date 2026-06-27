@@ -143,6 +143,7 @@ class ReaderCanvasView @JvmOverloads constructor(
     private val selectionMagnifierRect = RectF()
     private val selectionMagnifierShadowRect = RectF()
     private val selectionMagnifierPath = Path()
+    private val findMatchTempRect = RectF()
 
     // 放大镜弹性缩放动画
     private var magnifierScale: Float = 0f
@@ -279,6 +280,7 @@ class ReaderCanvasView @JvmOverloads constructor(
             if (charIndex != null) {
                 val result = textSelection.moveHandle(charIndex, chapterContent, page, false)
                 if (result != null) {
+                    if (result.limitReached) return
                     renderContext.selectedRange = result.range
                     renderStateStore.getPageState(page.toKey()).invalidateOverlay()
                     invalidate()
@@ -300,7 +302,7 @@ class ReaderCanvasView @JvmOverloads constructor(
         fontManager = fontManager,
         onInvalidate = { invalidate() },
         onPagesInvalidate = {
-            // TTS/选区/笔记变化仅失效 overlay 层，正文不重录（§10 分层 recorder）
+            // 选区/笔记变化仅失效 overlay 层，正文不重录（§10 分层 recorder）
             currentPage?.let { renderStateStore.getPageState(it.toKey()).invalidateOverlay() }
             nextPage?.let { renderStateStore.getPageState(it.toKey()).invalidateOverlay() }
             prevPage?.let { renderStateStore.getPageState(it.toKey()).invalidateOverlay() }
@@ -343,8 +345,8 @@ class ReaderCanvasView @JvmOverloads constructor(
                 }
                 var wordStartX = x
                 var wordEndX = x
-                if (line != null && line.charWidths != null) {
-                    val cw = line.charWidths!!
+                val cw = line?.charWidths
+                if (line != null && cw != null) {
                     // 计算词起始 X
                     wordStartX = bodyLeft + line.startXOffset
                     val startIdx = (range.startPos - line.startCharOffset).coerceAtMost(cw.size)
@@ -423,6 +425,12 @@ class ReaderCanvasView @JvmOverloads constructor(
                 if (charIndex != null) {
                     val result = textSelection.moveHandle(charIndex, chapterContent, page, isFastDrag)
                     if (result != null) {
+                        if (result.limitReached) {
+                            if (isHapticFeedbackEnabled) {
+                                performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                            }
+                            return
+                        }
                         renderContext.selectedRange = result.range
                         // 触发震动反馈
                         if (isHapticFeedbackEnabled) {
@@ -1053,6 +1061,12 @@ class ReaderCanvasView @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         crossfadeAnimator?.cancel()
+        magnifierScaleAnimator?.cancel()
+        magnifierScaleAnimator = null
+        autoScrollController.stopAutoScroll()
+        textSelection.clearSelection()
+        renderContext.selectedRange = null
+        pageRenderer.clearCache()
         oldPageBitmap?.recycle()
         oldPageBitmap = null
         renderStateStore.clear()
@@ -1422,8 +1436,8 @@ class ReaderCanvasView @JvmOverloads constructor(
             if (match == currentFindMatch) continue
             page.lines.forEach { line ->
                 if (intersects(match, line.startCharOffset, line.endCharOffset)) {
-                    val rect = calculateMatchRect(line, match, bodyLeft)
-                    canvas.drawRoundRect(rect, 3f, 3f, findMatchPaint)
+                    calculateMatchRect(line, match, bodyLeft, findMatchTempRect)
+                    canvas.drawRoundRect(findMatchTempRect, 3f, 3f, findMatchPaint)
                 }
             }
         }
@@ -1432,8 +1446,8 @@ class ReaderCanvasView @JvmOverloads constructor(
         currentFindMatch?.let { match ->
             page.lines.forEach { line ->
                 if (intersects(match, line.startCharOffset, line.endCharOffset)) {
-                    val rect = calculateMatchRect(line, match, bodyLeft)
-                    canvas.drawRoundRect(rect, 3f, 3f, currentFindMatchPaint)
+                    calculateMatchRect(line, match, bodyLeft, findMatchTempRect)
+                    canvas.drawRoundRect(findMatchTempRect, 3f, 3f, currentFindMatchPaint)
                 }
             }
         }
@@ -1442,7 +1456,12 @@ class ReaderCanvasView @JvmOverloads constructor(
     /**
      * 计算匹配矩形
      */
-    private fun calculateMatchRect(line: com.shuli.reader.core.reader.model.TextLine, match: SelectionRange, bodyLeft: Float): RectF {
+    private fun calculateMatchRect(
+        line: com.shuli.reader.core.reader.model.TextLine,
+        match: SelectionRange,
+        bodyLeft: Float,
+        outRect: RectF,
+    ) {
         val lineStart = line.startCharOffset
         val lineEnd = line.endCharOffset
         val matchStart = maxOf(match.startPos, lineStart)
@@ -1461,7 +1480,7 @@ class ReaderCanvasView @JvmOverloads constructor(
             endX = startX + line.measuredWidth
         }
 
-        return RectF(startX - 1f, line.top, endX + 1f, line.bottom)
+        outRect.set(startX - 1f, line.top, endX + 1f, line.bottom)
     }
 
     /**

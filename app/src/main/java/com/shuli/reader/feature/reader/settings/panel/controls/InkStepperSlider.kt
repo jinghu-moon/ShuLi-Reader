@@ -41,7 +41,8 @@ import com.shuli.reader.ui.theme.LocalReaderColorScheme
 /**
  * 步进滑块复合控件（对应原型 .stepper-slider）。
  *
- * 布局：标题(可选副标题) … [−] [InkSlider] [+] 数值
+ * 标准布局：标题(可选副标题) … [−] [InkSlider] [+] 数值
+ * 迷你布局：标题(可选副标题) … [−] [数值] [+]
  *
  * 取代旧实现里基于 Material3 Slider 的 StepperSlider，统一为自绘造型。
  *
@@ -56,6 +57,7 @@ import com.shuli.reader.ui.theme.LocalReaderColorScheme
  * @param fillBrush 滑块填充画刷（色温等场景）
  * @param defaultValue 默认值（可选）。传递给 InkSlider 用于竖线标记和双击重置。
  * @param onValueChangeFinished 交互结束回调，参数为最终值（抬手 / 点击完成 / 步进按钮单击）
+ * @param compact 迷你模式：不显示滑块，数值放在加减按钮中间
  * @param testTagPrefix 测试 tag 前缀
  */
 @Composable
@@ -72,6 +74,7 @@ fun InkStepperSlider(
     fillBrush: Brush? = null,
     defaultValue: Float? = null,
     onValueChangeFinished: ((Float) -> Unit)? = null,
+    compact: Boolean = false,
     testTagPrefix: String = "InkStepperSlider",
     topDivider: Boolean = false,
     enabled: Boolean = true,
@@ -126,74 +129,127 @@ fun InkStepperSlider(
                 }
             }
         }
-        Row(
-            modifier = Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            InkCircleButton(
-                symbol = "−",
-                onClick = {
-                    if (enabled) {
-                        val next = (value - step).coerceIn(valueRange)
-                        onValueChange(next)
-                        onValueChangeFinished?.invoke(next)
-                    }
-                },
-                enabled = enabled && value > valueRange.start + 0.0001f,
-                size = 26.dp,
-                modifier = Modifier.testTag("${testTagPrefix}_Dec"),
-            )
-            InkSlider(
-                value = value,
-                onValueChange = { if (enabled) onValueChange(it) },
-                onValueChangeFinished = { finalValue -> if (enabled) onValueChangeFinished?.invoke(finalValue) },
-                valueRange = valueRange,
-                fillBrush = fillBrush,
-                defaultValue = defaultValue,
-                modifier = Modifier.weight(1f).testTag("${testTagPrefix}_Slider"),
-            )
-            InkCircleButton(
-                symbol = "+",
-                onClick = {
-                    if (enabled) {
-                        val next = (value + step).coerceIn(valueRange)
-                        onValueChange(next)
-                        onValueChangeFinished?.invoke(next)
-                    }
-                },
-                enabled = enabled && value < valueRange.endInclusive - 0.0001f,
-                size = 26.dp,
-                modifier = Modifier.testTag("${testTagPrefix}_Inc"),
-            )
-            Spacer(Modifier.padding(end = 2.dp))
-            val valueAlignedWidth = labelWidthState?.alignedValueWidth?.takeIf { it != Dp.Unspecified }
-            val formatted = formatValue(value)
-            val valueModifier = if (valueAlignedWidth != null) {
-                Modifier.width(valueAlignedWidth)
-            } else {
-                Modifier.widthIn(min = 36.dp)
-            }
-            Text(
-                text = formatted,
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.textSecondary,
-                textAlign = TextAlign.End,
-                maxLines = 1,
-                modifier = valueModifier
-                    .testTag("${testTagPrefix}_Value")
-                    .clickable(enabled = enabled) {
-                        inputText.value = formatValue(value)
-                        inputError.value = null
-                        showInputDialog.value = true
+        if (compact) {
+            // 迷你布局：[−] [数值] [+]
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End,
+            ) {
+                InkCircleButton(
+                    symbol = "−",
+                    onClick = {
+                        if (enabled) {
+                            val next = (value - step).coerceIn(valueRange)
+                            onValueChange(next)
+                            onValueChangeFinished?.invoke(next)
+                        }
                     },
-                onTextLayout = { result ->
-                    if (labelWidthState != null) {
-                        val widthDp = with(density) { result.size.width.toDp() }
-                        labelWidthState.onReportValue(testTagPrefix, widthDp)
-                    }
-                },
-            )
+                    enabled = enabled && value > valueRange.start + 0.0001f,
+                    size = 26.dp,
+                    modifier = Modifier.testTag("${testTagPrefix}_Dec"),
+                )
+                Text(
+                    text = formatValue(value),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textPrimary,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .widthIn(min = 40.dp)
+                        .padding(horizontal = 4.dp)
+                        .testTag("${testTagPrefix}_Value")
+                        .clickable(enabled = enabled) {
+                            inputText.value = formatValue(value)
+                            inputError.value = null
+                            showInputDialog.value = true
+                        },
+                )
+                InkCircleButton(
+                    symbol = "+",
+                    onClick = {
+                        if (enabled) {
+                            val next = (value + step).coerceIn(valueRange)
+                            onValueChange(next)
+                            onValueChangeFinished?.invoke(next)
+                        }
+                    },
+                    enabled = enabled && value < valueRange.endInclusive - 0.0001f,
+                    size = 26.dp,
+                    modifier = Modifier.testTag("${testTagPrefix}_Inc"),
+                )
+            }
+        } else {
+            // 标准布局：[−] [InkSlider] [+] [数值]
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                InkCircleButton(
+                    symbol = "−",
+                    onClick = {
+                        if (enabled) {
+                            val next = (value - step).coerceIn(valueRange)
+                            onValueChange(next)
+                            onValueChangeFinished?.invoke(next)
+                        }
+                    },
+                    enabled = enabled && value > valueRange.start + 0.0001f,
+                    size = 26.dp,
+                    modifier = Modifier.testTag("${testTagPrefix}_Dec"),
+                )
+                InkSlider(
+                    value = value,
+                    onValueChange = { if (enabled) onValueChange(it) },
+                    onValueChangeFinished = { finalValue -> if (enabled) onValueChangeFinished?.invoke(finalValue) },
+                    valueRange = valueRange,
+                    fillBrush = fillBrush,
+                    defaultValue = defaultValue,
+                    modifier = Modifier.weight(1f).testTag("${testTagPrefix}_Slider"),
+                )
+                InkCircleButton(
+                    symbol = "+",
+                    onClick = {
+                        if (enabled) {
+                            val next = (value + step).coerceIn(valueRange)
+                            onValueChange(next)
+                            onValueChangeFinished?.invoke(next)
+                        }
+                    },
+                    enabled = enabled && value < valueRange.endInclusive - 0.0001f,
+                    size = 26.dp,
+                    modifier = Modifier.testTag("${testTagPrefix}_Inc"),
+                )
+                Spacer(Modifier.padding(end = 2.dp))
+                val valueAlignedWidth = labelWidthState?.alignedValueWidth?.takeIf { it != Dp.Unspecified }
+                val formatted = formatValue(value)
+                val valueModifier = if (valueAlignedWidth != null) {
+                    Modifier.width(valueAlignedWidth)
+                } else {
+                    Modifier.widthIn(min = 36.dp)
+                }
+                Text(
+                    text = formatted,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textSecondary,
+                    textAlign = TextAlign.End,
+                    maxLines = 1,
+                    modifier = valueModifier
+                        .testTag("${testTagPrefix}_Value")
+                        .clickable(enabled = enabled) {
+                            inputText.value = formatValue(value)
+                            inputError.value = null
+                            showInputDialog.value = true
+                        },
+                    onTextLayout = { result ->
+                        if (labelWidthState != null) {
+                            val widthDp = with(density) { result.size.width.toDp() }
+                            labelWidthState.onReportValue(testTagPrefix, widthDp)
+                        }
+                    },
+                )
+            }
         }
     }
     }
