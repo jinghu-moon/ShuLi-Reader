@@ -172,6 +172,7 @@ private fun bridgeSettingChange(key: String, value: Any): ReaderIntent? {
         "line_spacing" -> f(ReaderSettingKey.LINE_SPACING)
         "paragraph_spacing" -> f(ReaderSettingKey.PARAGRAPH_SPACING)
         "indent" -> f(ReaderSettingKey.INDENT)
+        "preserve_original_indent" -> b(ReaderSettingKey.PRESERVE_ORIGINAL_INDENT)
         "letter_spacing" -> f(ReaderSettingKey.LETTER_SPACING)
         // ── 边距 ──
         "body_box" -> (value as? com.shuli.reader.core.reader.model.BoxInsetsDp)?.let {
@@ -233,7 +234,9 @@ private fun bridgeSettingChange(key: String, value: Any): ReaderIntent? {
         "page_anim_speed" -> (value as? PageAnimSpeed)?.let {
             ReaderIntent.UpdateSetting(ReaderSettingKey.PAGE_ANIM_SPEED, ReaderSettingValue.PageAnimSpeed(it))
         }
-        "page_anim_type" -> (value as? PageAnimType)?.let { ReaderIntent.SetPageAnimType(it) }
+        "page_anim_type" -> (value as? PageAnimType)?.let {
+            ReaderIntent.UpdateSetting(ReaderSettingKey.PAGE_ANIM_TYPE, ReaderSettingValue.PageAnimType(it))
+        }
         // ── 翻页 / 触控 ──
         "volume_key_turn_page" -> b(ReaderSettingKey.VOLUME_KEY_TURN_PAGE)
         "edge_turn_page" -> b(ReaderSettingKey.EDGE_TURN_PAGE)

@@ -703,6 +703,7 @@ class ReaderViewModel(
             ReaderSettingKey.AUTO_PAGE_TURN -> s.setAutoPageTurn((value as ReaderSettingValue.Bool).value)
             ReaderSettingKey.AUTO_PAGE_TURN_INTERVAL -> s.setAutoPageTurnInterval((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.EPUB_OVERRIDE_STYLE -> s.setEpubOverrideStyle((value as ReaderSettingValue.Bool).value)
+            ReaderSettingKey.PRESERVE_ORIGINAL_INDENT -> s.setPreserveOriginalIndent((value as ReaderSettingValue.Bool).value)
             ReaderSettingKey.LEFT_ZONE_RATIO -> s.setLeftZoneRatio((value as ReaderSettingValue.Float).value)
             ReaderSettingKey.CUSTOM_THEME_COLOR -> {
                 val v = value as ReaderSettingValue.CustomThemeColor
@@ -731,6 +732,15 @@ class ReaderViewModel(
             )
             ReaderSettingKey.HAPTIC_FEEDBACK -> s.setHapticFeedback((value as ReaderSettingValue.Bool).value)
             ReaderSettingKey.ORIENTATION_LOCK -> s.setOrientationLock((value as ReaderSettingValue.OrientationLock).value)
+            ReaderSettingKey.PAGE_ANIM_TYPE -> {
+                val type = (value as ReaderSettingValue.PageAnimType).value
+                savedPageAnimType = null
+                navigationCoordinator.setPageAnimType(
+                    type.toFactoryType(),
+                    _uiState.value.readerPreferences.pageAnimSpeed,
+                ) { pageDelegate = it }
+                s.setPageAnimType(type)
+            }
             ReaderSettingKey.PAGE_ANIM_SPEED -> {
                 val speed = (value as ReaderSettingValue.PageAnimSpeed).value
                 s.setPageAnimSpeed(speed)

@@ -183,13 +183,14 @@ enum class ReaderSettingKey {
     IMMERSIVE_MODE,
     REMOVE_EMPTY_LINES, CLEAN_CHAPTER_TITLE, PROGRESS_STYLE,
     AUTO_PAGE_TURN, AUTO_PAGE_TURN_INTERVAL, EPUB_OVERRIDE_STYLE,
+    PRESERVE_ORIGINAL_INDENT,
     LEFT_ZONE_RATIO,
     CUSTOM_THEME_COLOR,
     // v5.1 Phase 1-4 新增
     COLOR_TEMPERATURE,
     PARAGRAPH_DIVIDER,
     BIONIC_READING, VERTICAL_TEXT, DUAL_PAGE_MODE,
-    HAPTIC_FEEDBACK, ORIENTATION_LOCK, PAGE_ANIM_SPEED,
+    HAPTIC_FEEDBACK, ORIENTATION_LOCK, PAGE_ANIM_TYPE, PAGE_ANIM_SPEED,
     AD_FILTERING,
     EYE_CARE_REMINDER_INTERVAL, BACKGROUND_TEXTURE,
     GESTURE_CONFIG,
@@ -214,6 +215,7 @@ sealed interface ReaderSettingValue {
     data class IndentUnit(val value: com.shuli.reader.core.data.IndentUnit) : ReaderSettingValue
     data class DualPageMode(val value: com.shuli.reader.core.data.DualPageMode) : ReaderSettingValue
     data class OrientationLock(val value: com.shuli.reader.core.data.OrientationLock) : ReaderSettingValue
+    data class PageAnimType(val value: com.shuli.reader.core.data.PageAnimType) : ReaderSettingValue
     data class PageAnimSpeed(val value: com.shuli.reader.core.data.PageAnimSpeed) : ReaderSettingValue
     data class GestureConfigValue(val value: com.shuli.reader.feature.reader.settings.GestureConfig) : ReaderSettingValue
     data class BoxInsetsDpVal(val value: BoxInsetsDp) : ReaderSettingValue

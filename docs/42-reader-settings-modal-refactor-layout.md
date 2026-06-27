@@ -82,7 +82,7 @@ app/src/main/java/com/shuli/reader/feature/reader/settings/panel/SettingsSection
 | 排版 | 文本处理 | 清理 | 广告过滤 | `ad_filtering` | 过滤广告内容 |
 | 排版 | 文本处理 | 增强 | 段落分隔线 | `paragraph_divider` | 阅读增强 |
 | 排版 | 文本处理 | 增强 | Bionic Reading | `bionic_reading` | 阅读增强 |
-| 排版 | 文本处理 | 兼容 | 保留原文缩进 | `preserve_original_indent` | 当前 UI 存在，桥接映射缺失 |
+| 排版 | 文本处理 | 兼容 | 保留原文缩进 | `preserve_original_indent` | 文本排版基础 |
 | 排版 | 文本处理 | 兼容 | EPUB 样式覆盖 | `epub_override_style` | 格式兼容 |
 | 布局 | 正文区域 | 边距 | 正文边距 | `body_box` | 从当前正文卡片拆出，归入布局 |
 | 布局 | 标题 | 样式 | 标题字号 | `title_font_size` | 标题对象内聚 |
@@ -128,6 +128,21 @@ app/src/main/java/com/shuli/reader/feature/reader/settings/panel/SettingsSection
 | 辅助 | 屏幕状态 | 方向 | 方向锁定 | `orientation_lock` | 与顶部横屏快捷重复，但主体归入辅助 |
 | 辅助 | 阅读形态 | 纸张 | 背景纹理 | `background_texture` | 从布局迁入，纸张视觉体验 |
 | 辅助 | 阅读形态 | 分页 | 双页模式 | `dual_page_mode` | 从布局迁入，阅读形态切换 |
+
+## 补充：未暴露/隐藏配置项
+
+为了保证配置项的 100% 覆盖率，以下是存在于 `ReaderSettingRegistry.kt` 和 `ReaderPreferences.kt` 中，但当前可能未直接在 UI 中暴露，或者设计为高级设置的项目：
+
+| 推荐归属一级 | 推荐归属二级 | 推荐三级 | 配置项 | 当前 key | 归并说明 |
+|---|---|---|---|---|---|
+| 布局 | 标题 | 样式 | 标题专属字体 | `title_font` | 独立于正文字体之外的标题字体 |
+| 辅助 | 屏幕状态 / 高级 | 性能 | 渲染优化 | `optimize_render` | 底层渲染优化开关，目前未暴露 UI |
+| 布局 | 颜色/主题 | 自定义 | 自定义背景色 | `custom_background_color` | 自定义主题色的高级配置 |
+| 布局 | 颜色/主题 | 自定义 | 自定义正文颜色 | `custom_text_color` | 自定义主题色的高级配置 |
+| 布局 | 颜色/主题 | 自定义 | 自定义标题颜色 | `custom_title_color` | 自定义主题色的高级配置 |
+| 布局 | 颜色/主题 | 自定义 | 自定义页眉页脚色 | `custom_header_footer_color` | 自定义主题色的高级配置 |
+
+> 备注：`brightness`（亮度）和 `background_color`（基础主题色）明确属于顶部快捷操作区，故不列入此面板的卡片区配置项。
 
 ## 布局草图
 
@@ -227,15 +242,15 @@ app/src/main/java/com/shuli/reader/feature/reader/settings/panel/tabs/
 
 ```
 app/src/main/java/com/shuli/reader/feature/reader/settings/panel/tabs/
-├── TypesettingTab.kt      # 排版（字体/正文排版/文本处理）22项
-├── LayoutTab.kt           # 布局（正文区域/标题/页眉页脚/边距方案）27项
-├── PageTurnTab.kt         # 翻页（翻页方式/触控区域/翻页动效）10项
-└── AuxiliaryTab.kt        # 辅助（护眼/屏幕状态/阅读形态）7项
+├── Typesetting.kt      # 排版（字体/正文排版/文本处理）22项
+├── Layout.kt           # 布局（正文区域/标题/页眉页脚/边距方案）27项
+├── PageTurn.kt         # 翻页（翻页方式/触控区域/翻页动效）10项
+└── Auxiliary.kt        # 辅助（护眼/屏幕状态/阅读形态）7项
 ```
 
 ### 文件拆分详情
 
-#### 1. TypesettingTab.kt（排版）
+#### 1. Typesetting.kt（排版）
 
 **来源**：TypeAndFontTab.kt 部分 + BehaviorTab.kt 部分
 
@@ -252,7 +267,7 @@ app/src/main/java/com/shuli/reader/feature/reader/settings/panel/tabs/
 - 繁简转换、中文排版、盘古空格、移除空行、清理章节标题、广告过滤
 - 段落分隔线、Bionic Reading、保留原文缩进、EPUB样式覆盖
 
-#### 2. LayoutTab.kt（布局）
+#### 2. Layout.kt（布局）
 
 **来源**：TypeAndFontTab.kt 部分 + AppearanceTab.kt 部分
 
@@ -269,7 +284,7 @@ app/src/main/java/com/shuli/reader/feature/reader/settings/panel/tabs/
 - 页眉/页脚可见性、显示进度、页眉/页脚内容（6项）、页眉/页脚字号比例、页眉页脚透明度、进度样式、页眉/页脚分隔线、页眉/页脚边距
 - 紧凑/标准/宽松预设、统一左右边距、重置边距
 
-#### 3. PageTurnTab.kt（翻页）
+#### 3. PageTurn.kt（翻页）
 
 **来源**：BehaviorTab.kt 部分 + AppearanceTab.kt 部分
 
@@ -285,7 +300,7 @@ app/src/main/java/com/shuli/reader/feature/reader/settings/panel/tabs/
 - 手势区域编辑、左侧区域比例、触觉反馈
 - 翻页动画类型、翻页动画速度
 
-#### 4. AuxiliaryTab.kt（辅助）
+#### 4. Auxiliary.kt（辅助）
 
 **来源**：BehaviorTab.kt 部分 + AppearanceTab.kt 部分
 
@@ -304,33 +319,33 @@ app/src/main/java/com/shuli/reader/feature/reader/settings/panel/tabs/
 
 | 操作 | 文件 | 说明 |
 |------|------|------|
-| **新建** | `TypesettingTab.kt` | 排版 Tab |
-| **新建** | `LayoutTab.kt` | 布局 Tab |
-| **新建** | `PageTurnTab.kt` | 翻页 Tab |
-| **新建** | `AuxiliaryTab.kt` | 辅助 Tab |
-| **删除** | `TypeAndFontTab.kt` | 拆分到排版 + 布局 |
-| **删除** | `AppearanceTab.kt` | 拆分到布局 + 翻页 + 辅助 |
-| **删除** | `BehaviorTab.kt` | 拆分到翻页 + 辅助 |
+| **新建** | `tabs/Typesetting.kt` | 排版 Tab |
+| **新建** | `tabs/Layout.kt` | 布局 Tab |
+| **新建** | `tabs/PageTurn.kt` | 翻页 Tab |
+| **新建** | `tabs/Auxiliary.kt` | 辅助 Tab |
+| **删除** | `tabs/TypeAndFontTab.kt` | 拆分到排版 + 布局 |
+| **删除** | `tabs/AppearanceTab.kt` | 拆分到布局 + 翻页 + 辅助 |
+| **删除** | `tabs/BehaviorTab.kt` | 拆分到翻页 + 辅助 |
 
 ### 迁移映射表
 
 | 原文件 | 原卡片 | 目标文件 | 目标卡片 |
 |--------|--------|----------|----------|
-| TypeAndFontTab.kt | 字体卡片 | TypesettingTab.kt | 字体 |
-| TypeAndFontTab.kt | 正文卡片（排版部分） | TypesettingTab.kt | 正文排版 |
-| TypeAndFontTab.kt | 正文卡片（边距部分） | LayoutTab.kt | 正文区域 |
-| TypeAndFontTab.kt | 标题卡片 | LayoutTab.kt | 标题 |
-| TypeAndFontTab.kt | 页眉页脚卡片 | LayoutTab.kt | 页眉页脚 |
-| TypeAndFontTab.kt | 边距预设卡片 | LayoutTab.kt | 边距方案 |
-| TypeAndFontTab.kt | 高级排版卡片 | TypesettingTab.kt | 文本处理 |
-| AppearanceTab.kt | 页眉页脚卡片 | LayoutTab.kt | 页眉页脚（合并） |
-| AppearanceTab.kt | 色温卡片 | AuxiliaryTab.kt | 护眼 |
-| AppearanceTab.kt | 显示模式卡片（背景/双页） | AuxiliaryTab.kt | 阅读形态 |
-| AppearanceTab.kt | 显示模式卡片（翻页动效） | PageTurnTab.kt | 翻页动效 |
-| BehaviorTab.kt | 翻页方式卡片 | PageTurnTab.kt | 翻页方式 |
-| BehaviorTab.kt | 触控区域卡片 | PageTurnTab.kt | 触控区域 |
-| BehaviorTab.kt | 护眼卡片 | AuxiliaryTab.kt | 护眼（合并） |
-| BehaviorTab.kt | 通用卡片 | AuxiliaryTab.kt | 屏幕状态 |
+| TypeAndFontTab.kt | 字体卡片 | Typesetting.kt | 字体 |
+| TypeAndFontTab.kt | 正文卡片（排版部分） | Typesetting.kt | 正文排版 |
+| TypeAndFontTab.kt | 正文卡片（边距部分） | Layout.kt | 正文区域 |
+| TypeAndFontTab.kt | 标题卡片 | Layout.kt | 标题 |
+| TypeAndFontTab.kt | 页眉页脚卡片 | Layout.kt | 页眉页脚 |
+| TypeAndFontTab.kt | 边距预设卡片 | Layout.kt | 边距方案 |
+| TypeAndFontTab.kt | 高级排版卡片 | Typesetting.kt | 文本处理 |
+| AppearanceTab.kt | 页眉页脚卡片 | Layout.kt | 页眉页脚（合并） |
+| AppearanceTab.kt | 色温卡片 | Auxiliary.kt | 护眼 |
+| AppearanceTab.kt | 显示模式卡片（背景/双页） | Auxiliary.kt | 阅读形态 |
+| AppearanceTab.kt | 显示模式卡片（翻页动效） | PageTurn.kt | 翻页动效 |
+| BehaviorTab.kt | 翻页方式卡片 | PageTurn.kt | 翻页方式 |
+| BehaviorTab.kt | 触控区域卡片 | PageTurn.kt | 触控区域 |
+| BehaviorTab.kt | 护眼卡片 | Auxiliary.kt | 护眼（合并） |
+| BehaviorTab.kt | 通用卡片 | Auxiliary.kt | 屏幕状态 |
 
 ### 注意事项
 
@@ -343,7 +358,7 @@ app/src/main/java/com/shuli/reader/feature/reader/settings/panel/tabs/
 ## 实现注意
 
 1. `SettingsTab` 当前只有 3 个 Tab：字体排版、外观显示、行为交互。实现重构时需要改为 4 个 Tab：排版、布局、翻页、辅助。
-2. `preserve_original_indent` 当前在 `TypeAndFontTab` 中有 UI，但 `ReaderSettingsModal.bridgeSettingChange` 未处理该 key；重构或修复时需要补齐分发。
+2. `preserve_original_indent` 已在 `ReaderSettingsModal.bridgeSettingChange` 中补齐分发桥接。
 3. 页眉页脚当前被拆在 `TypeAndFontTab` 和 `AppearanceTab`，重构时应合并到同一个布局卡片内。
 4. `page_anim_type` 和 `page_anim_speed` 当前位于显示模式卡片，重构时应迁入翻页动效。
 5. `color_temperature` 当前既有主体滑杆，也有顶部护眼快捷。顶部快捷可保留，但主体归属只保留在 `辅助 > 护眼`。
