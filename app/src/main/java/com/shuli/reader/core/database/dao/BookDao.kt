@@ -266,6 +266,48 @@ interface BookDao {
 
     @Query("SELECT bookId AS bookId, COUNT(*) AS count FROM notes WHERE deleted = 0 GROUP BY bookId")
     fun getNoteCounts(): Flow<List<BookCountTuple>>
+
+    // --- Global Full-text Search ---
+
+    @Query("""
+        SELECT ci.id, ci.bookId, ci.chapterIndex, ci.chapterTitle, ci.content,
+               ci.byteStart, ci.charset, ci.utf16ToByteBlob,
+               b.title AS bookTitle,
+               b.author AS author
+        FROM book_content_index ci
+        INNER JOIN books b ON ci.bookId = b.id
+        WHERE ci.content LIKE '%' || :query || '%'
+        ORDER BY COALESCE(b.lastReadTime, b.addedTime) DESC, ci.chapterIndex ASC
+        LIMIT :limit OFFSET :offset
+    """)
+    suspend fun searchGlobalContent(query: String, limit: Int, offset: Int): List<GlobalContentMatch>
+
+    @Query("""
+        SELECT ci.id, ci.bookId, ci.chapterIndex, ci.chapterTitle, ci.content,
+               ci.byteStart, ci.charset, ci.utf16ToByteBlob,
+               b.title AS bookTitle,
+               b.author AS author
+        FROM book_content_index ci
+        INNER JOIN books b ON ci.bookId = b.id
+        WHERE ci.bookId IN (:bookIds)
+            AND ci.content LIKE '%' || :query || '%'
+        ORDER BY COALESCE(b.lastReadTime, b.addedTime) DESC, ci.chapterIndex ASC
+        LIMIT :limit OFFSET :offset
+    """)
+    suspend fun searchGlobalContentInBooks(query: String, bookIds: List<Long>, limit: Int, offset: Int): List<GlobalContentMatch>
+
+    @Query("""
+        SELECT COUNT(*) FROM book_content_index ci
+        INNER JOIN books b ON ci.bookId = b.id
+        WHERE ci.content LIKE '%' || :query || '%'
+    """)
+    suspend fun countGlobalContentMatches(query: String): Int
+
+    @Query("SELECT DISTINCT bookId FROM book_content_index")
+    suspend fun getIndexedBookIds(): List<Long>
+
+    @Query("SELECT id FROM books")
+    suspend fun getAllBookIds(): List<Long>
 }
 
 data class BookWithDurationTuple(
@@ -282,4 +324,17 @@ data class BookWithDurationTuple(
 data class BookCountTuple(
     val bookId: Long,
     val count: Int,
+)
+
+data class GlobalContentMatch(
+    val id: Long,
+    val bookId: Long,
+    val chapterIndex: Int,
+    val chapterTitle: String,
+    val content: String,
+    val byteStart: Long,
+    val charset: String,
+    val utf16ToByteBlob: ByteArray,
+    val bookTitle: String,
+    val author: String?,
 )

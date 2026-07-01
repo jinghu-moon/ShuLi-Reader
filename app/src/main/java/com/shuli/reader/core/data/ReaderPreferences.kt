@@ -124,6 +124,7 @@ enum class ReaderFontWeight {
 enum class ReaderTextAlign {
     LEFT,
     JUSTIFY,
+    RIGHT,
 }
 
 /**
@@ -249,6 +250,7 @@ fun String.toTextAlign(): ReaderTextAlign {
     return when (this) {
         "left" -> ReaderTextAlign.LEFT
         "justify" -> ReaderTextAlign.JUSTIFY
+        "right" -> ReaderTextAlign.RIGHT
         else -> ReaderTextAlign.LEFT
     }
 }
@@ -284,6 +286,7 @@ fun ReaderTextAlign.toStorageString(): String {
     return when (this) {
         ReaderTextAlign.LEFT -> "left"
         ReaderTextAlign.JUSTIFY -> "justify"
+        ReaderTextAlign.RIGHT -> "right"
     }
 }
 

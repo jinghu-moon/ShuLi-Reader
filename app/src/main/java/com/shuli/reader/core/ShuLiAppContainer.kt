@@ -16,6 +16,8 @@ import com.shuli.reader.core.repository.BookImportRepository
 import com.shuli.reader.core.repository.BookQueryRepository
 import com.shuli.reader.core.repository.FolderRepository
 import com.shuli.reader.core.repository.ReadingProgressRepository
+import com.shuli.reader.core.repository.GlobalSearchRepository
+import com.shuli.reader.core.repository.SearchIndexBackfillManager
 import com.shuli.reader.core.repository.SearchIndexRepository
 import com.shuli.reader.core.repository.TagRepository
 import kotlinx.coroutines.CoroutineDispatcher
@@ -113,6 +115,19 @@ class ShuLiAppContainer(
         )
     }
 
+    val searchIndexBackfillManager: SearchIndexBackfillManager by lazy {
+        SearchIndexBackfillManager(
+            searchIndexRepository = searchIndexRepository,
+            applicationScope = applicationScope,
+        )
+    }
+
+    val globalSearchRepository: GlobalSearchRepository by lazy {
+        GlobalSearchRepository(
+            bookDao = database.bookDao(),
+        )
+    }
+
     val bookContentRepository: BookContentRepository by lazy {
         BookContentRepository(
             bookDao = database.bookDao(),
@@ -169,4 +184,3 @@ class ShuLiAppContainer(
         com.shuli.reader.sync.engine.WebDavSyncManager(remote)
     }
 }
-

@@ -78,6 +78,7 @@ internal data object ZhHansReader : ReaderStrings {
     override val textAlignLabel = "对齐"
     override val textAlignLeft = "左对齐"
     override val textAlignJustify = "两端"
+    override val textAlignRight = "右对齐"
     override val chineseConvertLabel = "简繁"
     override val chineseConvertNone = "原始"
     override val chineseConvertSimplified = "简体"
@@ -236,6 +237,7 @@ internal data object ZhHansReader : ReaderStrings {
     override val panguSpacingLabel = "盘古之白"
     override val bottomJustifyDesc = "均匀分布行间距"
     override val paragraphDividerLabel = "段间分隔线"
+    override val bionicReadingLabel = "Bionic Reading"
     override val bionicReadingDesc = "仿生阅读加粗"
     override val chineseConvertFullLabel = "简繁转换"
     override val chineseConvertNoneFull = "不转换"
@@ -367,9 +369,10 @@ internal data object ZhHansReader : ReaderStrings {
     override val cancelLabel = "取消"
 
     // SettingsTab
-    override val settingsTabTypeAndFont = "排版"
-    override val settingsTabAppearance = "显示"
-    override val settingsTabBehavior = "行为"
+    override val settingsTabTypesetting = "排版"
+    override val settingsTabLayout = "布局"
+    override val settingsTabPageTurn = "翻页"
+    override val settingsTabAuxiliary = "辅助"
 
     // 划词查词
     override val lookupWord = "查词"
@@ -467,6 +470,7 @@ internal data object ZhHantReader : ReaderStrings {
     override val textAlignLabel = "對齊"
     override val textAlignLeft = "左對齊"
     override val textAlignJustify = "兩端"
+    override val textAlignRight = "右對齊"
     override val chineseConvertLabel = "簡繁"
     override val chineseConvertNone = "原始"
     override val chineseConvertSimplified = "簡體"
@@ -625,6 +629,7 @@ internal data object ZhHantReader : ReaderStrings {
     override val panguSpacingLabel = "盤古之白"
     override val bottomJustifyDesc = "均勻分佈行間距"
     override val paragraphDividerLabel = "段間分隔線"
+    override val bionicReadingLabel = "Bionic Reading"
     override val bionicReadingDesc = "仿生閱讀加粗"
     override val chineseConvertFullLabel = "簡繁轉換"
     override val chineseConvertNoneFull = "不轉換"
@@ -756,9 +761,10 @@ internal data object ZhHantReader : ReaderStrings {
     override val cancelLabel = "取消"
 
     // SettingsTab
-    override val settingsTabTypeAndFont = "排版"
-    override val settingsTabAppearance = "顯示"
-    override val settingsTabBehavior = "行為"
+    override val settingsTabTypesetting = "排版"
+    override val settingsTabLayout = "佈局"
+    override val settingsTabPageTurn = "翻頁"
+    override val settingsTabAuxiliary = "輔助"
 
     // 劃詞查詞
     override val lookupWord = "查詞"
@@ -856,6 +862,7 @@ internal data object EnReader : ReaderStrings {
     override val textAlignLabel = "Alignment"
     override val textAlignLeft = "Left"
     override val textAlignJustify = "Justify"
+    override val textAlignRight = "Right"
     override val chineseConvertLabel = "Chinese Convert"
     override val chineseConvertNone = "Original"
     override val chineseConvertSimplified = "Simplified"
@@ -1014,6 +1021,7 @@ internal data object EnReader : ReaderStrings {
     override val panguSpacingLabel = "Pangu Spacing"
     override val bottomJustifyDesc = "Distribute line spacing evenly"
     override val paragraphDividerLabel = "Paragraph Divider"
+    override val bionicReadingLabel = "Bionic Reading"
     override val bionicReadingDesc = "Bionic reading bold"
     override val chineseConvertFullLabel = "Chinese Convert"
     override val chineseConvertNoneFull = "No Convert"
@@ -1145,9 +1153,10 @@ internal data object EnReader : ReaderStrings {
     override val cancelLabel = "Cancel"
 
     // SettingsTab
-    override val settingsTabTypeAndFont = "Typeset"
-    override val settingsTabAppearance = "Display"
-    override val settingsTabBehavior = "Behavior"
+    override val settingsTabTypesetting = "Typeset"
+    override val settingsTabLayout = "Layout"
+    override val settingsTabPageTurn = "Page Turn"
+    override val settingsTabAuxiliary = "Auxiliary"
 
     // Dictionary Lookup
     override val lookupWord = "Lookup"

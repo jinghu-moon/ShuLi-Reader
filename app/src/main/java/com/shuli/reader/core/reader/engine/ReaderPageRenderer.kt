@@ -544,9 +544,17 @@ class ReaderPageRenderer(
 
             // 判断是否需要两端对齐：JUSTIFY 模式且非段落末行
             val shouldJustify = textAlign == ReaderTextAlign.JUSTIFY && !line.isParagraphEnd
+            // 判断是否需要右对齐
+            val shouldRightAlign = textAlign == ReaderTextAlign.RIGHT
 
             if (shouldJustify && line.charWidths != null) {
                 drawTextJustified(line, startX, relativeBaseline, ctx)
+            } else if (shouldRightAlign) {
+                // 右对齐：将文本绘制位置偏移到右侧
+                val rightEdge = ctx.availableWidth
+                val textWidth = line.measuredWidth
+                val rightAlignedX = rightEdge - textWidth
+                drawText(ctx.content, start, end, rightAlignedX, relativeBaseline, ctx.textPaint)
             } else {
                 drawText(ctx.content, start, end, startX, relativeBaseline, ctx.textPaint)
             }

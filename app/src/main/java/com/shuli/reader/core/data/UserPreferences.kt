@@ -150,6 +150,9 @@ class UserPreferences(
 
         // 书架设置
         val KEY_VIEW_MODE = stringPreferencesKey("view_mode")
+
+        // 全库搜索
+        val KEY_GLOBAL_SEARCH_HISTORY = stringPreferencesKey("global_search_history")
     }
 
     // 状态读取流 (提供首启默认值)
@@ -258,6 +261,9 @@ class UserPreferences(
 
     val viewMode: Flow<String> = dataStore.data.map { it[KEY_VIEW_MODE] ?: "GRID" }
     val pageAnimSpeed: Flow<String> = dataStore.data.map { it[KEY_PAGE_ANIM_SPEED] ?: PageAnimSpeed.NORMAL.name }.distinctUntilChanged()
+    val globalSearchHistory: Flow<List<String>> = dataStore.data
+        .map { decodeSearchHistory(it[KEY_GLOBAL_SEARCH_HISTORY].orEmpty()) }
+        .distinctUntilChanged()
 
     // 状态编辑写入方法
     suspend fun setLanguage(value: String) = dataStore.edit { it[KEY_LANGUAGE] = value }
@@ -375,10 +381,36 @@ class UserPreferences(
 
     suspend fun setViewMode(value: String) = dataStore.edit { it[KEY_VIEW_MODE] = value }
 
+    suspend fun addGlobalSearchHistory(query: String) {
+        val normalized = query.trim()
+        if (normalized.length < 2) return
+
+        dataStore.edit { prefs ->
+            val current = decodeSearchHistory(prefs[KEY_GLOBAL_SEARCH_HISTORY].orEmpty())
+            val next = (listOf(normalized) + current.filterNot { it.equals(normalized, ignoreCase = true) })
+                .take(10)
+            prefs[KEY_GLOBAL_SEARCH_HISTORY] = next.joinToString("\n")
+        }
+    }
+
+    suspend fun clearGlobalSearchHistory() {
+        dataStore.edit { it.remove(KEY_GLOBAL_SEARCH_HISTORY) }
+    }
+
     // 重置所有设置项
     suspend fun resetAllSettings() {
         dataStore.edit {
             it.clear()
         }
+    }
+
+    private fun decodeSearchHistory(raw: String): List<String> {
+        return raw
+            .lineSequence()
+            .map { it.trim() }
+            .filter { it.length >= 2 }
+            .distinct()
+            .take(10)
+            .toList()
     }
 }

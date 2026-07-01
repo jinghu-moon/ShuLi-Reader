@@ -24,9 +24,17 @@ import com.shuli.reader.core.i18n.AppStrings
 import com.shuli.reader.core.i18n.LocalAppStrings
 import com.shuli.reader.feature.bookshelf.BookshelfScreen
 import com.shuli.reader.feature.bookshelf.BookshelfViewModel
+import com.shuli.reader.feature.bookshelf.model.BookItem
+import com.shuli.reader.feature.bookshelf.model.BookshelfUiState
+import com.shuli.reader.feature.bookshelf.model.BookshelfNode
+import com.shuli.reader.feature.bookshelf.model.FilterType
+import com.shuli.reader.feature.bookshelf.model.FolderItem
 import androidx.compose.ui.platform.LocalContext
 import com.shuli.reader.feature.reader.screen.ReaderScreen
+import com.shuli.reader.feature.reader.screen.ReaderIntent
 import com.shuli.reader.feature.reader.screen.ReaderViewModel
+import com.shuli.reader.feature.search.GlobalSearchScreen
+import com.shuli.reader.feature.search.GlobalSearchViewModel
 import com.shuli.reader.core.font.FontManager
 import com.shuli.reader.feature.settings.SettingsEvent
 import com.shuli.reader.feature.settings.SettingsScreen
@@ -45,7 +53,39 @@ sealed class ActiveScreen {
     data object Bookshelf : ActiveScreen()
     data object Stats : ActiveScreen()
     data object Settings : ActiveScreen()
-    data class Reader(val bookId: Long) : ActiveScreen()
+    data class GlobalSearch(
+        val currentGroupBookIds: List<Long> = emptyList(),
+        val currentGroupLabel: String = "当前书架",
+    ) : ActiveScreen()
+    data class Reader(val bookId: Long, val jumpTarget: ReaderJumpTarget? = null) : ActiveScreen()
+}
+
+data class ReaderJumpTarget(
+    val chapterIndex: Int,
+    val byteOffset: Long,
+)
+
+private fun List<BookshelfNode>.toSearchScopeBookIds(): List<Long> {
+    return flatMap { node ->
+        when (node) {
+            is BookItem -> listOf(node.id)
+            is FolderItem -> node.books.map { it.id }
+        }
+    }.distinct()
+}
+
+private fun BookshelfUiState.toSearchScopeLabel(): String {
+    activeTagFilter?.takeIf { it.isNotBlank() }?.let { return "#$it" }
+    if (isSearching && searchQuery.isNotBlank()) return "书架搜索"
+    return when (filterType) {
+        FilterType.ALL -> "当前书架"
+        FilterType.WANT_TO_READ -> "想读"
+        FilterType.READING -> "在读"
+        FilterType.PAUSED -> "搁置"
+        FilterType.FINISHED -> "读完"
+        FilterType.ABANDONED -> "弃读"
+        FilterType.FAVORITE -> "收藏"
+    }
 }
 
 class MainActivity : ComponentActivity() {
@@ -97,6 +137,11 @@ class MainActivity : ComponentActivity() {
         val settingsViewModel = SettingsViewModel(appContainer.userPreferences)
         val statsViewModel = StatsViewModel(
             statsRepository = appContainer.statsRepository,
+            userPreferences = appContainer.userPreferences,
+        )
+        val globalSearchViewModel = GlobalSearchViewModel(
+            globalSearchRepository = appContainer.globalSearchRepository,
+            searchIndexBackfillManager = appContainer.searchIndexBackfillManager,
             userPreferences = appContainer.userPreferences,
         )
 
@@ -195,6 +240,13 @@ class MainActivity : ComponentActivity() {
                                         currentScreen = ActiveScreen.Reader(bookId)
                                     },
                                     onNavigateToStats = { currentScreen = ActiveScreen.Stats },
+                                    onNavigateToGlobalSearch = {
+                                        val bookshelfState = bookshelfViewModel.uiState.value
+                                        currentScreen = ActiveScreen.GlobalSearch(
+                                            currentGroupBookIds = bookshelfState.nodes.toSearchScopeBookIds(),
+                                            currentGroupLabel = bookshelfState.toSearchScopeLabel(),
+                                        )
+                                    },
                                 )
                             }
                             is ActiveScreen.Stats -> {
@@ -213,6 +265,28 @@ class MainActivity : ComponentActivity() {
                                     viewModel = settingsViewModel,
                                     onBackClick = { currentScreen = ActiveScreen.Bookshelf },
                                     appContainer = appContainer,
+                                )
+                            }
+                            is ActiveScreen.GlobalSearch -> {
+                                BackHandler { currentScreen = ActiveScreen.Bookshelf }
+                                LaunchedEffect(screen.currentGroupBookIds, screen.currentGroupLabel) {
+                                    globalSearchViewModel.configureScopeContext(
+                                        currentGroupBookIds = screen.currentGroupBookIds,
+                                        currentGroupLabel = screen.currentGroupLabel,
+                                    )
+                                }
+                                GlobalSearchScreen(
+                                    viewModel = globalSearchViewModel,
+                                    onNavigateBack = { currentScreen = ActiveScreen.Bookshelf },
+                                    onResultClick = { bookId, chapterIndex, byteOffset ->
+                                        currentScreen = ActiveScreen.Reader(
+                                            bookId = bookId,
+                                            jumpTarget = ReaderJumpTarget(
+                                                chapterIndex = chapterIndex,
+                                                byteOffset = byteOffset,
+                                            ),
+                                        )
+                                    },
                                 )
                             }
                             is ActiveScreen.Reader -> {
@@ -241,6 +315,31 @@ class MainActivity : ComponentActivity() {
                                         stringResolver = { currentStrings },
                                         appContext = context.applicationContext,
                                     )
+                                }
+                                val readerUiState by readerViewModel.uiState.collectAsState()
+                                LaunchedEffect(
+                                    screen.jumpTarget,
+                                    readerUiState.bookId,
+                                    readerUiState.isLoading,
+                                    readerUiState.currentChapter,
+                                    readerUiState.totalChapters,
+                                    readerUiState.error,
+                                ) {
+                                    val target = screen.jumpTarget ?: return@LaunchedEffect
+                                    val ready = readerUiState.bookId == screen.bookId &&
+                                        !readerUiState.isLoading &&
+                                        readerUiState.error == null &&
+                                        readerUiState.totalChapters > 0 &&
+                                        readerUiState.currentChapter != null
+                                    if (ready) {
+                                        readerViewModel.dispatch(
+                                            ReaderIntent.JumpToPosition(
+                                                chapterIndex = target.chapterIndex,
+                                                byteOffset = target.byteOffset,
+                                            )
+                                        )
+                                        currentScreen = ActiveScreen.Reader(screen.bookId)
+                                    }
                                 }
                                 // 音量键翻页：设置/清理 ViewModel 引用
                                 LaunchedEffect(readerViewModel) {

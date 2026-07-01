@@ -7,9 +7,9 @@ import org.junit.Test
 class SettingsTabTest {
 
     @Test
-    fun settingsTab_hasThreeValues() {
+    fun settingsTab_hasFourValues() {
         val names = SettingsTab.entries.map { it.name }.toSet()
-        assertEquals(setOf("TYPE_AND_FONT", "APPEARANCE", "BEHAVIOR"), names)
+        assertEquals(setOf("TYPESETTING", "LAYOUT", "PAGE_TURN", "AUXILIARY"), names)
     }
 
     @Test
@@ -20,7 +20,7 @@ class SettingsTabTest {
     }
 
     @Test
-    fun allTwelveUiGroups_areAssignedToSomeTab() {
+    fun allUiGroups_areAssignedToSomeTab() {
         assertTrue("All UiGroup entries must appear in some SettingsTab", SettingsTab.allGroupsCovered)
     }
 
@@ -31,7 +31,7 @@ class SettingsTabTest {
     }
 
     @Test
-    fun typeAndFont_groupsMatch() {
+    fun typesetting_groupsMatch() {
         assertEquals(
             listOf(
                 UiGroup.FONT_BASICS,
@@ -39,33 +39,43 @@ class SettingsTabTest {
                 UiGroup.TEXT_STYLE,
                 UiGroup.ADVANCED_READING,
             ),
-            SettingsTab.TYPE_AND_FONT.groups,
+            SettingsTab.TYPESETTING.groups,
         )
     }
 
     @Test
-    fun appearance_groupsMatch() {
+    fun layout_groupsMatch() {
         assertEquals(
             listOf(
-                UiGroup.THEME,
                 UiGroup.PAGE_CHROME,
-                UiGroup.DISPLAY_MODE,
-                UiGroup.VISUAL_AIDS,
+                UiGroup.PAGE_CONTENT,
             ),
-            SettingsTab.APPEARANCE.groups,
+            SettingsTab.LAYOUT.groups,
         )
     }
 
     @Test
-    fun behavior_groupsMatch() {
+    fun pageTurn_groupsMatch() {
         assertEquals(
             listOf(
                 UiGroup.PAGE_TURN,
                 UiGroup.GESTURE,
+            ),
+            SettingsTab.PAGE_TURN.groups,
+        )
+    }
+
+    @Test
+    fun auxiliary_groupsMatch() {
+        assertEquals(
+            listOf(
                 UiGroup.EYE_CARE,
                 UiGroup.GENERAL,
+                UiGroup.DISPLAY_MODE,
+                UiGroup.VISUAL_AIDS,
+                UiGroup.THEME,
             ),
-            SettingsTab.BEHAVIOR.groups,
+            SettingsTab.AUXILIARY.groups,
         )
     }
 

@@ -53,6 +53,7 @@ fun BookshelfTopBar(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     onSearchActiveChange: (Boolean) -> Unit,
+    onFullTextSearchClick: () -> Unit,
     onStatisticsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -197,6 +198,14 @@ fun BookshelfTopBar(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text("全文搜索") },
+                            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                            onClick = {
+                                menuExpanded = false
+                                onFullTextSearchClick()
+                            }
+                        )
                         DropdownMenuItem(
                             text = { Text(strings.settings.readingStats) },
                             leadingIcon = { Icon(Icons.AutoMirrored.Outlined.ShowChart, contentDescription = null) },

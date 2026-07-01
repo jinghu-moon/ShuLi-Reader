@@ -83,6 +83,7 @@ interface ReaderStrings {
     val textAlignLabel: String
     val textAlignLeft: String
     val textAlignJustify: String
+    val textAlignRight: String
     val chineseConvertLabel: String
     val chineseConvertNone: String
     val chineseConvertSimplified: String
@@ -253,6 +254,7 @@ interface ReaderStrings {
     val panguSpacingLabel: String
     val bottomJustifyDesc: String
     val paragraphDividerLabel: String
+    val bionicReadingLabel: String
     val bionicReadingDesc: String
     val chineseConvertFullLabel: String
     val chineseConvertNoneFull: String
@@ -384,9 +386,10 @@ interface ReaderStrings {
     val cancelLabel: String
 
     // SettingsTab
-    val settingsTabTypeAndFont: String
-    val settingsTabAppearance: String
-    val settingsTabBehavior: String
+    val settingsTabTypesetting: String
+    val settingsTabLayout: String
+    val settingsTabPageTurn: String
+    val settingsTabAuxiliary: String
 
     // ── 划词查词 ──
     val lookupWord: String

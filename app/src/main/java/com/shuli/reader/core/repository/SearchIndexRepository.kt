@@ -8,8 +8,14 @@ import com.shuli.reader.core.parser.EpubParser
 import com.shuli.reader.core.parser.StreamDecoder
 import com.shuli.reader.core.parser.TxtParser
 import com.shuli.reader.core.parser.Utf16ToByteCodec
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -30,6 +36,68 @@ class SearchIndexRepository(
     private val streamDecoder = StreamDecoder()
     /** 按 bookId 串行化 ensureChapterIndex，防止 importBook + openBook 并发重复构建 */
     private val chapterIndexMutexes = java.util.concurrent.ConcurrentHashMap<Long, Mutex>()
+
+    fun backfillMissingIndexes(): Flow<SearchIndexBackfillProgress> = flow {
+        val books = bookDao.getAllBooksSync()
+        if (books.isEmpty()) {
+            emit(
+                SearchIndexBackfillProgress(
+                    totalBooks = 0,
+                    processedBooks = 0,
+                    indexedBooks = 0,
+                    skippedBooks = 0,
+                    failedBooks = 0,
+                    isRunning = false,
+                    isCompleted = true,
+                )
+            )
+            return@flow
+        }
+
+        var progress = SearchIndexBackfillProgress(totalBooks = books.size)
+        emit(progress)
+
+        books.forEach { book ->
+            currentCoroutineContext().ensureActive()
+            progress = progress.copy(
+                currentBookTitle = book.title,
+                isRunning = true,
+                isCompleted = false,
+            )
+            emit(progress)
+
+            val alreadyIndexed = bookDao.countBookContentIndex(book.id) > 0
+            progress = if (alreadyIndexed) {
+                progress.copy(
+                    processedBooks = progress.processedBooks + 1,
+                    skippedBooks = progress.skippedBooks + 1,
+                )
+            } else {
+                val indexed = try {
+                    refreshSearchIndex(book.id) && bookDao.countBookContentIndex(book.id) > 0
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    false
+                }
+
+                progress.copy(
+                    processedBooks = progress.processedBooks + 1,
+                    indexedBooks = progress.indexedBooks + if (indexed) 1 else 0,
+                    failedBooks = progress.failedBooks + if (indexed) 0 else 1,
+                )
+            }
+
+            val completed = progress.processedBooks >= progress.totalBooks
+            emit(
+                progress.copy(
+                    currentBookTitle = if (completed) null else progress.currentBookTitle,
+                    isRunning = !completed,
+                    isCompleted = completed,
+                )
+            )
+        }
+    }.flowOn(Dispatchers.IO)
 
     /**
      * 在书籍正文中搜索关键词
@@ -71,15 +139,18 @@ class SearchIndexRepository(
         searchIndexedContent(rows, query)
     }
 
-    suspend fun refreshSearchIndex(bookId: Long): Boolean = withContext(Dispatchers.IO) {
-        val book = bookDao.getBookById(bookId).first() ?: return@withContext false
-        val file = File(book.filePath)
-        if (!file.exists()) {
-            bookDao.deleteBookContentIndex(bookId)
-            return@withContext false
+    suspend fun refreshSearchIndex(bookId: Long): Boolean {
+        ensureChapterIndex(bookId)
+        return withContext(Dispatchers.IO) {
+            val book = bookDao.getBookById(bookId).first() ?: return@withContext false
+            val file = File(book.filePath)
+            if (!file.exists()) {
+                bookDao.deleteBookContentIndex(bookId)
+                return@withContext false
+            }
+            replaceSearchIndex(bookId, file)
+            true
         }
-        replaceSearchIndex(bookId, file)
-        true
     }
 
     /**
@@ -185,107 +256,34 @@ class SearchIndexRepository(
 
     private fun searchIndexedContent(rows: List<BookContentIndexEntity>, query: String): List<SearchResult> {
         return rows.flatMap { row ->
-            if (row.utf16ToByteBlob.isNotEmpty()) {
-                val utf16Map = Utf16ToByteCodec.decode(row.utf16ToByteBlob)
-                searchChapterWithBlob(
-                    chapterIndex = row.chapterIndex,
-                    chapterTitle = row.chapterTitle,
-                    chapterByteStart = row.byteStart,
-                    chapterText = row.content,
-                    utf16Map = utf16Map,
-                    query = query,
-                )
-            } else {
-                // 旧数据兜底（无 blob 时退化为 O(n) per match）
-                val charset = Charset.forName(row.charset)
-                searchChapterLegacy(
-                    chapterIndex = row.chapterIndex,
-                    chapterTitle = row.chapterTitle,
-                    chapterByteStart = row.byteStart,
-                    charset = charset,
-                    chapterText = row.content,
-                    query = query,
-                )
-            }
+            SearchTextMatcher.match(
+                chapterText = row.content,
+                query = query,
+                chapterIndex = row.chapterIndex,
+                chapterTitle = row.chapterTitle,
+                chapterByteStart = row.byteStart,
+                utf16ToByteBlob = row.utf16ToByteBlob,
+                charset = Charset.forName(row.charset),
+            ).map { it.toSearchResult() }
         }
     }
 
-    /** O(1) per match：通过 utf16IndexToByte 映射表直接查字节偏移 */
-    private fun searchChapterWithBlob(
-        chapterIndex: Int,
-        chapterTitle: String,
-        chapterByteStart: Long,
-        chapterText: String,
-        utf16Map: IntArray,
-        query: String,
-    ): List<SearchResult> {
-        val lowerChapter = chapterText.lowercase()
-        val lowerQuery = query.lowercase()
-        val results = mutableListOf<SearchResult>()
-        var searchFrom = 0
-
-        while (searchFrom < lowerChapter.length) {
-            val matchIndex = lowerChapter.indexOf(lowerQuery, searchFrom)
-            if (matchIndex == -1) break
-
-            val byteOffset = if (matchIndex < utf16Map.size) {
-                chapterByteStart + utf16Map[matchIndex].toLong()
-            } else {
-                chapterByteStart // 防御性兜底
-            }
-            val contextStart = (matchIndex - SEARCH_CONTEXT_RADIUS).coerceAtLeast(0)
-            val contextEnd = (matchIndex + query.length + SEARCH_CONTEXT_RADIUS).coerceAtMost(chapterText.length)
-
-            results += SearchResult(
-                chapterIndex = chapterIndex,
-                chapterTitle = chapterTitle,
-                byteOffset = byteOffset,
-                context = chapterText.substring(contextStart, contextEnd),
-                matchedText = chapterText.substring(matchIndex, matchIndex + query.length),
-            )
-            searchFrom = matchIndex + query.length.coerceAtLeast(1)
-        }
-
-        return results
-    }
-
-    /** 旧数据兜底：O(n) per match，仅在无 utf16ToByteBlob 时使用 */
-    private fun searchChapterLegacy(
-        chapterIndex: Int,
-        chapterTitle: String,
-        chapterByteStart: Long,
-        charset: Charset,
-        chapterText: String,
-        query: String,
-    ): List<SearchResult> {
-        val lowerChapter = chapterText.lowercase()
-        val lowerQuery = query.lowercase()
-        val results = mutableListOf<SearchResult>()
-        var searchFrom = 0
-
-        while (searchFrom < lowerChapter.length) {
-            val matchIndex = lowerChapter.indexOf(lowerQuery, searchFrom)
-            if (matchIndex == -1) break
-
-            val byteOffset = chapterByteStart +
-                chapterText.substring(0, matchIndex).toByteArray(charset).size.toLong()
-            val contextStart = (matchIndex - SEARCH_CONTEXT_RADIUS).coerceAtLeast(0)
-            val contextEnd = (matchIndex + query.length + SEARCH_CONTEXT_RADIUS).coerceAtMost(chapterText.length)
-
-            results += SearchResult(
-                chapterIndex = chapterIndex,
-                chapterTitle = chapterTitle,
-                byteOffset = byteOffset,
-                context = chapterText.substring(contextStart, contextEnd),
-                matchedText = chapterText.substring(matchIndex, matchIndex + query.length),
-            )
-            searchFrom = matchIndex + query.length.coerceAtLeast(1)
-        }
-
-        return results
-    }
-
-    private companion object {
-        private const val SEARCH_CONTEXT_RADIUS = 20
-    }
+    private fun SearchTextMatcher.MatchResult.toSearchResult() = SearchResult(
+        chapterIndex = chapterIndex,
+        chapterTitle = chapterTitle,
+        byteOffset = byteOffset,
+        context = context,
+        matchedText = matchedText,
+    )
 }
+
+data class SearchIndexBackfillProgress(
+    val totalBooks: Int,
+    val processedBooks: Int = 0,
+    val indexedBooks: Int = 0,
+    val skippedBooks: Int = 0,
+    val failedBooks: Int = 0,
+    val currentBookTitle: String? = null,
+    val isRunning: Boolean = true,
+    val isCompleted: Boolean = false,
+)

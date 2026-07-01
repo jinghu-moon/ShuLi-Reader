@@ -116,16 +116,19 @@ class BookImportRepository(
         )
 
         val bookId = bookDao.insertBook(bookEntity)
-        if (targetFile.length() <= EAGER_SEARCH_INDEX_MAX_BYTES) {
-            runCatching {
-                searchIndexRepository.refreshSearchIndex(bookId)
-            }
+        val indexedEagerly = if (targetFile.length() <= EAGER_SEARCH_INDEX_MAX_BYTES) {
+            runCatching { searchIndexRepository.refreshSearchIndex(bookId) }
+                .onFailure { android.util.Log.e("BookImportRepository", "Eager refreshSearchIndex failed for bookId=$bookId", it) }
+                .getOrDefault(false)
+        } else {
+            false
         }
-        // v4：导入后立即在 applicationScope 后台异步构建章节目录索引，
-        // 不阻塞导入返回；首次打开时若仍未完成会通过 chapterIndexMutexes 复用同一 Job。
-        applicationScope.launch {
-            runCatching { searchIndexRepository.ensureChapterIndex(bookId) }
-                .onFailure { android.util.Log.e("BookImportRepository", "Async ensureChapterIndex failed for bookId=$bookId", it) }
+        // 导入后构建正文搜索索引。小文件优先同步完成；大文件转后台，避免导入卡顿。
+        if (!indexedEagerly) {
+            applicationScope.launch {
+                runCatching { searchIndexRepository.refreshSearchIndex(bookId) }
+                    .onFailure { android.util.Log.e("BookImportRepository", "Async refreshSearchIndex failed for bookId=$bookId", it) }
+            }
         }
         bookId
     }

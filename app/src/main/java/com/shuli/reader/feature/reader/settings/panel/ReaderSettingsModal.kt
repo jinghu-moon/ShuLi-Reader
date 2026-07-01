@@ -20,11 +20,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.shuli.reader.core.data.ChineseConvert
 import com.shuli.reader.core.data.DualPageMode
+import com.shuli.reader.core.data.IndentUnit
 import com.shuli.reader.core.data.OrientationLock
 import com.shuli.reader.core.data.PageAnimSpeed
 import com.shuli.reader.core.data.PageAnimType
+import com.shuli.reader.core.data.ProgressStyle
 import com.shuli.reader.core.data.ReaderFontWeight
 import com.shuli.reader.core.data.ReaderTextAlign
+import com.shuli.reader.core.reader.model.TitleAlign
 import com.shuli.reader.core.reader.model.SlotContent
 import com.shuli.reader.feature.reader.screen.ReaderIntent
 import com.shuli.reader.feature.reader.screen.ReaderUiState
@@ -61,7 +64,7 @@ fun ReaderSettingsModal(
         val prefs = uiState.readerPreferences
         var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
-        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.5f)) {
+        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.82f)) {
             ReaderMaterialTheme(readerTheme = prefs.backgroundColor) {
                 ReaderSettingsSheetContent(
                     prefs = prefs,
@@ -172,6 +175,9 @@ private fun bridgeSettingChange(key: String, value: Any): ReaderIntent? {
         "line_spacing" -> f(ReaderSettingKey.LINE_SPACING)
         "paragraph_spacing" -> f(ReaderSettingKey.PARAGRAPH_SPACING)
         "indent" -> f(ReaderSettingKey.INDENT)
+        "indent_unit" -> (value as? IndentUnit)?.let {
+            ReaderIntent.UpdateSetting(ReaderSettingKey.INDENT_UNIT, ReaderSettingValue.IndentUnit(it))
+        }
         "preserve_original_indent" -> b(ReaderSettingKey.PRESERVE_ORIGINAL_INDENT)
         "letter_spacing" -> f(ReaderSettingKey.LETTER_SPACING)
         // ── 边距 ──
@@ -199,6 +205,7 @@ private fun bridgeSettingChange(key: String, value: Any): ReaderIntent? {
         "chinese_convert" -> (value as? ChineseConvert)?.let {
             ReaderIntent.UpdateSetting(ReaderSettingKey.CHINESE_CONVERT, ReaderSettingValue.ChineseConvert(it))
         }
+        "use_zh_layout" -> b(ReaderSettingKey.USE_ZH_LAYOUT)
         "use_pangu_spacing" -> b(ReaderSettingKey.USE_PANGU_SPACING)
         "bottom_justify" -> b(ReaderSettingKey.BOTTOM_JUSTIFY)
         "remove_empty_lines" -> b(ReaderSettingKey.REMOVE_EMPTY_LINES)
@@ -206,6 +213,16 @@ private fun bridgeSettingChange(key: String, value: Any): ReaderIntent? {
         "bionic_reading" -> b(ReaderSettingKey.BIONIC_READING)
         "clean_chapter_title" -> b(ReaderSettingKey.CLEAN_CHAPTER_TITLE)
         "epub_override_style" -> b(ReaderSettingKey.EPUB_OVERRIDE_STYLE)
+        "ad_filtering" -> b(ReaderSettingKey.AD_FILTERING)
+        "vertical_text" -> b(ReaderSettingKey.VERTICAL_TEXT)
+        // ── 标题样式 ──
+        "title_font_size" -> f(ReaderSettingKey.TITLE_FONT_SIZE)
+        "title_align" -> (value as? TitleAlign)?.let {
+            ReaderIntent.UpdateSetting(ReaderSettingKey.TITLE_ALIGN, ReaderSettingValue.TitleAlign(it))
+        }
+        "title_size_offset" -> i(ReaderSettingKey.TITLE_SIZE_OFFSET)
+        "title_margin_top" -> f(ReaderSettingKey.TITLE_MARGIN_TOP)
+        "title_margin_bottom" -> f(ReaderSettingKey.TITLE_MARGIN_BOTTOM)
         // ── 页眉页脚 ──
         "header_visibility" -> (value as? com.shuli.reader.core.reader.model.HeaderVisibility)?.let {
             ReaderIntent.UpdateSetting(ReaderSettingKey.HEADER_VISIBILITY, ReaderSettingValue.HeaderVisibility(it))
@@ -224,6 +241,10 @@ private fun bridgeSettingChange(key: String, value: Any): ReaderIntent? {
         "header_footer_alpha" -> f(ReaderSettingKey.HEADER_FOOTER_ALPHA)
         "show_header_line" -> b(ReaderSettingKey.SHOW_HEADER_LINE)
         "show_footer_line" -> b(ReaderSettingKey.SHOW_FOOTER_LINE)
+        "show_progress" -> b(ReaderSettingKey.SHOW_PROGRESS)
+        "progress_style" -> (value as? ProgressStyle)?.let {
+            ReaderIntent.UpdateSetting(ReaderSettingKey.PROGRESS_STYLE, ReaderSettingValue.ProgressStyle(it))
+        }
         // ── 色温 ──
         "color_temperature" -> f(ReaderSettingKey.COLOR_TEMPERATURE)
         // ── 显示模式 ──
